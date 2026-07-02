@@ -57,7 +57,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→活書 §5）。
   「回外層更新 pin」方向，永不 `submodule update`。
 - **初始化／新機器**：先判 `base-web/.git` 型態——是**檔案**＝worktree 模式（勿 update）；
   **不存在**＝新 clone 機器（才跑 `git submodule update --init`）。worktree 斷裂→回源倉
-  `git worktree add` 重建。
+  `git worktree add` 重建。新機器一次性：`git config core.hooksPath .githooks`。
 - **upstream rebase**（base-web）：fetch 前 `git remote -v` 確認 upstream push URL 已設 no_push；
   rebase＋force-with-lease push 後**立即**回外層 bump pin。
 - worktree 內 push 一律顯式 `git push origin <長名>`。
