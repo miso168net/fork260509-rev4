@@ -6,11 +6,11 @@
 - pins：base-web=未建置｜rust-api=未建置
 
 ## constitution
-- 版本：未鑄
+- 版本：1.0.0
 
 ## 帳面統計
-- ADR：0（0）
-- BACKLOG 待辦：6（next：B-007）
+- ADR：1（accepted 1）
+- BACKLOG 待辦：7（next：B-008）
 - LESSONS：101 筆（next：L-102）
 - events：0 筆（0）
 
