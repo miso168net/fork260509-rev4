@@ -1,4 +1,4 @@
-<!-- next: B-008 -->
+<!-- next: B-055 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -10,3 +10,50 @@
 - B-005｜generated/reference/screens extractor（前端 route→全量表、對賬 lint L2）｜base-web 首個頁面落地時
 - B-006｜docs-sync lint L4/L5/L6 啟用（收刀事件存在性／review 分流雙源對賬／arch_impact 雙向驗）｜第一把功能刀收刀前
 - B-007｜觀測側 msg 可讀性補強候選（log 附 key→預設語言譯文、或維運字典對照表；ADR 0001 第 8 題配套）｜obs 層刀或維運痛點實際出現時
+- B-008｜替代登入／認證端點包處置拍板：做真／stub／砍表單三選一（連同驗證碼收發基建同批考慮；rev3 帳實分叉）｜auth 刀 brainstorm 開場｜出處：rev3:DECISIONS§1-⚠️c＋⚠️m（K1-12/22）
+- B-009｜應用層 RI hybrid 分層重審（焦點＝每自驗方法一 error enum 的樣板碼代價）｜rust-api 首刀 brainstorm｜出處：rev3:DECISIONS§1-⚠️o（K1-24）
+- B-010｜登入失敗節流以合成終態重設計（一般化訊息＋鎖中不逐筆稽核已反轉原案）｜節流刀 brainstorm｜出處：rev3:DECISIONS§1-⚠️w（K1-32）
+- B-011｜儀表板做不做／怎麼做（傾向 v1＝固定版面零新表）｜入波排程時｜出處：rev3:DECISIONS§1-待決⑥a（K1-06）
+- B-012｜報表匯出 PDF/CSV（傾向 v1＝同步匯出零新表）｜入波排程時｜出處：rev3:DECISIONS§1-待決⑥b（K1-07）
+- B-013｜靜態資料加密（傾向磁碟／tablespace 層）｜prod 部署定稿前必拍｜出處：rev3:DECISIONS§1-待決⑥c（K1-08）
+- B-014｜合規姿態升級（傾向維持現姿態）｜對外開放／多租戶需求時｜出處：rev3:DECISIONS§1-待決⑥d（K1-09）
+- B-015｜設定熱讀推廣 keyed map（單鍵 swap 夠用）｜swap 不敷用時｜出處：rev3:DECISIONS§1-⚠️l（K1-21）
+- B-016｜稽核 log retention 政策（v1 只容量監控）｜容量警示時｜出處：rev3:DECISIONS§1-⚠️n（K1-23）
+- B-017｜節流計數失敗 fail-OPEN 適用範圍重估＋至少補降級告警｜節流刀（併 B-010）｜出處：rev3:REVIEW§6（K2-01）
+- B-018｜帳號級鎖定被第三方惡意鎖人的 DoS 面重估（漸進延遲/CAPTCHA）｜節流刀（併 B-010）｜出處：rev3:REVIEW§6（K2-02）
+- B-019｜XFF 信任模型改最小化信任錨（棄整段內網預設信任）｜IP/ingress 刀｜出處：rev3:REVIEW§6＋CLAUDE.md§8.2（K2-03）
+- B-020｜CDN 位置錨是否上真驗證重估｜ingress 拓樸簡化時｜出處：rev3:REVIEW§6（K2-04）
+- B-021｜session 生命週期一次設計完整（併發/踢除/撤銷/輪替；rev3 三度改向）｜session 刀 brainstorm 開場｜出處：rev3:REVIEW§5（K2-05）
+- B-022｜登入嘗試審計「恰寫一筆」與快取短路的邊界第一性重想｜節流/審計刀｜出處：rev3:REVIEW§5＋§2（K2-06）
+- B-023｜系統設定域先定骨架再打樁（型別驗證/熱套用/UI 分區定形留空）｜系統設定刀 brainstorm｜出處：rev3:REVIEW§5（K2-07）
+- B-024｜先枚舉 ingress 拓樸全貌再定 IP 取證欄位形｜首個日誌 entity 設計前｜出處：rev3:REVIEW§5（K2-08）
+- B-025｜使用者編輯模式帳號名欄鎖定（消滅靜默 no-op 縫隙）｜使用者管理刀｜出處：rev3:REVIEW§3.2-F-5（K2-09）
+- B-026｜部分更新契約內建顯式 clear 語意｜部分更新 wire 設計時｜出處：rev3:REVIEW§3.4（K2-10）
+- B-027｜alt-login 補全知識包（確認密碼規則值快照 race 的 toRef 範式等）｜B-008 拍板後施工輸入｜出處：rev3:CHECKLIST§4.2（K2-11）
+- B-028｜手機/信箱真實驗證＋驗證碼改密（與 alt-login 共享 captcha 基建、宜同刀或緊接）｜user-center/auth 波排程｜出處：rev3:CHECKLIST§4.2（K2-12）
+- B-029｜改密後撤既有 session＋密碼政策前端提示補完｜auth 設計期內建｜出處：rev3:CHECKLIST§4.2（K2-13）
+- B-030｜新帳號初始密碼政策化（隨機生成＋首登強制改密）｜建用戶功能刀｜出處：rev3:CHECKLIST§4.2＋REVIEW§3.3-F-7（K2-14）
+- B-031｜obs 告警通知投遞 channel 最小一條納首發｜觀測層刀｜出處：rev3:CHECKLIST§4.2（K2-15）
+- B-032｜節流強化包（IPv6 前綴鍵/可調門檻/白名單/CAPTCHA/手動解鎖/審計區分）｜節流刀（併 B-010）｜出處：rev3:CHECKLIST§4.2（K2-16）
+- B-033｜節流快取遞延組（壓制告警/廣度估計/TTL 拆分）＋誤鎖緩解優先級提前｜節流刀（併 B-010）｜出處：rev3:CHECKLIST§4.2＋§3.H（K2-17）
+- B-034｜policy 回收桶來源過濾器＋復原判定去牆鐘化（archive 入來源角色 id 欄）｜角色刪除/archive 刀 schema 期｜出處：rev3:CHECKLIST§4.2（K2-18）
+- B-035｜public tunnel origin 做一等信任集（非內網子集特例）｜信任模型/ingress 刀｜出處：rev3:CHECKLIST§4.2（K2-19）
+- B-036｜列表排序 per-column 索引評估＋三端白名單單一來源或 parity 檢查｜列表排序刀｜出處：rev3:CHECKLIST§4.2（K2-20）
+- B-037｜prod TLS/信任拓樸落地組做成部署 checklist＋自動化驗收｜prod 部署刀｜出處：rev3:CHECKLIST§4.2＋§3.E（K2-21）
+- B-038｜prod 多副本橫向擴展拓樸留位（LB＋共用 DB/Redis）｜含水平擴展目標時｜出處：rev3:CHECKLIST§4.2（K2-22）
+- B-039｜審計 scale：pg_trgm 索引＋purge 執行面（政策本體＝B-016）｜審計功能刀 schema 期｜出處：rev3:CHECKLIST§4.2＋§5（K2-23）
+- B-040｜cleanup sidecar 最小權限 DB 憑證（背景 job secret 最小權限＝預設）｜首個背景 job 設計期｜出處：rev3:CHECKLIST§3.A（K2-25）
+- B-041｜obs 採集容器非-root 硬化起手照配（docker.sock 窄化）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.A（K2-26）
+- B-042｜prod nginx 完整資源 CSP 收緊內建部署驗收｜prod 部署刀｜出處：rev3:CHECKLIST§3.J（K2-27）
+- B-043｜登入時序 oracle 拉平（not-found 也跑 dummy argon2）｜auth 刀內建｜出處：rev3:CHECKLIST§3.J（K2-28）
+- B-044｜op-log payload PII 遮蔽策略先拍再落庫｜審計 payload 設計期｜出處：rev3:CHECKLIST§3.J（K2-29）
+- B-045｜低位殘項 checklist（trace_id 控制字元/XFF 空 token/計數 race/migration down 非對稱/CDN 錨）｜重寫對應模組時逐項內建｜出處：rev3:CHECKLIST§3.J（K2-30）
+- B-046｜IP 閘門政策判定單一來源（純函式回命中規則、middleware 只呼叫）｜IP 閘刀設計期｜出處：rev3:CHECKLIST§3.E（K2-31）
+- B-047｜protected-reject 錯誤訊息具體化（detail 插值通道＋洩漏評估）｜錯誤信封/治理刀｜出處：rev3:CHECKLIST§3.H（K2-32）
+- B-048｜Redis 起手用 ConnectionManager（自動重連）＋session 指標熱快取條件啟用｜Redis 基建刀起手｜出處：rev3:CHECKLIST§3.H（K2-33）
+- B-049｜批次軟刪自管 transaction（去 sentinel DbErr 控制流）｜首個批次寫端刀｜出處：rev3:CHECKLIST§3.H（K2-34）
+- B-050｜部分更新全 None 提前 no-op 入 handler/facade 慣例｜部分更新語意設計時｜出處：rev3:CHECKLIST§3.H（K2-35）
+- B-051｜settings 值型驗證健壯化（未知型拒收＋number 正規形落庫）｜系統設定刀｜出處：rev3:CHECKLIST§3.E＋§3.H（K2-36）
+- B-052｜守門 lint 健壯化（route 抽取防漏＋self-test）＋fork-delta 標記覆蓋 lint 補位｜覆蓋 lint 建立時同批｜出處：rev3:CHECKLIST§3.E＋§3.H（K2-37）
+- B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
+- B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
