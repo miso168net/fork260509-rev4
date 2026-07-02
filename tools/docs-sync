@@ -1,0 +1,1512 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""tools/docs-sync — rev4 文件系統生成器＋lint（python 標準庫、單檔、自帶測試）
+
+子命令：
+  generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
+  check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體）
+  lint            L3／L7~L15（L1/L2/L4/L5/L6 隨事件源與實碼逐步啟用）
+  errata <詞>     全 repo 同語意枚舉報告
+  test            跑自帶測試（unittest）
+
+token 計數：UTF-8 bytes ÷ 3 保守近似（測試鎖定算法）。
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+
+# ---------------------------------------------------------------------------
+# 共用基礎
+# ---------------------------------------------------------------------------
+
+# repo 相對路徑常數
+EVENTS = "docs/ops/events.jsonl"
+BOOK = "docs/arc42/ARCHITECTURE.md"
+NOTES = "docs/ops/NOTES.md"
+BACKLOG = "docs/ops/BACKLOG.md"
+STATE = "docs/generated/STATE.md"
+ADR_DIR = "docs/arc42/decisions"
+GENERATED_DIR = "docs/generated"
+
+
+def token_count(text):
+    """token 保守近似 = UTF-8 bytes ÷ 3（整數除法）。"""
+    return len(text.encode("utf-8")) // 3
+
+
+def _yaml_scalar(raw):
+    raw = raw.strip()
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
+        return raw[1:-1]
+    return raw
+
+
+def parse_front_matter(text):
+    """解析 md 檔頭 front-matter（YAML 子集：scalar、flow list、行首 key:）。
+
+    回 (meta_dict, body_str)；無 front-matter 回 ({}, 原文)。
+    支援：字串 scalar（可帶引號）、flow list [a, b]、空 list []。
+    """
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        return {}, text
+    meta = {}
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return meta, "".join(lines[i + 1:])
+        if ":" not in line:
+            continue
+        key, _, raw = line.partition(":")
+        raw = raw.strip()
+        if raw.startswith("[") and raw.endswith("]"):
+            inner = raw[1:-1].strip()
+            val = [_yaml_scalar(x) for x in inner.split(",")] if inner else []
+        else:
+            val = _yaml_scalar(raw)
+        meta[key.strip()] = val
+    return {}, text  # 沒關閉的 front-matter：視同無
+
+
+# ---------------------------------------------------------------------------
+# lint 基礎設施
+# ---------------------------------------------------------------------------
+
+ERROR, WARN = "ERROR", "WARN"
+
+
+def finding(level, code, where, msg):
+    return {"level": level, "code": code, "where": where, "msg": msg}
+
+
+RE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+RE_FEATURE = re.compile(r"^\d{3}-[a-z0-9][a-z0-9-]*$")
+RE_SHA = re.compile(r"^[0-9a-f]{7,40}$")
+RE_SECTION = re.compile(r"^§\d{1,2}$")
+RE_ADR_ID = re.compile(r"^\d{4}$")
+RE_BID = re.compile(r"^B-\d{3,}$")
+
+EVENT_SCHEMAS = {
+    "feature_close": {
+        "required": ["type", "feature", "merge", "date", "summary", "pins",
+                     "adrs", "arch_impact", "backlog_add", "backlog_done"],
+        "optional": ["kind", "spec_supersessions", "notes"],
+    },
+    "review": {
+        "required": ["type", "date", "scope", "report", "findings"],
+        "optional": ["notes"],
+    },
+    "misc": {
+        "required": ["type", "date", "summary"],
+        "optional": ["notes"],
+    },
+}
+
+
+def _check_event(e):
+    """單筆事件的欄位驗證；回錯誤訊息 list。"""
+    errs = []
+    etype = e.get("type")
+    schema = EVENT_SCHEMAS.get(etype)
+    if schema is None:
+        return [f"未知 type「{etype}」（合法：{'/'.join(EVENT_SCHEMAS)}）"]
+    for k in schema["required"]:
+        if k not in e:
+            errs.append(f"缺必填欄位「{k}」")
+    allowed = set(schema["required"]) | set(schema["optional"])
+    for k in e:
+        if k not in allowed:
+            errs.append(f"未知欄位「{k}」")
+    if errs:
+        return errs
+    if not RE_DATE.fullmatch(str(e["date"])):
+        errs.append(f"date 格式須為 YYYY-MM-DD：{e['date']!r}")
+    if etype == "feature_close":
+        if not RE_FEATURE.fullmatch(str(e["feature"])):
+            errs.append(f"feature 格式須為 NNN-slug：{e['feature']!r}")
+        if not RE_SHA.fullmatch(str(e["merge"])):
+            errs.append(f"merge 須為 git SHA：{e['merge']!r}")
+        pins = e["pins"]
+        if not (isinstance(pins, dict) and set(pins) == {"web", "api"}
+                and all(RE_SHA.fullmatch(str(v)) for v in pins.values())):
+            errs.append('pins 須為 {"web": SHA, "api": SHA}')
+        if not (isinstance(e["adrs"], list)
+                and all(RE_ADR_ID.fullmatch(str(x)) for x in e["adrs"])):
+            errs.append("adrs 須為 4 位 ADR 編號 list（可空）")
+        ai = e["arch_impact"]
+        if not (ai == "none" or (isinstance(ai, list) and ai
+                                 and all(RE_SECTION.fullmatch(str(x)) for x in ai))):
+            errs.append('arch_impact 須為 ["§N", …] 或 "none"')
+        for k in ("backlog_add", "backlog_done"):
+            if not (isinstance(e[k], list)
+                    and all(RE_BID.fullmatch(str(x)) for x in e[k])):
+                errs.append(f"{k} 須為 B-NNN list（可空）")
+        if "kind" in e and e["kind"] not in ("vertical", "horizontal"):
+            errs.append('kind 須為 "vertical"|"horizontal"')
+        if "spec_supersessions" in e:
+            ss = e["spec_supersessions"]
+            if not (isinstance(ss, list) and all(
+                    isinstance(x, dict) and set(x) == {"feature", "item", "note"}
+                    for x in ss)):
+                errs.append("spec_supersessions 須為 [{feature,item,note},…]")
+    elif etype == "review":
+        fd = e["findings"]
+        if not (isinstance(fd, dict)
+                and set(fd) == {"total", "fixed", "to_backlog", "wontfix_adr"}
+                and isinstance(fd.get("total"), int) and isinstance(fd.get("fixed"), int)
+                and isinstance(fd.get("to_backlog"), list)
+                and isinstance(fd.get("wontfix_adr"), list)):
+            errs.append("findings 須為 {total, fixed, to_backlog[], wontfix_adr[]}")
+        elif fd["fixed"] + len(fd["to_backlog"]) + len(fd["wontfix_adr"]) != fd["total"]:
+            errs.append("findings 分流不守恆：fixed＋len(to_backlog)＋len(wontfix_adr) 須＝total")
+    return errs
+
+
+def lint_events(text):
+    """L3：ops/events.jsonl 逐行 JSON Schema 驗證。回 findings list。"""
+    out = []
+    for n, line in enumerate(text.splitlines(), start=1):
+        where = f"{EVENTS}:行 {n}"
+        if not line.strip():
+            out.append(finding(ERROR, "L3", where, "不得有空行（jsonl 一行一事件）"))
+            continue
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError as ex:
+            out.append(finding(ERROR, "L3", where, f"非合法 JSON：{ex.msg}"))
+            continue
+        for msg in _check_event(e):
+            out.append(finding(ERROR, "L3", where, msg))
+    return out
+
+
+# L7 預算表：rel path → (行數上限, token 上限)；None＝不設
+BUDGETS = {
+    "CLAUDE.md": (250, None),
+    "docs/ops/NOTES.md": (40, None),
+    "docs/ops/BACKLOG.md": (200, None),
+    "docs/generated/STATE.md": (None, 4000),
+    "docs/arc42/ARCHITECTURE.md": (700, 25000),
+}
+LESSONS_TOKEN_LIMIT = 25000
+LESSONS_TOKEN_WARN = 22500
+# 活書單節配額（行數、超出＝警告）
+SECTION_QUOTAS = {1: 40, 2: 30, 3: 50, 4: 40, 5: 90, 6: 120,
+                  7: 60, 8: 90, 9: 5, 10: 40, 11: 3, 12: 30}
+RE_BOOK_SECTION = re.compile(r"^## §(\d{1,2})\b")
+
+
+def _read(root, rel):
+    p = os.path.join(root, rel)
+    if not os.path.isfile(p):
+        return None
+    with open(p, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def _line_count(text):
+    return len(text.splitlines())
+
+
+def lint_budgets(root):
+    """L7：檔案預算（行數／token）＋活書單節配額。回 findings list。"""
+    out = []
+    for rel, (max_lines, max_tokens) in BUDGETS.items():
+        text = _read(root, rel)
+        if text is None:
+            continue
+        if max_lines is not None and _line_count(text) > max_lines:
+            out.append(finding(ERROR, "L7", rel,
+                               f"行數 {_line_count(text)} 超出預算 {max_lines}"))
+        if max_tokens is not None and token_count(text) > max_tokens:
+            out.append(finding(ERROR, "L7", rel,
+                               f"約 {token_count(text)} tokens 超出預算 {max_tokens}"))
+    # LESSONS 全卷（LESSONS.md＋LESSONS-*.md）各卷限額
+    ops_dir = os.path.join(root, "docs/ops")
+    if os.path.isdir(ops_dir):
+        for name in sorted(os.listdir(ops_dir)):
+            if not (name == "LESSONS.md" or (name.startswith("LESSONS-") and name.endswith(".md"))):
+                continue
+            rel = f"docs/ops/{name}"
+            toks = token_count(_read(root, rel))
+            if toks > LESSONS_TOKEN_LIMIT:
+                out.append(finding(ERROR, "L7", rel,
+                                   f"約 {toks} tokens 超出單卷上限 {LESSONS_TOKEN_LIMIT}——請分卷（詳活書文件規則）"))
+            elif toks > LESSONS_TOKEN_WARN:
+                out.append(finding(WARN, "L7", rel,
+                                   f"約 {toks} tokens 逼近單卷上限 {LESSONS_TOKEN_LIMIT}，宜準備分卷"))
+    # 活書單節配額（警告級）
+    book = _read(root, BOOK)
+    if book is not None:
+        sec, count = None, 0
+        counts = {}
+        for line in book.splitlines():
+            m = RE_BOOK_SECTION.match(line)
+            if m:
+                if sec is not None:
+                    counts[sec] = count
+                sec, count = int(m.group(1)), 0
+            elif sec is not None:
+                count += 1
+        if sec is not None:
+            counts[sec] = count
+        for sec, count in counts.items():
+            quota = SECTION_QUOTAS.get(sec)
+            if quota is not None and count > quota:
+                out.append(finding(WARN, "L7", BOOK,
+                                   f"§{sec} 共 {count} 行超出單節配額 {quota}"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# L8 ADR／L9 ID／L10 時態／L11 詞典
+# ---------------------------------------------------------------------------
+
+
+RE_ADR_FILENAME = re.compile(r"^(\d{4})-[a-z0-9][a-z0-9-]*\.md$")
+ADR_STATUSES = ("draft", "accepted", "superseded", "rejected")
+ADR_REQUIRED = ("id", "title", "date", "status")
+# accepted 後仍可動的 front-matter 欄：superseded_by（工具回填）；status 僅可轉 superseded
+ADR_MUTABLE_AFTER_ACCEPT = ("superseded_by",)
+
+
+def _adr_list(meta, key):
+    v = meta.get(key, [])
+    return v if isinstance(v, list) else None
+
+
+def lint_adrs(adrs, head_adrs, amend=False):
+    """L8：ADR front-matter schema＋accepted 不可變＋supersedes 對稱＋禁刪除。
+
+    adrs / head_adrs：{filename: 檔案全文}（head_adrs＝git HEAD 版；無 HEAD 版＝空 dict）。
+    amend=True（env DOCS_SYNC_ADR_AMEND=1）＝豁免 accepted body 不可變（typo 級修正）。
+    """
+    out = []
+    for fn in head_adrs:
+        if fn not in adrs:
+            out.append(finding(ERROR, "L8", f"{ADR_DIR}/{fn}",
+                               "ADR 禁刪除（編號永不重用；翻案＝新檔 supersedes）"))
+    metas = {}
+    for fn, text in sorted(adrs.items()):
+        where = f"{ADR_DIR}/{fn}"
+        meta, body = parse_front_matter(text)
+        metas[fn] = (meta, body)
+        m = RE_ADR_FILENAME.fullmatch(fn)
+        if not m:
+            out.append(finding(ERROR, "L8", where, "檔名須為 NNNN-<slug>.md"))
+        for k in ADR_REQUIRED:
+            if k not in meta:
+                out.append(finding(ERROR, "L8", where, f"front-matter 缺必填欄「{k}」"))
+        status = meta.get("status")
+        if status is not None and status not in ADR_STATUSES:
+            out.append(finding(ERROR, "L8", where,
+                               f"status 須為 {'|'.join(ADR_STATUSES)}：{status!r}"))
+        if "id" in meta and not RE_ADR_ID.fullmatch(str(meta["id"])):
+            out.append(finding(ERROR, "L8", where, f"id 須為 4 位數字：{meta['id']!r}"))
+        if m and meta.get("id") and meta["id"] != m.group(1):
+            out.append(finding(ERROR, "L8", where,
+                               f"id「{meta['id']}」與檔名編號「{m.group(1)}」不一致（編號＝檔名）"))
+        if "date" in meta and not RE_DATE.fullmatch(str(meta["date"])):
+            out.append(finding(ERROR, "L8", where, f"date 格式須為 YYYY-MM-DD：{meta['date']!r}"))
+        for k in ("supersedes", "superseded_by"):
+            v = _adr_list(meta, k)
+            if v is None or not all(RE_ADR_ID.fullmatch(str(x)) for x in v):
+                out.append(finding(ERROR, "L8", where, f"{k} 須為 4 位 ADR 編號 list"))
+    by_id = {meta["id"]: (fn, meta) for fn, (meta, _) in metas.items() if meta.get("id")}
+    for fn, (meta, _) in sorted(metas.items()):
+        where = f"{ADR_DIR}/{fn}"
+        my_id = meta.get("id")
+        for x in (_adr_list(meta, "supersedes") or []):
+            x = str(x)
+            if x not in by_id:
+                out.append(finding(ERROR, "L8", where, f"supersedes 指向不存在的 ADR「{x}」"))
+                continue
+            _, tmeta = by_id[x]
+            if my_id and my_id not in (_adr_list(tmeta, "superseded_by") or []):
+                out.append(finding(ERROR, "L8", where,
+                                   f"supersedes 對稱缺口：ADR {x} 的 superseded_by 未回填"
+                                   f"「{my_id}」（跑 docs-sync generate 回填）"))
+            if tmeta.get("status") != "superseded":
+                out.append(finding(ERROR, "L8", where,
+                                   f"被翻案的 ADR {x} status 須為 superseded"))
+        for x in (_adr_list(meta, "superseded_by") or []):
+            x = str(x)
+            if x not in by_id:
+                out.append(finding(ERROR, "L8", where, f"superseded_by 指向不存在的 ADR「{x}」"))
+            elif my_id and my_id not in (_adr_list(by_id[x][1], "supersedes") or []):
+                out.append(finding(ERROR, "L8", where,
+                                   f"superseded_by 對稱缺口：ADR {x} 未宣告 supersedes「{my_id}」"))
+    if not amend:
+        for fn, head_text in sorted(head_adrs.items()):
+            if fn not in adrs:
+                continue
+            hmeta, hbody = parse_front_matter(head_text)
+            if hmeta.get("status") != "accepted":
+                continue
+            where = f"{ADR_DIR}/{fn}"
+            cmeta, cbody = metas[fn]
+            if cbody != hbody:
+                out.append(finding(ERROR, "L8", where,
+                                   "accepted 後 body 不可變（typo 級修正：commit message 帶"
+                                   " [adr-amend] 並設 DOCS_SYNC_ADR_AMEND=1）"))
+            for k in sorted(set(hmeta) | set(cmeta)):
+                if k in ADR_MUTABLE_AFTER_ACCEPT:
+                    continue
+                if k == "status":
+                    if cmeta.get(k) not in ("accepted", "superseded"):
+                        out.append(finding(ERROR, "L8", where,
+                                           "accepted 的 status 僅可轉 superseded"))
+                    continue
+                if hmeta.get(k) != cmeta.get(k):
+                    out.append(finding(ERROR, "L8", where,
+                                       f"accepted 後 front-matter 欄「{k}」不可變"))
+    return out
+
+
+RE_NEXT_ID = re.compile(r"<!--\s*next:\s*([BL])-(\d+)\s*-->")
+RE_ENTRY = {
+    "B": re.compile(r"^- B-(\d+)｜", re.M),
+    "L": re.compile(r"^- \*\*L-(\d+)\*\*｜", re.M),
+}
+
+
+def _parse_next(kind, text):
+    m = RE_NEXT_ID.search(text or "")
+    return int(m.group(2)) if m and m.group(1) == kind else None
+
+
+def lint_ids(kind, texts, head_texts):
+    """L9：B-NNN／L-NNN 依檔頭 next-id 驗唯一、單調、不回收。
+
+    kind："B" 或 "L"；texts／head_texts＝[主檔文, 其餘卷文…]（主檔在首、含 next-id 檔頭）。
+    head_texts 各元素可為 None（HEAD 無此檔）。
+    """
+    out = []
+    label = {"B": BACKLOG, "L": "docs/ops/LESSONS.md"}[kind]
+    cur_next = _parse_next(kind, texts[0])
+    if cur_next is None:
+        out.append(finding(ERROR, "L9", label, "缺 next-id 檔頭（<!-- next: %s-NNN -->）" % kind))
+    ids, seen = [], set()
+    for text in texts:
+        for m in RE_ENTRY[kind].finditer(text or ""):
+            n = int(m.group(1))
+            if n in seen:
+                out.append(finding(ERROR, "L9", label, f"{kind}-{n:03d} 重複配號"))
+            seen.add(n)
+            ids.append(n)
+    if cur_next is not None:
+        for n in ids:
+            if n >= cur_next:
+                out.append(finding(ERROR, "L9", label,
+                                   f"{kind}-{n:03d} ≥ next-id {cur_next}（配號＝取 next 後 bump）"))
+    head_next = _parse_next(kind, head_texts[0]) if head_texts else None
+    if head_next is not None:
+        if cur_next is not None and cur_next < head_next:
+            out.append(finding(ERROR, "L9", label,
+                               f"next-id 須單調遞增（HEAD {head_next} → 現 {cur_next}）"))
+        head_ids = set()
+        for text in head_texts:
+            head_ids.update(int(m.group(1)) for m in RE_ENTRY[kind].finditer(text or ""))
+        for n in sorted(set(ids) - head_ids):
+            if n < head_next:
+                out.append(finding(ERROR, "L9", label,
+                                   f"{kind}-{n:03d} 為舊號回收（新號必 ≥ HEAD next-id {head_next}；號碼永不回收）"))
+    return out
+
+
+TENSE_WORDS = {
+    "待決": "ops/BACKLOG（待辦）或 ADR draft（未決案）",
+    "TBD": "ops/BACKLOG",
+    "⏳": "ops/BACKLOG",
+    "已完成": "git 史＋ops/events.jsonl（過去式不入書）",
+    "下一步": "ops/NOTES（未來式不入書）",
+}
+
+
+def lint_tense(book_text):
+    """L10：活書時態禁詞（待決/TBD/⏳/已完成/下一步），附去處提示。"""
+    out = []
+    for n, line in enumerate(book_text.splitlines(), start=1):
+        for word, dest in TENSE_WORDS.items():
+            if word in line:
+                out.append(finding(ERROR, "L10", f"{BOOK}:行 {n}",
+                                   f"活書時態禁詞「{word}」；去處：{dest}"))
+    return out
+
+
+DICT_PATTERNS = (
+    (re.compile(r"⚠️[a-z]+"), "rev3 決策碼走私", "內容過境、編號不過境——改寫為自解釋描述"),
+    (re.compile(r"待決[①②③④⑤⑥⑦⑧⑨⑩]"), "rev3 待決碼走私", "內容過境、編號不過境——改寫為自解釋描述"),
+    (re.compile(r"\bF-\d+\b"), "rev3 流水碼走私", "內容過境、編號不過境——改寫為自解釋描述"),
+    (re.compile(r"(?i)\bport\s*[:=]?\s*\d{2,5}\b"), "port 實值",
+     "快變字面值不入活文件→ docs/generated/reference/ports.md"),
+    (re.compile(r"123456"), "seed 密碼實值",
+     "快變字面值不入活文件→ docs/generated/reference/accounts.md"),
+)
+
+
+def lint_dictionary(texts):
+    """L11：禁入詞典（警告級）。texts＝{rel: 全文}，掃活書＋CLAUDE.md。
+
+    含「｜出處：」的行（rev3 史料標註）整行豁免。
+    """
+    out = []
+    for rel, text in sorted(texts.items()):
+        for n, line in enumerate((text or "").splitlines(), start=1):
+            if "｜出處：" in line:
+                continue
+            for pat, label, hint in DICT_PATTERNS:
+                for m in pat.finditer(line):
+                    out.append(finding(WARN, "L11", f"{rel}:行 {n}",
+                                       f"禁入詞典命中「{m.group(0)}」（{label}）；{hint}"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# L12~L15 引用健康
+# ---------------------------------------------------------------------------
+
+
+RE_MD_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+RE_LINE_REF = re.compile(r"\S+\.md:\d+")
+RE_VOLATILE_ANCHOR = re.compile(r"(?:BACKLOG|NOTES|STATE)\.md#\S+")
+RE_MEMORY_PATH = re.compile(r"(?:~|/home/[^/\s]+)/\.claude/[^\s)]*")
+
+
+def _iter_links(md_texts):
+    for rel, text in sorted(md_texts.items()):
+        for n, line in enumerate((text or "").splitlines(), start=1):
+            for m in RE_MD_LINK.finditer(line):
+                yield rel, n, m.group(1)
+
+
+def lint_links(md_texts, existing_paths):
+    """L12：md 內部連結（相對路徑）必須指向存在檔案。
+
+    md_texts＝{rel: 全文}；existing_paths＝repo 現存（git 追蹤）路徑 set。
+    http(s)/mailto/純錨點連結不驗。
+    """
+    out = []
+    for rel, n, target in _iter_links(md_texts):
+        if target.startswith(("http://", "https://", "mailto:", "#")):
+            continue
+        path = target.split("#", 1)[0]
+        resolved = os.path.normpath(os.path.join(os.path.dirname(rel), path)).replace(os.sep, "/")
+        if resolved not in existing_paths:
+            out.append(finding(ERROR, "L12", f"{rel}:行 {n}",
+                               f"連結指向不存在檔案「{target}」（解析為 {resolved}）"))
+    return out
+
+
+def lint_line_refs(md_texts):
+    """L13：禁行號引用（xxx.md:123 型）——行號揮發、引用必 rot。"""
+    out = []
+    for rel, text in sorted(md_texts.items()):
+        for n, line in enumerate((text or "").splitlines(), start=1):
+            for m in RE_LINE_REF.finditer(line):
+                out.append(finding(ERROR, "L13", f"{rel}:行 {n}",
+                                   f"禁行號引用「{m.group(0)}」；改用穩定語意錨（節號／檔名／描述名）"))
+    return out
+
+
+def lint_volatile_deep_links(md_texts):
+    """L14：禁 deep-link 揮發區內部錨（BACKLOG/NOTES/STATE 只可整檔引用）。"""
+    out = []
+    for rel, text in sorted(md_texts.items()):
+        for n, line in enumerate((text or "").splitlines(), start=1):
+            for m in RE_VOLATILE_ANCHOR.finditer(line):
+                out.append(finding(ERROR, "L14", f"{rel}:行 {n}",
+                                   f"揮發區禁 deep-link「{m.group(0)}」；只可整檔引用"))
+    return out
+
+
+def lint_memory_refs(md_texts):
+    """L15：repo 文件禁引 per-machine memory 實路徑（~/.claude/**）。
+
+    帶 rev3: 前綴的純文字史料標註（如 rev3:memory/…）非實路徑、天然不命中。
+    """
+    out = []
+    for rel, text in sorted(md_texts.items()):
+        for n, line in enumerate((text or "").splitlines(), start=1):
+            for m in RE_MEMORY_PATH.finditer(line):
+                out.append(finding(ERROR, "L15", f"{rel}:行 {n}",
+                                   f"禁引 per-machine 路徑「{m.group(0)}」；先提取進 repo 文件再引用"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# generate／check／errata
+# ---------------------------------------------------------------------------
+
+GEN_HEADER = "<!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->"
+REFERENCE_TABLES = ("routes", "ports", "schema", "accounts", "screens")
+
+
+DEFAULT_BRANCH = "rev4-admin-root"
+
+
+def _md_cell(v):
+    s = str(v) if v not in (None, "", []) else "—"
+    return s.replace("|", "\\|")
+
+
+def _event_row(e):
+    t = e.get("type", "?")
+    target = {"feature_close": e.get("feature"), "review": e.get("scope")}.get(t)
+    merge = e.get("merge") if t == "feature_close" else None
+    adrs = "、".join(e.get("adrs", [])) if t == "feature_close" else None
+    ai = e.get("arch_impact") if t == "feature_close" else None
+    arch = "、".join(ai) if isinstance(ai, list) else ai
+    return (f"| {_md_cell(e.get('date'))} | {_md_cell(t)} | {_md_cell(target)} "
+            f"| {_md_cell(e.get('summary') or e.get('report'))} | {_md_cell(merge)} "
+            f"| {_md_cell(adrs)} | {_md_cell(arch)} |")
+
+
+MILESTONE_TABLE_HEAD = ("| date | type | 標的 | summary | merge | adrs | arch |\n"
+                        "|---|---|---|---|---|---|---|")
+
+
+def gen_milestones(events):
+    """MILESTONES ← 全 events 表格化、按年分卷。回 {rel: content}。"""
+    by_year = {}
+    for e in events:
+        by_year.setdefault(str(e.get("date", "????"))[:4], []).append(e)
+    if not by_year:
+        return {f"{GENERATED_DIR}/MILESTONES.md":
+                f"{GEN_HEADER}\n# MILESTONES — 全事件表\n\n（尚無事件）\n"}
+    cur = max(by_year)
+    out = {}
+    for year, evs in by_year.items():
+        rel = (f"{GENERATED_DIR}/MILESTONES.md" if year == cur
+               else f"{GENERATED_DIR}/MILESTONES-{year}.md")
+        rows = "\n".join(_event_row(e) for e in evs)
+        out[rel] = (f"{GEN_HEADER}\n# MILESTONES — 全事件表（{year}）\n\n"
+                    f"{MILESTONE_TABLE_HEAD}\n{rows}\n")
+    return out
+
+
+def gen_decisions_index(metas):
+    """DECISIONS-INDEX ← ADR front-matter 掃描。metas＝[{…}]（依 id 排序輸出）。"""
+    head = f"{GEN_HEADER}\n# DECISIONS-INDEX — ADR 索引\n\n"
+    if not metas:
+        return head + "（尚無 ADR）\n"
+    rows = []
+    for m in sorted(metas, key=lambda m: str(m.get("id", ""))):
+        rows.append(
+            f"| {_md_cell(m.get('id'))} | {_md_cell(m.get('status'))} "
+            f"| {_md_cell(m.get('date'))} | {_md_cell(m.get('title'))} "
+            f"| {_md_cell(m.get('feature'))} "
+            f"| {_md_cell('、'.join(m.get('supersedes', []) or []))} "
+            f"| {_md_cell('、'.join(m.get('superseded_by', []) or []))} |")
+    return (head + "| id | status | date | title | feature | supersedes | superseded_by |\n"
+            "|---|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n")
+
+
+def _fmt_pin(sha):
+    return sha[:7] if sha else "未建置"
+
+
+def gen_state(ctx):
+    """STATE ← events 尾 3 筆＋pins＋constitution 版本＋統計＋對賬結果。"""
+    events = ctx.get("events", [])
+    adr_metas = ctx.get("adr_metas", [])
+    status_count = {}
+    for m in adr_metas:
+        status_count[m.get("status", "?")] = status_count.get(m.get("status", "?"), 0) + 1
+    adr_stat = ("、".join(f"{k} {v}" for k, v in sorted(status_count.items()))
+                if status_count else "0")
+    type_count = {}
+    for e in events:
+        type_count[e.get("type", "?")] = type_count.get(e.get("type", "?"), 0) + 1
+    ev_stat = ("、".join(f"{k} {v}" for k, v in sorted(type_count.items()))
+               if type_count else "0")
+    tail = list(reversed(events[-3:]))
+    if tail:
+        tail_lines = "\n".join(
+            f"- {e.get('date')}｜{e.get('type')}｜"
+            + (f"{e.get('feature')}｜" if e.get("feature") else "")
+            + str(e.get("summary") or e.get("scope") or "")
+            for e in tail)
+    else:
+        tail_lines = "（尚無事件）"
+    bn = ctx.get("backlog_next")
+    ln = ctx.get("lessons_next")
+    ref_lines = "\n".join(
+        f"- reference/{name}：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）"
+        for name in REFERENCE_TABLES)
+    return f"""{GEN_HEADER}
+# STATE — 現況機器帳
+
+## git
+- default branch：{DEFAULT_BRANCH}
+- pins：base-web={_fmt_pin(ctx.get('pins', {}).get('web'))}｜rust-api={_fmt_pin(ctx.get('pins', {}).get('api'))}
+
+## constitution
+- 版本：{ctx.get('constitution_version') or '未鑄'}
+
+## 帳面統計
+- ADR：{len(adr_metas)}（{adr_stat}）
+- BACKLOG 待辦：{ctx.get('backlog_count', 0)}（next：{f'B-{bn:03d}' if bn else '？'}）
+- LESSONS：{ctx.get('lessons_count', 0)} 筆（next：{f'L-{ln:03d}' if ln else '？'}）
+- events：{len(events)} 筆（{ev_stat}）
+
+## 最近事件（尾 3 筆、新在前）
+{tail_lines}
+
+## reference 對賬
+{ref_lines}
+"""
+
+
+def _set_fm_field(text, key, value_line):
+    """就地改寫 front-matter 單欄（存在則替換、不存在則插在關閉 --- 前）。"""
+    lines = text.splitlines(keepends=True)
+    close = None
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            close = i
+            break
+    if close is None:
+        return text
+    for i in range(1, close):
+        if lines[i].split(":", 1)[0].strip() == key:
+            lines[i] = value_line + "\n"
+            return "".join(lines)
+    lines.insert(close, value_line + "\n")
+    return "".join(lines)
+
+
+def backfill_supersessions(adrs):
+    """supersedes 對稱回填：A supersedes X ⇒ X.superseded_by ∋ A.id 且 X.status=superseded。
+
+    adrs＝{filename: 全文}；回 {filename: 新全文}（僅含需要改的檔）。
+    """
+    metas = {fn: parse_front_matter(text)[0] for fn, text in adrs.items()}
+    by_id = {m["id"]: fn for fn, m in metas.items() if m.get("id")}
+    changed = {}
+    for fn, m in sorted(metas.items()):
+        for x in (_adr_list(m, "supersedes") or []):
+            tfn = by_id.get(str(x))
+            if tfn is None:
+                continue  # dangling → L8 擋，不在此處理
+            cur_text = changed.get(tfn, adrs[tfn])
+            tmeta = parse_front_matter(cur_text)[0]
+            sb = list(_adr_list(tmeta, "superseded_by") or [])
+            new_text = cur_text
+            if m["id"] not in sb:
+                sb.append(m["id"])
+                new_text = _set_fm_field(new_text, "superseded_by",
+                                         f"superseded_by: [{', '.join(sorted(sb))}]")
+            if tmeta.get("status") != "superseded":
+                new_text = _set_fm_field(new_text, "status", "status: superseded")
+            if new_text != adrs[tfn]:
+                changed[tfn] = new_text
+    return changed
+
+
+def errata_scan(texts, keyword):
+    """errata：全 repo 同語意（大小寫不敏感子串）枚舉。回 [(rel, 行號, 行文)]。"""
+    kw = keyword.lower()
+    hits = []
+    for rel, text in sorted(texts.items()):
+        for n, line in enumerate((text or "").splitlines(), start=1):
+            if kw in line.lower():
+                hits.append((rel, n, line))
+    return hits
+
+
+def check_generated(root, computed):
+    """check：computed（{rel: content}）與磁碟現況 diff。回 findings。"""
+    out = []
+    gen_root = os.path.join(root, GENERATED_DIR)
+    on_disk = set()
+    for dirpath, _, names in os.walk(gen_root):
+        for name in names:
+            rel = os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
+            on_disk.add(rel)
+    for rel in sorted(set(computed) | on_disk):
+        if rel not in computed:
+            out.append(finding(ERROR, "L1", rel, "多出的檔案（generated/ 嚴禁手加；請移除）"))
+        elif rel not in on_disk:
+            out.append(finding(ERROR, "L1", rel, "缺生成檔（跑 tools/docs-sync generate）"))
+        elif _read(root, rel) != computed[rel]:
+            out.append(finding(ERROR, "L1", rel,
+                               "與重算結果不一致（忘跑 generate 或手改；跑 tools/docs-sync generate）"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# git 介接與 IO 組裝（薄層；核心邏輯皆為上方可測純函式）
+# ---------------------------------------------------------------------------
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 史料豁免：內容類 lint（L11~L15）不掃 one-shot 史料（其內文含示例 pattern、必自撞）
+HISTORICAL_EXEMPT = ("docs/brainstorms/", "docs/INTEGRATION-rev4-arc42.md")
+
+
+def _is_exempt(rel):
+    return any(rel == p or rel.startswith(p) for p in HISTORICAL_EXEMPT)
+
+
+def git_out(args):
+    try:
+        r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    except OSError:
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def head_file(rel):
+    return git_out(["show", f"HEAD:{rel}"])
+
+
+def index_pins():
+    out = git_out(["ls-files", "-s", "--", "base-web", "rust-api"]) or ""
+    pins = {"web": None, "api": None}
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[0] == "160000":
+            pins[{"base-web": "web", "rust-api": "api"}.get(parts[3], "")] = parts[1]
+    pins.pop("", None)
+    return {"web": pins.get("web"), "api": pins.get("api")}
+
+
+def tracked_files():
+    return [l for l in (git_out(["ls-files"]) or "").splitlines() if l]
+
+
+def constitution_version(root):
+    text = _read(root, ".specify/memory/constitution.md")
+    if text is None:
+        return None
+    m = re.search(r"\*\*Version\*\*[:\s]*v?(\d+\.\d+\.\d+)", text)
+    return m.group(1) if m else None
+
+
+def load_adrs(root):
+    d = os.path.join(root, ADR_DIR)
+    if not os.path.isdir(d):
+        return {}
+    return {n: _read(root, f"{ADR_DIR}/{n}")
+            for n in sorted(os.listdir(d)) if n.endswith(".md")}
+
+
+def load_head_adrs():
+    out = git_out(["ls-tree", "--name-only", "HEAD", f"{ADR_DIR}/"]) or ""
+    head = {}
+    for path in out.splitlines():
+        name = os.path.basename(path)
+        if name.endswith(".md"):
+            t = head_file(path)
+            if t is not None:
+                head[name] = t
+    return head
+
+
+def lessons_paths(root):
+    ops = os.path.join(root, "docs/ops")
+    vols = (sorted(n for n in os.listdir(ops)
+                   if n.startswith("LESSONS-") and n.endswith(".md"))
+            if os.path.isdir(ops) else [])
+    return ["docs/ops/LESSONS.md"] + [f"docs/ops/{v}" for v in vols]
+
+
+def gen_reference_stub(name):
+    return (f"{GEN_HEADER}\n# reference/{name} — 全量正典表\n\n"
+            f"狀態：stub｜來源未就緒——extractor 隨對應子系統首刀落地（見 ops/BACKLOG）。\n")
+
+
+def parse_events_loose(text):
+    """generate 用的寬鬆解析（壞行跳過——擋壞行是 L3 的職責）。"""
+    events = []
+    for line in (text or "").splitlines():
+        if line.strip():
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return events
+
+
+def compute_generated(root):
+    """重算 docs/generated/ 全部應有內容。回 {rel: content}。"""
+    events = parse_events_loose(_read(root, EVENTS))
+    metas = [parse_front_matter(t)[0] for t in load_adrs(root).values()]
+    backlog = _read(root, BACKLOG) or ""
+    lessons_texts = [(_read(root, rel) or "") for rel in lessons_paths(root)]
+    ctx = {
+        "pins": index_pins(),
+        "constitution_version": constitution_version(root),
+        "events": events,
+        "adr_metas": metas,
+        "backlog_count": len(RE_ENTRY["B"].findall(backlog)),
+        "backlog_next": _parse_next("B", backlog),
+        "lessons_count": sum(len(RE_ENTRY["L"].findall(t)) for t in lessons_texts),
+        "lessons_next": _parse_next("L", lessons_texts[0]),
+    }
+    files = {
+        f"{GENERATED_DIR}/STATE.md": gen_state(ctx),
+        f"{GENERATED_DIR}/DECISIONS-INDEX.md": gen_decisions_index(metas),
+    }
+    files.update(gen_milestones(events))
+    for name in REFERENCE_TABLES:
+        files[f"{GENERATED_DIR}/reference/{name}.md"] = gen_reference_stub(name)
+    return files
+
+
+def run_lint(root):
+    """組裝 L3／L7~L15 全套。回 findings。"""
+    findings = []
+    findings += lint_events(_read(root, EVENTS) or "")
+    findings += lint_budgets(root)
+    amend = os.environ.get("DOCS_SYNC_ADR_AMEND") == "1"
+    findings += lint_adrs(load_adrs(root), load_head_adrs(), amend=amend)
+    findings += lint_ids("B", [_read(root, BACKLOG) or ""], [head_file(BACKLOG)])
+    lpaths = lessons_paths(root)
+    findings += lint_ids("L", [(_read(root, p) or "") for p in lpaths],
+                         [head_file(p) for p in lpaths])
+    book = _read(root, BOOK)
+    if book is not None:
+        findings += lint_tense(book)
+    findings += lint_dictionary(
+        {rel: _read(root, rel) for rel in (BOOK, "CLAUDE.md")
+         if _read(root, rel) is not None})
+    tracked = tracked_files()
+    md_all = [f for f in tracked if f.endswith(".md") and not _is_exempt(f)]
+    md_texts = {rel: _read(root, rel) or "" for rel in md_all}
+    untracked = [l for l in (git_out(["ls-files", "--others", "--exclude-standard"]) or "").splitlines() if l]
+    findings += lint_links(md_texts, set(tracked) | set(untracked))
+    living = {rel: text for rel, text in md_texts.items()
+              if rel == "CLAUDE.md" or rel.startswith(("docs/arc42/", "docs/ops/", "docs/generated/"))}
+    findings += lint_line_refs(living)
+    findings += lint_volatile_deep_links(living)
+    findings += lint_memory_refs(md_texts)
+    return findings
+
+
+def print_findings(findings):
+    for f in findings:
+        print(f"[{f['level']}] {f['code']}｜{f['where']}｜{f['msg']}")
+
+
+def cmd_lint():
+    findings = run_lint(ROOT)
+    print_findings(findings)
+    errors = [f for f in findings if f["level"] == ERROR]
+    print(f"lint：{len(errors)} 錯誤／{len(findings) - len(errors)} 警告")
+    return 1 if errors else 0
+
+
+def cmd_generate():
+    adrs = load_adrs(ROOT)
+    for fn, text in sorted(backfill_supersessions(adrs).items()):
+        path = os.path.join(ROOT, ADR_DIR, fn)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        print(f"回填 supersedes 對稱欄：{ADR_DIR}/{fn}")
+    files = compute_generated(ROOT)
+    for rel, content in sorted(files.items()):
+        path = os.path.join(ROOT, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(content)
+    # generated/ 全域歸生成器管轄：非生成物一律移除（含 .gitkeep）
+    gen_root = os.path.join(ROOT, GENERATED_DIR)
+    for dirpath, _, names in os.walk(gen_root):
+        for name in names:
+            rel = os.path.relpath(os.path.join(dirpath, name), ROOT).replace(os.sep, "/")
+            if rel not in files:
+                os.remove(os.path.join(dirpath, name))
+                print(f"移除非生成物：{rel}")
+    print(f"generate：重算 {len(files)} 檔完成")
+    return 0
+
+
+def cmd_check():
+    findings = check_generated(ROOT, compute_generated(ROOT))
+    pending = backfill_supersessions(load_adrs(ROOT))
+    for fn in sorted(pending):
+        findings.append(finding(ERROR, "L1", f"{ADR_DIR}/{fn}",
+                                "supersedes 對稱回填待跑（tools/docs-sync generate）"))
+    print_findings(findings)
+    print(f"check：{'不一致 ' + str(len(findings)) + ' 處' if findings else '一致'}")
+    return 1 if findings else 0
+
+
+def cmd_errata(keyword):
+    texts = {}
+    for rel in tracked_files():
+        try:
+            text = _read(ROOT, rel)
+        except (UnicodeDecodeError, OSError):
+            continue
+        if text is not None:
+            texts[rel] = text
+    hits = errata_scan(texts, keyword)
+    for rel, n, line in hits:
+        print(f"{rel}:行 {n}｜{line.strip()}")
+    print(f"errata「{keyword}」：{len(hits)} 處命中（逐處處置、勿只修被點名那一處）")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# 自帶測試
+# ---------------------------------------------------------------------------
+
+VALID_CLOSE = {
+    "type": "feature_close", "feature": "001-system-settings",
+    "merge": "abc1234", "date": "2026-07-10", "summary": "打樣刀收刀",
+    "pins": {"web": "deadbee", "api": "cafe123"}, "adrs": ["0007"],
+    "arch_impact": ["§6"], "backlog_add": [], "backlog_done": ["B-003"],
+}
+VALID_MISC = {"type": "misc", "date": "2026-07-02", "summary": "bootstrap 完成"}
+VALID_REVIEW = {
+    "type": "review", "date": "2026-08-01", "scope": "001-005 cumulative",
+    "report": "reviews/20260801-cumulative.md",
+    "findings": {"total": 3, "fixed": 1, "to_backlog": ["B-009"], "wontfix_adr": ["0012"]},
+}
+
+
+def _jl(*objs):
+    return "".join(json.dumps(o, ensure_ascii=False) + "\n" for o in objs)
+
+
+ADR_OK_A = (
+    "---\nid: \"0001\"\ntitle: 甲決策\ndate: 2026-07-05\nstatus: superseded\n"
+    "supersedes: []\nsuperseded_by: [0002]\n---\n\n## 背景\n舊案。\n"
+)
+ADR_OK_B = (
+    "---\nid: \"0002\"\ntitle: 乙決策\ndate: 2026-07-08\nstatus: accepted\n"
+    "supersedes: [0001]\nsuperseded_by: []\n---\n\n## 背景\n新案。\n"
+)
+
+
+class TestLintAdrs(unittest.TestCase):
+    def test_symmetric_pair_passes(self):
+        adrs = {"0001-old.md": ADR_OK_A, "0002-new.md": ADR_OK_B}
+        self.assertEqual(lint_adrs(adrs, dict(adrs)), [])
+
+    def test_missing_required_field(self):
+        bad = "---\nid: \"0003\"\ndate: 2026-07-05\nstatus: draft\n---\nbody\n"
+        f = lint_adrs({"0003-x.md": bad}, {})
+        self.assertTrue(any("title" in x["msg"] for x in f))
+
+    def test_bad_status(self):
+        bad = ADR_OK_B.replace("status: accepted", "status: done")
+        f = lint_adrs({"0002-new.md": bad}, {})
+        self.assertTrue(any("status" in x["msg"] for x in f))
+
+    def test_id_filename_mismatch(self):
+        f = lint_adrs({"0009-new.md": ADR_OK_B}, {})
+        self.assertTrue(any("檔名" in x["msg"] for x in f))
+
+    def test_bad_filename(self):
+        f = lint_adrs({"2-new.md": ADR_OK_B.replace('id: "0002"', 'id: "2"')}, {})
+        self.assertTrue(any("檔名" in x["msg"] for x in f))
+
+    def test_supersedes_asymmetry(self):
+        a = ADR_OK_A.replace("superseded_by: [0002]", "superseded_by: []")
+        f = lint_adrs({"0001-old.md": a, "0002-new.md": ADR_OK_B}, {})
+        self.assertTrue(any("對稱" in x["msg"] for x in f))
+
+    def test_supersedes_dangling_target(self):
+        f = lint_adrs({"0002-new.md": ADR_OK_B}, {})
+        self.assertTrue(any("0001" in x["msg"] for x in f))
+
+    def test_superseded_status_required(self):
+        a = ADR_OK_A.replace("status: superseded", "status: accepted")
+        f = lint_adrs({"0001-old.md": a, "0002-new.md": ADR_OK_B}, {})
+        self.assertTrue(any("superseded" in x["msg"] for x in f))
+
+    def test_accepted_body_immutable(self):
+        cur = ADR_OK_B.replace("新案。", "偷偷改寫。")
+        f = lint_adrs({"0001-old.md": ADR_OK_A, "0002-new.md": cur},
+                      {"0001-old.md": ADR_OK_A, "0002-new.md": ADR_OK_B})
+        self.assertEqual(len(f), 1)
+        self.assertIn("不可變", f[0]["msg"])
+
+    def test_accepted_body_amend_escape(self):
+        cur = ADR_OK_B.replace("新案。", "修個錯字。")
+        f = lint_adrs({"0001-old.md": ADR_OK_A, "0002-new.md": cur},
+                      {"0001-old.md": ADR_OK_A, "0002-new.md": ADR_OK_B}, amend=True)
+        self.assertEqual(f, [])
+
+    def test_tool_backfill_of_superseded_by_allowed(self):
+        head_b = ADR_OK_B.replace("superseded_by: []", "")  # HEAD 版尚無該欄
+        f = lint_adrs({"0001-old.md": ADR_OK_A, "0002-new.md": ADR_OK_B},
+                      {"0001-old.md": ADR_OK_A, "0002-new.md": head_b})
+        self.assertEqual(f, [])
+
+    def test_deletion_banned(self):
+        f = lint_adrs({"0002-new.md": ADR_OK_B.replace("supersedes: [0001]", "supersedes: []")},
+                      {"0001-old.md": ADR_OK_A, "0002-new.md": ADR_OK_B})
+        self.assertTrue(any("刪除" in x["msg"] for x in f))
+
+    def test_draft_freely_editable(self):
+        head = ADR_OK_B.replace("status: accepted", "status: draft")
+        cur = head.replace("新案。", "改來改去。")
+        f = lint_adrs({"0002-new.md": cur.replace("supersedes: [0001]", "supersedes: []")},
+                      {"0002-new.md": head.replace("supersedes: [0001]", "supersedes: []")})
+        self.assertEqual(f, [])
+
+
+BACKLOG_V1 = "<!-- next: B-003 -->\n# BACKLOG\n\n- B-001｜甲\n- B-002｜乙\n"
+
+
+class TestLintIds(unittest.TestCase):
+    def test_clean_passes(self):
+        self.assertEqual(lint_ids("B", [BACKLOG_V1], [BACKLOG_V1]), [])
+
+    def test_duplicate_id(self):
+        cur = BACKLOG_V1 + "- B-002｜丙\n"
+        f = lint_ids("B", [cur], [BACKLOG_V1])
+        self.assertTrue(any("重複" in x["msg"] for x in f))
+
+    def test_id_beyond_next(self):
+        cur = BACKLOG_V1 + "- B-007｜丙\n"
+        f = lint_ids("B", [cur], [BACKLOG_V1])
+        self.assertTrue(any("next" in x["msg"] for x in f))
+
+    def test_next_must_not_decrease(self):
+        cur = BACKLOG_V1.replace("B-003 ", "B-002 ").replace("- B-002｜乙\n", "")
+        f = lint_ids("B", [cur], [BACKLOG_V1])
+        self.assertTrue(any("單調" in x["msg"] for x in f))
+
+    def test_new_id_must_take_fresh_number(self):
+        head = "<!-- next: B-005 -->\n# BACKLOG\n\n- B-004｜丁\n"
+        cur = head + "- B-002｜回收舊號\n"   # B-002 曾用過已刪
+        f = lint_ids("B", [cur], [head])
+        self.assertTrue(any("回收" in x["msg"] for x in f))
+
+    def test_new_entry_bumps_next(self):
+        cur = BACKLOG_V1.replace("B-003 ", "B-004 ") + "- B-003｜丙\n"
+        self.assertEqual(lint_ids("B", [cur], [BACKLOG_V1]), [])
+
+    def test_missing_header(self):
+        f = lint_ids("B", ["# BACKLOG\n- B-001｜甲\n"], [BACKLOG_V1])
+        self.assertTrue(any("next" in x["msg"] for x in f))
+
+    def test_lessons_multi_volume_duplicate(self):
+        main = "<!-- next: L-103 -->\n# LESSONS\n- **L-102**｜新坑\n"
+        vol = "# LESSONS-001-101\n- **L-001**｜舊坑\n- **L-102**｜撞號\n"
+        f = lint_ids("L", [main, vol], [main, vol])
+        self.assertTrue(any("重複" in x["msg"] for x in f))
+
+
+class TestGenMilestones(unittest.TestCase):
+    def test_empty(self):
+        files = gen_milestones([])
+        self.assertEqual(list(files), ["docs/generated/MILESTONES.md"])
+        self.assertIn("（尚無事件）", files["docs/generated/MILESTONES.md"])
+
+    def test_rows_and_header(self):
+        files = gen_milestones([VALID_MISC, VALID_CLOSE])
+        text = files["docs/generated/MILESTONES.md"]
+        self.assertTrue(text.startswith(GEN_HEADER))
+        self.assertIn("001-system-settings", text)
+        self.assertIn("bootstrap 完成", text)
+
+    def test_year_split(self):
+        old = dict(VALID_MISC); old["date"] = "2025-12-31"
+        files = gen_milestones([old, VALID_MISC])
+        self.assertIn("docs/generated/MILESTONES-2025.md", files)
+        self.assertIn("docs/generated/MILESTONES.md", files)
+        self.assertNotIn("2025-12-31", files["docs/generated/MILESTONES.md"])
+
+
+class TestGenDecisionsIndex(unittest.TestCase):
+    def test_empty(self):
+        self.assertIn("（尚無 ADR）", gen_decisions_index([]))
+
+    def test_sorted_by_id(self):
+        metas = [parse_front_matter(ADR_OK_B)[0], parse_front_matter(ADR_OK_A)[0]]
+        text = gen_decisions_index(metas)
+        self.assertLess(text.index("0001"), text.index("0002"))
+        self.assertIn("superseded", text)
+
+
+class TestGenState(unittest.TestCase):
+    CTX = {
+        "pins": {"web": "deadbeef00", "api": None},
+        "constitution_version": None,
+        "events": [VALID_MISC, VALID_MISC, VALID_MISC, VALID_CLOSE],
+        "adr_metas": [],
+        "backlog_count": 2, "backlog_next": 6,
+        "lessons_count": 101, "lessons_next": 102,
+    }
+
+    def test_contains_core_blocks(self):
+        text = gen_state(self.CTX)
+        self.assertTrue(text.startswith(GEN_HEADER))
+        self.assertIn("deadbee", text)          # pin 短 SHA
+        self.assertIn("未建置", text)            # api pin 缺
+        self.assertIn("未鑄", text)              # constitution 版本缺
+        self.assertIn("B-006", text)            # backlog next
+        self.assertIn("101", text)              # lessons count
+
+    def test_tail_three_events_newest_first(self):
+        text = gen_state(self.CTX)
+        self.assertIn("001-system-settings", text)   # 最新一筆（feature_close）
+        self.assertEqual(text.count("bootstrap 完成"), 2)  # 尾 3 筆只含 2 筆 misc
+
+    def test_within_budget(self):
+        self.assertLessEqual(token_count(gen_state(self.CTX)), 4000)
+
+
+class TestBackfill(unittest.TestCase):
+    def test_backfill_superseded_by_and_status(self):
+        a_head = ADR_OK_A.replace("superseded_by: [0002]", "superseded_by: []") \
+                          .replace("status: superseded", "status: accepted")
+        changed = backfill_supersessions({"0001-old.md": a_head, "0002-new.md": ADR_OK_B})
+        self.assertEqual(list(changed), ["0001-old.md"])
+        meta, body = parse_front_matter(changed["0001-old.md"])
+        self.assertEqual(meta["superseded_by"], ["0002"])
+        self.assertEqual(meta["status"], "superseded")
+        self.assertEqual(body, parse_front_matter(a_head)[1])  # body 一字不動
+
+    def test_noop_when_symmetric(self):
+        self.assertEqual(
+            backfill_supersessions({"0001-old.md": ADR_OK_A, "0002-new.md": ADR_OK_B}), {})
+
+
+class TestErrata(unittest.TestCase):
+    def test_hits_case_insensitive(self):
+        hits = errata_scan({"a.md": "有 Port 設定\n無關行\n", "b.md": "PORT 又見\n"}, "port")
+        self.assertEqual([(h[0], h[1]) for h in hits], [("a.md", 1), ("b.md", 1)])
+
+    def test_no_hits(self):
+        self.assertEqual(errata_scan({"a.md": "x\n"}, "沒有"), [])
+
+
+class TestCheckGenerated(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        os.makedirs(os.path.join(self.root, "docs/generated/reference"))
+        self.computed = {
+            "docs/generated/STATE.md": "內容A\n",
+            "docs/generated/reference/ports.md": "stub\n",
+        }
+        for rel, content in self.computed.items():
+            with open(os.path.join(self.root, rel), "w", encoding="utf-8") as fh:
+                fh.write(content)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_in_sync(self):
+        self.assertEqual(check_generated(self.root, self.computed), [])
+
+    def test_drift_detected(self):
+        with open(os.path.join(self.root, "docs/generated/STATE.md"), "w",
+                  encoding="utf-8") as fh:
+            fh.write("被手改\n")
+        f = check_generated(self.root, self.computed)
+        self.assertEqual(len(f), 1)
+        self.assertIn("STATE.md", f[0]["where"])
+
+    def test_missing_file(self):
+        os.remove(os.path.join(self.root, "docs/generated/reference/ports.md"))
+        f = check_generated(self.root, self.computed)
+        self.assertEqual(len(f), 1)
+
+    def test_extra_file(self):
+        with open(os.path.join(self.root, "docs/generated/EXTRA.md"), "w",
+                  encoding="utf-8") as fh:
+            fh.write("手加\n")
+        f = check_generated(self.root, self.computed)
+        self.assertEqual(len(f), 1)
+        self.assertIn("EXTRA", f[0]["where"])
+
+
+class TestLintLinks(unittest.TestCase):
+    PATHS = {"docs/ops/BACKLOG.md", "docs/arc42/ARCHITECTURE.md", "CLAUDE.md"}
+
+    def test_valid_relative_link(self):
+        f = lint_links({"CLAUDE.md": "[待辦](docs/ops/BACKLOG.md)\n"}, self.PATHS)
+        self.assertEqual(f, [])
+
+    def test_dead_link(self):
+        f = lint_links({"CLAUDE.md": "[死](docs/GONE.md)\n"}, self.PATHS)
+        self.assertEqual(len(f), 1)
+        self.assertIn("GONE", f[0]["msg"])
+
+    def test_relative_from_subdir(self):
+        f = lint_links({"docs/arc42/ARCHITECTURE.md": "[待辦](../ops/BACKLOG.md)\n"}, self.PATHS)
+        self.assertEqual(f, [])
+
+    def test_external_and_anchor_skipped(self):
+        text = "[a](https://x.dev) [b](mailto:x@y.z) [c](#節)\n"
+        self.assertEqual(lint_links({"CLAUDE.md": text}, self.PATHS), [])
+
+    def test_link_with_anchor_checks_file_part(self):
+        f = lint_links({"CLAUDE.md": "[x](docs/GONE.md#s)\n"}, self.PATHS)
+        self.assertEqual(len(f), 1)
+
+
+class TestLintLineRefs(unittest.TestCase):
+    def test_line_ref_flagged(self):
+        f = lint_line_refs({"docs/ops/NOTES.md": "詳 DESIGN.md:123 那段\n"})
+        self.assertEqual(len(f), 1)
+        self.assertEqual(f[0]["level"], ERROR)
+
+    def test_clean(self):
+        self.assertEqual(lint_line_refs({"docs/ops/NOTES.md": "詳活書 §5、CLAUDE.md§3。\n"}), [])
+
+
+class TestLintVolatileDeepLinks(unittest.TestCase):
+    def test_deep_link_to_backlog_anchor(self):
+        f = lint_volatile_deep_links({"CLAUDE.md": "[項](docs/ops/BACKLOG.md#b-021)\n"})
+        self.assertEqual(len(f), 1)
+        self.assertIn("整檔", f[0]["msg"])
+
+    def test_whole_file_link_ok(self):
+        f = lint_volatile_deep_links({"CLAUDE.md": "[待辦](docs/ops/BACKLOG.md)\n"})
+        self.assertEqual(f, [])
+
+    def test_state_and_notes_also_guarded(self):
+        f = lint_volatile_deep_links(
+            {"CLAUDE.md": "[a](docs/generated/STATE.md#x) [b](docs/ops/NOTES.md#y)\n"})
+        self.assertEqual(len(f), 2)
+
+
+class TestLintMemoryRefs(unittest.TestCase):
+    def test_memory_path_flagged(self):
+        f = lint_memory_refs({"docs/ops/NOTES.md": "見 ~/.claude/projects/x/memory/foo.md\n"})
+        self.assertEqual(len(f), 1)
+
+    def test_home_path_flagged(self):
+        f = lint_memory_refs({"CLAUDE.md": "見 /home/anew/.claude/memory/bar.md\n"})
+        self.assertEqual(len(f), 1)
+
+    def test_rev3_annotation_exempt(self):
+        self.assertEqual(
+            lint_memory_refs({"docs/ops/LESSONS.md": "｜出處：rev3:memory/foo-bar\n"}), [])
+
+
+class TestLintTense(unittest.TestCase):
+    def test_clean_book(self):
+        self.assertEqual(lint_tense("## §1 簡介\n系統現在長這樣。\n"), [])
+
+    def test_forbidden_words(self):
+        for word in ("待決", "TBD", "⏳", "已完成", "下一步"):
+            f = lint_tense(f"## §6 Runtime\n這件事{word}中。\n")
+            self.assertEqual(len(f), 1, msg=word)
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("去處", f[0]["msg"], msg=word)
+
+
+class TestLintDictionary(unittest.TestCase):
+    def test_rev3_codes_smuggled(self):
+        f = lint_dictionary({"CLAUDE.md": "沿用 ⚠️c 與 待決③ 以及 F-12 的結論\n"})
+        self.assertEqual(len(f), 3)
+        self.assertTrue(all(x["level"] == WARN for x in f))
+
+    def test_fast_changing_literals(self):
+        f = lint_dictionary({BOOK: "服務聽 port 9528、seed 密碼 123456。\n"})
+        self.assertEqual(len(f), 2)
+        self.assertTrue(all("generated/reference" in x["msg"] for x in f))
+
+    def test_provenance_line_exempt(self):
+        f = lint_dictionary({BOOK: "｜出處：rev3:DECISIONS§1-⚠️c＋待決③\n"})
+        self.assertEqual(f, [])
+
+    def test_clean(self):
+        self.assertEqual(lint_dictionary({"CLAUDE.md": "正常內容 §5 與 B-012。\n"}), [])
+
+class TestLintEvents(unittest.TestCase):
+    def test_valid_lines_pass(self):
+        self.assertEqual(lint_events(_jl(VALID_CLOSE, VALID_MISC, VALID_REVIEW)), [])
+
+    def test_empty_file_passes(self):
+        self.assertEqual(lint_events(""), [])
+
+    def test_bad_json(self):
+        f = lint_events("{not json\n")
+        self.assertEqual(len(f), 1)
+        self.assertEqual(f[0]["level"], ERROR)
+        self.assertIn("行 1", f[0]["where"])
+
+    def test_missing_required_field(self):
+        e = dict(VALID_CLOSE); e.pop("pins")
+        f = lint_events(_jl(e))
+        self.assertEqual(len(f), 1)
+        self.assertIn("pins", f[0]["msg"])
+
+    def test_unknown_type(self):
+        f = lint_events(_jl({"type": "nope", "date": "2026-07-02"}))
+        self.assertEqual(len(f), 1)
+        self.assertIn("nope", f[0]["msg"])
+
+    def test_arch_impact_none_ok(self):
+        e = dict(VALID_CLOSE); e["arch_impact"] = "none"
+        self.assertEqual(lint_events(_jl(e)), [])
+
+    def test_arch_impact_bad(self):
+        for bad in ("§6", ["x6"], []):
+            e = dict(VALID_CLOSE); e["arch_impact"] = bad
+            self.assertEqual(len(lint_events(_jl(e))), 1, msg=repr(bad))
+
+    def test_bad_date(self):
+        e = dict(VALID_MISC); e["date"] = "2026/07/02"
+        self.assertEqual(len(lint_events(_jl(e))), 1)
+
+    def test_bad_kind(self):
+        e = dict(VALID_CLOSE); e["kind"] = "diagonal"
+        self.assertEqual(len(lint_events(_jl(e))), 1)
+
+    def test_review_findings_sum(self):
+        e = json.loads(json.dumps(VALID_REVIEW)); e["findings"]["total"] = 5
+        f = lint_events(_jl(e))
+        self.assertEqual(len(f), 1)
+        self.assertIn("total", f[0]["msg"])
+
+    def test_blank_line_rejected(self):
+        f = lint_events(json.dumps(VALID_MISC) + "\n\n" + json.dumps(VALID_MISC) + "\n")
+        self.assertEqual(len(f), 1)
+
+
+class TestLintBudgets(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        for d in ("docs/ops", "docs/generated", "docs/arc42"):
+            os.makedirs(os.path.join(self.root, d))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _w(self, rel, content):
+        p = os.path.join(self.root, rel)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(content)
+
+    def test_all_missing_files_pass(self):
+        self.assertEqual(lint_budgets(self.root), [])
+
+    def test_notes_over_40_lines(self):
+        self._w("docs/ops/NOTES.md", "x\n" * 41)
+        f = lint_budgets(self.root)
+        self.assertEqual([x["code"] for x in f], ["L7"])
+        self.assertEqual(f[0]["level"], ERROR)
+
+    def test_notes_at_40_lines_ok(self):
+        self._w("docs/ops/NOTES.md", "x\n" * 40)
+        self.assertEqual(lint_budgets(self.root), [])
+
+    def test_state_over_4k_tokens(self):
+        self._w("docs/generated/STATE.md", "字" * 4001 * 1)  # 4001 chars ×3 bytes → >4000 tokens
+        f = lint_budgets(self.root)
+        self.assertEqual(len(f), 1)
+        self.assertEqual(f[0]["level"], ERROR)
+
+    def test_lessons_warn_near_limit(self):
+        self._w("docs/ops/LESSONS.md", "字" * 22600)  # ~22600 tokens：警告未達硬擋
+        f = lint_budgets(self.root)
+        self.assertEqual([x["level"] for x in f], [WARN])
+
+    def test_lessons_volume_files_also_checked(self):
+        self._w("docs/ops/LESSONS-001-050.md", "字" * 25100)
+        f = lint_budgets(self.root)
+        self.assertEqual([x["level"] for x in f], [ERROR])
+
+    def test_architecture_section_quota_warn(self):
+        body = "## §1 簡介與目標\n" + "內容\n" * 41 + "## §2 約束\n內容\n"
+        self._w("docs/arc42/ARCHITECTURE.md", body)
+        f = lint_budgets(self.root)
+        self.assertEqual([x["level"] for x in f], [WARN])
+        self.assertIn("§1", f[0]["msg"])
+
+    def test_architecture_over_700_lines_error(self):
+        self._w("docs/arc42/ARCHITECTURE.md", "## §1 簡介與目標\n" + "x\n" * 700)
+        levels = [x["level"] for x in lint_budgets(self.root)]
+        self.assertIn(ERROR, levels)
+
+
+class TestTokenCount(unittest.TestCase):
+    """鎖定 token 算法：UTF-8 bytes ÷ 3。"""
+
+    def test_ascii(self):
+        self.assertEqual(token_count("abc"), 1)      # 3 bytes → 1
+
+    def test_empty(self):
+        self.assertEqual(token_count(""), 0)
+
+    def test_cjk(self):
+        self.assertEqual(token_count("中文字"), 3)    # 9 bytes → 3
+
+    def test_mixed_floor(self):
+        self.assertEqual(token_count("ab"), 0)       # 2 bytes → 0（整數除法）
+        self.assertEqual(token_count("abcd"), 1)     # 4 bytes → 1
+
+
+class TestFrontMatter(unittest.TestCase):
+    ADR = (
+        "---\n"
+        'id: "0007"\n'
+        "title: 測試決策\n"
+        "date: 2026-07-02\n"
+        "status: accepted\n"
+        "feature: 001-demo\n"
+        "supersedes: [0003, 0004]\n"
+        "superseded_by: []\n"
+        "tags: [auth]\n"
+        "---\n"
+        "\n## 背景\n內文\n"
+    )
+
+    def test_basic_fields(self):
+        meta, body = parse_front_matter(self.ADR)
+        self.assertEqual(meta["id"], "0007")
+        self.assertEqual(meta["title"], "測試決策")
+        self.assertEqual(meta["status"], "accepted")
+
+    def test_flow_lists(self):
+        meta, _ = parse_front_matter(self.ADR)
+        self.assertEqual(meta["supersedes"], ["0003", "0004"])
+        self.assertEqual(meta["superseded_by"], [])
+
+    def test_body_preserved(self):
+        _, body = parse_front_matter(self.ADR)
+        self.assertEqual(body, "\n## 背景\n內文\n")
+
+    def test_no_front_matter(self):
+        meta, body = parse_front_matter("# 純文件\n")
+        self.assertEqual(meta, {})
+        self.assertEqual(body, "# 純文件\n")
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def main(argv):
+    if len(argv) < 2:
+        print(__doc__)
+        return 2
+    cmd = argv[1]
+    if cmd == "test":
+        result = unittest.main(argv=[argv[0]], exit=False, verbosity=1).result
+        return 0 if result.wasSuccessful() else 1
+    if cmd == "lint":
+        return cmd_lint()
+    if cmd == "generate":
+        return cmd_generate()
+    if cmd == "check":
+        return cmd_check()
+    if cmd == "errata":
+        if len(argv) < 3:
+            print("用法：docs-sync errata <關鍵詞>", file=sys.stderr)
+            return 2
+        return cmd_errata(argv[2])
+    print(f"未知子命令：{cmd}", file=sys.stderr)
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
