@@ -106,8 +106,15 @@ EVENT_SCHEMAS = {
 }
 
 
+def _id_list_ok(v, pattern):
+    return (isinstance(v, list)
+            and all(isinstance(x, str) and pattern.fullmatch(x) for x in v))
+
+
 def _check_event(e):
     """單筆事件的欄位驗證；回錯誤訊息 list。"""
+    if not isinstance(e, dict):
+        return ["事件須為 JSON object（一行一事件）"]
     errs = []
     etype = e.get("type")
     schema = EVENT_SCHEMAS.get(etype)
@@ -133,17 +140,16 @@ def _check_event(e):
         if not (isinstance(pins, dict) and set(pins) == {"web", "api"}
                 and all(RE_SHA.fullmatch(str(v)) for v in pins.values())):
             errs.append('pins 須為 {"web": SHA, "api": SHA}')
-        if not (isinstance(e["adrs"], list)
-                and all(RE_ADR_ID.fullmatch(str(x)) for x in e["adrs"])):
-            errs.append("adrs 須為 4 位 ADR 編號 list（可空）")
+        if not _id_list_ok(e["adrs"], RE_ADR_ID):
+            errs.append("adrs 須為 4 位 ADR 編號字串 list（可空）")
         ai = e["arch_impact"]
         if not (ai == "none" or (isinstance(ai, list) and ai
-                                 and all(RE_SECTION.fullmatch(str(x)) for x in ai))):
+                                 and all(isinstance(x, str) and RE_SECTION.fullmatch(x)
+                                         for x in ai))):
             errs.append('arch_impact 須為 ["§N", …] 或 "none"')
         for k in ("backlog_add", "backlog_done"):
-            if not (isinstance(e[k], list)
-                    and all(RE_BID.fullmatch(str(x)) for x in e[k])):
-                errs.append(f"{k} 須為 B-NNN list（可空）")
+            if not _id_list_ok(e[k], RE_BID):
+                errs.append(f"{k} 須為 B-NNN 字串 list（可空）")
         if "kind" in e and e["kind"] not in ("vertical", "horizontal"):
             errs.append('kind 須為 "vertical"|"horizontal"')
         if "spec_supersessions" in e:
@@ -156,19 +162,28 @@ def _check_event(e):
         fd = e["findings"]
         if not (isinstance(fd, dict)
                 and set(fd) == {"total", "fixed", "to_backlog", "wontfix_adr"}
-                and isinstance(fd.get("total"), int) and isinstance(fd.get("fixed"), int)
-                and isinstance(fd.get("to_backlog"), list)
-                and isinstance(fd.get("wontfix_adr"), list)):
-            errs.append("findings 須為 {total, fixed, to_backlog[], wontfix_adr[]}")
+                and isinstance(fd.get("total"), int) and fd["total"] >= 0
+                and isinstance(fd.get("fixed"), int) and fd["fixed"] >= 0
+                and _id_list_ok(fd.get("to_backlog"), RE_BID)
+                and _id_list_ok(fd.get("wontfix_adr"), RE_ADR_ID)):
+            errs.append("findings 須為 {total≥0, fixed≥0, to_backlog[B-NNN…], wontfix_adr[00NN…]}")
         elif fd["fixed"] + len(fd["to_backlog"]) + len(fd["wontfix_adr"]) != fd["total"]:
             errs.append("findings 分流不守恆：fixed＋len(to_backlog)＋len(wontfix_adr) 須＝total")
     return errs
 
 
+def _jsonl_lines(text):
+    """jsonl 行界只認 \\n（splitlines 會在 U+2028 等處誤切合法 JSON 字串）。"""
+    lines = (text or "").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return [l.rstrip("\r") for l in lines]
+
+
 def lint_events(text):
     """L3：ops/events.jsonl 逐行 JSON Schema 驗證。回 findings list。"""
     out = []
-    for n, line in enumerate(text.splitlines(), start=1):
+    for n, line in enumerate(_jsonl_lines(text), start=1):
         where = f"{EVENTS}:行 {n}"
         if not line.strip():
             out.append(finding(ERROR, "L3", where, "不得有空行（jsonl 一行一事件）"))
@@ -203,7 +218,7 @@ def _read(root, rel):
     p = os.path.join(root, rel)
     if not os.path.isfile(p):
         return None
-    with open(p, encoding="utf-8") as fh:
+    with open(p, encoding="utf-8-sig") as fh:  # -sig：吞 BOM（Windows 編輯器常見）
         return fh.read()
 
 
@@ -241,19 +256,7 @@ def lint_budgets(root):
     # 活書單節配額（警告級）
     book = _read(root, BOOK)
     if book is not None:
-        sec, count = None, 0
-        counts = {}
-        for line in book.splitlines():
-            m = RE_BOOK_SECTION.match(line)
-            if m:
-                if sec is not None:
-                    counts[sec] = count
-                sec, count = int(m.group(1)), 0
-            elif sec is not None:
-                count += 1
-        if sec is not None:
-            counts[sec] = count
-        for sec, count in counts.items():
+        for sec, count in book_section_lines(book).items():
             quota = SECTION_QUOTAS.get(sec)
             if quota is not None and count > quota:
                 out.append(finding(WARN, "L7", BOOK,
@@ -276,6 +279,10 @@ ADR_MUTABLE_AFTER_ACCEPT = ("superseded_by",)
 def _adr_list(meta, key):
     v = meta.get(key, [])
     return v if isinstance(v, list) else None
+
+
+def _valid_adr_id(v):
+    return isinstance(v, str) and bool(RE_ADR_ID.fullmatch(v))
 
 
 def lint_adrs(adrs, head_adrs, amend=False):
@@ -304,9 +311,9 @@ def lint_adrs(adrs, head_adrs, amend=False):
         if status is not None and status not in ADR_STATUSES:
             out.append(finding(ERROR, "L8", where,
                                f"status 須為 {'|'.join(ADR_STATUSES)}：{status!r}"))
-        if "id" in meta and not RE_ADR_ID.fullmatch(str(meta["id"])):
-            out.append(finding(ERROR, "L8", where, f"id 須為 4 位數字：{meta['id']!r}"))
-        if m and meta.get("id") and meta["id"] != m.group(1):
+        if "id" in meta and not _valid_adr_id(meta["id"]):
+            out.append(finding(ERROR, "L8", where, f"id 須為 4 位數字字串：{meta['id']!r}"))
+        if m and _valid_adr_id(meta.get("id")) and meta["id"] != m.group(1):
             out.append(finding(ERROR, "L8", where,
                                f"id「{meta['id']}」與檔名編號「{m.group(1)}」不一致（編號＝檔名）"))
         if "date" in meta and not RE_DATE.fullmatch(str(meta["date"])):
@@ -315,7 +322,24 @@ def lint_adrs(adrs, head_adrs, amend=False):
             v = _adr_list(meta, k)
             if v is None or not all(RE_ADR_ID.fullmatch(str(x)) for x in v):
                 out.append(finding(ERROR, "L8", where, f"{k} 須為 4 位 ADR 編號 list"))
-    by_id = {meta["id"]: (fn, meta) for fn, (meta, _) in metas.items() if meta.get("id")}
+        if "feature" in meta and not isinstance(meta.get("feature"), str):
+            out.append(finding(ERROR, "L8", where, "feature 須為字串"))
+        if "provenance" in meta and not isinstance(meta.get("provenance"), str):
+            out.append(finding(ERROR, "L8", where, "provenance 須為字串"))
+        if "tags" in meta and not isinstance(meta.get("tags"), list):
+            out.append(finding(ERROR, "L8", where, "tags 須為 list"))
+    # 撞號偵測（同號不同 slug 的 merge 不會產生 git 衝突、必須 lint 抓）
+    seen_ids = {}
+    for fn, (meta, _) in sorted(metas.items()):
+        i = meta.get("id")
+        if _valid_adr_id(i):
+            if i in seen_ids:
+                out.append(finding(ERROR, "L8", f"{ADR_DIR}/{fn}",
+                                   f"id「{i}」與 {seen_ids[i]} 重複配號（編號永不重用）"))
+            else:
+                seen_ids[i] = fn
+    by_id = {meta["id"]: (fn, meta) for fn, (meta, _) in metas.items()
+             if _valid_adr_id(meta.get("id"))}
     for fn, (meta, _) in sorted(metas.items()):
         where = f"{ADR_DIR}/{fn}"
         my_id = meta.get("id")
@@ -339,30 +363,29 @@ def lint_adrs(adrs, head_adrs, amend=False):
             elif my_id and my_id not in (_adr_list(by_id[x][1], "supersedes") or []):
                 out.append(finding(ERROR, "L8", where,
                                    f"superseded_by 對稱缺口：ADR {x} 未宣告 supersedes「{my_id}」"))
-    if not amend:
-        for fn, head_text in sorted(head_adrs.items()):
-            if fn not in adrs:
+    for fn, head_text in sorted(head_adrs.items()):
+        if fn not in adrs:
+            continue
+        hmeta, hbody = parse_front_matter(head_text)
+        if hmeta.get("status") != "accepted":
+            continue
+        where = f"{ADR_DIR}/{fn}"
+        cmeta, cbody = metas[fn]
+        if cbody != hbody and not amend:  # amend 僅豁免 body 的 typo 級修正
+            out.append(finding(ERROR, "L8", where,
+                               "accepted 後 body 不可變（typo 級修正：commit message 帶"
+                               " [adr-amend] 並設 DOCS_SYNC_ADR_AMEND=1）"))
+        for k in sorted(set(hmeta) | set(cmeta)):
+            if k in ADR_MUTABLE_AFTER_ACCEPT:
                 continue
-            hmeta, hbody = parse_front_matter(head_text)
-            if hmeta.get("status") != "accepted":
-                continue
-            where = f"{ADR_DIR}/{fn}"
-            cmeta, cbody = metas[fn]
-            if cbody != hbody:
-                out.append(finding(ERROR, "L8", where,
-                                   "accepted 後 body 不可變（typo 級修正：commit message 帶"
-                                   " [adr-amend] 並設 DOCS_SYNC_ADR_AMEND=1）"))
-            for k in sorted(set(hmeta) | set(cmeta)):
-                if k in ADR_MUTABLE_AFTER_ACCEPT:
-                    continue
-                if k == "status":
-                    if cmeta.get(k) not in ("accepted", "superseded"):
-                        out.append(finding(ERROR, "L8", where,
-                                           "accepted 的 status 僅可轉 superseded"))
-                    continue
-                if hmeta.get(k) != cmeta.get(k):
+            if k == "status":
+                if cmeta.get(k) not in ("accepted", "superseded"):
                     out.append(finding(ERROR, "L8", where,
-                                       f"accepted 後 front-matter 欄「{k}」不可變"))
+                                       "accepted 的 status 僅可轉 superseded"))
+                continue
+            if hmeta.get(k) != cmeta.get(k):
+                out.append(finding(ERROR, "L8", where,
+                                   f"accepted 後 front-matter 欄「{k}」不可變"))
     return out
 
 
@@ -443,20 +466,23 @@ DICT_PATTERNS = (
     (re.compile(r"\bF-\d+\b"), "rev3 流水碼走私", "內容過境、編號不過境——改寫為自解釋描述"),
     (re.compile(r"(?i)\bport\s*[:=]?\s*\d{2,5}\b"), "port 實值",
      "快變字面值不入活文件→ docs/generated/reference/ports.md"),
-    (re.compile(r"123456"), "seed 密碼實值",
+    (re.compile(r"(?<![0-9a-fA-F])123456(?![0-9a-fA-F])"), "seed 密碼實值",
      "快變字面值不入活文件→ docs/generated/reference/accounts.md"),
+    (re.compile(r"(?i)(?:routes?|路由|端點|endpoints?)\D{0,8}?\d+"
+                r"|\d+\s*(?:條|個|支)?\s*(?:routes?|路由|端點|endpoints?)"), "route 計數實值",
+     "快變字面值不入活文件→ docs/generated/reference/routes.md"),
 )
 
 
 def lint_dictionary(texts):
     """L11：禁入詞典（警告級）。texts＝{rel: 全文}，掃活書＋CLAUDE.md。
 
-    含「｜出處：」的行（rev3 史料標註）整行豁免。
+    「｜出處：」起始的行（rev3 史料標註）整行豁免——僅行首、行中不豁免。
     """
     out = []
     for rel, text in sorted(texts.items()):
         for n, line in enumerate((text or "").splitlines(), start=1):
-            if "｜出處：" in line:
+            if line.lstrip().startswith("｜出處："):
                 continue
             for pat, label, hint in DICT_PATTERNS:
                 for m in pat.finditer(line):
@@ -570,14 +596,23 @@ MILESTONE_TABLE_HEAD = ("| date | type | 標的 | summary | merge | adrs | arch 
 
 
 def gen_milestones(events):
-    """MILESTONES ← 全 events 表格化、按年分卷。回 {rel: content}。"""
-    by_year = {}
+    """MILESTONES ← 全 events 表格化、按年分卷。回 {rel: content}。
+
+    date 畸形的事件（generate 走寬鬆解析、不等 L3）一律留在主卷，
+    不得以字串序劫走 max(year) 的主卷位置。
+    """
+    by_year, stray = {}, []
     for e in events:
-        by_year.setdefault(str(e.get("date", "????"))[:4], []).append(e)
-    if not by_year:
+        d = str(e.get("date", ""))
+        if RE_DATE.fullmatch(d):
+            by_year.setdefault(d[:4], []).append(e)
+        else:
+            stray.append(e)
+    if not by_year and not stray:
         return {f"{GENERATED_DIR}/MILESTONES.md":
                 f"{GEN_HEADER}\n# MILESTONES — 全事件表\n\n（尚無事件）\n"}
-    cur = max(by_year)
+    cur = max(by_year) if by_year else "？"
+    by_year.setdefault(cur, []).extend(stray)
     out = {}
     for year, evs in by_year.items():
         rel = (f"{GENERATED_DIR}/MILESTONES.md" if year == cur
@@ -685,9 +720,11 @@ def backfill_supersessions(adrs):
     adrs＝{filename: 全文}；回 {filename: 新全文}（僅含需要改的檔）。
     """
     metas = {fn: parse_front_matter(text)[0] for fn, text in adrs.items()}
-    by_id = {m["id"]: fn for fn, m in metas.items() if m.get("id")}
+    by_id = {m["id"]: fn for fn, m in metas.items() if _valid_adr_id(m.get("id"))}
     changed = {}
     for fn, m in sorted(metas.items()):
+        if not _valid_adr_id(m.get("id")):
+            continue  # 缺 id／畸形 id 由 L8 報，此處不崩
         for x in (_adr_list(m, "supersedes") or []):
             tfn = by_id.get(str(x))
             if tfn is None:
@@ -751,20 +788,26 @@ def _is_exempt(rel):
     return any(rel == p or rel.startswith(p) for p in HISTORICAL_EXEMPT)
 
 
-def git_out(args):
+def git_out(args, cwd):
     try:
-        r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+        r = subprocess.run(["git", "-c", "core.quotepath=off", *args], cwd=cwd,
+                           capture_output=True, encoding="utf-8", errors="replace")
     except OSError:
         return None
     return r.stdout if r.returncode == 0 else None
 
 
-def head_file(rel):
-    return git_out(["show", f"HEAD:{rel}"])
+def git_available(root):
+    """守門工具的 fail-closed 前提：git 本體與 repo 必須可用。"""
+    return git_out(["rev-parse", "--git-dir"], root) is not None
 
 
-def index_pins():
-    out = git_out(["ls-files", "-s", "--", "base-web", "rust-api"]) or ""
+def head_file(rel, root):
+    return git_out(["show", f"HEAD:{rel}"], root)
+
+
+def index_pins(root):
+    out = git_out(["ls-files", "-s", "--", "base-web", "rust-api"], root) or ""
     pins = {"web": None, "api": None}
     for line in out.splitlines():
         parts = line.split()
@@ -774,8 +817,14 @@ def index_pins():
     return {"web": pins.get("web"), "api": pins.get("api")}
 
 
-def tracked_files():
-    return [l for l in (git_out(["ls-files"]) or "").splitlines() if l]
+def tracked_files(root):
+    return [l for l in (git_out(["ls-files"], root) or "").splitlines() if l]
+
+
+def unstaged_generated(root):
+    """generated/ 的 working tree 與 index 落差（跑了 generate 忘了 git add）。"""
+    out = git_out(["diff", "--name-only", "--", GENERATED_DIR], root)
+    return [l for l in (out or "").splitlines() if l]
 
 
 def constitution_version(root):
@@ -794,15 +843,37 @@ def load_adrs(root):
             for n in sorted(os.listdir(d)) if n.endswith(".md")}
 
 
-def load_head_adrs():
-    out = git_out(["ls-tree", "--name-only", "HEAD", f"{ADR_DIR}/"]) or ""
-    head = {}
-    for path in out.splitlines():
-        name = os.path.basename(path)
-        if name.endswith(".md"):
-            t = head_file(path)
-            if t is not None:
-                head[name] = t
+def load_head_adrs(root):
+    """HEAD 版 ADR 全載——單支 cat-file --batch（ADR 數量只增不減、逐檔 git show 會吃穿秒級預算）。"""
+    out = git_out(["ls-tree", "HEAD", f"{ADR_DIR}/"], root) or ""
+    entries = []
+    for line in out.splitlines():
+        if "\t" not in line:
+            continue
+        meta_part, path = line.split("\t", 1)
+        parts = meta_part.split()
+        if len(parts) == 3 and parts[1] == "blob" and path.endswith(".md"):
+            entries.append((parts[2], os.path.basename(path)))
+    if not entries:
+        return {}
+    try:
+        r = subprocess.run(["git", "cat-file", "--batch"], cwd=root,
+                           input="\n".join(oid for oid, _ in entries).encode(),
+                           capture_output=True)
+    except OSError:
+        return {}
+    if r.returncode != 0:
+        return {}
+    head, buf, pos = {}, r.stdout, 0
+    for _, name in entries:
+        nl = buf.index(b"\n", pos)
+        hdr = buf[pos:nl].decode("utf-8", errors="replace").split()
+        if len(hdr) != 3 or hdr[1] != "blob":
+            pos = nl + 1
+            continue
+        size = int(hdr[2])
+        head[name] = buf[nl + 1: nl + 1 + size].decode("utf-8", errors="replace")
+        pos = nl + 1 + size + 1
     return head
 
 
@@ -820,14 +891,16 @@ def gen_reference_stub(name):
 
 
 def parse_events_loose(text):
-    """generate 用的寬鬆解析（壞行跳過——擋壞行是 L3 的職責）。"""
+    """generate 用的寬鬆解析（壞行、非 object 行跳過——擋壞行是 L3 的職責）。"""
     events = []
-    for line in (text or "").splitlines():
+    for line in _jsonl_lines(text or ""):
         if line.strip():
             try:
-                events.append(json.loads(line))
+                e = json.loads(line)
             except json.JSONDecodeError:
-                pass
+                continue
+            if isinstance(e, dict):
+                events.append(e)
     return events
 
 
@@ -838,7 +911,7 @@ def compute_generated(root):
     backlog = _read(root, BACKLOG) or ""
     lessons_texts = [(_read(root, rel) or "") for rel in lessons_paths(root)]
     ctx = {
-        "pins": index_pins(),
+        "pins": index_pins(root),
         "constitution_version": constitution_version(root),
         "events": events,
         "adr_metas": metas,
@@ -858,31 +931,34 @@ def compute_generated(root):
 
 
 def run_lint(root):
-    """組裝 L3／L7~L15 全套。回 findings。"""
+    """組裝 L3／L7~L15 全套。回 findings。git 不可用＝fail-closed 單發 ERROR。"""
+    if not git_available(root):
+        return [finding(ERROR, "L1", ".",
+                        "git 不可用——HEAD 基線與掃描語料無法建立，lint fail-closed（修復 git 後重跑）")]
     findings = []
     findings += lint_events(_read(root, EVENTS) or "")
     findings += lint_budgets(root)
     amend = os.environ.get("DOCS_SYNC_ADR_AMEND") == "1"
-    findings += lint_adrs(load_adrs(root), load_head_adrs(), amend=amend)
-    findings += lint_ids("B", [_read(root, BACKLOG) or ""], [head_file(BACKLOG)])
+    findings += lint_adrs(load_adrs(root), load_head_adrs(root), amend=amend)
+    findings += lint_ids("B", [_read(root, BACKLOG) or ""], [head_file(BACKLOG, root)])
     lpaths = lessons_paths(root)
     findings += lint_ids("L", [(_read(root, p) or "") for p in lpaths],
-                         [head_file(p) for p in lpaths])
+                         [head_file(p, root) for p in lpaths])
     book = _read(root, BOOK)
     if book is not None:
         findings += lint_tense(book)
     findings += lint_dictionary(
         {rel: _read(root, rel) for rel in (BOOK, "CLAUDE.md")
          if _read(root, rel) is not None})
-    tracked = tracked_files()
-    md_all = [f for f in tracked if f.endswith(".md") and not _is_exempt(f)]
-    md_texts = {rel: _read(root, rel) or "" for rel in md_all}
-    untracked = [l for l in (git_out(["ls-files", "--others", "--exclude-standard"]) or "").splitlines() if l]
+    # G4 引用健康：L12~L15 同一語料＝全 tracked md 扣史料豁免（specs/、reviews/ 都在內）
+    tracked = tracked_files(root)
+    md_texts = {rel: _read(root, rel) or ""
+                for rel in tracked if rel.endswith(".md") and not _is_exempt(rel)}
+    untracked = [l for l in (git_out(["ls-files", "--others", "--exclude-standard"], root)
+                             or "").splitlines() if l]
     findings += lint_links(md_texts, set(tracked) | set(untracked))
-    living = {rel: text for rel, text in md_texts.items()
-              if rel == "CLAUDE.md" or rel.startswith(("docs/arc42/", "docs/ops/", "docs/generated/"))}
-    findings += lint_line_refs(living)
-    findings += lint_volatile_deep_links(living)
+    findings += lint_line_refs(md_texts)
+    findings += lint_volatile_deep_links(md_texts)
     findings += lint_memory_refs(md_texts)
     return findings
 
@@ -892,15 +968,40 @@ def print_findings(findings):
         print(f"[{f['level']}] {f['code']}｜{f['where']}｜{f['msg']}")
 
 
+def book_section_lines(book_text):
+    """活書各節行數（§3.2 更新契約 3：每 commit 輸出各節行數表）。"""
+    sec, count, counts = None, 0, {}
+    for line in book_text.splitlines():
+        m = RE_BOOK_SECTION.match(line)
+        if m:
+            if sec is not None:
+                counts[sec] = count
+            sec, count = int(m.group(1)), 0
+        elif sec is not None:
+            count += 1
+    if sec is not None:
+        counts[sec] = count
+    return counts
+
+
 def cmd_lint():
     findings = run_lint(ROOT)
     print_findings(findings)
+    book = _read(ROOT, BOOK)
+    if book is not None:
+        cells = [f"§{s} {n}/{SECTION_QUOTAS.get(s, '—')}"
+                 for s, n in sorted(book_section_lines(book).items())]
+        print("活書各節行數：" + "｜".join(cells))
     errors = [f for f in findings if f["level"] == ERROR]
     print(f"lint：{len(errors)} 錯誤／{len(findings) - len(errors)} 警告")
     return 1 if errors else 0
 
 
 def cmd_generate():
+    if not git_available(ROOT):
+        print("[ERROR] git 不可用——pins 等 git 來源無法讀取，generate 中止（fail-closed）",
+              file=sys.stderr)
+        return 1
     adrs = load_adrs(ROOT)
     for fn, text in sorted(backfill_supersessions(adrs).items()):
         path = os.path.join(ROOT, ADR_DIR, fn)
@@ -926,11 +1027,18 @@ def cmd_generate():
 
 
 def cmd_check():
+    if not git_available(ROOT):
+        print("[ERROR] git 不可用——check 無法建立比對基線，fail-closed", file=sys.stderr)
+        return 1
     findings = check_generated(ROOT, compute_generated(ROOT))
     pending = backfill_supersessions(load_adrs(ROOT))
     for fn in sorted(pending):
         findings.append(finding(ERROR, "L1", f"{ADR_DIR}/{fn}",
                                 "supersedes 對稱回填待跑（tools/docs-sync generate）"))
+    for rel in unstaged_generated(ROOT):
+        findings.append(finding(ERROR, "L1", rel,
+                                "generated/ 有未 staged 變更（跑了 generate 忘了 git add——"
+                                "staged 內容過期，入版即漂移）"))
     print_findings(findings)
     print(f"check：{'不一致 ' + str(len(findings)) + ' 處' if findings else '一致'}")
     return 1 if findings else 0
@@ -1479,6 +1587,143 @@ class TestFrontMatter(unittest.TestCase):
         self.assertEqual(body, "# 純文件\n")
 
 
+class TestReviewFixes(unittest.TestCase):
+    """B4 對抗式 review 的 CONFIRMED findings 回歸測試。"""
+
+    # --- 崩潰型 ---
+    def test_event_non_object_line_is_finding_not_crash(self):
+        for bad in ("123", '"text"', "[1,2]", "null"):
+            f = lint_events(bad + "\n")
+            self.assertEqual(len(f), 1, msg=bad)
+            self.assertIn("object", f[0]["msg"])
+        self.assertEqual(parse_events_loose('[1,2]\n{"type":"misc"}\n'), [{"type": "misc"}])
+
+    def test_adr_id_as_list_no_crash(self):
+        bad = ADR_OK_B.replace('id: "0002"', "id: [0002]")
+        f = lint_adrs({"0002-new.md": bad, "0001-old.md": ADR_OK_A}, {})
+        self.assertTrue(any("id" in x["msg"] for x in f))  # 有 finding、無 TypeError
+
+    def test_backfill_skips_adr_without_id(self):
+        no_id = "---\ntitle: 無 id\ndate: 2026-07-09\nstatus: draft\nsupersedes: [0001]\n---\nbody\n"
+        changed = backfill_supersessions({"0001-old.md": ADR_OK_A, "0003-x.md": no_id})
+        self.assertNotIn("0003-x.md", changed)  # 不崩潰；缺 id 由 L8 報
+
+    def test_l3_int_adrs_rejected(self):
+        e = dict(VALID_CLOSE); e["adrs"] = [1234]
+        self.assertEqual(len(lint_events(_jl(e))), 1)
+
+    def test_adr_duplicate_id_detected(self):
+        a = ADR_OK_A.replace("supersedes: []", "supersedes: []").replace(
+            'id: "0001"', 'id: "0002"').replace("status: superseded", "status: draft") \
+            .replace("superseded_by: [0002]", "superseded_by: []")
+        f = lint_adrs({"0002-foo.md": a.replace("0002-", ""),
+                       "0002-new.md": ADR_OK_B.replace("supersedes: [0001]", "supersedes: []")}, {})
+        self.assertTrue(any("重複" in x["msg"] for x in f))
+
+    # --- L3 review findings 元素驗證 ---
+    def test_review_findings_elements_validated(self):
+        e = json.loads(json.dumps(VALID_REVIEW))
+        e["findings"] = {"total": 2, "fixed": 0, "to_backlog": ["banana", "B-009"],
+                         "wontfix_adr": []}
+        self.assertEqual(len(lint_events(_jl(e))), 1)
+        e["findings"] = {"total": -1, "fixed": -1, "to_backlog": [], "wontfix_adr": []}
+        self.assertEqual(len(lint_events(_jl(e))), 1)
+
+    # --- L11 ---
+    def test_l11_exemption_only_line_initial(self):
+        f = lint_dictionary({BOOK: "沿用 ⚠️c 的結論做 X｜出處：rev3:DECISIONS§1\n"})
+        self.assertEqual(len(f), 1)  # 行中出處標註不豁免
+        self.assertEqual(lint_dictionary({BOOK: "｜出處：rev3:DECISIONS§1-⚠️c\n"}), [])
+
+    def test_l11_route_count_pattern(self):
+        f = lint_dictionary({BOOK: "全站共 54 條路由。\n"})
+        self.assertEqual(len(f), 1)
+        self.assertIn("route", f[0]["msg"].lower() + "route")  # 有命中即可
+
+    def test_l11_seed_password_boundary(self):
+        self.assertEqual(lint_dictionary({BOOK: "對照 commit a1234567 的變更。\n"}), [])
+        self.assertEqual(len(lint_dictionary({BOOK: "密碼123456。\n"})), 1)
+
+    # --- L8 ---
+    def test_l8_optional_field_types_validated(self):
+        bad = ADR_OK_B.replace("supersedes: [0001]", "supersedes: []") \
+                      .replace("superseded_by: []", "superseded_by: []\ntags: notalist")
+        f = lint_adrs({"0002-new.md": bad}, {})
+        self.assertTrue(any("tags" in x["msg"] for x in f))
+
+    def test_amend_only_exempts_body(self):
+        cur = ADR_OK_B.replace("title: 乙決策", "title: 被改名") \
+                      .replace("新案。", "順便改 body。")
+        f = lint_adrs({"0001-old.md": ADR_OK_A, "0002-new.md": cur},
+                      {"0001-old.md": ADR_OK_A, "0002-new.md": ADR_OK_B}, amend=True)
+        self.assertEqual(len(f), 1)  # body 豁免、title 不豁免
+        self.assertIn("title", f[0]["msg"])
+
+    # --- 事件行界與編碼 ---
+    def test_u2028_inside_event_string_ok(self):
+        e = dict(VALID_MISC); e["summary"] = "前 後"
+        self.assertEqual(lint_events(_jl(e)), [])
+        self.assertEqual(len(parse_events_loose(_jl(e))), 1)
+
+    def test_read_strips_bom(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "x.md"), "w", encoding="utf-8-sig") as fh:
+                fh.write("---\nid: \"0001\"\n---\nbody\n")
+            text = _read(d, "x.md")
+        self.assertTrue(text.startswith("---"))
+
+    # --- MILESTONES 壞 date ---
+    def test_milestones_bad_date_stays_in_main_volume(self):
+        bad = dict(VALID_MISC); bad["date"] = "not-a-date"
+        files = gen_milestones([VALID_MISC, bad])
+        self.assertEqual(set(files), {"docs/generated/MILESTONES.md"})
+        self.assertIn("bootstrap 完成", files["docs/generated/MILESTONES.md"])
+        self.assertIn("not-a-date", files["docs/generated/MILESTONES.md"])
+
+
+class TestGitIntegration(unittest.TestCase):
+    """git 介接：fail-closed 閘、HEAD 批次載入、staged 落差偵測（用臨時 git repo）。"""
+
+    def _init_repo(self, d):
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        def g(*args):
+            r = subprocess.run(["git", *args], cwd=d, capture_output=True, text=True, env=env)
+            assert r.returncode == 0, r.stderr
+        g("init", "-q", "-b", "main")
+        os.makedirs(os.path.join(d, ADR_DIR))
+        os.makedirs(os.path.join(d, "docs/generated"))
+        with open(os.path.join(d, ADR_DIR, "0001-x.md"), "w", encoding="utf-8") as fh:
+            fh.write(ADR_OK_A)
+        with open(os.path.join(d, "docs/generated/STATE.md"), "w", encoding="utf-8") as fh:
+            fh.write("v1\n")
+        g("add", "-A")
+        g("commit", "-qm", "init")
+        return g
+
+    def test_lint_fails_closed_without_git(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = run_lint(d)
+            self.assertEqual(len(f), 1)
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("git", f[0]["msg"])
+
+    def test_load_head_adrs_batch(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._init_repo(d)
+            head = load_head_adrs(d)
+            self.assertEqual(list(head), ["0001-x.md"])
+            self.assertEqual(head["0001-x.md"], ADR_OK_A)
+
+    def test_unstaged_generated_detected(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._init_repo(d)
+            self.assertEqual(unstaged_generated(d), [])
+            with open(os.path.join(d, "docs/generated/STATE.md"), "w", encoding="utf-8") as fh:
+                fh.write("v2（generate 過但沒 git add）\n")
+            self.assertEqual(unstaged_generated(d), ["docs/generated/STATE.md"])
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -1492,17 +1737,22 @@ def main(argv):
     if cmd == "test":
         result = unittest.main(argv=[argv[0]], exit=False, verbosity=1).result
         return 0 if result.wasSuccessful() else 1
-    if cmd == "lint":
-        return cmd_lint()
-    if cmd == "generate":
-        return cmd_generate()
-    if cmd == "check":
-        return cmd_check()
-    if cmd == "errata":
-        if len(argv) < 3:
-            print("用法：docs-sync errata <關鍵詞>", file=sys.stderr)
-            return 2
-        return cmd_errata(argv[2])
+    try:
+        if cmd == "lint":
+            return cmd_lint()
+        if cmd == "generate":
+            return cmd_generate()
+        if cmd == "check":
+            return cmd_check()
+        if cmd == "errata":
+            if len(argv) < 3:
+                print("用法：docs-sync errata <關鍵詞>", file=sys.stderr)
+                return 2
+            return cmd_errata(argv[2])
+    except UnicodeDecodeError as ex:
+        print(f"[ERROR] 編碼｜文件含非 UTF-8 內容（{ex}）——fail-closed，修復編碼後重跑",
+              file=sys.stderr)
+        return 1
     print(f"未知子命令：{cmd}", file=sys.stderr)
     print(__doc__)
     return 2
