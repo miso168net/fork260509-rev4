@@ -63,8 +63,18 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §8 橫切概念
 
-（本節尚無內容；每條橫切慣例必附「守門機制」欄——無守門不入本節。首批慣例隨地基 ADR 定案後填入。
-route 全集住 generated/reference/routes。）
+每條橫切慣例必附「守門機制」——無守門的慣例是願望、不入本節。
+守門標「隨◯◯刀建立」者＝該守門的落地義務綁在首個消費它的刀上（該刀 spec 必含建立守門的 task）。
+
+| 慣例 | 規則 | 守門機制 |
+|---|---|---|
+| datetime | DB 時間欄一律 `timestamptz` 存 UTC；wire 一律 ISO-8601 帶時區偏移、禁 naive datetime；前端唯一 formatter util、以瀏覽器時區顯示＋帶時區標示（使用者偏好時區留參數位、消費點只有 formatter 一處） | wire 驗收含「時間欄必帶 offset」斷言（隨 wire 地基刀建立）；前端 lint 禁繞過 formatter 裸格式化（隨 base-web 首刀建立） |
+| i18n | primary locale＝zh-TW（預設 UI／開發驗收基準）；zh-cn 字典保留維護＝上游 rebase 同步錨點；語言選單「簡體／繁體／English」；業務錯誤 msg＝i18n key、前端 $t 翻譯（詳 constitution §I.3 與 I18N-WIRING 軌道） | locale 對等 lint：zh-cn／zh-tw 鍵集合一致、pre-commit 擋（隨 base-web 首刀建立）；`App.I18n.Schema` 型別使「加鍵漏語言」直接 typecheck 紅 |
+| 錯誤碼 | 13 碼矩陣整組凍結、新需求優先 reuse 既有碼；碼→HTTP 映射、保留碼規則、msg=key 詳 constitution §I.3 | 碼表 table-driven contract test＋「保留碼後端永不發出」斷言（隨 wire 地基刀建立）；後端錯誤型→業務碼映射收單一來源 |
+| 審計欄 | 業務表建表即帶 archetype 全欄；四變體歸屬與無 retrofit 條款詳 constitution §I.6 | migration 建表檢查＋schema 往返驗證（隨 schema 基線刀建立）；`/speckit-plan` 自查第 8 題每刀必答 |
+| soft-delete | 軟刪欄成對寫入（`deleted_at`＋`deleted_by` 同寫）；讀端預設過濾已刪列；軟刪表唯一鍵用 partial-uniq `WHERE deleted_at IS NULL` | partial-uniq 約束本身（DB 層直接擋重複）；facade 讀端過濾測試（隨對應 entity 刀建立）；刪除連動行為（如角色刪除清授權）隨對應刀立 ADR 入憲 |
+
+route 全集等快變事實住 generated/reference/routes。
 
 ## §9 架構決策
 
