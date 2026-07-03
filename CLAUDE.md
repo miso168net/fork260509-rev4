@@ -14,14 +14,14 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   - `base-web/`：前端（soybean-admin fork）；分支長名 `rev4-admin-base-web`。
   - `rust-api/`：後端（rust）；分支長名 `rev4-admin-rust-api`。
 - 短名/長名分工：目錄與口語用短名；git branch／push 一律用長名。
-- fork 源倉目錄（本機另處、gitignored）必須保留——worktree 的 `.git` 檔指向它；docs 源倉僅參考不改。
+- fork 源倉目錄（repo 根下 `fork260509-*/`、gitignored）必須保留——worktree 的 `.git` 檔指向它；docs 源倉僅參考不改。
 - 外層只記 gitlink SHA（pin）；worktree 模式下 `git submodule status` 行首「-」永遠出現、屬正常。
 
 ## 2. feature 工作流
 
 階段 0 brainstorm → SDD 5 步 → TDD 實作（Workflow 編排）→ finishing → 收刀簿記三步。
 
-- **階段 0 brainstorm**（superpowers:brainstorming）：產出存 `docs/brainstorms/<NNN>-<name>.md`
+- **階段 0 brainstorm**（superpowers:brainstorming）：產出存 `docs/brainstorms/<NNN>-<feature-name>.md`
   （此行即覆蓋 skill 預設路徑）。期間拍板→ADR draft。rev3 承襲候選（ADR provenance 欄、
   BACKLOG 帶 `rev3:` 標註項）是 brainstorm 的直接輸入：沿用項照已驗證結論施工、翻案項用新設計。
 - **SDD 5 步**：`/speckit-specify`（input＝brainstorm 檔）→ `/speckit-clarify` → `/speckit-plan` →
@@ -32,14 +32,13 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   **從不使用 spec-kit 的 implement 指令**。編排驅動提示詞範本：
 
   ```text
-  讀 specs/<NNN>-<name>/tasks.md → act-on-code 接地、依實際相依把 tasks 分執行單元；
-  驗收對照 spec.md。編排用 Workflow 工具：每執行單元一支，內部 serial 跑
-  implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality review → fix 迴圈。
-  每個 agent prompt 烤進不可違反項：rust 全程 serial、容器內 build/test、
-  review agent 只讀不寫 repo 檔、★絕不 push/merge。
-  主線只在單元邊界醒：復核＋load-bearing 自驗＋bump submodule pin → 啟下一支。
-  全單元完成 → final holistic review → finishing-a-development-branch
-  （push/merge 需 user 同意）→ 收刀簿記三步（events append＋NOTES＋docs-sync generate）。
+以下提到 <NNN>-<feature-name> 即當前 git branch 名稱。
+讀 specs/<NNN>-<feature-name>/tasks.md → act-on-code 接地、依實際相依把 tasks 分執行單元；驗收對照 spec.md。
+★編排用 Workflow 工具：每執行單元一支，內部 serial 跑
+　implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality review → fix 迴圈。
+　每個 agent prompt 烤進不可違反項：rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge。
+主線只在單元邊界醒：復核＋load-bearing 自驗＋bump submodule pin → 啟下一支。
+全單元完成 → final holistic review → finishing-a-development-branch（push/merge 需 user 同意）→ 收刀簿記三步（events append＋NOTES＋docs-sync generate）。
   ```
 
 - **隨做隨記**：新拍板→ADR draft→accepted；架構影響→活書對應節【就在 feature branch 內改】；
@@ -72,7 +71,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - **時態分離**：活書永遠現在式；未來式住 ops/（NOTES／BACKLOG）；過去式住 git＋events。
 - **完成即刪、git 即史**：BACKLOG 做完刪列、決策翻案立新 ADR；沒有歸檔搬運手續。
 - **ADR**：一決策一檔 `docs/arc42/decisions/NNNN-<slug>.md`；accepted 後 body 不可變
-  （typo 級修正的 commit message 帶 `[adr-amend]` 豁免）；翻案＝新檔 `supersedes: [舊號]`、
+  （typo 級修正：commit message 帶 `[adr-amend]`＋設 `DOCS_SYNC_ADR_AMEND=1` 過 lint）；
+  翻案＝新檔 `supersedes: [舊號]`、
   `superseded_by` 由工具回填人不填；won't-fix／by-design 也立 ADR；as-built 不回灌 ADR
   （拍板歸 ADR、實作結果歸收刀事件、實作推翻拍板＝新 ADR）。
 - **lint 運作模式**：pre-commit 一次跑完、秒級；被擋的是 Claude、同回合修復（錯誤訊息附去處）；
