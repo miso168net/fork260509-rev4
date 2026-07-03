@@ -169,6 +169,8 @@ TDD 迴圈都靠它。
   一致性檢查命令能攔截 compose 與文件的漂移（B-002 落地、stub 轉真）。
 - **FR-013**: 版本 MUST 全數釘完整數字版（映像 tag、工具鏈、工具安裝），不留浮動版本；
   定值與查證紀錄凍結於 docs/brainstorms/001-compose-stack.md §0／§1，實作以該定案為準。
+  例外：部署腳本的輔助容器映像（alpine/openssl）沿 latest——user 拍板豁免、範圍界定
+  見 ADR 0022（不及任何 compose service 映像）。
 - **FR-014**: 本刀全程 MUST 保持 base-web 零 fork 改動（可 git 稽核：其工作樹乾淨、指針
   停在既有提交零新增）。
 - **FR-015**: 與 rev3 同機並行 MUST 零衝突：專案名、網路名、卷名前綴、對外 port 空間全部
