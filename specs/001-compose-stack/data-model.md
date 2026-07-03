@@ -47,7 +47,7 @@ base-web(start→healthy) ──────────────────
 
 | 卷 | 宣告層 | 掛載 | 用途 |
 |---|---|---|---|
-| postgres_data | base | postgres:/var/lib/postgresql/data | DB 持久化 |
+| postgres_data | base | postgres:/var/lib/postgresql（postgres:18 起映像宣告 VOLUME＝此路徑、PGDATA 在其下 18/docker——掛 …/data 會讓真資料漏進匿名卷） | DB 持久化 |
 | redis_data | base | redis:/data（配 `--dir /data`） | 快取持久化（rev3 T014 坑防復發） |
 | base_web_node_modules | dev | base-web:/app/node_modules | bind-mount mask |
 | base_web_pnpm_store | dev | base-web（pnpm store 路徑） | bind-mount mask |
