@@ -19,7 +19,7 @@
 
 ## reference 對賬
 - reference/routes：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
-- reference/ports：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
+- reference/ports：真表（來源＝compose 三檔的 ports: 段、由 generate 重算）
 - reference/schema：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
 - reference/accounts：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
 - reference/screens：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
