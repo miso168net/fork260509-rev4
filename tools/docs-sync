@@ -1047,7 +1047,7 @@ def cmd_check():
 
 def cmd_errata(keyword):
     texts = {}
-    for rel in tracked_files():
+    for rel in tracked_files(ROOT):
         try:
             text = _read(ROOT, rel)
         except (UnicodeDecodeError, OSError):
@@ -1715,6 +1715,13 @@ class TestGitIntegration(unittest.TestCase):
             head = load_head_adrs(d)
             self.assertEqual(list(head), ["0001-x.md"])
             self.assertEqual(head["0001-x.md"], ADR_OK_A)
+
+    def test_cli_errata_smoke(self):
+        """回歸：cmd_errata 曾漏傳 root 而 TypeError 崩潰（CLI 包裝層無測試覆蓋）。"""
+        r = subprocess.run([sys.executable, os.path.abspath(__file__), "errata", "next-id"],
+                           capture_output=True, encoding="utf-8", errors="replace")
+        self.assertEqual(r.returncode, 0, msg=r.stderr)
+        self.assertIn("errata", r.stdout)
 
     def test_unstaged_generated_detected(self):
         with tempfile.TemporaryDirectory() as d:
