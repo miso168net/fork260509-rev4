@@ -10,7 +10,7 @@
 
 ## 帳面統計
 - ADR：22（accepted 21、superseded 1）
-- BACKLOG 待辦：54（next：B-055）
+- BACKLOG 待辦：53（next：B-055）
 - LESSONS：101 筆（next：L-102）
 - events：1 筆（misc 1）
 

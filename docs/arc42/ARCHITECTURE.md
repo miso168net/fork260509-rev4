@@ -27,7 +27,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   Initial commit 起全新寫）。fork 源倉以本機 clone 住 repo 根下 `fork260509-*/`
   （gitignored）、必須保留——worktree 的 `.git` 檔指向它。
 - **環境**：WSL2（drvfs 掛載）；repo 全域 .gitattributes 強制 LF；host 無 rust toolchain、
-  build/test 一律容器內。
+  build/test 一律容器內——由 compose dev stack（一鍵起，§7）承載。
 - **上游關係**：upstream 常態 rebase 為預期事件；fork 差異治理見 constitution §III。
 
 ## §3 系統脈絡
@@ -61,7 +61,25 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §7 部署
 
-（本節尚無內容；compose 拓樸與模式敘事隨部署刀填入。port／卷實值住 generated/reference/ports。）
+- **dev stack＝compose 兩件套**：`docker-compose.yml`（base 層、六 service 共通定義）疊加
+  `docker-compose.dev.yml`（dev override）一鍵起整套開發環境。分層原則：base 層禁 host
+  port、禁 dev 專屬掛載；host port 只住 dev 層且全綁 loopback。port 實值住
+  generated/reference/ports（由 compose 生成、對賬 lint 攔漂移）。
+- **六 service 與啟動閘門**：front-nginx（唯一入口、反代前後端）、base-web（vite dev
+  server）、rust-api（axum）、migrate（one-shot）、postgres、redis。migrate 是啟動閘門：
+  postgres 健康後先跑 migration、成功結束 rust-api 才起——schema 就緒先於 API；migration
+  失敗＝整體啟動失敗（up --wait 非零退出），不存在半初始化環境。
+- **機密**：六支檔案型 secrets（deploy/secrets/、實值 gitignored）；生成腳本冪等、leaf
+  重生連動 composite 重寫（dual-write 不變式）；preflight 預檢缺檔即指名攔截；`CHANGE-ME`
+  開頭佔位值被 server boot 拒收（panic 指名該機密）。對照表與不變式明細住
+  deploy/secrets/README.md。
+- **熱重載**：後端 watchexec 重編重啟、前端 vite 熱更新，兩者皆輪詢偵測檔案變更——WSL2
+  9p 掛載不產生 fs 事件、事件制 watcher 失效。原始碼 bind-mount 進容器、依賴與編譯產物
+  以 named volume mask。
+- **TLS 入口**：dev 以自簽憑證起 HTTPS（generate-dev-cert.sh：外部 CA 簽 leaf、無則自簽
+  fallback 並留 marker）；front-nginx 同時聽 HTTP 與 HTTPS。
+- **rev3 同機並行**：以 compose project 名（rev4-admin）前綴隔離容器／網路／named volume，
+  host port 空間錯開——兩套 stack 同時運行互不干擾。
 
 ## §8 橫切概念
 
