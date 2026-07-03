@@ -1,32 +1,29 @@
-# Workspace-root .dockerignore
-# Compose build context = ./ (workspace root). 沒這檔 Docker 會把整個 workspace
-# (含 fork 源倉 / base-web worktree / graphify-out / .git) 串進 build daemon, 數 GB 等級慢。
-# 只留 Dockerfile 真正需要的: rust-api/ + deploy/
+# repo 根 .dockerignore（build context＝repo 根；001-compose-stack）
+# Dockerfile.rust-api 不 COPY 原始碼（compose bind-mount），context 只需瘦身＋防滲。
+# 沒這檔 Docker 會把整個 workspace（fork 源倉／worktree／.git）串進 build daemon，數 GB 等級慢。
 
-# fork 源倉 (worktree 源頭, 本機留著但 image 不需要)
-# 注意: fork260509-rev2-anew-rust-api 是 GitHub repo 永久名(不隨 rev3 改名)
-fork260509-soybean-admin-base/
-fork260509-soybean-admin-docs/
-fork260509-rev2-anew-rust-api/
+# 機密與私鑰——絕不得進 build daemon（compose secrets 走 host file bind、不經 context）
+deploy/secrets/
+deploy/dev-certs/
 
-# 另一個 worktree (rust-api build 不需要 base-web;prod base-web build context=./base-web 不受此檔影響)
+# fork 源倉（worktree 源頭，本機必留但 image 不需要）
+fork260509-*/
+
+# 前端 worktree（rust-api build 不需要）
 base-web/
 
-# graphify 輸出 (graph.html 3MB+ / obsidian 5000+ markdown)
-graphify-out/
-
 # Git internals
-.git/
+.git
 **/.git
+
+# 編譯產物與依賴
+**/target
 **/node_modules/
 
-# Rust artifacts (任何 worktree 的 target/)
-**/target/
-
-# Docs / specs / tests (不會 COPY 進 image, 加速 tar)
+# 文件／spec／knowledge graph（不會 COPY 進 image，加速 tar）
 docs/
 specs/
-tests/
+graphify-out/
 
 # Claude / spec-kit / IDE state
 .claude/
@@ -38,8 +35,3 @@ tests/
 **/*.log
 **/.cache/
 **/__pycache__/
-
-# 機密與私鑰 (Dockerfile 不 COPY 這兩目錄;compose secrets file: 由 host 直讀、不走 context)
-# 防 remote builder / CI 情境下真值 secrets 與 dev 私鑰被 tar 進 build daemon (T010 review I-1)
-deploy/secrets/
-deploy/dev-certs/

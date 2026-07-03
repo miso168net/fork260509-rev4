@@ -3,14 +3,14 @@
 
 ## git
 - default branch：rev4-admin-root
-- pins：base-web=9c6f223｜rust-api=a7485b9
+- pins：base-web=9c6f223｜rust-api=51eac95
 
 ## constitution
 - 版本：1.0.0
 
 ## 帳面統計
-- ADR：21（accepted 20、superseded 1）
-- BACKLOG 待辦：54（next：B-055）
+- ADR：22（accepted 21、superseded 1）
+- BACKLOG 待辦：53（next：B-055）
 - LESSONS：101 筆（next：L-102）
 - events：1 筆（misc 1）
 
@@ -19,7 +19,7 @@
 
 ## reference 對賬
 - reference/routes：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
-- reference/ports：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
+- reference/ports：真表（來源＝compose 三檔的 ports: 段、由 generate 重算）
 - reference/schema：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
 - reference/accounts：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
 - reference/screens：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）

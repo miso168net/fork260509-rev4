@@ -4,8 +4,8 @@
 
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
-  check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體）
-  lint            L3／L7~L15（L1/L2/L4/L5/L6 隨事件源與實碼逐步啟用）
+  check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 ports 對賬）
+  lint            L3／L7~L15（L2 其餘表與 L4/L5/L6 隨事件源與實碼逐步啟用）
   errata <詞>     全 repo 同語意枚舉報告
   test            跑自帶測試（unittest）
 
@@ -570,6 +570,10 @@ def lint_memory_refs(md_texts):
 
 GEN_HEADER = "<!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->"
 REFERENCE_TABLES = ("routes", "ports", "schema", "accounts", "screens")
+# stub 轉真的表：STATE 對賬行改列真來源描述（其餘表維持 gen_reference_stub）
+REFERENCE_LIVE = {"ports": "真表（來源＝compose 三檔的 ports: 段、由 generate 重算）"}
+# ports 對照表來源（base 層設計鐵律禁 host ports、映射只住 dev/example）
+COMPOSE_FILES = ("docker-compose.yml", "docker-compose.dev.yml", "docker-compose.example.yml")
 
 
 DEFAULT_BRANCH = "rev4-admin-root"
@@ -671,7 +675,8 @@ def gen_state(ctx):
     bn = ctx.get("backlog_next")
     ln = ctx.get("lessons_next")
     ref_lines = "\n".join(
-        f"- reference/{name}：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）"
+        f"- reference/{name}：" + REFERENCE_LIVE.get(
+            name, "stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）")
         for name in REFERENCE_TABLES)
     return f"""{GEN_HEADER}
 # STATE — 現況機器帳
@@ -771,8 +776,14 @@ def check_generated(root, computed):
         elif rel not in on_disk:
             out.append(finding(ERROR, "L1", rel, "缺生成檔（跑 tools/docs-sync generate）"))
         elif _read(root, rel) != computed[rel]:
-            out.append(finding(ERROR, "L1", rel,
-                               "與重算結果不一致（忘跑 generate 或手改；跑 tools/docs-sync generate）"))
+            if rel == f"{GENERATED_DIR}/reference/ports.md":
+                # L2 對賬：ports 表有真來源（compose 三檔）——漂移指名來源側
+                out.append(finding(ERROR, "L2", rel,
+                                   "ports 對照表與 compose 重算結果不一致——compose 三檔"
+                                   " ports: 段改動後未跑 tools/docs-sync generate"))
+            else:
+                out.append(finding(ERROR, "L1", rel,
+                                   "與重算結果不一致（忘跑 generate 或手改；跑 tools/docs-sync generate）"))
     return out
 
 
@@ -891,6 +902,98 @@ def gen_reference_stub(name):
             f"狀態：stub｜來源未就緒——extractor 隨對應子系統首刀落地（見 ops/BACKLOG）。\n")
 
 
+class ComposePortsError(Exception):
+    """compose ports 解析失敗（fail-loud：寧可擋下、不靜默漏列）。"""
+
+
+# 窄假設唯一合法項形：引號短語法＋127.0.0.1 綁定前綴＋純數字 port（本 repo 實際使用的形；
+# 配號紀律歸 ADR 0019）。其他寫法（無引號、0.0.0.0、port 範圍、長語法…）一律 fail-loud。
+RE_PORTS_ITEM = re.compile(r'^"(127\.0\.0\.1):(\d{1,5}):(\d{1,5})"$')
+RE_COMPOSE_SERVICE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9_.-]*):$")
+
+
+def parse_compose_ports(text, rel):
+    """解析單一 compose 檔的 ports: 段。回 [(service, host_port, container_port, bind_ip)]。
+
+    行級窄假設解析（標準庫、不引 YAML 庫；只支援本 repo 實際使用的形）：
+    - 頂層 services:（0 縮排）→ 服務名＝2 縮排 `name:` → ports:＝4 縮排服務直屬鍵
+    - 項目＝同縮排或更深縮排的 `- "127.0.0.1:HOST:CONTAINER"`（RE_PORTS_ITEM；不支援行內註解）
+    - 任何不認得的 ports 項／ports 鍵位置／services 直屬 2 縮排行 → ComposePortsError 指名檔與行
+      ——防未來 compose 改寫法時對照表靜默漏列（fail-loud 逼人同步擴充解析器）
+    """
+    rows = []
+    in_services, service, ports_indent = False, None, None
+    for n, raw in enumerate(text.splitlines(), start=1):
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue  # 空行／註解行不終結區塊
+        indent = len(raw) - len(raw.lstrip(" "))
+        if ports_indent is not None:
+            # 項目可與 ports: 鍵同縮排（YAML 合法形）——同縮排非清單行才是區塊結束
+            if indent > ports_indent or (indent == ports_indent
+                                         and stripped.startswith("- ")):
+                if not stripped.startswith("- "):
+                    raise ComposePortsError(
+                        f"{rel}:行 {n}｜ports 段內不認得的行「{stripped}」（僅支援引號短語法清單項）")
+                m = RE_PORTS_ITEM.fullmatch(stripped[2:].strip())
+                if not m:
+                    raise ComposePortsError(
+                        f"{rel}:行 {n}｜不認得的 ports 項「{stripped}」"
+                        '（僅支援 - "127.0.0.1:HOST:CONTAINER"；compose 改寫法請同步擴充本解析器）')
+                rows.append((service, m.group(2), m.group(3), m.group(1)))
+                continue
+            ports_indent = None  # 區塊結束、本行落回狀態機
+        if indent == 0:
+            in_services = (stripped == "services:")
+            service = None
+            continue
+        if stripped.startswith("ports:"):
+            if not (in_services and service and indent == 4 and stripped == "ports:"):
+                raise ComposePortsError(
+                    f"{rel}:行 {n}｜不認得的 ports 鍵寫法/位置「{stripped}」"
+                    "（僅支援服務直屬 4 縮排純鍵；compose 改寫法請同步擴充本解析器）")
+            ports_indent = indent
+            continue
+        if in_services and indent == 2:
+            m = RE_COMPOSE_SERVICE.fullmatch(stripped)
+            if not m:
+                raise ComposePortsError(
+                    f"{rel}:行 {n}｜services 下不認得的服務行「{stripped}」"
+                    "（僅支援裸服務名鍵、不支援行內註解；compose 改寫法請同步擴充本解析器）"
+                    "——否則後續 ports 會錯掛到前一個服務")
+            service = m.group(1)
+    return rows
+
+
+def compute_ports_rows(root):
+    """三檔 compose 全掃。回 [(來源檔, service, host, container, ip)]；來源檔缺＝fail-loud。"""
+    rows = []
+    for rel in COMPOSE_FILES:
+        text = _read(root, rel)
+        if text is None:
+            raise ComposePortsError(f"{rel}｜compose 來源檔不存在——ports 對照表無法重算")
+        rows += [(rel, *r) for r in parse_compose_ports(text, rel)]
+    return rows
+
+
+def gen_reference_ports(rows):
+    """reference/ports ← compose 三檔 ports: 段全量表。
+
+    只列 compose 實際存在的映射（留號決策語意歸 ADR 0019、不入表）；
+    列序確定性＝來源檔→服務名→host port。
+    """
+    head = (f"{GEN_HEADER}\n# reference/ports — 全量正典表\n\n"
+            f"來源＝{'＋'.join(COMPOSE_FILES)} 的 ports: 段（generate 重算；配號紀律歸 ADR 0019）。\n\n")
+    if not rows:
+        return head + "（compose 無任何 host port 映射）\n"
+    lines = "\n".join(
+        f"| {svc} | {host} | {cont} | {ip} | {src} |"
+        for src, svc, host, cont, ip in
+        sorted(rows, key=lambda r: (r[0], r[1], int(r[2]), int(r[3]))))
+    return (head + "| 服務 | host port | 容器內 port | 綁定 IP | 來源檔 |\n"
+            "|---|---|---|---|---|\n" + lines + "\n")
+
+
 def parse_events_loose(text):
     """generate 用的寬鬆解析（壞行、非 object 行跳過——擋壞行是 L3 的職責）。"""
     events = []
@@ -927,7 +1030,10 @@ def compute_generated(root):
     }
     files.update(gen_milestones(events))
     for name in REFERENCE_TABLES:
+        if name in REFERENCE_LIVE:
+            continue
         files[f"{GENERATED_DIR}/reference/{name}.md"] = gen_reference_stub(name)
+    files[f"{GENERATED_DIR}/reference/ports.md"] = gen_reference_ports(compute_ports_rows(root))
     return files
 
 
@@ -1329,6 +1435,123 @@ class TestCheckGenerated(unittest.TestCase):
         f = check_generated(self.root, self.computed)
         self.assertEqual(len(f), 1)
         self.assertIn("EXTRA", f[0]["where"])
+
+
+COMPOSE_PORTS_SAMPLE = (
+    "# 註解\n"
+    "name: demo\n"
+    "services:\n"
+    "  front-nginx:\n"
+    "    ports:\n"
+    '      - "127.0.0.1:42080:80"\n'
+    '      - "127.0.0.1:42443:443"\n'
+    "    volumes:\n"
+    "      - ./x:/x:ro\n"
+    "  postgres:\n"
+    "    ports:\n"
+    '      - "127.0.0.1:45432:5432"\n'
+    "volumes:\n"
+    "  x:\n"
+)
+
+
+class TestComposePorts(unittest.TestCase):
+    def test_parse_short_syntax(self):
+        rows = parse_compose_ports(COMPOSE_PORTS_SAMPLE, "docker-compose.dev.yml")
+        self.assertEqual(rows, [
+            ("front-nginx", "42080", "80", "127.0.0.1"),
+            ("front-nginx", "42443", "443", "127.0.0.1"),
+            ("postgres", "45432", "5432", "127.0.0.1"),
+        ])
+
+    def test_no_ports_section(self):
+        self.assertEqual(parse_compose_ports("services:\n  a:\n    image: x\n", "f.yml"), [])
+
+    def test_item_at_same_indent_as_ports_key(self):
+        # 回歸（quality review）：同縮排清單項（YAML 合法形）曾被靜默漏列
+        text = ("services:\n"
+                "  a:\n"
+                "    ports:\n"
+                '    - "127.0.0.1:9999:80"\n'
+                "    volumes:\n"
+                "    - ./x:/x\n")
+        self.assertEqual(parse_compose_ports(text, "f.yml"),
+                         [("a", "9999", "80", "127.0.0.1")])
+
+    def test_bad_item_at_same_indent_still_fails_loud(self):
+        text = 'services:\n  a:\n    ports:\n    - "0.0.0.0:1:2"\n'
+        with self.assertRaises(ComposePortsError) as cm:
+            parse_compose_ports(text, "f.yml")
+        self.assertIn("行 4", str(cm.exception))
+
+    def test_unknown_item_fails_loud_with_file_and_line(self):
+        for bad in ("- 127.0.0.1:1:2",      # 無引號
+                    '- "0.0.0.0:1:2"',      # 非 127.0.0.1 綁定
+                    "- target: 80",          # 長語法
+                    '- "8080:80"'):          # 無綁定 IP 前綴
+            text = f"services:\n  a:\n    ports:\n      {bad}\n"
+            with self.assertRaises(ComposePortsError, msg=bad) as cm:
+                parse_compose_ports(text, "f.yml")
+            self.assertIn("f.yml", str(cm.exception), msg=bad)
+            self.assertIn("行 4", str(cm.exception), msg=bad)
+
+    def test_unexpected_ports_key_shape_fails_loud(self):
+        with self.assertRaises(ComposePortsError):   # inline value
+            parse_compose_ports("services:\n  a:\n    ports: []\n", "f.yml")
+        with self.assertRaises(ComposePortsError):   # 非服務直屬（深一層）
+            parse_compose_ports("services:\n  a:\n    x:\n      ports:\n", "f.yml")
+
+    def test_unknown_service_line_fails_loud(self):
+        # 不擋則 service 殘留前值→後續 ports 錯掛到前一個服務（靜默錯列）
+        for bad in ("b:  # 行內註解", '"b":', "b: {}"):
+            text = f'services:\n  a:\n    ports:\n      - "127.0.0.1:1:1"\n  {bad}\n'
+            with self.assertRaises(ComposePortsError, msg=bad) as cm:
+                parse_compose_ports(text, "f.yml")
+            self.assertIn("f.yml", str(cm.exception), msg=bad)
+            self.assertIn("行 5", str(cm.exception), msg=bad)
+
+    def test_compute_ports_rows_missing_source_fails_loud(self):
+        with tempfile.TemporaryDirectory() as root:
+            for rel in COMPOSE_FILES[:-1]:
+                with open(os.path.join(root, rel), "w", encoding="utf-8") as fh:
+                    fh.write("services:\n")
+            with self.assertRaises(ComposePortsError) as cm:
+                compute_ports_rows(root)
+            self.assertIn(COMPOSE_FILES[-1], str(cm.exception))
+
+    def test_gen_reference_ports_sorted_and_deterministic(self):
+        rows = [("docker-compose.example.yml", "example-dev", "42089", "80", "127.0.0.1"),
+                ("docker-compose.dev.yml", "front-nginx", "42443", "443", "127.0.0.1"),
+                ("docker-compose.dev.yml", "front-nginx", "42080", "80", "127.0.0.1")]
+        text = gen_reference_ports(rows)
+        self.assertTrue(text.startswith(GEN_HEADER))
+        self.assertLess(text.index("42080"), text.index("42443"))   # host port 序
+        self.assertLess(text.index("42443"), text.index("42089"))   # 來源檔序
+        self.assertEqual(text, gen_reference_ports(list(reversed(rows))))  # 入序無關
+
+    def test_gen_reference_ports_empty(self):
+        self.assertIn("無任何 host port 映射", gen_reference_ports([]))
+
+    def test_state_ports_line_is_live_not_stub(self):
+        text = gen_state(TestGenState.CTX)
+        for line in text.splitlines():
+            if line.startswith("- reference/ports"):
+                self.assertNotIn("stub", line)
+                self.assertIn("generate", line)
+                break
+        else:
+            self.fail("STATE 缺 reference/ports 對賬行")
+
+    def test_check_reports_ports_drift_as_l2(self):
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, "docs/generated/reference"))
+            rel = "docs/generated/reference/ports.md"
+            with open(os.path.join(root, rel), "w", encoding="utf-8") as fh:
+                fh.write("舊表\n")
+            f = check_generated(root, {rel: "新表\n"})
+            self.assertEqual(len(f), 1)
+            self.assertEqual(f[0]["code"], "L2")
+            self.assertIn("ports", f[0]["msg"])
 
 
 class TestLintLinks(unittest.TestCase):
@@ -1760,6 +1983,9 @@ def main(argv):
     except UnicodeDecodeError as ex:
         print(f"[ERROR] 編碼｜文件含非 UTF-8 內容（{ex}）——fail-closed，修復編碼後重跑",
               file=sys.stderr)
+        return 1
+    except ComposePortsError as ex:
+        print(f"[ERROR] ports 解析｜{ex}——fail-loud，處置後重跑", file=sys.stderr)
         return 1
     print(f"未知子命令：{cmd}", file=sys.stderr)
     print(__doc__)

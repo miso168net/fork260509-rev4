@@ -1,0 +1,13 @@
+# deploy/Dockerfile.rust-api — rust-api dev 映像（001-compose-stack）
+# 001 版＝單一 dev stage：不 COPY 原始碼（compose bind-mount /app）、watchexec 輪詢熱重載。
+#
+# ★ Debian base 對齊義務（builder／runtime glibc 同代）：
+#   rust:1.96.1-slim 底層＝Debian 13（trixie）。日後增建 builder／runtime stage 時，
+#   runtime 必配 debian:trixie-slim——builder 與 runtime 的 glibc 必須同代。
+#
+# --poll 1s：WSL2 bind-mount 上 inotify 不可靠、改輪詢；間隔 1s（watchexec 預設 30s 太鈍）。
+FROM rust:1.96.1-slim AS dev
+RUN cargo install watchexec-cli --version 2.5.1 --locked
+WORKDIR /app
+EXPOSE 8080
+ENTRYPOINT ["watchexec", "-r", "-e", "rs,toml", "--poll", "1s", "--", "cargo", "run", "--bin", "server"]

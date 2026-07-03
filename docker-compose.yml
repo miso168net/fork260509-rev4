@@ -1,0 +1,148 @@
+# rev4-admin master compose — base 層（六 service 共通定義）
+#
+# 用法（001 僅 dev override；prod override 歸部署刀）:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
+#
+# 設計鐵律:
+#   - base 層禁 host ports（ports: 為 list append，override 疊加會衝突）
+#   - base 層禁 dev 專屬 volume/bind-mount
+#   - base-web 故意空殼（無 image/build/command）：dev＝裸 node image、prod＝nginx build，
+#     異質、無法靠 target 覆寫 → base 單獨 config 不可 up 屬預期
+#   - named volume 不設顯式 name:，靠 project name（rev4-admin）auto-prefix 隔離
+
+name: rev4-admin
+
+services:
+  front-nginx:
+    image: nginx:1.31.2-alpine
+    depends_on:
+      base-web:
+        condition: service_healthy
+      rust-api:
+        condition: service_healthy
+    healthcheck:
+      # 用 127.0.0.1 而非 localhost：alpine /etc/hosts 把 localhost 先解到 ::1（IPv6），
+      # nginx listen 80 只綁 IPv4 → localhost 會 connection refused、healthcheck 永遠 fail
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - rev4_net
+
+  base-web:
+    # ★ image/build/command 故意不放 base 層：dev override（node image、無 build）才給；
+    #   prod（nginx multi-stage build）異質，若 base 放 build 會被誤 build 並錯誤 tag。
+    networks:
+      - rev4_net
+
+  rust-api:
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile.rust-api
+      # base 不給 target：001 Dockerfile 僅 dev stage，target 下放 dev override
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # ★ gate 本體：migration 非零退出 → rust-api 不啟動 → up --wait 非零退出
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      # jwt／refresh／redis_url 本刀接而不讀（compose 接線就位、消費歸後續功能刀）
+      APP_JWT_JWT_SECRET_FILE: /run/secrets/jwt_secret
+      APP_JWT_REFRESH_TOKEN_SECRET_FILE: /run/secrets/refresh_token_secret
+      APP_DATABASE_URL_FILE: /run/secrets/database_url
+      APP_REDIS_URL_FILE: /run/secrets/redis_url
+      RUST_LOG: "info"
+    secrets:
+      - jwt_secret
+      - refresh_token_secret
+      - database_url
+      - redis_url
+    # healthcheck 住 dev override（dev 映像無 curl/wget、以 TCP 探針）
+    networks:
+      - rev4_net
+
+  migrate:
+    # 一次性 migration service（one-shot gate）；dev override 提供 target＋entrypoint/command
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile.rust-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_DATABASE_URL_FILE: /run/secrets/database_url
+    secrets:
+      - database_url
+    restart: "no"
+    networks:
+      - rev4_net
+
+  postgres:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_USER: soybean
+      POSTGRES_DB: soybean_admin_rust
+    secrets:
+      - postgres_password
+    volumes:
+      # ★ postgres:18 映像宣告 VOLUME /var/lib/postgresql（PGDATA=/var/lib/postgresql/18/docker
+      #   住其下、與 17 佈局不同）——named volume 必須掛父目錄；掛 …/data 會讓資料
+      #   漏進匿名卷、down→up 全失（docker image inspect 實查後定此掛點）
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soybean -d soybean_admin_rust"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - rev4_net
+
+  redis:
+    image: redis:8.8.0-alpine
+    command:
+      - sh
+      - -c
+      # $$ → compose 不 interpolate、留給容器內 sh 執行 command substitution。
+      # ★ 顯式 --dir /data 必須保留：預設 dir 落容器暫存層 → /data named volume 形同虛設、
+      #   down→up 資料全失（前代實機驗收踩過的坑）
+      - 'redis-server --dir /data --requirepass "$$(cat /run/secrets/redis_password)"'
+    secrets:
+      - redis_password
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/redis_password)\" --no-auth-warning ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - rev4_net
+
+networks:
+  rev4_net:
+
+volumes:
+  postgres_data:
+  redis_data:
+
+secrets:
+  postgres_password:
+    file: ./deploy/secrets/postgres_password.txt
+  redis_password:
+    file: ./deploy/secrets/redis_password.txt
+  jwt_secret:
+    file: ./deploy/secrets/jwt_secret.txt
+  refresh_token_secret:
+    file: ./deploy/secrets/refresh_token_secret.txt
+  database_url:
+    file: ./deploy/secrets/database_url.txt
+  redis_url:
+    file: ./deploy/secrets/redis_url.txt

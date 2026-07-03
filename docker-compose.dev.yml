@@ -1,0 +1,112 @@
+# rev4-admin dev override
+#
+# 用法（配合 base）:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
+#
+# 特性:
+#   - 全部 host port 綁 127.0.0.1 loopback（配號＝ADR 0019）
+#   - front-nginx：HTTP :42080 + HTTPS :42443（dev-certs bind-mount + dev.conf）
+#   - base-web：node 裸映像 vite 熱重載（bind-mount source + named volume mask）
+#   - rust-api：watchexec dev target（bind-mount source + cargo registry／target 卷 mask）
+#   - postgres/redis：直連 debug port
+
+services:
+  front-nginx:
+    ports:
+      - "127.0.0.1:42080:80"
+      - "127.0.0.1:42443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/conf.d/_locations.inc:/etc/nginx/conf.d/_locations.inc:ro
+      # dev.conf 掛成 default.conf：覆蓋映像內建 default server、conf.d glob 只載本檔
+      - ./deploy/nginx/conf.d/dev.conf:/etc/nginx/conf.d/default.conf:ro
+      # ★ 只掛 nginx 消費的兩支檔——整掛 dev-certs/ 會把 root CA 私鑰（ca.key、
+      #   且依 trust 教學已進 OS 信任庫）暴露進最外層容器
+      - ./deploy/dev-certs/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro
+      - ./deploy/dev-certs/privkey.pem:/etc/nginx/certs/privkey.pem:ro
+    # healthcheck 零覆寫：容器內 listen 80 與 base 層探針同號（dev/prod 通用紅利）
+
+  base-web:
+    image: node:26.4.0-alpine
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+      BROWSER: none
+      # CI=true → pnpm install 預設 frozen-lockfile（保 base-web 零 fork 改動不變式：
+      # 容器內 install 不許動 pnpm-lock.yaml）
+      CI: "true"
+      npm_config_store_dir: /pnpm-store
+      # WSL2 9p bind mount 不產生 fs 事件——vite 熱更新必須輪詢（同後端 watchexec
+      # --poll 1s 紀律）；vite 內建 chokidar 的 env 覆寫直達 watcher、免動 fork 內設定檔
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
+    volumes:
+      - ./base-web:/app
+      - base_web_node_modules:/app/node_modules
+      - base_web_pnpm_store:/pnpm-store
+    ports:
+      - "127.0.0.1:42081:80"
+    command:
+      - sh
+      - -c
+      - "npm install -g pnpm@10.34.3 && pnpm install && pnpm dev --host 0.0.0.0 --port 80"
+    healthcheck:
+      # 127.0.0.1 而非 localhost：vite --host 0.0.0.0 只綁 IPv4、alpine localhost 先解 ::1
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ | grep -qi '<!doctype\\|<html'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    init: true
+    tty: true
+    stdin_open: true
+
+  rust-api:
+    build:
+      target: dev
+    image: rev4-admin-rust-api:dev
+    # watcher 不宜當 PID 1：tini 接管訊號轉發
+    init: true
+    volumes:
+      - ./rust-api:/app
+      # ★ 只掛 registry 子目錄——整掛 /usr/local/cargo 會蓋掉 bin/（cargo、watchexec 執行檔）
+      - rust_api_cargo_cache:/usr/local/cargo/registry
+      - rust_api_target:/app/target
+    ports:
+      - "127.0.0.1:42079:8080"
+    healthcheck:
+      # dev 映像無 curl/wget → bash TCP 探針；120s start_period＝cargo 冷編實測磨合值
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+
+  migrate:
+    build:
+      target: dev
+    image: rev4-admin-rust-api:dev
+    volumes:
+      # 與 rust-api 共 mask 卷無並行問題：depends_on 序保證 migrate 跑完 rust-api 才起
+      - ./rust-api:/app
+      - rust_api_cargo_cache:/usr/local/cargo/registry
+      - rust_api_target:/app/target
+    # ★ entrypoint 必須整段 override：dev 映像 ENTRYPOINT＝watchexec（跑 server），
+    #   只改 command 會被當 watcher 參數
+    entrypoint: ["cargo", "run", "--bin", "migration"]
+    command: ["up"]
+
+  postgres:
+    ports:
+      - "127.0.0.1:45432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:46379:6379"
+
+# dev 專用 mask 卷（卷跟著使用它的層走；無顯式 name:、繼承 project 前綴）
+volumes:
+  base_web_node_modules:
+  base_web_pnpm_store:
+  rust_api_cargo_cache:
+  rust_api_target:
