@@ -13,14 +13,18 @@ lint）維持秒級離線；需 docker 的步驟隔離在顯式 refresh 命令�
     status；**排除 password——雜湊值也不入快照**）＋sys_role（id／role_code／role_name／
     status）＋sys_user_role 綁定。
 - 失敗語意：stack 不在→非零退出＋提示啟動命令；絕不寫入部分結果（原子替換）。
-- 範圍：seaql_migrations 除外；快照含產生時點欄位（date、非時刻——保確定性重跑友善）。
+- 範圍：seaql_migrations 除外；快照**不含產生時點欄位**（時點由 git 歷史承載）——
+  同庫重跑 byte-identical、「再跑 refresh 後 diff 空」即新鮮度證據（跨日重跑不假紅）。
 
 ## 2. generate／check（離線；沿 U5 ports 的 REFERENCE_LIVE 擴充點）
 
 - generate：解析兩快照 → `docs/generated/reference/schema.md`（表｜欄｜型別｜可空｜預設，
-  逐表分節；GEN_HEADER 慣例）＋`docs/generated/reference/accounts.md`（帳號｜暱稱｜狀態｜
-  角色綁定；零密碼欄）；stub 轉真（REFERENCE_LIVE 各加一筆、STATE 對賬區兩行轉真、
-  剩 routes／screens 兩 stub）。
+  逐表分節；每表標 archetype 變體歸屬——來源＝`docs/ops/reference-src/archetype-map.json`
+  （追蹤中繼檔、隨 schema 刀維護、非 refresh 產物；與 schema-gate audit 同源消費，
+  憲法 §I.6「歸屬入 reference/schema」義務的落點）；GEN_HEADER 慣例）＋
+  `docs/generated/reference/accounts.md`（帳號｜暱稱｜狀態｜角色綁定；零密碼欄）；
+  stub 轉真（REFERENCE_LIVE 各加一筆、STATE 對賬區兩行轉真、剩 routes／screens 兩 stub）；
+  archetype-map 缺表（快照有表、map 無歸屬）＝generate fail-loud 指名。
 - check：L2 對賬——快照重算生成物 vs 磁碟生成物 diff（快照改動未 generate＝紅、指名）；
   快照檔缺失＝紅（轉真後即為表的存在前提、fail-loud）。
 - 確定性：同快照同 byte 輸出；快照本身確定性排序（表名→ordinal）。

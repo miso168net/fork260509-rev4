@@ -9,7 +9,7 @@ db 重整後 live 轉錄 seed＋雙庫互證八軌全綠），本 plan 的設計
 
 ## Summary
 
-把 rev3 終態 schema 的 user 定稿版（欄序模板重排＋11 處改名＋3 新 memo 欄）與 241 列
+把 rev3 終態 schema 的 user 定稿版（欄序模板重排＋14 組改名＋3 新 memo 欄）與 244 列
 seed 定稿壓成兩支 migration（m001 建表＋m002 seed）掛入 001 既有 migrate 閘門；以兩道閘
 ＋審計欄守門機器證明「忠實 squash」與「定稿落實」；entity crate（生成起手＋手工對齊）
 供 003+ 消費；docs-sync 快照管線落地 reference/schema＋accounts（B-003／B-004）。
@@ -49,9 +49,9 @@ rust 面住 rust-api worktree、工具與文件面住外層傘狀 repo
 交付碼零前代代號字樣（FR-012）；閘門類檢查不進 pre-commit（FR-014 分工）；密碼零明文
 入庫入 repo（SC-007）；docs/generated 嚴禁手改
 
-**Scale/Scope**: 12 表（11 業務＋casbin_rule）；241 列 seed；2 支 migration＋1 vendored
+**Scale/Scope**: 12 表（11 業務＋casbin_rule）；244 列 seed；2 支 migration＋1 vendored
 crate＋1 entity crate（13 檔）；1 支閘腳本（3 子命令）；docs-sync 新增 refresh 來源×2；
-fixtures 約 25 檔
+fixtures 26 檔＋archetype 歸屬映射檔 1 支
 
 ## Constitution Check
 
@@ -65,7 +65,7 @@ fixtures 約 25 檔
 | 2 | 動 base-web inline？ | **No** | 波 0 不變式：base-web 零 fork 改動（FR-011）；不觸 §III 任何軌道 |
 | 3 | menu 顯示走 Casbin enforce？ | **N/A（資料就位、enforce 不在本刀）** | seed 灌入 menu 78 列＋casbin 政策 149 列（含 demo menu 進 seed、非隱藏——§I.2 精神的資料前置）；enforce 行為歸 casbin 進場刀 |
 | 4 | wire 對齊 §I.3？ | **N/A** | 本刀零 HTTP 介面；信封／13 碼隨 003 刀 |
-| 5 | 從前代拷 code？ | **例外內** | sea-orm-adapter 整檔拷貝＝§I.5 明文例外（工具性 crate）；migration／entity 碼＝為 rev4 全新寫的 user 定稿轉錄（rev3 僅資料來源）；防回歸：floating 版本／長編號檔名等已推翻行為不帶回（研究 R2） |
+| 5 | 從前代拷 code？ | **例外內＋provenance 認定** | sea-orm-adapter 整檔拷貝＝§I.5 明文例外（工具性 crate）；m001／m002＝ADR 0021 定稿工作坊的 rev4 交付物（為 rev4 而寫、暫存於 rev3 workspace——**非前代 source**，provenance 認定＝ADR 0024）；entity 碼全新生成＋手工對齊；防回歸：floating 版本／長編號檔名等已推翻行為不帶回（研究 R2） |
 | 6 | 抵觸 §II 拍板？ | **No** | #2 dynamic route mode 的 menu 資料面由本刀 seed 承載（constant／hide 屬性忠實 rev3）；#1／#3 不涉及 |
 | 7 | 觸及 §III ★ 軌道？ | **No** | rust-api＋外層工具而已；★ 軌道零觸碰 |
 | 8 | 新建業務表？ | **Yes——合規** | 11 業務表＋casbin_rule 一次建齊；§I.6 archetype 四變體建表即帶（A×5／B×3／C×2／D×2 歸屬詳 data-model §1）；**本刀即是建立審計欄守門的刀**（FR-005）；無 retrofit 條款自本批 migration 起被機器守護 |
@@ -103,7 +103,7 @@ rust-api/
 │   └── src/
 │       ├── lib.rs               # Migrator 註冊 m001、m002（依序）
 │       ├── m001_baseline_schema.rs   # 11 表建齊＋casbin 委派＋治理欄 ALTER（tmp 產物改寫）
-│       └── m002_baseline_seeds.rs    # 241 列定稿 seed（tmp 產物改寫）
+│       └── m002_baseline_seeds.rs    # 244 列定稿 seed（tmp 產物改寫）
 ├── sea-orm-adapter/             # vendored（rev3 workspace 整檔拷入、§I.5 例外；根直下平鋪）
 └── entity/                      # 新 crate：13 檔（12 表＋lib.rs）；sea-orm features＝
     │                            #   macros＋with-chrono＋with-json＋with-ipnetwork（L-071 解法、rev3 現值）
@@ -113,9 +113,11 @@ rust-api/
 tools/schema-gate                # 閘腳本（python3 標準庫＋docker exec psql；子命令
 │                                #   gate1／gate2／audit；需 stack 在、不進 pre-commit）
 tools/docs-sync                  # 新增 refresh 子命令＋schema／accounts 兩來源（快照解析）
-docs/ops/reference-src/          # 快照中繼檔（追蹤、半自動材質；refresh 寫入）
-│   ├── schema-snapshot.json
-│   └── accounts-snapshot.json
+docs/ops/reference-src/          # 追蹤中繼檔（半自動材質）
+│   ├── schema-snapshot.json     # refresh 寫入
+│   ├── accounts-snapshot.json   # refresh 寫入
+│   └── archetype-map.json       # 變體歸屬映射（隨 schema 刀維護、非 refresh 產物；
+│                                #   audit 閘與 generate 同源消費——單一事實家）
 docs/generated/reference/{schema,accounts}.md   # 生成物（stub 轉真、嚴禁手改）
 specs/002-schema-baseline/fixtures/             # 閘 1 基準（拷自 rev3 tmp/extract/）
 ```

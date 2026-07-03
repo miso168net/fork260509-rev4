@@ -36,6 +36,6 @@
     不確定性；版本定值凍結於 brainstorm §0（spec 僅引用不重複）。
   - 實作語彙（migration／entity／fixtures／正典表）屬本 infra 刀的領域名詞（001 先例
     同口徑）；FR 層不含程式庫名、指令形、檔案路徑等實作細節（工具與路徑歸 plan）。
-  - 數量口徑（12 表／241 列／78 選單／149 政策）＝本刀凍結定稿的驗收契約、非活文件
+  - 數量口徑（12 表／244 列／78 選單／149 政策）＝本刀凍結定稿的驗收契約、非活文件
     敘事（spec 收刀即凍結，L-065 不適用於基線定稿）。
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`

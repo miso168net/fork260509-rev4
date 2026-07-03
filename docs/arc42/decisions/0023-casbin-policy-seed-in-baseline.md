@@ -12,10 +12,10 @@ tags: [schema, casbin, foundation]
 ## 背景
 
 ADR 0021 與 wave-0-plan 原定「casbin_rule 由 adapter 委派建表、其授權政策 seed 隨 casbin
-進場刀」。schema 基線的 user 定稿作業（rev3 session db 重整）實際重排了 menu id，而 casbin
-政策的 v1 欄以 menu id 為引用——menu seed 與 casbin 政策 seed 屬**同一批連動定稿**：
-只灌 menu 不灌 casbin，日後 casbin 進場刀得憑外部紀錄重建 id 對應、易斷鏈；雙庫互證
-（2026-07-03）也已連同 casbin 149 列一併驗綠。
+進場刀」。schema 基線的 user 定稿作業（rev3 session db 重整）重排了 menu id 並連同
+casbin 政策全量一併定稿——149 列政策為 p 型 API 路徑形（無欄位級 menu id 引用；政策與
+選單屬**同一批 db 重整定稿**）：只灌 menu 不灌 casbin，日後 casbin 進場刀得另行重建
+定稿批次的完整性、易漂移；雙庫互證（2026-07-03）也已連同 casbin 149 列一併驗綠。
 
 ## 決定
 
@@ -27,5 +27,5 @@ casbin 授權政策 seed（149 列）**移入基線 m002**、與 menu／role／u
 ## 後果
 
 - 基線 seed 定稿清單含 casbin 149 列；閘 2「實庫 seed 列集合＝定稿清單」涵蓋之。
-- menu id↔casbin 引用的一致性由同批定稿保證、無跨刀重建成本。
+- 政策與選單同批定稿的完整性由基線一次落地保證、無跨刀重建成本。
 - casbin 進場刀的 seed 義務消滅；其刀範圍縮為 enforcer 接線與行為面。

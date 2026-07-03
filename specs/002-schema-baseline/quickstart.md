@@ -16,12 +16,15 @@ docker-compose.yml -f docker-compose.dev.yml"`（repo 根執行）。
 ```bash
 $CF down -v && $CF up -d --wait && echo $?            # 0；五常駐 healthy＋migrate Exited(0)
 $CF exec -T postgres psql -U soybean -d soybean_admin_rust -c '\dt'
-#   期望：11 業務表＋casbin_rule＋seaql_migrations（記錄恰 m001_baseline_schema、m002_baseline_seeds）
+#   期望：11 業務表＋casbin_rule＋seaql_migrations
+$CF exec -T postgres psql -U soybean -d soybean_admin_rust -tc \
+  'SELECT version FROM seaql_migrations ORDER BY version'
+#   期望：恰兩筆——m001_baseline_schema、m002_baseline_seeds
 $CF exec -T postgres psql -U soybean -d soybean_admin_rust -tc \
   "SELECT (SELECT count(*) FROM sys_user)||'/'||(SELECT count(*) FROM sys_role)||'/'||
           (SELECT count(*) FROM sys_user_role)||'/'||(SELECT count(*) FROM sys_menu)||'/'||
           (SELECT count(*) FROM casbin_rule)||'/'||(SELECT count(*) FROM system_settings)"
-#   期望：3/3/3/78/149/8（=241）
+#   期望：3/3/3/78/149/8（合計 244）
 $CF exec -T postgres psql -U soybean -d soybean_admin_rust -tc \
   "SELECT count(*) FROM sys_user WHERE password LIKE '\$argon2id\$%'"   # 3（零明文、SC-007）
 ```
@@ -43,23 +46,35 @@ tools/schema-gate gate1                     # 綠
 ## C. 閘 2 定稿落實＋審計守門（US3／SC-003／SC-004）
 
 ```bash
-tools/schema-gate gate2                     # 綠：12 表欄序逐欄＋seed 241 列全配對
+tools/schema-gate gate2                     # 綠：12 表欄序逐欄＋seed 244 列全配對
 tools/schema-gate audit                     # 綠：12 表四變體歸屬全過
-# 負面（驗畢還原；natural key 見 data-model §4）：
+# gate2 負面（驗畢還原；natural key 定義見 contracts/gates.md §3、實值見 fixtures json）：
 $CF exec -T postgres psql -U soybean -d soybean_admin_rust -c \
-  "DELETE FROM system_settings WHERE setting_key='<任一鍵>'"
+  "DELETE FROM system_settings WHERE setting_key='password_min_length'"
 tools/schema-gate gate2                     # 紅、指名該 setting_key
-#   還原：migrate 容器重跑 m002 冪等補回（ON CONFLICT 對 DELETE 缺列即補插）：
-$CF up -d --force-recreate migrate && tools/schema-gate gate2   # 綠
+#   還原＝回捲並重放 m002（重跑 migrate 服務是 no-op——seaql_migrations 已記錄、框架跳過）：
+$CF exec -T rust-api cargo run --bin migration -- down    # 回捲 m002（一支）
+$CF exec -T rust-api cargo run --bin migration -- up      # 重放 m002、seed 補回
+tools/schema-gate gate2                     # 綠
+# audit 負面（主庫暫建未登記 probe 表、驗清單守門；驗畢還原）：
+$CF exec -T postgres psql -U soybean -d soybean_admin_rust -c \
+  'CREATE TABLE t_audit_probe(id bigint)'
+tools/schema-gate audit                     # 紅（清單外業務表 t_audit_probe）
+$CF exec -T postgres psql -U soybean -d soybean_admin_rust -c 'DROP TABLE t_audit_probe'
+tools/schema-gate audit                     # 綠
 ```
 
 ## D. 冪等與可逆（US1 場景 3／SC-005）
 
 ```bash
-$CF up -d --force-recreate migrate          # 二次套用：migrate Exited(0)、A 段計數不變
+$CF up -d --force-recreate migrate          # 二次套用（框架跳過已套用＝no-op）
+docker wait $($CF ps -aq migrate)           # 期望輸出 0（one-shot 退出碼）
+#   A 段計數重驗應不變
 # down→up 可逆（容器內 migration CLI；serial）：
-$CF exec -T rust-api cargo run --bin migration -- down   # ×2 支全卸（含 adapter down）
-$CF exec -T rust-api cargo run --bin migration -- up     # 重套
+$CF exec -T rust-api cargo run --bin migration -- down -n 2   # 全卸（m002＋m001 含 adapter down）
+$CF exec -T postgres psql -U soybean -d soybean_admin_rust -c '\dt'
+#   中間觀測：只剩 seaql_migrations（防半卸假綠）
+$CF exec -T rust-api cargo run --bin migration -- up     # 重套兩支
 tools/schema-gate gate2                     # 綠（列數複現）
 $CF down -v && $CF up -d --wait && echo $?  # 歸零重來仍 0；A 段計數重驗
 ```

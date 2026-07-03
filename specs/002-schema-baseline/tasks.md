@@ -35,17 +35,16 @@ migration／entity 屬「無獨立單元測面」的宣告型碼：其驗證＝�
 
 **Purpose**: 定稿資產拷入＋轉錄互驗＋rust workspace 接線
 
-- [ ] T001 [P] fixtures 拷入：rev3 workspace `tmp/extract/` 全套（columns／constraints／
-      indexes／sequences／row-counts／json-*.json／seed-*.txt／scratch-columns.txt）拷至
-      `specs/002-schema-baseline/fixtures/`＋新增 `fixtures/README.md`（標「來源＝rev3 live、
-      擷取 2026-07-03、閘 1 凍結基準；scratch-columns.txt＝R7 互驗基準」）；檔案 byte 級
-      原樣、不改寫
+- [ ] T001 [P] fixtures 拷入：rev3 workspace `tmp/extract/` **目錄整拷（26 檔、含
+      scratch-* 全套）**至 `specs/002-schema-baseline/fixtures/`＋新增 `fixtures/README.md`
+      （標「來源＝rev3 live、擷取 2026-07-03、閘 1 凍結基準；scratch-columns.txt＝R7
+      互驗基準；seed 總數實測 244」）；檔案 byte 級原樣、不改寫
 - [ ] T002 轉錄互驗（research R7、閘 2 前置）：以 `fixtures/scratch-columns.txt` 機器 diff
       `specs/002-schema-baseline/data-model.md` §3 十二張欄序表（表×欄名×序全配對）；
       不一致＝修 data-model 轉錄（scratch dump 為準、因其=雙庫互證過的實態）並記錄修正處；
       互驗證據（diff 空輸出）留驗收紀錄
-- [ ] T003 rust-api workspace 接線：vendored `sea-orm-adapter/` 自 rev3 workspace 整檔拷入
-      rust-api 根（§I.5 例外；根直下平鋪）；`rust-api/Cargo.toml` members 加 sea-orm-adapter、
+- [ ] T003 rust-api workspace 接線：vendored `sea-orm-adapter/` 自 rev3 workspace 的
+      `rust-api/sea-orm-adapter/` 整檔拷入 rev4 rust-api 根（§I.5 例外；根直下平鋪）；`rust-api/Cargo.toml` members 加 sea-orm-adapter、
       `[workspace.dependencies]` 加 argon2="0.5.3"＋sea-orm={version="1.1.20",
       default-features=false}；容器內 `cargo build` 過（entity member 隨 T013 加）
 
@@ -72,7 +71,7 @@ migration／entity 屬「無獨立單元測面」的宣告型碼：其驗證＝�
 
 ## Phase 3: User Story 1 - 一鍵得到完整基線資料庫 (Priority: P1) 🎯 MVP
 
-**Goal**: 空庫一鍵起→12 表＋241 列定稿 seed 就位；冪等可逆
+**Goal**: 空庫一鍵起→12 表＋244 列定稿 seed 就位；冪等可逆
 
 **Independent Test**: quickstart A＋D 全段（乾淨狀態起、計數與格式驗證、二次套用、
 down→up、down -v 重來）
@@ -81,8 +80,9 @@ down→up、down -v 重來）
       migrate Exited(0)；`\dt` 見 11 業務表＋casbin_rule＋seaql_migrations（記錄恰
       m001_baseline_schema／m002_baseline_seeds 兩筆）；六表計數 3/3/3/78/149/8；
       argon2 格式計數 3（零明文）
-- [ ] T007 [US1] 驗收（quickstart D）：`up -d --force-recreate migrate` 二次套用零變化；
-      容器內 migration CLI `down`×2 全卸（含 adapter down）→`up` 重套→計數複現；
+- [ ] T007 [US1] 驗收（quickstart D）：`up -d --force-recreate migrate` 二次套用零變化
+      （`docker wait` 驗退出碼 0）；容器內 migration CLI `down -n 2` 全卸（含 adapter
+      down；中間觀測 `\dt` 只剩 seaql_migrations、防半卸假綠）→`up` 重套→計數複現；
       `down -v` 歸零重來仍全綠
 
 **Checkpoint**: MVP 成立——資料層地基可用
@@ -96,8 +96,10 @@ down→up、down -v 重來）
 **Independent Test**: quickstart B（gate1 綠＋負面注入紅＋live 交叉輪）
 
 - [ ] T008 [US2] `tools/schema-gate` 骨架＋`gate1` 子命令實作（python3 標準庫；契約＝
-      contracts/gates.md §1／§2：rename map 映射、欄序不敏感、複合索引欄序嚴格、白名單
-      恰 4 項、退出碼 0/1/2、`--live-rev3` 形）；對現行基線庫實跑綠
+      contracts/gates.md §1／§2：rename map 14 組映射、欄序不敏感、複合索引欄序嚴格、
+      白名單恰 4 項、退出碼 0/1/2、`--live-rev3` 形含 rev3 缺席 exit 2）；【測試先行】
+      純函式面（rename 映射、欄名去引號正規化、白名單判定）先寫單元測試紅→實作綠；
+      對現行基線庫實跑綠
 - [ ] T009 [US2] 驗收（quickstart B）：gate1 綠（逐表結論）；負面＝暫 ALTER ADD COLUMN
       →gate1 紅指名→DROP 還原→綠；rev3 在機時 `gate1 --live-rev3` 交叉輪結論一致
 
@@ -113,12 +115,17 @@ down→up、down -v 重來）
 
 - [ ] T010 [US3] `schema-gate gate2` 子命令實作（契約 §3：ordinal_position vs data-model §3
       markdown 表解析、seed vs fixtures 六支 json natural-key 配對、PHC 格式規則、
-      審計時間戳排除、jsonb 正規化）；對現行基線庫實跑綠
-- [ ] T011 [US3] `schema-gate audit` 子命令實作（契約 §4：data-model §1 變體矩陣 A×5／
-      B×3／C×2／D×2 逐表驗、partial-uniq 在場驗、清單外業務表 FAIL）；實跑綠
-- [ ] T012 [US3] 驗收（quickstart C）：gate2＋audit 綠；負面＝暫 DELETE 一列
-      system_settings→gate2 紅指名 natural key→`up -d --force-recreate migrate` 冪等補回
-      →綠；audit 負面於 scratch 庫建缺審計欄表驗 FAIL（不污染主庫、驗畢 DROP scratch）
+      審計時間戳排除、jsonb 正規化）；【測試先行】純函式面（markdown 表解析、natural
+      key 配對、正規化）先紅→實作綠；對現行基線庫實跑綠
+- [ ] T011 [US3] `schema-gate audit` 子命令實作（契約 §4：變體矩陣 A×5／B×3／C×2／D×2
+      逐表驗、partial-uniq 在場驗、清單外業務表 FAIL）＋建立
+      `docs/ops/reference-src/archetype-map.json`（初始內容＝data-model §1 轉錄；audit
+      與 docs-sync generate 同源消費）；【測試先行】變體判定純函式先紅→實作綠；實跑綠
+- [ ] T012 [US3] 驗收（quickstart C）：gate2＋audit 綠；gate2 負面＝暫 DELETE 一列
+      system_settings（setting_key='password_min_length'）→gate2 紅指名→還原＝容器內
+      migration CLI `down`（回捲 m002）→`up`（重放補回；重跑 migrate 服務＝no-op 不可用）
+      →綠；audit 負面＝主庫暫建未登記 probe 表 t_audit_probe→audit 紅（清單外業務表）
+      →DROP 還原→綠
 
 **Checkpoint**: 兩道閘＋守門全數落地（gate 語意詳 contracts、後刀可重跑）
 
@@ -155,9 +162,10 @@ down→up、down -v 重來）
       docker exec psql 撈 information_schema＋帳號三表→寫
       `docs/ops/reference-src/{schema,accounts}-snapshot.json`）；測試轉綠
 - [ ] T017 [US5] 【測試先行→實作】generate／check 兩來源：先加測試（快照解析→兩表生成、
-      確定性、REFERENCE_LIVE 轉真、L2 分流、快照缺失 fail-loud）確認紅→實作至綠
-      （契約 §2；REFERENCE_LIVE 加 schema＋accounts 兩筆、STATE 對賬區轉真）；
-      `docs-sync test` 全套綠
+      確定性、REFERENCE_LIVE 轉真、L2 分流、快照缺失 fail-loud、archetype-map 缺表
+      fail-loud）確認紅→實作至綠（契約 §2；REFERENCE_LIVE 加 schema＋accounts 兩筆、
+      STATE 對賬區轉真；reference/schema 每表標 archetype 歸屬——來源＝
+      docs/ops/reference-src/archetype-map.json）；`docs-sync test` 全套綠
 - [ ] T018 [US5] 驗收（quickstart F）：refresh→generate→check 全綠；STATE 對賬剩
       routes／screens 兩 stub；漂移攔截＝手改快照不 generate→check 紅→還原→綠；
       新鮮度證據＝再跑 refresh 後 `git diff docs/ops/reference-src/` 空
@@ -169,15 +177,18 @@ down→up、down -v 重來）
 ## Phase 8: Polish & Cross-Cutting
 
 - [ ] T019 活書更新（feature branch 內改）：`docs/arc42/ARCHITECTURE.md` §5 首填
-      crate 地圖（server／migration／entity／sea-orm-adapter 一句話級、明細指
-      reference/schema）＋§8 守門表——審計欄守門列改「已建立＝tools/schema-gate audit」、
-      新增快照新鮮度守門句（加 migration 的刀必 refresh→generate）；現在式、
-      零欄位明細字面
+      crate 地圖（server／migration／entity／sea-orm-adapter 一句話級、明細與變體歸屬
+      指 reference/schema）＋§8 守門表——審計欄守門列改「已建立＝tools/schema-gate
+      audit」、新增快照新鮮度守門句（加 migration 的刀必 refresh→generate）、新增
+      「欄序＝基線刀 user 定稿、後續加欄一律 append」句（ADR 0021 修訂一義務）；
+      現在式、零欄位明細字面
 - [ ] T020 [P] `docs/ops/BACKLOG.md` 刪 B-003、B-004 列（完成即刪；next-id 不動）
 - [ ] T021 收官驗證：quickstart A~G 全段重跑一遍過（含 G 段：base-web porcelain 空＋
       pin 停 9c6f223、rev3 容器基線對照無異狀、`down`→`time up -d --wait` 熱起 ≤5min
       ——001 SC-007 迴歸）＋容器內 `cargo test --workspace` 全綠＋
-      `docs-sync generate && check && lint` 全綠
+      `docs-sync generate && check && lint` 全綠＋機器自檢 FR-012：grep 前代 workspace
+      代號於本刀新寫交付碼（migration 兩支／entity／tools/schema-gate／docs-sync 本刀
+      diff）零命中（vendored sea-orm-adapter 豁免——§I.5 整檔拷貝例外、內容不改寫）
 
 ---
 

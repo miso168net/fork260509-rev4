@@ -15,7 +15,7 @@ VALIDATION-REPORT.md、m001/m002 原檔、extract/ dump）。
 | sea-orm | 1.1.20（001 R1 已釘；本刀首個消費者＝entity） | workspace 版本單一來源；**default-features=false**＋per-crate features（rev3 慣例沿用） | — |
 | entity features | macros＋with-chrono＋with-json＋with-ipnetwork | rev3 entity crate 現值＝L-071 解法：chrono backend 供 timestamptz（DateTimeWithTimeZone）、ipnetwork 供 inet、json 供 jsonb | with-time backend：rev3 為 MSRV 刻意避開 time crate、rev4 雖無 MSRV 壓力但沿已驗證形零遷移成本 |
 | async-trait | **不另引** | sea-orm-migration prelude 再匯出；tmp 雙庫互證編譯已實證 | 顯式引入 0.1 浮動（rev3 形、違釘版紀律） |
-| sea-orm-adapter | vendored 整檔拷入（rev3 workspace `sea-orm-adapter/`） | 憲法 §I.5 明文例外（工具性 crate、已驗證）；m001 的 casbin_rule 委派建表依賴它（ADR 0015） | crates.io 版 sea-orm-adapter：與 rev3 已驗證行為非同源、違例外條款本意 |
+| sea-orm-adapter | vendored 整檔拷入（源＝rev3 workspace 的 `rust-api/sea-orm-adapter/`） | 憲法 §I.5 明文例外（工具性 crate、已驗證）；m001 的 casbin_rule 委派建表依賴它（ADR 0015） | crates.io 版 sea-orm-adapter：與 rev3 已驗證行為非同源、違例外條款本意 |
 
 ## R2. migration 檔名與 lineage 改寫（plan 級自拍）
 
@@ -34,7 +34,7 @@ VALIDATION-REPORT.md、m001/m002 原檔、extract/ dump）。
 - **基準＝凍結 fixtures**：`tmp/extract/` 全套拷入 `specs/002-schema-baseline/fixtures/`
   （columns／constraints／indexes／sequences／row-counts＋6 表 seed json；檔頭標
   「來源＝rev3 live、擷取 2026-07-03」）。rev3 在機時驗收加跑一次 live 直比交叉驗證。
-- **比對配方**（沿 VALIDATION-REPORT 已驗證方法）：rename map 11 處雙向映射；表內欄序
+- **比對配方**（沿 VALIDATION-REPORT 已驗證方法）：rename map 14 組（表×欄）雙向映射；表內欄序
   不敏感（欄序歸閘 2）；複合索引／複合主鍵內部欄序嚴格；刻意差異白名單恰為
   3 memo 欄（新增）＋wbip_memo varchar→text（型別）；`[]`→NULL 正規化；審計時間戳
   「值」不比（結構比對本就不涉值）。

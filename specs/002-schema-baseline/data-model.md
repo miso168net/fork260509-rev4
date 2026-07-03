@@ -18,7 +18,7 @@
 | 7 | sys_access_log | B append-only 日誌 | 同上（created_by NN） |
 | 8 | sys_login_attempt | B append-only 日誌 | 同上（created_by 可空） |
 | 9 | sys_user_role | C join | 零審計欄、硬刪；複合 PK＋2 FK |
-| 10 | sys_token | C 狀態機 | created_at NN＋created_by NN（擁有者）＋status；無 updated_*／deleted_* |
+| 10 | sys_token | C 狀態機 | created_at NN＋created_by NN＋status；無 updated_*／deleted_*。created_by＝domain 擁有者欄（原 user_id、user 定稿改名）、**非 archetype 審計欄**——NN 不受 §I.6「*_by nullable」通則約束 |
 | 11 | sys_casbin_policy_archive | D 治理 | created_at/by（原 grant 快照、可空）＋archived_at NN def now＋archived_by＋archive_reason NN |
 | 12 | casbin_rule | D 治理 | adapter 基底 8 欄＋ALTER 治理欄 protected NN def false／created_at NN def now／created_by |
 
@@ -27,7 +27,8 @@
 1. **欄序全面重排**：模板「id → 審計六欄（created_at/by、updated_at/by、deleted_at/by）→
    status（狀態／型別欄）→ 業務欄」；log 型 append-only 變體「id → created_at →
    狀態欄 → 業務欄」。casbin_rule 基底欄序 adapter 委派、不重排（ADR 0015）。
-2. **改名 11 處（rename map 總表；閘 1 映射基準）**：
+2. **改名 14 組（表×欄映射；按新欄名去重＝11 個新欄名。rename map 總表＝閘 1 映射
+   基準——gate1 配對斷言以 14 組為準）**：
 
    | 表 | 舊欄名 → 新欄名 |
    |---|---|
@@ -246,14 +247,24 @@
 
 ### 3.12 casbin_rule（基底 8 欄委派＋ALTER 3 欄照原序）
 
+基底 1~8＝sea_orm_adapter::up() 建（含 unique_key_sea_orm_adapter UNIQUE）、欄序
+adapter 固定、不重排（ADR 0015）；9~11＝ALTER 追加。
+
 | 序 | 欄名 | 註記 |
 |---|---|---|
-| 1~8 | id／ptype／v0~v5 | sea_orm_adapter::up() 建；含 unique_key_sea_orm_adapter UNIQUE；欄序不重排（ADR 0015） |
+| 1 | id | adapter 基底 |
+| 2 | ptype | adapter 基底 |
+| 3 | v0 | adapter 基底 |
+| 4 | v1 | adapter 基底 |
+| 5 | v2 | adapter 基底 |
+| 6 | v3 | adapter 基底 |
+| 7 | v4 | adapter 基底 |
+| 8 | v5 | adapter 基底 |
 | 9 | protected | ALTER；NN def false |
 | 10 | created_at | ALTER；NN def now() |
 | 11 | created_by | ALTER |
 
-## 4. seed 定稿清單（241 列；閘 2 seed 基準）
+## 4. seed 定稿清單（244 列；閘 2 seed 基準）
 
 | 表 | 列數 | 內容要點 |
 |---|---|---|
@@ -261,7 +272,7 @@
 | sys_role | 3 | role_memo 全 NULL |
 | sys_user_role | 3 | 綁定 user↔role（id 由插入序落位） |
 | sys_menu | 78 | 按原 id 升冪插入→id 確定性落 1..78；parent 以 route_name 子查詢解析（對具體 id 值零依賴）；menu_memo 全 NULL |
-| casbin_rule | 149 | v1 引用 menu id——與 menu 同批定稿連動（ADR 0023） |
+| casbin_rule | 149 | 全 p 型 API 路徑政策（v1＝API path、v2＝HTTP method；**無欄位級 menu id 引用**）；與 menu 屬同批 db 重整定稿（ADR 0023） |
 | system_settings | 8 | 鍵值型初始設定 |
 
 - **機器基準**＝fixtures/ 的 6 支 seed json（user 定稿的機器形式、m002 生成來源）；
