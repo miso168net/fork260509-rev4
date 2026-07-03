@@ -25,7 +25,7 @@
 
 **Purpose**: 兩倉骨架與版控防護
 
-- [ ] T001 rust-api workspace 骨架：`rust-api/Cargo.toml`（workspace members=["server","migration"]、resolver="2"、`[workspace.package]` edition="2024"、`[workspace.dependencies]` 全三段版號照 research.md R1）＋`rust-api/rust-toolchain.toml`（channel="1.96.1"）＋`rust-api/.gitignore`（target/）＋`rust-api/server/Cargo.toml`、`rust-api/migration/Cargo.toml` 與可編譯空殼 src；容器內 `cargo build` 過
+- [ ] T001 rust-api workspace 骨架：`rust-api/Cargo.toml`（workspace members=["server","migration"]、resolver="2"、`[workspace.package]` edition="2024"、`[workspace.dependencies]` 全三段版號、收斂為實際消費——server＝axum／tokio／tracing／tracing-subscriber、migration＝sea-orm-migration；serde 系／toml 不入（research.md R1 收斂註記））＋`rust-api/rust-toolchain.toml`（channel="1.96.1"）＋`rust-api/.gitignore`（target/）＋`rust-api/server/Cargo.toml`、`rust-api/migration/Cargo.toml` 與可編譯空殼 src；容器內 `cargo build` 過
 - [ ] T002 [P] 新寫 repo 根 `.dockerignore`：擋 `fork260509-*/`、`base-web/`、`docs/`、`.git`、`**/target`、`deploy/secrets/`、`deploy/dev-certs/`（防真值滲入 build daemon）
 - [ ] T003 [P] repo 根 `.gitignore` 補 `deploy/secrets/*.txt`、`deploy/dev-certs/*`（保留 .gitkeep 與 .example）
 
@@ -54,7 +54,7 @@
 
 ## Phase 3: User Story 1 - 一鍵起整套開發環境 (Priority: P1) 🎯 MVP
 
-**Goal**: 三步（機密→憑證→啟動）得到五常駐服務 healthy＋migrate 成功結束的完整環境
+**Goal**: 四步（機密→憑證→預檢→啟動）得到五常駐服務 healthy＋migrate 成功結束的完整環境
 
 **Independent Test**: 從乾淨狀態（無容器無卷）跑 quickstart A＋B＋D，啟動退出碼與連通點全過
 
@@ -65,7 +65,7 @@
 - [ ] T018 [P] [US1] `deploy/nginx/conf.d/dev.conf`：listen 80＋listen 443 ssl（certs＝/etc/nginx/certs/fullchain.pem＋privkey.pem）、兩 server include _locations.inc
 - [ ] T019 [US1] 驗收（quickstart A）：從零一鍵起——secrets→cert→preflight→`up -d --wait` 退出碼 0、五 healthy＋migrate Exited(0)
 - [ ] T020 [US1] 驗收（quickstart B）：七連通點全過＋`/api/metrics`→404
-- [ ] T021 [US1] 驗收（quickstart D）：down→up 更快且綠；`down -v` 歸零重來仍綠
+- [ ] T021 [US1] 驗收（quickstart D）：down→up 以 time 計時——全 healthy 耗時 ≤5 分鐘（SC-007）且明顯快於冷起；`down -v` 歸零重來仍綠
 
 **Checkpoint**: MVP 成立——環境可日常使用
 
@@ -129,7 +129,7 @@
 - [ ] T031 終驗：`docker compose … exec rust-api cargo test --workspace` 全綠（serial）
 - [ ] T032 [P] 活書更新（feature branch 內改）：`docs/arc42/ARCHITECTURE.md` §7 補 dev stack 敘事（compose 兩件套、migrate gate、機密機制）、§2 拓樸節對齊（現在式）
 - [ ] T033 [P] `docs/ops/BACKLOG.md` 刪 B-002 列（完成即刪）
-- [ ] T034 收官驗證：quickstart A~G 全段重跑一遍過＋`tools/docs-sync generate && check` 全綠＋base-web pin 停在 9c6f223 且工作樹乾淨（SC-006）
+- [ ] T034 收官驗證：quickstart A~H 全段重跑一遍過＋`tools/docs-sync generate && check` 全綠＋base-web pin 停在 9c6f223 且工作樹乾淨（SC-006）；rev3 stack 在機運行時同步實測 FR-015——兩套並行下重驗七連通點＋rev3 容器無異狀（rev3 未運行則記錄跳過與原因）
 
 ---
 

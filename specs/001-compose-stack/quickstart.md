@@ -58,7 +58,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres \
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait   # 更快、全綠
+time docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
+#   全綠；real ≤5min（SC-007）且明顯快於冷起
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v        # 歸零（含卷）
 # 重跑 A 全段仍綠
 ```
@@ -89,4 +90,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec rust-api \
 tools/docs-sync generate && tools/docs-sync check   # 綠；reference/ports 與 compose 一致
 git -C base-web status --porcelain                  # 空
 git submodule status | grep base-web                # pin 停在 9c6f223
+```
+
+## H. rev3 並行共存（FR-015；rev3 stack 在機時執行）
+
+```bash
+docker ps --format '{{.Names}} {{.Status}}' | grep '^rev3-admin'   # rev3 運行中才做本段
+# rev3 運行中：直接重跑 B 全段——七連通點應全過；
+docker ps --format '{{.Names}} {{.Status}}' | grep '^rev3-admin'   # status 應無變化
+#   （出現 Restarting/Exited＝互相干擾、FR-015 失敗）
+# rev3 未運行：記錄跳過原因（如「rev3 stack 本機未部署」），不阻塞收官。
 ```

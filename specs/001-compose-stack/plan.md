@@ -19,10 +19,10 @@ rust-api 全新手寫（憲法 §I.5）；版本全釘完整數字版（brainsto
 慣用形，容器內 alpine/openssl 執行）；Node 26.4.0 僅作容器內前端 dev server 載體（非本刀
 開發語言）
 
-**Primary Dependencies**: axum 0.8.9、tokio 1.52.3、sea-orm-migration 1.1.20、serde 1.0.228、
-serde_json 1.0.150、tracing 0.1.44、tracing-subscriber 0.3.23（env-filter）、toml 0.8.23
-（parse-only）；dev 工具 watchexec-cli 2.5.1；映像 nginx:1.31.2-alpine／postgres:18.4-alpine／
-redis:8.8.0-alpine／node:26.4.0-alpine／rust:1.96.1-slim；pnpm 10.34.3
+**Primary Dependencies**: axum 0.8.9、tokio 1.52.3、sea-orm-migration 1.1.20、tracing 0.1.44、
+tracing-subscriber 0.3.23（env-filter）；dev 工具 watchexec-cli 2.5.1；映像 nginx:1.31.2-alpine／
+postgres:18.4-alpine／redis:8.8.0-alpine／node:26.4.0-alpine／rust:1.96.1-slim；pnpm 10.34.3
+（serde／serde_json／toml：001 無消費者、不引入；查證值見 research.md R1）
 
 **Storage**: PostgreSQL 18.4（named volume `postgres_data`）；Redis 8.8.0（named volume
 `redis_data`、顯式 `--dir /data`）；機密＝file-based secrets（`deploy/secrets/*.txt`、

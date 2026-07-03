@@ -20,8 +20,10 @@ Phase 0 產出。所有技術未知已於刀內 brainstorm 階段以「查 rev3 
 | node | 26.4.0-alpine | 沿 rev4 example compose 既有拍板、master 與 example 同版 | 24.18.0-alpine（LTS）：推翻既有拍板需連動改 example |
 | pnpm | 10.34.3 | 10 線最新；base-web 的 pnpm-lock.yaml 屬 pnpm 10 世代、engines `>=10.5.0` 滿足；零 lockfile 風險 | 11.9.0：新 major 可能重寫 lockfile、破 base-web 零改動不變式 |
 
-次要 crate（rev3 lock 現值恰為官方最新、直接沿用）：serde 1.0.228、serde_json 1.0.150、
-tracing 0.1.44、tracing-subscriber 0.3.23、toml 0.8.23。
+次要 crate 版本查證（rev3 lock 現值恰為官方最新）：tracing 0.1.44、tracing-subscriber
+0.3.23——001 實際引用（server log）。serde 1.0.228、serde_json 1.0.150、toml 0.8.23——
+**001 無消費者、不入 workspace.dependencies**（/health 為 plain text 無 JSON 序列化、001 無
+toml 設定檔）；隨首個消費者刀進場、屆時重走釘版程序，查證值留此備查。
 
 ## R2. 結構拍板（brainstorm 拍板 #11~#13）
 
