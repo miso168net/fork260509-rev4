@@ -24,7 +24,8 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 - **repo 拓樸**：傘狀 repo（本 repo、default branch `rev4-admin-root`）＋兩個雙身分子體
   （本機 git worktree／外層 submodule gitlink）：`base-web/`（分支 `rev4-admin-base-web`、
   自 upstream example 最新 HEAD 衍生）與 `rust-api/`（分支 `rev4-admin-rust-api`、自源倉
-  Initial commit 起全新寫）。fork 源倉在本機另處、gitignored 且必須保留。
+  Initial commit 起全新寫）。fork 源倉以本機 clone 住 repo 根下 `fork260509-*/`
+  （gitignored）、必須保留——worktree 的 `.git` 檔指向它。
 - **環境**：WSL2（drvfs 掛載）；repo 全域 .gitattributes 強制 LF；host 無 rust toolchain、
   build/test 一律容器內。
 - **上游關係**：upstream 常態 rebase 為預期事件；fork 差異治理見 constitution §III。
