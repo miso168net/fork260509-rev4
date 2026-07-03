@@ -25,7 +25,7 @@
 - B-021｜session 生命週期一次設計完整（併發/踢除/撤銷/輪替；rev3 三度改向）｜session 刀 brainstorm 開場｜出處：rev3:REVIEW§5（K2-05）
 - B-022｜登入嘗試審計「恰寫一筆」與快取短路的邊界第一性重想｜節流/審計刀｜出處：rev3:REVIEW§5＋§2（K2-06）
 - B-023｜系統設定域先定骨架再打樁（型別驗證/熱套用/UI 分區定形留空）｜系統設定刀 brainstorm｜出處：rev3:REVIEW§5（K2-07）
-- B-024｜先枚舉 ingress 拓樸全貌再定 IP 取證欄位形｜首個日誌 entity 設計前｜出處：rev3:REVIEW§5（K2-08）
+- B-024｜先枚舉 ingress 拓樸全貌再定 IP 取證欄位形｜首次重設計 IP 取證欄形的刀（002 基線＝承襲 rev3 形＋user 定稿、不觸發）｜出處：rev3:REVIEW§5（K2-08）
 - B-025｜使用者編輯模式帳號名欄鎖定（消滅靜默 no-op 縫隙）｜使用者管理刀｜出處：rev3:REVIEW§3.2-F-5（K2-09）
 - B-026｜部分更新契約內建顯式 clear 語意｜部分更新 wire 設計時｜出處：rev3:REVIEW§3.4（K2-10）
 - B-027｜alt-login 補全知識包（確認密碼規則值快照 race 的 toRef 範式等）｜B-008 拍板後施工輸入｜出處：rev3:CHECKLIST§4.2（K2-11）
