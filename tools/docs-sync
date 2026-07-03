@@ -200,6 +200,7 @@ def lint_events(text):
 
 # L7 預算表：rel path → (行數上限, token 上限)；None＝不設
 BUDGETS = {
+    "README.md": (150, None),
     "CLAUDE.md": (250, None),
     "docs/ops/NOTES.md": (40, None),
     "docs/ops/BACKLOG.md": (200, None),

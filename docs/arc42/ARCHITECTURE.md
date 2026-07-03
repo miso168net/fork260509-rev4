@@ -51,7 +51,8 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §5 Building blocks
 
-（本節尚無內容；crate／facade 地圖與前端結構隨對應刀填入。欄位明細住 generated/reference/schema。）
+本節承載程式體結構（crate／facade 地圖、前端結構、資料模型敘事），隨波次建置填入；
+欄位明細住 generated/reference/schema。workspace 目錄樹與導覽住 README.md。
 
 ## §6 Runtime
 
