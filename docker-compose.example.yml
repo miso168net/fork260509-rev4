@@ -1,0 +1,53 @@
+# example 視覺參考實例 (soybean example 分支,連官方 mock)
+#
+# 用途: 常駐一個跑 example 分支＋官方 apifox mock 的實例,做視覺/行為對照——
+#       rev4 worktree base-web(42081) fork 改動展開後,仍能隨時對比 mock 原貌。
+#
+# 與 master stack 完全隔離: 獨立 project `rev4-admin-example`(自有卷/網路/容器),
+# 可與 master(docker-compose.yml,隨波 0 compose 刀落地)安全並存、互不干擾
+# (對 master 跑 down --remove-orphans 也不會誤砍)。
+#
+# 用法:
+#   dev 模式(熱重載,http://127.0.0.1:42089):
+#     docker compose -f docker-compose.example.yml up
+#   停止 + 移除容器:
+#     docker compose -f docker-compose.example.yml down
+#   清掉 named volume(強制下次重 pnpm install):
+#     docker volume rm rev4-admin-example_node_modules rev4-admin-example_pnpm_store
+#
+# 設計:
+#   - 掛 source repo fork260509-soybean-admin-base(=example 分支),api 走官方 mock(.env.test mode)
+#   - 完全不需 host 裝 node/pnpm;named volume mask /app/node_modules 避 WSL2 bind mount 拖慢 IO
+#   - --frozen-lockfile: 容器內 install 不動 source repo 的 pnpm-lock.yaml
+#   - port: host 42089、容器內 80(ADR 0019——host 4xxxx、容器內回歸預設值)
+#   - node 映像釘數字版(ADR 0012 哲學;26.4.0=釘版當日官方 26 線最新,rev3 實跑 26.3.0)
+
+name: rev4-admin-example
+
+services:
+  example-dev:
+    image: node:26.4.0-alpine
+    container_name: rev4-admin-example-dev
+    working_dir: /app
+    environment:
+      - NODE_ENV=development
+      - BROWSER=none
+      - npm_config_store_dir=/pnpm-store
+      - CI=true
+    volumes:
+      - ./fork260509-soybean-admin-base:/app
+      - node_modules:/app/node_modules
+      - pnpm_store:/pnpm-store
+    ports:
+      - "127.0.0.1:42089:80"
+    command:
+      - sh
+      - -c
+      - "npm install -g pnpm@10 && pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0 --port 80"
+    init: true
+    tty: true
+    stdin_open: true
+
+volumes:
+  node_modules:
+  pnpm_store:
