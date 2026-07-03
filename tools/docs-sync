@@ -781,7 +781,7 @@ def check_generated(root, computed):
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 史料豁免：內容類 lint（L11~L15）不掃 one-shot 史料（其內文含示例 pattern、必自撞）
-HISTORICAL_EXEMPT = ("docs/brainstorms/", "docs/INTEGRATION-rev4-arc42.md")
+HISTORICAL_EXEMPT = ("docs/brainstorms/",)
 
 
 def _is_exempt(rel):
