@@ -115,7 +115,9 @@ rust-api/
 ├── .gitignore                   # target/
 ├── server/
 │   ├── Cargo.toml
-│   ├── src/main.rs              # Router＋:8080＋graceful shutdown＋tracing 初始化
+│   ├── src/lib.rs               # app() Router（/health handler）＋pub mod config（as-built：
+│   │                            #   L-010——bin-only crate 整合測試 use 不到內部 API）
+│   ├── src/main.rs              # :8080 bind＋graceful shutdown＋tracing 初始化＋config 載入
 │   ├── src/config.rs            # AppConfig＋_FILE 優先＋佔位值黑名單
 │   └── tests/health.rs          # oneshot 冒煙
 └── migration/

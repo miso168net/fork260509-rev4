@@ -22,6 +22,11 @@ fork260509-rev4/
 │   └── generated/                   機器生成、嚴禁手改：STATE（現況帳）／MILESTONES（全事件表）
 │                                      ／DECISIONS-INDEX（ADR 索引）／reference/（全量正典表）
 ├── tools/docs-sync                  生成器＋lint（generate／check／lint／errata／test）
+├── docker-compose.yml               dev stack base 層（六 service 共通定義；敘事見活書 §7）
+├── docker-compose.dev.yml           dev override（host port／bind-mount／熱重載）
+├── docker-compose.example.yml       example 視覺參照實例（獨立 project、與 dev stack 無關）
+├── deploy/                          部署資產：Dockerfile.rust-api／nginx conf／secrets 與
+│                                      dev-certs（實值 gitignored）／生成與預檢腳本 ×3
 ├── .specify/memory/constitution.md  凍結權威：原則、wire 不變式、軌道授權、自查題組
 ├── specs/<NNN>-<feature-name>/      spec-kit per-feature 文件（收刀即凍結；首刀時出現）
 ├── fork260509-*/                    fork 源倉本機 clone（gitignored、必留、勿直接編輯）

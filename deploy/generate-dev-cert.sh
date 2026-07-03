@@ -29,6 +29,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CERT_DIR="$SCRIPT_DIR/dev-certs"
 mkdir -p "$CERT_DIR"
 
+# 憑證檔缺席時曾直接 up 的殘骸：compose file-bind 會在該路徑自動建出「目錄」——
+# 空目錄自動清除、非空指名退出（對齊 generate-secrets.sh 的自癒行為）
+for f in fullchain.pem privkey.pem; do
+    if [ -d "$CERT_DIR/$f" ]; then
+        rmdir "$CERT_DIR/$f" 2>/dev/null || {
+            echo "FAIL：$CERT_DIR/$f 是非空目錄（無法自動清除）——請手動移除後重跑" >&2
+            exit 1
+        }
+        echo "$f 為目錄佔位（缺檔曾直接 up 的殘骸）→ 已清除"
+    fi
+done
+
 # 偵測外部 CA（ca.* 同時存在 AND 無 self-signed-marker → 外部 CA；否則自簽）
 # marker 機制：自簽路線生 CA 後寫入 marker，讓未來 --force 知道 ca.* 是腳本自己生的、要一併重生
 EXTERNAL_CA=0
@@ -72,6 +84,9 @@ run_openssl() {
 # Step 1: 生 CA（僅自簽路線）
 if [ "$EXTERNAL_CA" -eq 0 ]; then
     echo "=== Step 1/2: 生 CA（RSA 2048、10 年）==="
+    # 私鑰出生即 600：預建 0600 空檔、openssl -out 覆寫內容沿用既有 mode
+    # （原生 Linux 消除 world-readable 窗口；drvfs 上 chmod no-op、照做）
+    install -m 600 /dev/null "$CERT_DIR/ca.key"
     run_openssl genrsa -out ca.key 2048
     run_openssl req -new -x509 -key ca.key -days 3650 -out ca.pem \
         -subj "/CN=rev4-admin dev root CA" \
@@ -83,6 +98,8 @@ fi
 
 # Step 2: 用 CA 簽 leaf（always）
 echo "=== Step 2: 生 leaf cert（RSA 2048、1 年、SAN localhost＋127.0.0.1）==="
+# 同 Step 1：私鑰出生即 600
+install -m 600 /dev/null "$CERT_DIR/privkey.pem"
 run_openssl genrsa -out privkey.pem 2048
 run_openssl req -new -key privkey.pem -out leaf.csr \
     -subj "/CN=localhost" \
