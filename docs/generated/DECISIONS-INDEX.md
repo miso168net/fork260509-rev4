@@ -16,9 +16,11 @@
 | 0011 | accepted | 2026-07-03 | 稽核三表補查詢讀端＋僅超管管理 UI、殿後排程 | — | — | — |
 | 0012 | accepted | 2026-07-03 | redis 映像建 stack 即 pin 數字版 | — | — | — |
 | 0013 | accepted | 2026-07-03 | migration 檔名採短編號＋語意名 | — | — | — |
-| 0014 | accepted | 2026-07-03 | schema 基線＝rev3 終態語意 squash＋欄序重設計、兩道閘驗證 | — | — | — |
+| 0014 | superseded | 2026-07-03 | schema 基線＝rev3 終態語意 squash＋欄序重設計、兩道閘驗證 | — | — | 0021 |
 | 0015 | accepted | 2026-07-03 | casbin 規則表採委派式建表（adapter 建基底＋同檔 ALTER 補治理欄） | — | — | — |
 | 0016 | accepted | 2026-07-03 | 已生效鎖定加 Redis 負快取層（DB 真相、fail-OPEN） | — | — | — |
 | 0017 | accepted | 2026-07-03 | IP 存取控制閘——白＞黑＞default-allow、DB 真相＋記憶體微秒判定、fail-OPEN | — | — | — |
 | 0018 | accepted | 2026-07-03 | B8 處置流水總帳——K1 27 筆去向＋K2 全量轉 BACKLOG | — | — | — |
 | 0019 | accepted | 2026-07-03 | rev4 port 配號——host 4xxxx、容器內回歸預設值 | — | — | — |
+| 0020 | accepted | 2026-07-03 | 波 0 規劃定案——三刀組成串行、compose 五服務、部署資產裁剪帶入、wire 後端縱深 | — | — | — |
+| 0021 | accepted | 2026-07-03 | schema 基線改 user 定稿制——欄序親排＋seed 過目定稿、兩道閘分工對應調整 | — | 0014 | — |

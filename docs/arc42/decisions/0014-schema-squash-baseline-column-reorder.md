@@ -2,9 +2,9 @@
 id: "0014"
 title: schema 基線＝rev3 終態語意 squash＋欄序重設計、兩道閘驗證
 date: 2026-07-03
-status: accepted
+status: superseded
 supersedes: []
-superseded_by: []
+superseded_by: [0021]
 provenance: "rev3:DECISIONS§1-⚠️t（K1-29；rev4 調整：欄序重排＋驗證法升級，user 拍板）"
 tags: [schema, foundation]
 ---
