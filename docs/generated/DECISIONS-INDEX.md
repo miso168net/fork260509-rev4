@@ -21,3 +21,4 @@
 | 0016 | accepted | 2026-07-03 | 已生效鎖定加 Redis 負快取層（DB 真相、fail-OPEN） | — | — | — |
 | 0017 | accepted | 2026-07-03 | IP 存取控制閘——白＞黑＞default-allow、DB 真相＋記憶體微秒判定、fail-OPEN | — | — | — |
 | 0018 | accepted | 2026-07-03 | B8 處置流水總帳——K1 27 筆去向＋K2 全量轉 BACKLOG | — | — | — |
+| 0019 | accepted | 2026-07-03 | rev4 port 配號——host 4xxxx、容器內回歸預設值 | — | — | — |
