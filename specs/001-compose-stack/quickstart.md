@@ -67,7 +67,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v        # 
 ## E. 熱重載（驗收 5）
 
 ```bash
-# 暫改 rust-api/server/src/main.rs 的 /health 回應字串（如 "ok-hot"）
+# 暫改 rust-api/server/src/lib.rs 的 /health 回應字串（如 "ok-hot"；handler 住 lib.rs 的 app()）
 docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f rust-api &
 # 期望：watchexec 偵測（--poll 1s）→ 重編 → 重啟；≤60s 內：
 curl -s http://127.0.0.1:42079/health   # ok-hot

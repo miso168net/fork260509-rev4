@@ -33,6 +33,10 @@ services:
       # 容器內 install 不許動 pnpm-lock.yaml）
       CI: "true"
       npm_config_store_dir: /pnpm-store
+      # WSL2 9p bind mount 不產生 fs 事件——vite 熱更新必須輪詢（同後端 watchexec
+      # --poll 1s 紀律）；vite 內建 chokidar 的 env 覆寫直達 watcher、免動 fork 內設定檔
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     volumes:
       - ./base-web:/app
       - base_web_node_modules:/app/node_modules

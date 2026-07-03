@@ -90,7 +90,7 @@
 
 **Independent Test**: quickstart E 暫改 /health 回應實測
 
-- [ ] T024 [US3] 驗收（quickstart E）：暫改 `rust-api/server/src/main.rs` health 回應→watchexec 輪詢偵測→自動重編重起→curl 見新值（存檔到可觀察 ≤60s）；還原並確認恢復
+- [ ] T024 [US3] 驗收（quickstart E）：暫改 `rust-api/server/src/lib.rs` health 回應（handler 住 lib.rs 的 app()）→watchexec 輪詢偵測→自動重編重起→curl 見新值（存檔到可觀察 ≤60s）；還原並確認恢復
 - [ ] T025 [US3] 驗收：暫改 base-web 任一原始檔→vite 熱更新即時反映；**還原至 `git -C base-web status --porcelain` 為空**
 
 **Checkpoint**: dev 迴圈可用（後續刀 TDD 的日常路徑）
