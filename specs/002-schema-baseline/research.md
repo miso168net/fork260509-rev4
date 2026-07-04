@@ -17,6 +17,11 @@ VALIDATION-REPORT.md、m001/m002 原檔、extract/ dump）。
 | async-trait | **不另引** | sea-orm-migration prelude 再匯出；tmp 雙庫互證編譯已實證 | 顯式引入 0.1 浮動（rev3 形、違釘版紀律） |
 | sea-orm-adapter | vendored 整檔拷入（源＝rev3 workspace 的 `rust-api/sea-orm-adapter/`） | 憲法 §I.5 明文例外（工具性 crate、已驗證）；m001 的 casbin_rule 委派建表依賴它（ADR 0015） | crates.io 版 sea-orm-adapter：與 rev3 已驗證行為非同源、違例外條款本意 |
 
+- **U1 實作補記**：vendored adapter 的 manifest 以 workspace 繼承宣告 async-trait 與
+  casbin——workspace.dependencies 補定義 async-trait 0.1.89、casbin 2.20.0
+  （default-features=false）；兩者 rev3 lock 現值＝crates.io 最新 stable（雙查同值、
+  沿用原則）。上列「不另引」維持成立於 migration 碼面（prelude 再匯出）。
+
 ## R2. migration 檔名與 lineage 改寫（plan 級自拍）
 
 - **檔名**＝`m001_baseline_schema.rs`／`m002_baseline_seeds.rs`：ADR 0013 短編號＋語意名；
