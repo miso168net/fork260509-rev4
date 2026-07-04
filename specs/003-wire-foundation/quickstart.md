@@ -64,5 +64,9 @@ docker ps --format '{{.Names}} {{.Status}}' | grep '^rev3-admin'   # 前後對�
 ## F. 波 0 出口整波重跑（SC-007；收刀時執行）
 
 收 003 時六組檢查表全綠才宣告波 0 收口（清單＝wave-0-plan §3）：第 1 組一鍵環境
-（down -v 歸零重來）→ 第 2 組基線資料（\dt＋seed 抽查＋gate1/gate2 綠）→ 第 3 組
-wire 地基（本檔 A~D）→ 第 4 組文件面 → 第 5 組紀律面 → 第 6 組波 1 就緒判定。
+（down -v 歸零重來）→ 第 2 組基線資料 → 第 3 組 wire 地基（本檔 A~D）→ 第 4 組
+文件面 → 第 5 組紀律面 → 第 6 組波 1 就緒判定。
+
+注意（第 2 組口徑）：wave-0-plan §3 第 2 組「casbin_rule 不存在屬正常」為 ADR 0023
+前時態（凍結歷史紀錄、不改）——實際以 002 終態為準：`\dt`＝11 業務表＋casbin_rule
+＋seaql_migrations、seed 244 列、三閘（gate1／gate2／audit）綠。

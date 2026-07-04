@@ -41,10 +41,10 @@ quickstart.md 為準、比對規則以 contracts/ 為準、機器基準以 data-
 **Purpose**: rust 依賴接線——全部後續任務的編譯前提
 
 - [ ] T001 rust-api workspace 依賴接線：`rust-api/Cargo.toml` [workspace.dependencies]
-      加 serde = { version = "1.0.228", default-features 照需 }＋serde_json =
-      "1.0.150"；`rust-api/server/Cargo.toml` 引 serde（workspace=true、derive）＋
-      serde_json（workspace=true）、[dev-dependencies] 加 jsonschema = "0.46.9"；
-      容器內 `cargo build` 過
+      加 `serde = "1.0.228"`＋`serde_json = "1.0.150"`；`rust-api/server/Cargo.toml`
+      [dependencies] 加 `serde = { workspace = true, features = ["derive"] }`＋
+      `serde_json = { workspace = true }`、[dev-dependencies] 加
+      `jsonschema = "0.46.9"`；容器內 `cargo build` 過
 
 ---
 
@@ -68,8 +68,9 @@ quickstart.md 為準、比對規則以 contracts/ 為準、機器基準以 data-
       無變體）＋HTTP 例外恰 4040→404、5003→403
 - [ ] T005 `rust-api/server/src/error.rs` 實作至綠：13 碼常量表＋AppError 9 變體
       （碼／key／http 烤進變體、data-model §1 逐字）＋IntoResponse 建錯誤信封
-      （data:null 不省略）；`From<DbErr>` 不實作（research R3 防回歸）；容器內
-      `cargo test --workspace` 全綠（既有測試不退化）
+      （data:null 不省略）＋信封例外清單常量註記（/health＋/metrics——/metrics
+      endpoint 歸 obs 刀、規則先入註記防進場漏判）；`From<DbErr>` 不實作
+      （research R3 防回歸）；容器內 `cargo test --workspace` 全綠（既有測試不退化）
 
 **Checkpoint**: 信封＋錯誤骨架就緒；rust-api worktree commit＋外層 pin bump
 
@@ -109,7 +110,8 @@ text、404 fallback 錯誤信封）
 - [ ] T009 [US2] contract case registry 骨架＋整合測試落位：`rust-api/server/tests/`
       新增守門測試檔（檔名實作定、沿 001 tests/health.rs 形）——case 鍵→驗證函式
       registry（contracts/contract-machinery.md §3 消費形）；13 碼 table-driven 與
-      保留碼完整性（Phase 2 已立）掛入 registry 鍵
+      保留碼完整性（Phase 2 已立）掛入 registry 鍵；/metrics 例外規則測試側註記
+      （endpoint 歸 obs 刀、進場時必補 case）
 - [ ] T010 [US2] 時間欄 offset 斷言 case：demo 響應（in-process 呼叫、001 health
       整合測試形）時間欄解析驗 RFC3339 帶 offset（naive＝紅）；掛 registry
 - [ ] T011 [US2] 驗收（quickstart C 守門子集）：容器內 `cargo test --workspace`
@@ -156,9 +158,11 @@ fixtures 隨 worktree、tools/wire-schema 隨外層——兩段式照舊）
 
 - [ ] T017 活書更新（feature branch 內改）：`docs/arc42/ARCHITECTURE.md` §8——
       錯誤碼列與 datetime 列守門「隨 wire 地基刀建立」標記清掉（轉已就位形、寫
-      實際守門命令）＋新增 wire-schema 快照新鮮度列（動 typings／加 route 的刀必
-      於單元邊界重跑 `python3 tools/wire-schema extract` 並隨 commit）；§5 crate
-      地圖 server 句對齊（信封／錯誤／router 一句話級）；現在式、lint 綠
+      實際守門命令；★datetime 列僅轉前半 wire offset 斷言，後半「前端 lint 禁繞過
+      formatter……隨 base-web 首刀建立」原樣保留）＋新增 wire-schema 快照新鮮度列
+      （動 typings／加 route 的刀必於單元邊界重跑 `python3 tools/wire-schema
+      extract` 並隨 commit）；§5 crate 地圖 server 句對齊（信封／錯誤／router
+      一句話級）；現在式、lint 綠
 - [ ] T018 [P] `docs/ops/BACKLOG.md`：B-001 觸發字樣改「rust-api 首個**業務**路由
       落地時」＋B-009 觸發字樣改「首個帶 facade 的功能刀 brainstorm」（brainstorm
       §6 判定）＋新增 B-NNN「刪 demo 驗證端點（連 case 與註冊表條目）｜首個功能刀」
@@ -167,8 +171,9 @@ fixtures 隨 worktree、tools/wire-schema 隨外層——兩段式照舊）
       全綠＋`docs-sync generate && check && lint` 全綠＋機器自檢 FR-013：grep 前代
       workspace 代號於本刀新寫交付碼（server 新模組與測試／tools/wire-schema）
       零命中＋base-web porcelain 空、pin 停 9c6f223＋rev3 容器對照無異狀；
-      **quickstart F 段（波 0 出口六組檢查表整波重跑、含第 1 組 down -v 歸零）
-      全綠**——SC-007、收 003 即波 0 收口判定
+      **quickstart F 段（波 0 出口六組檢查表整波重跑、含第 1 組 down -v 歸零；
+      第 2 組口徑照 quickstart F 註記＝002 終態、勿照 wave-0-plan 字面）全綠**
+      ——SC-007、收 003 即波 0 收口判定
 
 ---
 
