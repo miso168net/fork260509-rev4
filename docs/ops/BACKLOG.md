@@ -55,4 +55,4 @@
 - B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-055｜閘 1 型別比對不含 varchar 長度（fixtures/columns.txt 無 character_maximum_length 欄）——長度級漂移閘 1 不攔；機器閉環需把長度併入 fixtures 重凍（基準改動、拍板級）｜後續 schema 刀重凍基準時｜出處：002-schema-baseline U3b review
-- B-056｜刪 demo 驗證端點（handler/demo.rs＋router 註冊表 /demo-wire 條目＋contract.rs demo-wire case）｜首個功能刀｜出處：003-wire-foundation 收刀（demo 為暫時物）
+- B-056｜刪 demo 驗證端點（連 handler/demo.rs＋mod.rs 掛載、router ROUTES /demo-wire 條目與 in-module demo 測試、contract.rs demo-wire case 與 len 斷言——編譯器導引全清）｜首個功能刀｜出處：003-wire-foundation 收刀（demo 為暫時物）
