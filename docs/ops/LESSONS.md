@@ -1,4 +1,4 @@
-<!-- next: L-103 -->
+<!-- next: L-105 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -117,6 +117,10 @@
   防：三方比對：先讀原版全結構（grep 標題）、diff 出結構差異清單、再 grep 全 repo 引用該檔結構的下游逐一核對。｜出處：rev3:memory/read-source-before-derived-review
 - **L-052**｜[流程] 往文件階層寫識別碼的兩個坑：brainstorm 拍板自鑄新警示碼當小節編號會污染全域決策 registry；用行號當交叉引用（某檔 line NNN）則文件一改行號全飄、引用立即 rot、讀者看不懂。
   防：拍板表用描述名、只引用既有 registry 碼，新碼只給真正跨 feature 的長壽決策且按實際編入先後給號、不預留 gap；交叉引用一律用穩定語意錨（章節號/附錄名/描述名），程式碼註解就地自解釋、不回指動態 todo 檔。｜出處：rev3:memory/brainstorm-doc-decision-table-not-warn-codes
+- **L-103**｜Workflow 工具的 args 參數在本環境一律以 JSON 字串抵達 script（canary 實證：傳格式正確的小物件仍是字串）——`args.欄位` 讀出 undefined、agent 收到字面 "undefined" 當任務；若迴圈上限也取自 args，`n > undefined` 恆 false、邊界與壞輸入同源靜默失效（曾空轉 144 輪／290 支 agent／5.4 小時）。
+  防：agent prompt 全數烤進 script 本體模板字串、args 只傳短純量；script 首段斷言 args 型別＋必要欄位非空、不符零派發即 throw；一切邊界（fix 輪數、agent 總數保險絲）寫死 script 常數、與外部輸入不同源；派發前斷言 prompt 非空且不含字面 undefined。｜出處：2026-07-04 002-schema-baseline TDD 編排死迴圈事故檢討
+- **L-104**｜背景 workflow「發射即睡、等完成通知」對非終止型故障（死迴圈、卡死）是盲區——完成通知永遠不來；且 LLM agent 對同一結論每輪措辭不同，result 字面去重抓不到語意空轉（290 筆 result 去重後 287 種）。
+  防：發射後即讀 agent transcript 首行驗 prompt 完整抵達（冒煙）；掛 Monitor 保險絲（journal 事件數＞2× 單元理論上限告警＋停滯偵測、閾值＞最長合法 cargo 時長）；收斂偵測用結構化欄位比較（blocker 的 file×summary 集合連兩輪相同＝不收斂）、勿比自由文字；判死迴圈→TaskStop→修 script→resumeFromRunId 續跑（已完成 agent 走快取）。｜出處：2026-07-04 002-schema-baseline TDD 編排死迴圈事故檢討
 
 ## 〔review／驗收方法論〕
 
