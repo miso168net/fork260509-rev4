@@ -11,6 +11,17 @@ base-web首刀；上游＝ADR 0008〔縱切第一刀＝系統設定、骨架先�
 ＋B-051〔值型驗證健壯化〕＋constitution §III〔★MODAL-WIRING (e)／★I18N-WIRING (i)~(iii)／
 ADAPT／WRAPPER 軌道授權〕＋§I.2／§I.3／§I.6；brainstorm 七題拍板＋ADR 0026／0027）
 
+## Clarifications
+
+### Session 2026-07-05
+
+- Q: zh-TW 首發 locale 與 locale 對等 lint 的範圍（限本刀新增鍵〔backend 命名空間〕vs
+  全字典全量對等）？ → A: **全字典 zh-tw／zh-cn 全量對等**——本刀建完整 zh-tw UI 字典（全量
+  翻譯既有 ~698 鍵 UI）＋backend 命名空間＋settings key，locale 對等 lint 守全字典鍵集一致，
+  zh-tw 成完整 primary UI。★由此帶出之憲法軌道邊界（zh-tw locale 註冊／語言選單「繁體」inline
+  是否逾 ★I18N-WIRING (ii) 範圍→需 Amendment 或屬純新增新檔）於 /speckit-plan Constitution
+  Check 定案。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 超級管理員檢視與修改系統設定 (Priority: P1)
@@ -124,12 +135,15 @@ casbin policy 已 seed（R_SUPER）。
   （`rev4-` 前綴、直接路徑 import）。
 - **FR-010**: 前端 MUST 建立 i18n 接線（★I18N-WIRING (i)~(iii)）：請求攔截器 wire `msg`
   （key）經 `$t` 譯在地化顯示（不改控制流語意）；locale 新增 top-level `backend` 命名空間
-  （key＝`backend.<root>.<entity>.<condition>`）；`App.I18n.Schema` 擴 `backend` 型；zh-TW
-  首發字典建置循 §III(ii) 範圍。
+  （key＝`backend.<root>.<entity>.<condition>`）；`App.I18n.Schema` 擴 `backend` 型；**zh-TW
+  首發 locale 全字典建置——新增 zh-tw locale 檔全量對齊 zh-cn 鍵集（翻譯既有 ~698 鍵 UI）
+  ＋backend 命名空間＋settings key，並註冊 zh-tw 為 primary／語言選單加「繁體」**（軌道邊界
+  見 Clarifications，plan Constitution Check 定案）。
 - **FR-011**: 交付 MUST 建立首刀守門：後端 settings 端點掛 contract case＋覆蓋閘、型別
   registry 單元測試、facade op-log 測試、authz 測試（注入身分）、**首建 entity_access_lint**
-  （handler 零 path-root `entity::`、走 facade）；前端 locale 對等 lint（zh-tw／zh-cn 鍵集
-  一致）＋i18n typed Schema＋datetime formatter lint（§8「隨 base-web 首刀建立」守門）。
+  （handler 零 path-root `entity::`、走 facade）；前端 locale 對等 lint（zh-tw／zh-cn **全字典**
+  鍵集一致）＋i18n typed Schema（加鍵漏語言 typecheck 紅）＋datetime formatter lint
+  （§8「隨 base-web 首刀建立」守門）。
 - **FR-012**: 本刀 MUST 零 migration／零 seed 改動（`system_settings` 表＋8 seed＋casbin
   R_SUPER policy 已 baseline 002）。
 - **FR-013**: base-web MUST 守 fork-delta 紀律：inline 改動全走 `rev4-inline` 標記（修改型
@@ -164,7 +178,7 @@ casbin policy 已 seed（R_SUPER）。
 - **SC-004**: 設定端點 100% 有 contract case＋覆蓋閘綠；一道後端驗證命令全綠（含型別／授權／
   facade op-log／守門）。
 - **SC-005**: base-web 改動 100% 在授權軌道內且 `rev4-inline` 標記；前端 build／type-check
-  綠、契約與後端 wire 對齊、locale zh-tw／zh-cn 鍵集一致（locale lint 綠）。
+  綠、契約與後端 wire 對齊、locale zh-tw／zh-cn **全字典**鍵集一致（locale lint 綠）。
 - **SC-006**: wire-schema 快照隨 typings 新增重抽、再抽 diff 空；交付碼零前代代號。
 - **SC-007**: demo 端點移除、原覆蓋閘／契約守門重跑全綠（暫時物清償無殘留）。
 
@@ -179,8 +193,12 @@ casbin policy 已 seed（R_SUPER）。
   build／type-check／契約／元件單元／服務層整合驗；login-gated 走查留 auth 刀（brainstorm 拍板 7）。
 - per-key number 範圍：`password_min_length`／`password_max_length` 採合理界（min≥1、上界
   防絕對荒謬值），確切值於 plan 定案；真實密碼策略約束由消費它的 auth 刀定。
-- zh-TW 字典建置範圍：循 constitution §III(ii)＝新增 `backend` 命名空間（＋settings 頁 i18n
-  key）之 zh-tw／zh-cn／en 對等；既有 UI 命名空間 zh-tw 全量翻譯非本刀範圍。
+- zh-TW 字典建置範圍（clarify 2026-07-05）：**全字典 zh-tw／zh-cn 全量對等**——本刀建完整
+  zh-tw locale（全量翻譯既有 ~698 鍵 UI＋backend 命名空間＋settings key）、註冊 zh-tw 為
+  primary／語言選單加「繁體」；locale 對等 lint 守全字典鍵集一致。此擴大本刀範圍（超 ADR 0008
+  「最輕」原意、user 明示採納）。★憲法軌道邊界（zh-tw locale 註冊／語言選單 inline 是否逾
+  ★I18N-WIRING (ii)「backend 命名空間」範圍→需 Amendment，或屬「純新增新檔」不逾界）於
+  /speckit-plan §IV Constitution Check 定案；若需 Amendment 則 plan 階段立、user 拍板。
 - 熱套用消費者：目前零快取消費者（設定讀恆即時打 DB）；publish＋subscribe 由首個快取消費者
   刀補（documented-stub、B-023 定形留空）。
 - rev3 為唯讀受控參照（§I.5）；後端／前端形結構參照、全新寫、禁整檔拷貝、零前代代號。
