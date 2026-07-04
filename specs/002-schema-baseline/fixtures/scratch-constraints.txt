@@ -1,0 +1,21 @@
+            tbl            |            conname             |                               def                                
+---------------------------+--------------------------------+------------------------------------------------------------------
+ seaql_migrations          | seaql_migrations_pkey          | PRIMARY KEY (version)
+ sys_user                  | sys_user_pkey                  | PRIMARY KEY (id)
+ sys_role                  | sys_role_pkey                  | PRIMARY KEY (id)
+ sys_menu                  | sys_menu_pkey                  | PRIMARY KEY (id)
+ system_settings           | system_settings_pkey           | PRIMARY KEY (setting_key)
+ sys_user_role             | fk_sys_user_role_role          | FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE RESTRICT
+ sys_user_role             | fk_sys_user_role_user          | FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE RESTRICT
+ sys_user_role             | sys_user_role_pkey             | PRIMARY KEY (user_id, role_id)
+ sys_token                 | sys_token_pkey                 | PRIMARY KEY (id)
+ sys_token                 | sys_token_token_hash_key       | UNIQUE (token_hash)
+ sys_operation_log         | sys_operation_log_pkey         | PRIMARY KEY (id)
+ sys_access_log            | sys_access_log_pkey            | PRIMARY KEY (id)
+ sys_login_attempt         | sys_login_attempt_pkey         | PRIMARY KEY (id)
+ sys_ip_rule               | sys_ip_rule_pkey               | PRIMARY KEY (id)
+ sys_casbin_policy_archive | sys_casbin_policy_archive_pkey | PRIMARY KEY (id)
+ casbin_rule               | casbin_rule_pkey               | PRIMARY KEY (id)
+ casbin_rule               | unique_key_sea_orm_adapter     | UNIQUE (ptype, v0, v1, v2, v3, v4, v5)
+(17 rows)
+

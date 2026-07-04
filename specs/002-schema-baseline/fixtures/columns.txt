@@ -1,0 +1,154 @@
+        table_name         |       column_name        | ordinal_position |        data_type         | is_nullable |                           d                           
+---------------------------+--------------------------+------------------+--------------------------+-------------+-------------------------------------------------------
+ casbin_rule               | id                       |                1 | bigint                   | NO          | nextval('casbin_rule_id_seq'::regclass)
+ casbin_rule               | ptype                    |                2 | character varying        | NO          | -
+ casbin_rule               | v0                       |                3 | character varying        | NO          | -
+ casbin_rule               | v1                       |                4 | character varying        | NO          | -
+ casbin_rule               | v2                       |                5 | character varying        | NO          | -
+ casbin_rule               | v3                       |                6 | character varying        | NO          | -
+ casbin_rule               | v4                       |                7 | character varying        | NO          | -
+ casbin_rule               | v5                       |                8 | character varying        | NO          | -
+ casbin_rule               | protected                |                9 | boolean                  | NO          | false
+ casbin_rule               | created_at               |               10 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ casbin_rule               | created_by               |               11 | bigint                   | YES         | -
+ seaql_migrations          | version                  |                1 | character varying        | NO          | -
+ seaql_migrations          | applied_at               |                2 | bigint                   | NO          | -
+ sys_access_log            | id                       |                1 | bigint                   | NO          | nextval('sys_access_log_id_seq'::regclass)
+ sys_access_log            | operator_id              |                2 | bigint                   | NO          | -
+ sys_access_log            | method                   |                3 | text                     | NO          | -
+ sys_access_log            | path                     |                4 | text                     | NO          | -
+ sys_access_log            | http_status              |                5 | integer                  | NO          | -
+ sys_access_log            | real_ip                  |                6 | inet                     | NO          | -
+ sys_access_log            | x_forwarded_for          |                7 | text                     | YES         | -
+ sys_access_log            | region                   |                8 | text                     | YES         | -
+ sys_access_log            | trace_id                 |                9 | text                     | YES         | -
+ sys_access_log            | created_at               |               10 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ sys_access_log            | peer_ip                  |               11 | inet                     | YES         | -
+ sys_access_log            | ip_confidence            |               12 | text                     | YES         | -
+ sys_casbin_policy_archive | id                       |                1 | bigint                   | NO          | nextval('sys_casbin_policy_archive_id_seq'::regclass)
+ sys_casbin_policy_archive | ptype                    |                2 | character varying        | NO          | -
+ sys_casbin_policy_archive | v0                       |                3 | character varying        | NO          | -
+ sys_casbin_policy_archive | v1                       |                4 | character varying        | NO          | -
+ sys_casbin_policy_archive | v2                       |                5 | character varying        | NO          | -
+ sys_casbin_policy_archive | v3                       |                6 | character varying        | NO          | ''::character varying
+ sys_casbin_policy_archive | v4                       |                7 | character varying        | NO          | ''::character varying
+ sys_casbin_policy_archive | v5                       |                8 | character varying        | NO          | ''::character varying
+ sys_casbin_policy_archive | created_at               |                9 | timestamp with time zone | YES         | -
+ sys_casbin_policy_archive | created_by               |               10 | bigint                   | YES         | -
+ sys_casbin_policy_archive | archived_at              |               11 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ sys_casbin_policy_archive | archived_by              |               12 | bigint                   | YES         | -
+ sys_casbin_policy_archive | archive_reason           |               13 | character varying        | NO          | -
+ sys_ip_rule               | id                       |                1 | bigint                   | NO          | nextval('sys_ip_rule_id_seq'::regclass)
+ sys_ip_rule               | cidr                     |                2 | inet                     | NO          | -
+ sys_ip_rule               | rule_type                |                3 | character varying        | NO          | -
+ sys_ip_rule               | order                    |                4 | integer                  | YES         | -
+ sys_ip_rule               | description              |                5 | character varying        | YES         | -
+ sys_ip_rule               | created_at               |                6 | timestamp with time zone | NO          | now()
+ sys_ip_rule               | created_by               |                7 | bigint                   | YES         | -
+ sys_ip_rule               | updated_at               |                8 | timestamp with time zone | YES         | -
+ sys_ip_rule               | updated_by               |                9 | bigint                   | YES         | -
+ sys_ip_rule               | deleted_at               |               10 | timestamp with time zone | YES         | -
+ sys_ip_rule               | deleted_by               |               11 | bigint                   | YES         | -
+ sys_login_attempt         | id                       |                1 | bigint                   | NO          | nextval('sys_login_attempt_id_seq'::regclass)
+ sys_login_attempt         | attempted_user_name      |                2 | text                     | NO          | -
+ sys_login_attempt         | success                  |                3 | boolean                  | NO          | -
+ sys_login_attempt         | operator_id              |                4 | bigint                   | YES         | -
+ sys_login_attempt         | real_ip                  |                5 | inet                     | NO          | -
+ sys_login_attempt         | x_forwarded_for          |                6 | text                     | YES         | -
+ sys_login_attempt         | region                   |                7 | text                     | YES         | -
+ sys_login_attempt         | trace_id                 |                8 | text                     | YES         | -
+ sys_login_attempt         | created_at               |                9 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ sys_login_attempt         | peer_ip                  |               10 | inet                     | YES         | -
+ sys_login_attempt         | ip_confidence            |               11 | text                     | YES         | -
+ sys_menu                  | id                       |                1 | bigint                   | NO          | nextval('sys_menu_id_seq'::regclass)
+ sys_menu                  | parent_id                |                2 | bigint                   | YES         | -
+ sys_menu                  | route_name               |                3 | character varying        | NO          | -
+ sys_menu                  | menu_type                |                4 | smallint                 | YES         | -
+ sys_menu                  | menu_name                |                5 | character varying        | NO          | -
+ sys_menu                  | route_path               |                6 | character varying        | YES         | -
+ sys_menu                  | component                |                7 | character varying        | YES         | -
+ sys_menu                  | icon                     |                8 | character varying        | YES         | -
+ sys_menu                  | icon_type                |                9 | smallint                 | YES         | -
+ sys_menu                  | i18n_key                 |               10 | character varying        | YES         | -
+ sys_menu                  | order                    |               11 | integer                  | YES         | -
+ sys_menu                  | status                   |               12 | smallint                 | YES         | -
+ sys_menu                  | hide_in_menu             |               13 | boolean                  | YES         | -
+ sys_menu                  | keep_alive               |               14 | boolean                  | YES         | -
+ sys_menu                  | constant                 |               15 | boolean                  | YES         | -
+ sys_menu                  | multi_tab                |               16 | boolean                  | YES         | -
+ sys_menu                  | href                     |               17 | character varying        | YES         | -
+ sys_menu                  | active_menu              |               18 | character varying        | YES         | -
+ sys_menu                  | fixed_index_in_tab       |               19 | integer                  | YES         | -
+ sys_menu                  | query                    |               20 | jsonb                    | YES         | -
+ sys_menu                  | buttons                  |               21 | jsonb                    | YES         | -
+ sys_menu                  | created_at               |               22 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ sys_menu                  | created_by               |               23 | bigint                   | YES         | -
+ sys_menu                  | updated_at               |               24 | timestamp with time zone | YES         | -
+ sys_menu                  | updated_by               |               25 | bigint                   | YES         | -
+ sys_menu                  | deleted_at               |               26 | timestamp with time zone | YES         | -
+ sys_menu                  | deleted_by               |               27 | bigint                   | YES         | -
+ sys_menu                  | protected                |               28 | boolean                  | NO          | false
+ sys_operation_log         | id                       |                1 | bigint                   | NO          | nextval('sys_operation_log_id_seq'::regclass)
+ sys_operation_log         | operation                |                2 | character varying        | NO          | -
+ sys_operation_log         | entity_table             |                3 | character varying        | NO          | -
+ sys_operation_log         | entity_id                |                4 | bigint                   | YES         | -
+ sys_operation_log         | payload_before           |                5 | jsonb                    | YES         | -
+ sys_operation_log         | payload_after            |                6 | jsonb                    | YES         | -
+ sys_operation_log         | operator_id              |                7 | bigint                   | YES         | -
+ sys_operation_log         | operator_real_ip         |                8 | inet                     | YES         | -
+ sys_operation_log         | trace_id                 |                9 | character varying        | YES         | -
+ sys_operation_log         | created_at               |               10 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ sys_operation_log         | operator_peer_ip         |               11 | inet                     | YES         | -
+ sys_operation_log         | operator_x_forwarded_for |               12 | text                     | YES         | -
+ sys_operation_log         | operator_ip_confidence   |               13 | text                     | YES         | -
+ sys_role                  | id                       |                1 | bigint                   | NO          | nextval('sys_role_id_seq'::regclass)
+ sys_role                  | code                     |                2 | character varying        | NO          | -
+ sys_role                  | name                     |                3 | character varying        | NO          | -
+ sys_role                  | deleted_at               |                4 | timestamp with time zone | YES         | -
+ sys_role                  | role_desc                |                5 | character varying        | YES         | -
+ sys_role                  | status                   |                6 | smallint                 | YES         | -
+ sys_role                  | created_at               |                7 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ sys_role                  | created_by               |                8 | bigint                   | YES         | -
+ sys_role                  | updated_by               |                9 | bigint                   | YES         | -
+ sys_role                  | deleted_by               |               10 | bigint                   | YES         | -
+ sys_role                  | updated_at               |               11 | timestamp with time zone | YES         | -
+ sys_role                  | home                     |               12 | character varying        | YES         | -
+ sys_token                 | id                       |                1 | bigint                   | NO          | nextval('sys_token_id_seq'::regclass)
+ sys_token                 | user_id                  |                2 | bigint                   | NO          | -
+ sys_token                 | token_hash               |                3 | character varying        | NO          | -
+ sys_token                 | rotation_chain           |                4 | character varying        | NO          | -
+ sys_token                 | status                   |                5 | character varying        | NO          | -
+ sys_token                 | issued_at                |                6 | timestamp with time zone | NO          | -
+ sys_token                 | expires_at               |                7 | timestamp with time zone | NO          | -
+ sys_token                 | used_at                  |                8 | timestamp with time zone | YES         | -
+ sys_token                 | created_at               |                9 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ sys_user                  | id                       |                1 | bigint                   | NO          | nextval('sys_user_id_seq'::regclass)
+ sys_user                  | user_name                |                2 | character varying        | NO          | -
+ sys_user                  | password                 |                3 | character varying        | NO          | -
+ sys_user                  | deleted_at               |                4 | timestamp with time zone | YES         | -
+ sys_user                  | nick_name                |                5 | character varying        | YES         | -
+ sys_user                  | user_gender              |                6 | smallint                 | YES         | -
+ sys_user                  | user_phone               |                7 | character varying        | YES         | -
+ sys_user                  | user_email               |                8 | character varying        | YES         | -
+ sys_user                  | status                   |                9 | smallint                 | YES         | -
+ sys_user                  | created_at               |               10 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ sys_user                  | created_by               |               11 | bigint                   | YES         | -
+ sys_user                  | updated_by               |               12 | bigint                   | YES         | -
+ sys_user                  | deleted_by               |               13 | bigint                   | YES         | -
+ sys_user                  | updated_at               |               14 | timestamp with time zone | YES         | -
+ sys_user                  | current_session_id       |               15 | character varying        | YES         | -
+ sys_user                  | session_policy           |               16 | character varying        | NO          | 'inherit'::character varying
+ sys_user_role             | user_id                  |                1 | bigint                   | NO          | -
+ sys_user_role             | role_id                  |                2 | bigint                   | NO          | -
+ system_settings           | setting_key              |                1 | character varying        | NO          | -
+ system_settings           | setting_value            |                2 | character varying        | NO          | -
+ system_settings           | value_type               |                3 | character varying        | NO          | -
+ system_settings           | description              |                4 | character varying        | YES         | -
+ system_settings           | created_at               |                5 | timestamp with time zone | NO          | CURRENT_TIMESTAMP
+ system_settings           | created_by               |                6 | bigint                   | YES         | -
+ system_settings           | updated_at               |                7 | timestamp with time zone | YES         | -
+ system_settings           | updated_by               |                8 | bigint                   | YES         | -
+ system_settings           | deleted_at               |                9 | timestamp with time zone | YES         | -
+ system_settings           | deleted_by               |               10 | bigint                   | YES         | -
+(150 rows)
+

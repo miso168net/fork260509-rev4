@@ -3,15 +3,15 @@
 
 ## git
 - default branch：rev4-admin-root
-- pins：base-web=9c6f223｜rust-api=51eac95
+- pins：base-web=9c6f223｜rust-api=ac5875f
 
 ## constitution
 - 版本：1.0.0
 
 ## 帳面統計
-- ADR：23（accepted 22、superseded 1）
-- BACKLOG 待辦：53（next：B-055）
-- LESSONS：101 筆（next：L-102）
+- ADR：24（accepted 23、superseded 1）
+- BACKLOG 待辦：52（next：B-056）
+- LESSONS：102 筆（next：L-103）
 - events：2 筆（feature_close 1、misc 1）
 
 ## 最近事件（尾 3 筆、新在前）
@@ -21,6 +21,6 @@
 ## reference 對賬
 - reference/routes：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
 - reference/ports：真表（來源＝compose 三檔的 ports: 段、由 generate 重算）
-- reference/schema：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
-- reference/accounts：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
+- reference/schema：真表（來源＝reference-src 的 schema-snapshot.json＋archetype-map.json、由 generate 重算；快照由 refresh 自實庫撈）
+- reference/accounts：真表（來源＝reference-src 的 accounts-snapshot.json、由 generate 重算；快照由 refresh 自實庫撈）
 - reference/screens：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）

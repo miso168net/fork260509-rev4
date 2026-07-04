@@ -1,0 +1,1786 @@
+{
+  "columns": [
+    {
+      "table": "casbin_rule",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('casbin_rule_id_seq'::regclass)"
+    },
+    {
+      "table": "casbin_rule",
+      "column": "ptype",
+      "ordinal": 2,
+      "type": "character varying(18)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "casbin_rule",
+      "column": "v0",
+      "ordinal": 3,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "casbin_rule",
+      "column": "v1",
+      "ordinal": 4,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "casbin_rule",
+      "column": "v2",
+      "ordinal": 5,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "casbin_rule",
+      "column": "v3",
+      "ordinal": 6,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "casbin_rule",
+      "column": "v4",
+      "ordinal": 7,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "casbin_rule",
+      "column": "v5",
+      "ordinal": 8,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "casbin_rule",
+      "column": "protected",
+      "ordinal": 9,
+      "type": "boolean",
+      "nullable": false,
+      "default": "false"
+    },
+    {
+      "table": "casbin_rule",
+      "column": "created_at",
+      "ordinal": 10,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "casbin_rule",
+      "column": "created_by",
+      "ordinal": 11,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_access_log_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_access_log",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_access_log",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "http_status",
+      "ordinal": 4,
+      "type": "integer",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "http_method",
+      "ordinal": 5,
+      "type": "text",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "http_path",
+      "ordinal": 6,
+      "type": "text",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "real_ip",
+      "ordinal": 7,
+      "type": "inet",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "peer_ip",
+      "ordinal": 8,
+      "type": "inet",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "x_forwarded_for",
+      "ordinal": 9,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "ip_confidence",
+      "ordinal": 10,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "region",
+      "ordinal": 11,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_access_log",
+      "column": "trace_id",
+      "ordinal": 12,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_casbin_policy_archive_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "archived_at",
+      "ordinal": 4,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "archived_by",
+      "ordinal": 5,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "archive_reason",
+      "ordinal": 6,
+      "type": "character varying(32)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "ptype",
+      "ordinal": 7,
+      "type": "character varying(18)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "v0",
+      "ordinal": 8,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "v1",
+      "ordinal": 9,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "v2",
+      "ordinal": 10,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "v3",
+      "ordinal": 11,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": "''::character varying"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "v4",
+      "ordinal": 12,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": "''::character varying"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "column": "v5",
+      "ordinal": 13,
+      "type": "character varying(125)",
+      "nullable": false,
+      "default": "''::character varying"
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_ip_rule_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "updated_at",
+      "ordinal": 4,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "updated_by",
+      "ordinal": 5,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "deleted_at",
+      "ordinal": 6,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "deleted_by",
+      "ordinal": 7,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "order",
+      "ordinal": 8,
+      "type": "integer",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "wbip_type",
+      "ordinal": 9,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "wbip_cidr",
+      "ordinal": 10,
+      "type": "inet",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_ip_rule",
+      "column": "wbip_memo",
+      "ordinal": 11,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_login_attempt_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "success",
+      "ordinal": 4,
+      "type": "boolean",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "attempted_user_name",
+      "ordinal": 5,
+      "type": "text",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "real_ip",
+      "ordinal": 6,
+      "type": "inet",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "peer_ip",
+      "ordinal": 7,
+      "type": "inet",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "x_forwarded_for",
+      "ordinal": 8,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "ip_confidence",
+      "ordinal": 9,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "region",
+      "ordinal": 10,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_login_attempt",
+      "column": "trace_id",
+      "ordinal": 11,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_menu_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_menu",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_menu",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "updated_at",
+      "ordinal": 4,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "updated_by",
+      "ordinal": 5,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "deleted_at",
+      "ordinal": 6,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "deleted_by",
+      "ordinal": 7,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "status",
+      "ordinal": 8,
+      "type": "smallint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "order",
+      "ordinal": 9,
+      "type": "integer",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "hide_in_menu",
+      "ordinal": 10,
+      "type": "boolean",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "keep_alive",
+      "ordinal": 11,
+      "type": "boolean",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "constant",
+      "ordinal": 12,
+      "type": "boolean",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "multi_tab",
+      "ordinal": 13,
+      "type": "boolean",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "protected",
+      "ordinal": 14,
+      "type": "boolean",
+      "nullable": false,
+      "default": "false"
+    },
+    {
+      "table": "sys_menu",
+      "column": "parent_id",
+      "ordinal": 15,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "menu_type",
+      "ordinal": 16,
+      "type": "smallint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "menu_name",
+      "ordinal": 17,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "menu_memo",
+      "ordinal": 18,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "route_name",
+      "ordinal": 19,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "route_path",
+      "ordinal": 20,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "component",
+      "ordinal": 21,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "icon",
+      "ordinal": 22,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "icon_type",
+      "ordinal": 23,
+      "type": "smallint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "i18n_key",
+      "ordinal": 24,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "href",
+      "ordinal": 25,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "active_menu",
+      "ordinal": 26,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "fixed_index_in_tab",
+      "ordinal": 27,
+      "type": "integer",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "query",
+      "ordinal": 28,
+      "type": "jsonb",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_menu",
+      "column": "buttons",
+      "ordinal": 29,
+      "type": "jsonb",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_operation_log_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "operation",
+      "ordinal": 4,
+      "type": "character varying(20)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "entity_table",
+      "ordinal": 5,
+      "type": "character varying(64)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "entity_id",
+      "ordinal": 6,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "payload_before",
+      "ordinal": 7,
+      "type": "jsonb",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "payload_after",
+      "ordinal": 8,
+      "type": "jsonb",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "operator_real_ip",
+      "ordinal": 9,
+      "type": "inet",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "operator_peer_ip",
+      "ordinal": 10,
+      "type": "inet",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "operator_x_forwarded_for",
+      "ordinal": 11,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "operator_ip_confidence",
+      "ordinal": 12,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_operation_log",
+      "column": "trace_id",
+      "ordinal": 13,
+      "type": "character varying(64)",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_role_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_role",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_role",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "updated_at",
+      "ordinal": 4,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "updated_by",
+      "ordinal": 5,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "deleted_at",
+      "ordinal": 6,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "deleted_by",
+      "ordinal": 7,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "status",
+      "ordinal": 8,
+      "type": "smallint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "role_code",
+      "ordinal": 9,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "role_name",
+      "ordinal": 10,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "role_memo",
+      "ordinal": 11,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "role_home",
+      "ordinal": 12,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_role",
+      "column": "role_desc",
+      "ordinal": 13,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_token",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_token_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_token",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_token",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_token",
+      "column": "status",
+      "ordinal": 4,
+      "type": "character varying(20)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_token",
+      "column": "token_hash",
+      "ordinal": 5,
+      "type": "character varying(64)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_token",
+      "column": "rotation_chain",
+      "ordinal": 6,
+      "type": "character varying(36)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_token",
+      "column": "issued_at",
+      "ordinal": 7,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_token",
+      "column": "expires_at",
+      "ordinal": 8,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_token",
+      "column": "used_at",
+      "ordinal": 9,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('sys_user_id_seq'::regclass)"
+    },
+    {
+      "table": "sys_user",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "sys_user",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "updated_at",
+      "ordinal": 4,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "updated_by",
+      "ordinal": 5,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "deleted_at",
+      "ordinal": 6,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "deleted_by",
+      "ordinal": 7,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "status",
+      "ordinal": 8,
+      "type": "smallint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "user_gender",
+      "ordinal": 9,
+      "type": "smallint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "user_name",
+      "ordinal": 10,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "password",
+      "ordinal": 11,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "nick_name",
+      "ordinal": 12,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "session_policy",
+      "ordinal": 13,
+      "type": "character varying(20)",
+      "nullable": false,
+      "default": "'inherit'::character varying"
+    },
+    {
+      "table": "sys_user",
+      "column": "session_id",
+      "ordinal": 14,
+      "type": "character varying(36)",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "user_phone",
+      "ordinal": 15,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "user_email",
+      "ordinal": 16,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user",
+      "column": "user_memo",
+      "ordinal": 17,
+      "type": "text",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "sys_user_role",
+      "column": "user_id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_user_role",
+      "column": "role_id",
+      "ordinal": 2,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "setting_key",
+      "ordinal": 1,
+      "type": "character varying(64)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "system_settings",
+      "column": "created_by",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "updated_at",
+      "ordinal": 4,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "updated_by",
+      "ordinal": 5,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "deleted_at",
+      "ordinal": 6,
+      "type": "timestamp with time zone",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "deleted_by",
+      "ordinal": 7,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "setting_type",
+      "ordinal": 8,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "setting_value",
+      "ordinal": 9,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "system_settings",
+      "column": "description",
+      "ordinal": 10,
+      "type": "character varying",
+      "nullable": true,
+      "default": null
+    }
+  ],
+  "indexes": [
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_pkey",
+      "definition": "CREATE UNIQUE INDEX casbin_rule_pkey ON public.casbin_rule USING btree (id)"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "unique_key_sea_orm_adapter",
+      "definition": "CREATE UNIQUE INDEX unique_key_sea_orm_adapter ON public.casbin_rule USING btree (ptype, v0, v1, v2, v3, v4, v5)"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "idx_access_log_created_at",
+      "definition": "CREATE INDEX idx_access_log_created_at ON public.sys_access_log USING btree (created_at)"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "idx_access_log_operator_time",
+      "definition": "CREATE INDEX idx_access_log_operator_time ON public.sys_access_log USING btree (created_by, created_at)"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_access_log_pkey ON public.sys_access_log USING btree (id)"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "idx_casbin_archive_archived_at",
+      "definition": "CREATE INDEX idx_casbin_archive_archived_at ON public.sys_casbin_policy_archive USING btree (archived_at)"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "idx_casbin_archive_role_dim",
+      "definition": "CREATE INDEX idx_casbin_archive_role_dim ON public.sys_casbin_policy_archive USING btree (v0, v2)"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_casbin_policy_archive_pkey ON public.sys_casbin_policy_archive USING btree (id)"
+    },
+    {
+      "table": "sys_ip_rule",
+      "name": "sys_ip_rule_cidr_type_active_uniq",
+      "definition": "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule USING btree (wbip_cidr, wbip_type) WHERE (deleted_at IS NULL)"
+    },
+    {
+      "table": "sys_ip_rule",
+      "name": "sys_ip_rule_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_ip_rule_pkey ON public.sys_ip_rule USING btree (id)"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "idx_login_attempt_created_at",
+      "definition": "CREATE INDEX idx_login_attempt_created_at ON public.sys_login_attempt USING btree (created_at)"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "idx_login_attempt_ip_time",
+      "definition": "CREATE INDEX idx_login_attempt_ip_time ON public.sys_login_attempt USING btree (real_ip, created_at)"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "idx_login_attempt_user_time",
+      "definition": "CREATE INDEX idx_login_attempt_user_time ON public.sys_login_attempt USING btree (attempted_user_name, created_at)"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "sys_login_attempt_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_login_attempt_pkey ON public.sys_login_attempt USING btree (id)"
+    },
+    {
+      "table": "sys_menu",
+      "name": "sys_menu_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_menu_pkey ON public.sys_menu USING btree (id)"
+    },
+    {
+      "table": "sys_menu",
+      "name": "sys_menu_route_name_active_uniq",
+      "definition": "CREATE UNIQUE INDEX sys_menu_route_name_active_uniq ON public.sys_menu USING btree (route_name) WHERE (deleted_at IS NULL)"
+    },
+    {
+      "table": "sys_operation_log",
+      "name": "idx_operation_log_created_at",
+      "definition": "CREATE INDEX idx_operation_log_created_at ON public.sys_operation_log USING btree (created_at)"
+    },
+    {
+      "table": "sys_operation_log",
+      "name": "idx_operation_log_operator_time",
+      "definition": "CREATE INDEX idx_operation_log_operator_time ON public.sys_operation_log USING btree (created_by, created_at)"
+    },
+    {
+      "table": "sys_operation_log",
+      "name": "sys_operation_log_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_operation_log_pkey ON public.sys_operation_log USING btree (id)"
+    },
+    {
+      "table": "sys_role",
+      "name": "sys_role_code_active_uniq",
+      "definition": "CREATE UNIQUE INDEX sys_role_code_active_uniq ON public.sys_role USING btree (role_code) WHERE (deleted_at IS NULL)"
+    },
+    {
+      "table": "sys_role",
+      "name": "sys_role_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_role_pkey ON public.sys_role USING btree (id)"
+    },
+    {
+      "table": "sys_token",
+      "name": "idx_sys_token_chain",
+      "definition": "CREATE INDEX idx_sys_token_chain ON public.sys_token USING btree (rotation_chain)"
+    },
+    {
+      "table": "sys_token",
+      "name": "idx_sys_token_expires_at",
+      "definition": "CREATE INDEX idx_sys_token_expires_at ON public.sys_token USING btree (expires_at)"
+    },
+    {
+      "table": "sys_token",
+      "name": "idx_sys_token_user_active",
+      "definition": "CREATE INDEX idx_sys_token_user_active ON public.sys_token USING btree (created_by) WHERE ((status)::text = 'active'::text)"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_token_pkey ON public.sys_token USING btree (id)"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_token_hash_key",
+      "definition": "CREATE UNIQUE INDEX sys_token_token_hash_key ON public.sys_token USING btree (token_hash)"
+    },
+    {
+      "table": "sys_user",
+      "name": "sys_user_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_user_pkey ON public.sys_user USING btree (id)"
+    },
+    {
+      "table": "sys_user",
+      "name": "sys_user_user_name_active_uniq",
+      "definition": "CREATE UNIQUE INDEX sys_user_user_name_active_uniq ON public.sys_user USING btree (user_name) WHERE (deleted_at IS NULL)"
+    },
+    {
+      "table": "sys_user_role",
+      "name": "sys_user_role_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_user_role_pkey ON public.sys_user_role USING btree (user_id, role_id)"
+    },
+    {
+      "table": "system_settings",
+      "name": "system_settings_pkey",
+      "definition": "CREATE UNIQUE INDEX system_settings_pkey ON public.system_settings USING btree (setting_key)"
+    }
+  ],
+  "constraints": [
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_protected_not_null",
+      "definition": "NOT NULL protected"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_ptype_not_null",
+      "definition": "NOT NULL ptype"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_v0_not_null",
+      "definition": "NOT NULL v0"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_v1_not_null",
+      "definition": "NOT NULL v1"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_v2_not_null",
+      "definition": "NOT NULL v2"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_v3_not_null",
+      "definition": "NOT NULL v3"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_v4_not_null",
+      "definition": "NOT NULL v4"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "casbin_rule_v5_not_null",
+      "definition": "NOT NULL v5"
+    },
+    {
+      "table": "casbin_rule",
+      "name": "unique_key_sea_orm_adapter",
+      "definition": "UNIQUE (ptype, v0, v1, v2, v3, v4, v5)"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_created_by_not_null",
+      "definition": "NOT NULL created_by"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_http_method_not_null",
+      "definition": "NOT NULL http_method"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_http_path_not_null",
+      "definition": "NOT NULL http_path"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_http_status_not_null",
+      "definition": "NOT NULL http_status"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_access_log",
+      "name": "sys_access_log_real_ip_not_null",
+      "definition": "NOT NULL real_ip"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_archive_reason_not_null",
+      "definition": "NOT NULL archive_reason"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_archived_at_not_null",
+      "definition": "NOT NULL archived_at"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_ptype_not_null",
+      "definition": "NOT NULL ptype"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_v0_not_null",
+      "definition": "NOT NULL v0"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_v1_not_null",
+      "definition": "NOT NULL v1"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_v2_not_null",
+      "definition": "NOT NULL v2"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_v3_not_null",
+      "definition": "NOT NULL v3"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_v4_not_null",
+      "definition": "NOT NULL v4"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "name": "sys_casbin_policy_archive_v5_not_null",
+      "definition": "NOT NULL v5"
+    },
+    {
+      "table": "sys_ip_rule",
+      "name": "sys_ip_rule_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_ip_rule",
+      "name": "sys_ip_rule_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_ip_rule",
+      "name": "sys_ip_rule_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_ip_rule",
+      "name": "sys_ip_rule_wbip_cidr_not_null",
+      "definition": "NOT NULL wbip_cidr"
+    },
+    {
+      "table": "sys_ip_rule",
+      "name": "sys_ip_rule_wbip_type_not_null",
+      "definition": "NOT NULL wbip_type"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "sys_login_attempt_attempted_user_name_not_null",
+      "definition": "NOT NULL attempted_user_name"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "sys_login_attempt_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "sys_login_attempt_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "sys_login_attempt_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "sys_login_attempt_real_ip_not_null",
+      "definition": "NOT NULL real_ip"
+    },
+    {
+      "table": "sys_login_attempt",
+      "name": "sys_login_attempt_success_not_null",
+      "definition": "NOT NULL success"
+    },
+    {
+      "table": "sys_menu",
+      "name": "sys_menu_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_menu",
+      "name": "sys_menu_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_menu",
+      "name": "sys_menu_menu_name_not_null",
+      "definition": "NOT NULL menu_name"
+    },
+    {
+      "table": "sys_menu",
+      "name": "sys_menu_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_menu",
+      "name": "sys_menu_protected_not_null",
+      "definition": "NOT NULL protected"
+    },
+    {
+      "table": "sys_menu",
+      "name": "sys_menu_route_name_not_null",
+      "definition": "NOT NULL route_name"
+    },
+    {
+      "table": "sys_operation_log",
+      "name": "sys_operation_log_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_operation_log",
+      "name": "sys_operation_log_entity_table_not_null",
+      "definition": "NOT NULL entity_table"
+    },
+    {
+      "table": "sys_operation_log",
+      "name": "sys_operation_log_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_operation_log",
+      "name": "sys_operation_log_operation_not_null",
+      "definition": "NOT NULL operation"
+    },
+    {
+      "table": "sys_operation_log",
+      "name": "sys_operation_log_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_role",
+      "name": "sys_role_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_role",
+      "name": "sys_role_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_role",
+      "name": "sys_role_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_role",
+      "name": "sys_role_role_code_not_null",
+      "definition": "NOT NULL role_code"
+    },
+    {
+      "table": "sys_role",
+      "name": "sys_role_role_name_not_null",
+      "definition": "NOT NULL role_name"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_created_by_not_null",
+      "definition": "NOT NULL created_by"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_expires_at_not_null",
+      "definition": "NOT NULL expires_at"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_issued_at_not_null",
+      "definition": "NOT NULL issued_at"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_rotation_chain_not_null",
+      "definition": "NOT NULL rotation_chain"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_status_not_null",
+      "definition": "NOT NULL status"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_token_hash_key",
+      "definition": "UNIQUE (token_hash)"
+    },
+    {
+      "table": "sys_token",
+      "name": "sys_token_token_hash_not_null",
+      "definition": "NOT NULL token_hash"
+    },
+    {
+      "table": "sys_user",
+      "name": "sys_user_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_user",
+      "name": "sys_user_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "sys_user",
+      "name": "sys_user_password_not_null",
+      "definition": "NOT NULL password"
+    },
+    {
+      "table": "sys_user",
+      "name": "sys_user_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_user",
+      "name": "sys_user_session_policy_not_null",
+      "definition": "NOT NULL session_policy"
+    },
+    {
+      "table": "sys_user",
+      "name": "sys_user_user_name_not_null",
+      "definition": "NOT NULL user_name"
+    },
+    {
+      "table": "sys_user_role",
+      "name": "fk_sys_user_role_role",
+      "definition": "FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "sys_user_role",
+      "name": "fk_sys_user_role_user",
+      "definition": "FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE RESTRICT"
+    },
+    {
+      "table": "sys_user_role",
+      "name": "sys_user_role_pkey",
+      "definition": "PRIMARY KEY (user_id, role_id)"
+    },
+    {
+      "table": "sys_user_role",
+      "name": "sys_user_role_role_id_not_null",
+      "definition": "NOT NULL role_id"
+    },
+    {
+      "table": "sys_user_role",
+      "name": "sys_user_role_user_id_not_null",
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table": "system_settings",
+      "name": "system_settings_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "system_settings",
+      "name": "system_settings_pkey",
+      "definition": "PRIMARY KEY (setting_key)"
+    },
+    {
+      "table": "system_settings",
+      "name": "system_settings_setting_key_not_null",
+      "definition": "NOT NULL setting_key"
+    },
+    {
+      "table": "system_settings",
+      "name": "system_settings_setting_type_not_null",
+      "definition": "NOT NULL setting_type"
+    },
+    {
+      "table": "system_settings",
+      "name": "system_settings_setting_value_not_null",
+      "definition": "NOT NULL setting_value"
+    }
+  ]
+}

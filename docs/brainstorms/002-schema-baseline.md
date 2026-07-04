@@ -114,3 +114,12 @@ sea_orm_adapter::up() 委派建（ADR 0015）＋ALTER 3 治理欄。
 本檔＝`/speckit-specify` 的 input；specify 由 user 手動起手（CLAUDE.md §2：確保
 feature-branch pre-hook 生效）。TDD 實作照 CLAUDE.md §2 編排範本（Workflow 每執行單元一支；
 rust 全程容器內 serial；review agent 只讀；絕不 push/merge）。
+
+## 勘誤（2026-07-04、/speckit-analyze 抓出；正文凍結不改、以本節為準）
+
+- §0 前置事實與 §2／§5 的「241 列」為總和誤植（源自 tmp/VALIDATION-REPORT 同誤）：
+  分項 user 3／role 3／user_role 3／menu 78／casbin 149／settings 8 全對、
+  合計＝**244**（fixtures row-counts 與 6 支 seed json 實測仲裁）。
+- §0 拍板 #2 理由句「casbin 的 v1 欄引用 menu id」與凍結 fixtures 不符：149 列全為
+  p 型 API 路徑政策、無欄位級 menu id 引用——連動實態＝「與 menu 屬同一批 db 重整
+  定稿」（ADR 0023 已同步 [adr-amend] 事實修正；拍板結論「入基線」不變）。

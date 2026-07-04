@@ -1,0 +1,56 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "user_name": "Super",
+      "nick_name": "Super",
+      "status": 1
+    },
+    {
+      "id": 2,
+      "user_name": "Admin",
+      "nick_name": "Admin",
+      "status": 1
+    },
+    {
+      "id": 3,
+      "user_name": "User",
+      "nick_name": "User01",
+      "status": 1
+    }
+  ],
+  "roles": [
+    {
+      "id": 1,
+      "role_code": "R_SUPER",
+      "role_name": "超级管理员",
+      "status": 1
+    },
+    {
+      "id": 2,
+      "role_code": "R_ADMIN",
+      "role_name": "管理员",
+      "status": 1
+    },
+    {
+      "id": 3,
+      "role_code": "R_USER_COMMON",
+      "role_name": "普通用户",
+      "status": 1
+    }
+  ],
+  "bindings": [
+    {
+      "user_id": 1,
+      "role_id": 1
+    },
+    {
+      "user_id": 2,
+      "role_id": 2
+    },
+    {
+      "user_id": 3,
+      "role_id": 3
+    }
+  ]
+}

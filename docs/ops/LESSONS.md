@@ -1,4 +1,4 @@
-<!-- next: L-102 -->
+<!-- next: L-103 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -140,6 +140,8 @@
   防：問拍板題附具體渲染範例（mock／前後對照畫面）、正交維度拆開列選項、「隱藏/不顯示」類行為必明示其可見結果。｜出處：rev3:REVIEW§3.2 標頭（引 memory ui-behavior-options-need-concrete-examples）
 - **L-062**｜驗收計畫把 CDP browser smoke 延後、只留 curl 直打時，「curl 直送不等於前端 modal 行為」的破口會靜默漏到下游。
   防：要 defer 就在 spec 內明示此風險，並在 follow-up backlog 登記補測。｜出處：rev3:CLAUDE.md§3-Phase0研究紀律
+- **L-102**｜把多支 migration squash 成單支後，用「已知清單逐項在場」驗收會漏掉「基準有、產物沒有」的反向缺項——雙庫互證八軌全綠仍漏 2 支索引（索引軌只單向點名在場、未做集合 diff），缺陷潛伏到閘 1 雙向比對才現形。
+  防：結構驗收一律雙向集合 diff（右缺＝多、左缺＝漏、同時列出），不用單向清單點名。｜出處：002-schema-baseline U3（gate1 抓 sys_casbin_policy_archive 2 索引漏摺）
 
 ## 〔文件紀律〕
 

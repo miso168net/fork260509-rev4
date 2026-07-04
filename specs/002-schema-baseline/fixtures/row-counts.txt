@@ -1,0 +1,13 @@
+casbin_rule	149
+seaql_migrations	9
+sys_access_log	0
+sys_casbin_policy_archive	0
+sys_ip_rule	0
+sys_login_attempt	0
+sys_menu	78
+sys_operation_log	0
+sys_role	3
+sys_token	0
+sys_user	3
+sys_user_role	3
+system_settings	8

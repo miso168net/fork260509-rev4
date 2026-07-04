@@ -1,0 +1,7 @@
+ id | user_name |                                             password                                              | deleted_at | nick_name | user_gender | user_phone | user_email | status |          created_at           | created_by | updated_by | deleted_by | updated_at | current_session_id | session_policy 
+----+-----------+---------------------------------------------------------------------------------------------------+------------+-----------+-------------+------------+------------+--------+-------------------------------+------------+------------+------------+------------+--------------------+----------------
+  1 | Super     | $argon2id$v=19$m=19456,t=2,p=1$9MDomv+4/Rt5lVLPktVQ/w$wq074kIFn6jOMIjwuRhA1N6RhWnSX6+ilqDs2DXQ2Qw |            | Super     |             |            |            |      1 | 2026-07-03 11:20:15.261471+00 |            |            |            |            |                    | inherit
+  2 | Admin     | $argon2id$v=19$m=19456,t=2,p=1$9MDomv+4/Rt5lVLPktVQ/w$wq074kIFn6jOMIjwuRhA1N6RhWnSX6+ilqDs2DXQ2Qw |            | Admin     |             |            |            |      1 | 2026-07-03 11:20:15.261471+00 |            |            |            |            |                    | inherit
+  3 | User      | $argon2id$v=19$m=19456,t=2,p=1$9MDomv+4/Rt5lVLPktVQ/w$wq074kIFn6jOMIjwuRhA1N6RhWnSX6+ilqDs2DXQ2Qw |            | User01    |             |            |            |      1 | 2026-07-03 11:20:15.261471+00 |            |            |            |            |                    | inherit
+(3 rows)
+
