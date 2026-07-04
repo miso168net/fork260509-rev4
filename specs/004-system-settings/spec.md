@@ -34,8 +34,10 @@ ADAPT／WRAPPER 軌道授權〕＋§I.2／§I.3／§I.6；brainstorm 七題拍�
 facade→handler→授權→wire→前端 整條管線；沒有它，波 1 其餘功能刀無管線範式可循。
 
 **Independent Test**: 後端以注入 super 身分實測 list 端點回全 8 設定（信封形、camelCase、
-settingType）＋update 端點改一設定值持久化；前端以 build/type-check＋元件單元測試（給定
-設定陣列 render 分區與控件）＋服務層整合測試（注入 test token 直打 live 後端）驗 service↔wire 通。
+settingType）＋update 端點改一設定值持久化；前端以 vite build＋vue-tsc typecheck（型別閘門
+LangType/Schema/RouteKey）＋lint＋locale 對等 lint 驗；service↔wire 契約由 typings 對齊後端
+＋後端 contract test（含 per-route 型別裁判）佐證（base-web 無測試框架、無 runtime 元件/服務層
+測試——見 Assumptions）。
 
 **Acceptance Scenarios**:
 
@@ -141,9 +143,12 @@ casbin policy 已 seed（R_SUPER）。
   見 Clarifications，plan Constitution Check 定案）。
 - **FR-011**: 交付 MUST 建立首刀守門：後端 settings 端點掛 contract case＋覆蓋閘、型別
   registry 單元測試、facade op-log 測試、authz 測試（注入身分）、**首建 entity_access_lint**
-  （handler 零 path-root `entity::`、走 facade）；前端 locale 對等 lint（zh-tw／zh-cn **全字典**
-  鍵集一致）＋i18n typed Schema（加鍵漏語言 typecheck 紅）＋datetime formatter lint
-  （§8「隨 base-web 首刀建立」守門）。
+  （handler 零 path-root `entity::`、走 facade）＋**per-route 型別裁判接上**（SettingItem 序列化
+  vs 快照 `Api.SystemManage.SystemSetting`——兌現 003 契約機器化「per-route 業務型受審自波1起」）；
+  前端 locale 對等 lint（zh-tw／zh-cn **全字典**鍵集一致）＋i18n typed Schema（加鍵漏語言
+  typecheck 紅）。★datetime formatter lint（§8 datetime 後半）屬 base-web 首刀義務、但本刀
+  settings 頁**無時間欄消費**（審計欄不上 wire）→**續延至首個顯示時間欄的前端刀**（§8 標記精化
+  觸發字樣、不清不宣稱就位）。
 - **FR-012**: 本刀 MUST 零 migration／零 seed 改動（`system_settings` 表＋8 seed＋casbin
   R_SUPER policy 已 baseline 002）。
 - **FR-013**: base-web MUST 守 fork-delta 紀律：inline 改動全走 `rev4-inline` 標記（修改型
@@ -189,8 +194,10 @@ casbin policy 已 seed（R_SUPER）。
 - 授權：JWT 簽發／登入端點為 auth 刀範圍（B-008 未拍）；本刀建最小授權骨架、以注入身分
   （super／非-super Claims 或同 secret 手工 test token）驗授權管線（ADR 0027）。生產路徑在
   auth 刀落地登入前，端點對真實使用者不可達。
-- 前端 live 走查：rev4 動態路由需 auth；無登入無法在瀏覽器點進設定頁，本刀前端達成＝碼／
-  build／type-check／契約／元件單元／服務層整合驗；login-gated 走查留 auth 刀（brainstorm 拍板 7）。
+- 前端 live 走查與驗收面：rev4 動態路由需 auth；無登入無法在瀏覽器點進設定頁。★base-web
+  **無測試框架**（無 vitest；plan 實測＋拍板 B）→前端驗收＝vite build＋vue-tsc typecheck（型別
+  閘門）＋lint＋locale 對等 lint＋契約對齊（typings match 後端 wire）；**無 runtime 元件/服務層
+  測試**。login-gated 瀏覽器走查留 auth 刀（brainstorm 拍板 7）。
 - per-key number 範圍：`password_min_length`／`password_max_length` 採合理界（min≥1、上界
   防絕對荒謬值），確切值於 plan 定案；真實密碼策略約束由消費它的 auth 刀定。
 - zh-TW 字典建置範圍（clarify 2026-07-05）：**全字典 zh-tw／zh-cn 全量對等**——本刀建完整

@@ -155,13 +155,18 @@ typecheck/lint/locale lint 綠
       （改對齊 settings 兩端點）＋demo offset 守門 case（移除或改掛）；settings 端點 contract case 掛 registry；
       覆蓋閘雙向對齊；`python3 tools/wire-schema extract` 再抽（typings 新增→快照重抽、diff 空）；
       容器內 cargo test --workspace 全綠（demo 移除後無殘留）
-- [ ] T021 [P] 活書更新（feature branch 內改）：`docs/arc42/ARCHITECTURE.md` §5 crate 地圖（server 加
-      facade/auth/handler 句）＋§8——「隨 base-web 首刀建立」守門轉已就位（i18n locale 對等 lint／datetime
-      formatter lint 後半／entity_access_lint）＋wire 契約列快照新鮮度不變；現在式、lint 綠
-- [ ] T022 [P] `docs/ops/BACKLOG.md`：B-023／B-051／B-009 消化刪列（brainstorm §9）＋新增衍生
+- [ ] T021 per-route 契約裁判接上（兌現 003 契約機器化「per-route 業務型受審自波1首功能刀起接上」）：
+      `rust-api/server/tests/`——擴 003 `wire_schema.rs` 機制，讀 fixtures 快照驗後端 `SettingItem` 序列化
+      輸出符合快照 `Api.SystemManage.SystemSetting`（004 前端 typing 新增、T020 再抽後入快照）；$ref/型別
+      處理照 003 R5；先紅（per-route 消費碼未實作）→實作至綠；容器內 cargo test 綠
+- [ ] T022 [P] 活書更新（feature branch 內改）：`docs/arc42/ARCHITECTURE.md` §5 crate 地圖（server 加
+      facade/auth/handler 句）＋§8——i18n locale 對等 lint（本刀建立）＋entity_access_lint 轉已就位；
+      ★datetime formatter lint 後半**續延**（settings 無時間欄消費→§8 標記精化為「隨首個顯示時間欄的
+      前端刀建立」、不清不宣稱就位）＋wire 契約列快照新鮮度不變；現在式、lint 綠
+- [ ] T023 [P] `docs/ops/BACKLOG.md`：B-023／B-051／B-009 消化刪列（brainstorm §9）＋新增衍生
       （base-web 首刀基建未盡項：fork-delta 標記覆蓋 lint〔B-052 面〕／locale 維護紀律／dynamic route 切換
       隨 auth 刀 等，next-id 取號 bump）
-- [ ] T023 收官驗證：quickstart A~H 全段重跑＋容器內 `cargo test --workspace` 全綠＋前端 `gen-route &&
+- [ ] T024 收官驗證：quickstart A~H 全段重跑＋容器內 `cargo test --workspace` 全綠＋前端 `gen-route &&
       typecheck && lint`＋locale 對等 lint 綠＋`docs-sync generate && check && lint` 全綠（constitution v1.1.0）
       ＋FR-015 grep 前代代號於後端新寫碼（handler/model/auth）零命中＋base-web 改動全 rev4-inline 標記＋
       rev3 容器對照無異狀＋兩 worktree porcelain 淨/pin 一致
@@ -182,13 +187,13 @@ typecheck/lint/locale lint 綠
 - T009 依 T004＋T006＋T008；T010 依 T009；T011 依 T010。
 - 前端 T012→T013→T014→T015→T016（typings→頁→i18n→全 zh-tw→守門）；T012 起依 T009/T010（wire 契約定）。
 - T017 依 T010（update 端點）；T018 依 T010＋T004。
-- T019∥T020（rust 面 serial 排隊）；T021∥T022（docs）；T023 依全部。
+- T019∥T020（rust 面 serial 排隊）；T021（per-route 裁判）依 T012（typing 入快照）＋T020（再抽）＋T009（SettingItem）；T022∥T023（docs）；T024 依全部。
 
 ### Parallel Opportunities
 
 - 後端 Phase 2 三對（授權/facade/型驗）邏輯獨立、但 **cargo 執行一律排隊**（L-007 serial）。
 - 前端（base-web worktree）與後端（rust-api worktree）**跨倉可交錯**（不同 build）；但前端 typecheck 依
-  wire 契約（T009 wire DTO 定後）。T021∥T022 docs 並行。
+  wire 契約（T009 wire DTO 定後）。T022∥T023 docs 並行。
 
 ## Implementation Strategy
 
@@ -197,6 +202,6 @@ typecheck/lint/locale lint 綠
   review→fix；防呆五件套＋看門狗）收尾即 commit；rust-api／base-web 各走兩段式 commit＋pin bump。
 - **執行單元切分建議**（act-on-code 時依實際相依調整）：①Setup+授權 seam（T001~T004）②facade+op-log+型驗
   （T005~T008）③US1 後端端點+驗收（T009~T011）④US1 前端 typings/頁/i18n（T012~T014）⑤US1 全 zh-tw locale
-  +守門（T015~T016、★大單元 ~515 鍵）⑥US2+US3 驗收（T017~T018）⑦Polish（T019~T023）。
+  +守門（T015~T016、★大單元 ~515 鍵）⑥US2+US3 驗收（T017~T018）⑦Polish（T019~T024、含 per-route 裁判 T021）。
 - ★zh-tw 全字典（T015）工量大、宜獨立執行單元；locale 對等 lint 是其驗收閘。
 - 收官（T023）＋收刀簿記與 push/merge 歸 finishing、不在本清單。
