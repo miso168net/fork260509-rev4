@@ -29,7 +29,7 @@ psql 唯讀查詢；需 stack 在跑、不進 pre-commit——與 docs-sync 的�
 |---|---|
 | 欄序 | 每表實庫 information_schema.ordinal_position 逐欄＝data-model §3 表格（機器解析 markdown；12 表全比、§3.12 為離散列可直比）；欄名比對前剝除雙引號正規化（"order"→order） |
 | seed 集合 | 實庫 6 表列集合＝fixtures 的 6 支 seed json：natural key 配對（user_name／role_code／route_name／casbin ptype+v0..v5／setting_key／user_role 複合鍵）、多列 0 缺列 0 |
-| seed 內容 | 內容欄逐列比對；排除：審計時間戳欄（執行期 now()）、password 欄改驗規則（`$argon2id$` 前綴 PHC 格式）；jsonb 欄正規化後比 |
+| seed 內容 | 內容欄逐列比對；排除：審計時間戳欄（執行期 now()）、password 欄改驗規則（`$argon2id$` 前綴 PHC 格式）、updated_by 與 sys_user.session_id（live 擷取側工作坊編修／登入殘影、定稿 m002 不寫此二欄——fixtures 內 scratch／live 雙 dump 機器 diff 定錨）；jsonb 欄正規化後比（`[]`≡NULL）；id 族不入比對——id 排除、sys_menu.parent_id 以 route_name 解析、sys_user_role 複合鍵解析為 user_name×role_code（§5 還原法 down→up 使 id 前移、直比必假紅） |
 | 前置 | data-model §3 轉錄互驗（research R7）通過後本閘才有效——互驗＝fixtures/scratch-columns.txt vs data-model §3 機器 diff |
 
 ## 4. `schema-gate audit` — 審計欄建表守門（憲法 §I.6；活書 §8 義務落地）
