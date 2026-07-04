@@ -1,0 +1,14 @@
+           sequencename           | last_value 
+----------------------------------+------------
+ casbin_rule_id_seq               |        149
+ sys_access_log_id_seq            |           
+ sys_casbin_policy_archive_id_seq |           
+ sys_ip_rule_id_seq               |           
+ sys_login_attempt_id_seq         |           
+ sys_menu_id_seq                  |         78
+ sys_operation_log_id_seq         |           
+ sys_role_id_seq                  |          3
+ sys_token_id_seq                 |           
+ sys_user_id_seq                  |          3
+(10 rows)
+

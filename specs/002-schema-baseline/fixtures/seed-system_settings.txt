@@ -1,0 +1,12 @@
+        setting_key         | setting_value | value_type  |      description      |          created_at           | created_by | updated_at | updated_by | deleted_at | deleted_by 
+----------------------------+---------------+-------------+-----------------------+-------------------------------+------------+------------+------------+------------+------------
+ password_forbid_username   | off           | enum:on,off | 禁止密碼與帳號相同    | 2026-07-03 11:20:15.261471+00 |            |            |            |            |           
+ password_max_length        | 64            | number      | 密碼最大長度          | 2026-07-03 11:20:15.261471+00 |            |            |            |            |           
+ password_min_length        | 8             | number      | 密碼最小長度          | 2026-07-03 11:20:15.261471+00 |            |            |            |            |           
+ password_require_digit     | off           | enum:on,off | 需含數字              | 2026-07-03 11:20:15.261471+00 |            |            |            |            |           
+ password_require_lowercase | off           | enum:on,off | 需含小寫字母          | 2026-07-03 11:20:15.261471+00 |            |            |            |            |           
+ password_require_special   | off           | enum:on,off | 需含特殊符號          | 2026-07-03 11:20:15.261471+00 |            |            |            |            |           
+ password_require_uppercase | off           | enum:on,off | 需含大寫字母          | 2026-07-03 11:20:15.261471+00 |            |            |            |            |           
+ single_session_default     | off           | enum:on,off | 全站單一-session 預設 | 2026-07-03 11:20:15.261471+00 |            |            |            |            |           
+(8 rows)
+
