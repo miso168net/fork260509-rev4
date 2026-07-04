@@ -4,13 +4,16 @@
 
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
-  check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 ports 對賬）
+  check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 對賬）
   lint            L3／L7~L15（L2 其餘表與 L4/L5/L6 隨事件源與實碼逐步啟用）
+  refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
   test            跑自帶測試（unittest）
 
 token 計數：UTF-8 bytes ÷ 3 保守近似（測試鎖定算法）。
 """
+import contextlib
+import io
 import json
 import os
 import re
@@ -571,7 +574,13 @@ def lint_memory_refs(md_texts):
 GEN_HEADER = "<!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->"
 REFERENCE_TABLES = ("routes", "ports", "schema", "accounts", "screens")
 # stub 轉真的表：STATE 對賬行改列真來源描述（其餘表維持 gen_reference_stub）
-REFERENCE_LIVE = {"ports": "真表（來源＝compose 三檔的 ports: 段、由 generate 重算）"}
+REFERENCE_LIVE = {
+    "ports": "真表（來源＝compose 三檔的 ports: 段、由 generate 重算）",
+    "schema": "真表（來源＝reference-src 的 schema-snapshot.json＋archetype-map.json、"
+              "由 generate 重算；快照由 refresh 自實庫撈）",
+    "accounts": "真表（來源＝reference-src 的 accounts-snapshot.json、由 generate 重算；"
+                "快照由 refresh 自實庫撈）",
+}
 # ports 對照表來源（base 層設計鐵律禁 host ports、映射只住 dev/example）
 COMPOSE_FILES = ("docker-compose.yml", "docker-compose.dev.yml", "docker-compose.example.yml")
 
@@ -761,6 +770,20 @@ def errata_scan(texts, keyword):
     return hits
 
 
+# L2 對賬：轉真表各有真來源——漂移指名來源側（其餘生成檔漂移歸 L1 泛訊息）
+L2_SOURCES = {
+    f"{GENERATED_DIR}/reference/ports.md":
+        "ports 對照表與 compose 重算結果不一致——compose 三檔"
+        " ports: 段改動後未跑 tools/docs-sync generate",
+    f"{GENERATED_DIR}/reference/schema.md":
+        "schema 正典表與快照重算結果不一致——docs/ops/reference-src/schema-snapshot.json"
+        "（或 archetype-map.json）改動後未跑 tools/docs-sync generate",
+    f"{GENERATED_DIR}/reference/accounts.md":
+        "accounts 正典表與快照重算結果不一致——docs/ops/reference-src/"
+        "accounts-snapshot.json 改動後未跑 tools/docs-sync generate",
+}
+
+
 def check_generated(root, computed):
     """check：computed（{rel: content}）與磁碟現況 diff。回 findings。"""
     out = []
@@ -776,11 +799,8 @@ def check_generated(root, computed):
         elif rel not in on_disk:
             out.append(finding(ERROR, "L1", rel, "缺生成檔（跑 tools/docs-sync generate）"))
         elif _read(root, rel) != computed[rel]:
-            if rel == f"{GENERATED_DIR}/reference/ports.md":
-                # L2 對賬：ports 表有真來源（compose 三檔）——漂移指名來源側
-                out.append(finding(ERROR, "L2", rel,
-                                   "ports 對照表與 compose 重算結果不一致——compose 三檔"
-                                   " ports: 段改動後未跑 tools/docs-sync generate"))
+            if rel in L2_SOURCES:
+                out.append(finding(ERROR, "L2", rel, L2_SOURCES[rel]))
             else:
                 out.append(finding(ERROR, "L1", rel,
                                    "與重算結果不一致（忘跑 generate 或手改；跑 tools/docs-sync generate）"))
@@ -994,6 +1014,259 @@ def gen_reference_ports(rows):
             "|---|---|---|---|---|\n" + lines + "\n")
 
 
+# ---------------------------------------------------------------------------
+# 快照管線：refresh（需 stack）→ reference-src 兩快照（契約 specs/002-schema-baseline/
+# contracts/snapshot-reference.md §1）。generate／check 只讀快照、絕不碰 docker。
+# ---------------------------------------------------------------------------
+
+REFERENCE_SRC_DIR = "docs/ops/reference-src"
+SCHEMA_SNAPSHOT = f"{REFERENCE_SRC_DIR}/schema-snapshot.json"
+ACCOUNTS_SNAPSHOT = f"{REFERENCE_SRC_DIR}/accounts-snapshot.json"
+ARCHETYPE_MAP = f"{REFERENCE_SRC_DIR}/archetype-map.json"
+STACK_HINT = "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait"
+DB_USER = "soybean"
+DB_NAME = "soybean_admin_rust"
+COMPOSE_PSQL = ["docker", "compose", "-f", "docker-compose.yml",
+                "-f", "docker-compose.dev.yml", "exec", "-T", "postgres"]
+
+# 唯讀撈取（information_schema／pg_catalog／SELECT only）；每支包 json_agg 回單值 JSON。
+# seaql_migrations 除外（框架表；build_* 再防禦性過濾一次）。
+_JSON_WRAP = "SELECT COALESCE(json_agg(t), '[]'::json) FROM ({}) t"
+SQL_COLUMNS = _JSON_WRAP.format(
+    'SELECT c.table_name AS "table", c.column_name AS "column",'
+    ' c.ordinal_position AS "ordinal", format_type(a.atttypid, a.atttypmod) AS "type",'
+    " c.is_nullable = 'YES' AS \"nullable\", c.column_default AS \"default\""
+    " FROM information_schema.columns c"
+    " JOIN pg_class cl ON cl.relname = c.table_name"
+    " JOIN pg_namespace ns ON ns.oid = cl.relnamespace AND ns.nspname = c.table_schema"
+    " JOIN pg_attribute a ON a.attrelid = cl.oid AND a.attname = c.column_name"
+    " WHERE c.table_schema = 'public' AND c.table_name <> 'seaql_migrations'"
+    " ORDER BY c.table_name, c.ordinal_position")
+SQL_INDEXES = _JSON_WRAP.format(
+    'SELECT tablename AS "table", indexname AS "name", indexdef AS "definition"'
+    " FROM pg_indexes WHERE schemaname = 'public' AND tablename <> 'seaql_migrations'"
+    " ORDER BY tablename, indexname")
+SQL_CONSTRAINTS = _JSON_WRAP.format(
+    'SELECT rel.relname AS "table", con.conname AS "name",'
+    ' pg_get_constraintdef(con.oid) AS "definition"'
+    " FROM pg_constraint con"
+    " JOIN pg_class rel ON rel.oid = con.conrelid"
+    " JOIN pg_namespace ns ON ns.oid = rel.relnamespace"
+    " WHERE ns.nspname = 'public' AND rel.relname <> 'seaql_migrations'"
+    " ORDER BY rel.relname, con.conname")
+# 帳號面三表；sys_user 明確逐欄 SELECT——絕不 SELECT *、password 欄不入快照（機密紀律）
+SQL_USERS = _JSON_WRAP.format(
+    "SELECT id, user_name, nick_name, status FROM sys_user ORDER BY id")
+SQL_ROLES = _JSON_WRAP.format(
+    "SELECT id, role_code, role_name, status FROM sys_role ORDER BY id")
+SQL_BINDINGS = _JSON_WRAP.format(
+    "SELECT user_id, role_id FROM sys_user_role ORDER BY user_id, role_id")
+
+SCHEMA_COLUMN_KEYS = ("table", "column", "ordinal", "type", "nullable", "default")
+SCHEMA_DEF_KEYS = ("table", "name", "definition")
+USER_KEYS = ("id", "user_name", "nick_name", "status")
+ROLE_KEYS = ("id", "role_code", "role_name", "status")
+BINDING_KEYS = ("user_id", "role_id")
+
+
+class SnapshotError(Exception):
+    """快照管線失敗（stack 不在、撈取形不符、快照/歸屬檔缺）——fail-loud、絕不寫部分結果。"""
+
+
+def _project(row, keys, what):
+    """逐列投影到白名單欄集；多欄/缺欄＝fail-loud（多欄含 password 走私即機密紅線）。"""
+    if not isinstance(row, dict):
+        raise SnapshotError(f"{what} 列須為 object：{row!r}")
+    extra = sorted(set(row) - set(keys))
+    missing = [k for k in keys if k not in row]
+    if extra or missing:
+        raise SnapshotError(
+            f"{what} 列欄集不符白名單（多：{extra or '無'}／缺：{missing or '無'}）"
+            "——refresh 拒寫（撈取 SQL 與白名單須同步改）")
+    return {k: row[k] for k in keys}
+
+
+def _no_framework(rows):
+    return [r for r in rows if r.get("table") != "seaql_migrations"]
+
+
+def build_schema_snapshot(cols, idx, cons):
+    """欄／索引／約束 → 確定性排序快照 dict（表名→ordinal；無產生時點欄位）。"""
+    return {
+        "columns": sorted((_project(r, SCHEMA_COLUMN_KEYS, "columns")
+                           for r in _no_framework(cols)),
+                          key=lambda r: (r["table"], r["ordinal"])),
+        "indexes": sorted((_project(r, SCHEMA_DEF_KEYS, "indexes")
+                           for r in _no_framework(idx)),
+                          key=lambda r: (r["table"], r["name"])),
+        "constraints": sorted((_project(r, SCHEMA_DEF_KEYS, "constraints")
+                               for r in _no_framework(cons)),
+                              key=lambda r: (r["table"], r["name"])),
+    }
+
+
+def build_accounts_snapshot(users, roles, bindings):
+    """帳號面三表 → 確定性排序快照 dict；password 欄出現＝機密紅線 fail-loud。"""
+    for u in users:
+        if isinstance(u, dict) and "password" in u:
+            raise SnapshotError(
+                "機密紀律：sys_user 撈取含 password 欄——連雜湊值都不入快照，refresh 拒寫")
+    return {
+        "users": sorted((_project(u, USER_KEYS, "sys_user") for u in users),
+                        key=lambda u: u["id"]),
+        "roles": sorted((_project(r, ROLE_KEYS, "sys_role") for r in roles),
+                        key=lambda r: r["id"]),
+        "bindings": sorted((_project(b, BINDING_KEYS, "sys_user_role") for b in bindings),
+                           key=lambda b: (b["user_id"], b["role_id"])),
+    }
+
+
+def snapshot_dumps(snap):
+    """快照序列化：固定鍵序＋indent 2＋結尾換行——同輸入同 byte。"""
+    return json.dumps(snap, ensure_ascii=False, indent=2) + "\n"
+
+
+def _atomic_write(path, text):
+    """原子替換寫檔（同目錄暫存→os.replace）；失敗不留半成品。"""
+    d = os.path.dirname(path)
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+def psql_fetch(sql, root=None, run=subprocess.run):
+    """compose exec psql 唯讀撈取、回 JSON rows；stack 不在＝fail-loud＋啟動提示。"""
+    cmd = COMPOSE_PSQL + ["psql", "-U", DB_USER, "-d", DB_NAME,
+                          "-v", "ON_ERROR_STOP=1", "-qAt", "-c", sql]
+    try:
+        proc = run(cmd, capture_output=True, text=True, cwd=root or ROOT)
+    except OSError as ex:
+        raise SnapshotError(
+            f"無法執行 docker（{ex}）——refresh 需 dev stack 在跑；先啟動：{STACK_HINT}")
+    if proc.returncode != 0:
+        reason = (proc.stderr or proc.stdout).strip() or f"退出碼 {proc.returncode}"
+        raise SnapshotError(
+            f"psql 撈取失敗：{reason}——refresh 需 dev stack 在跑；先啟動：{STACK_HINT}")
+    try:
+        rows = json.loads(proc.stdout)
+    except json.JSONDecodeError as ex:
+        raise SnapshotError(f"psql 輸出非合法 JSON（{ex.msg}）——查詢形被改動？")
+    if not isinstance(rows, list):
+        raise SnapshotError("psql 輸出非 JSON array——查詢形被改動？")
+    return rows
+
+
+def cmd_refresh(root=None, fetch=psql_fetch):
+    """refresh：六撈全數成功→組兩快照→原子替換落檔（絕不寫部分結果）。"""
+    root = root or ROOT
+    schema_text = snapshot_dumps(build_schema_snapshot(
+        fetch(SQL_COLUMNS, root), fetch(SQL_INDEXES, root), fetch(SQL_CONSTRAINTS, root)))
+    accounts_text = snapshot_dumps(build_accounts_snapshot(
+        fetch(SQL_USERS, root), fetch(SQL_ROLES, root), fetch(SQL_BINDINGS, root)))
+    for rel, text in ((SCHEMA_SNAPSHOT, schema_text), (ACCOUNTS_SNAPSHOT, accounts_text)):
+        _atomic_write(os.path.join(root, rel), text)
+        print(f"refresh：寫 {rel}（{_line_count(text)} 行）")
+    return 0
+
+
+def _load_reference_src(root, rel, hint):
+    """讀 reference-src 追蹤檔；缺檔／壞 JSON＝fail-loud（轉真後即為表的存在前提）。"""
+    text = _read(root, rel)
+    if text is None:
+        raise SnapshotError(f"{rel} 缺失——{hint}")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as ex:
+        raise SnapshotError(f"{rel} 非合法 JSON（{ex.msg}）——{hint}")
+
+
+def gen_reference_schema(snap, archetypes):
+    """reference/schema ← schema 快照＋archetype 歸屬。逐表分節（表名序）。
+
+    archetypes＝{table: {"label": …, …}}；快照有表、map 無歸屬＝fail-loud 指名。
+    """
+    tables = sorted({r["table"] for key in ("columns", "indexes", "constraints")
+                     for r in snap.get(key, [])})
+    missing = [t for t in tables if t not in archetypes]
+    if missing:
+        raise SnapshotError(
+            "archetype-map 缺表歸屬：" + "、".join(missing)
+            + f"——先補 data-model §1 再登記 {ARCHETYPE_MAP}")
+    unlabeled = [t for t in tables if not archetypes[t].get("label")]
+    if unlabeled:
+        raise SnapshotError(
+            "archetype-map 條目缺 label：" + "、".join(unlabeled)
+            + f"——補齊 {ARCHETYPE_MAP} 該表的 label 欄")
+    head = (f"{GEN_HEADER}\n# reference/schema — 全量正典表\n\n"
+            f"來源＝{SCHEMA_SNAPSHOT}（refresh 自實庫撈）＋{ARCHETYPE_MAP}（變體歸屬）；"
+            "由 generate 重算。seaql_migrations 除外。\n")
+    parts = [head]
+    for table in tables:
+        parts.append(f"\n## {table}（archetype {archetypes[table]['label']}）\n\n"
+                     "| 欄 | 型別 | 可空 | 預設 |\n|---|---|---|---|\n")
+        parts.append("".join(
+            f"| {_md_cell(c['column'])} | {_md_cell(c['type'])} "
+            f"| {'是' if c['nullable'] else '否'} | {_md_cell(c['default'])} |\n"
+            for c in sorted((c for c in snap.get("columns", []) if c["table"] == table),
+                            key=lambda c: c["ordinal"])))
+        for label, key in (("索引", "indexes"), ("約束", "constraints")):
+            rows = sorted((r for r in snap.get(key, []) if r["table"] == table),
+                          key=lambda r: r["name"])
+            if rows:
+                parts.append(f"\n{label}：\n" + "".join(
+                    f"- {r['name']}｜{r['definition']}\n" for r in rows))
+    return "".join(parts)
+
+
+def gen_reference_accounts(snap):
+    """reference/accounts ← accounts 快照（帳號｜暱稱｜狀態｜角色綁定；零密碼欄）。"""
+    role_code = {r["id"]: r["role_code"] for r in snap.get("roles", [])}
+    bound = {}
+    for b in snap.get("bindings", []):
+        if b["role_id"] not in role_code:
+            raise SnapshotError(
+                f"accounts 快照綁定指向不存在的 role id {b['role_id']}"
+                f"（user id {b['user_id']}）——重跑 tools/docs-sync refresh")
+        bound.setdefault(b["user_id"], []).append(role_code[b["role_id"]])
+    user_rows = "".join(
+        f"| {_md_cell(u['user_name'])} | {_md_cell(u['nick_name'])} "
+        f"| {_md_cell(u['status'])} | {_md_cell('、'.join(sorted(bound.get(u['id'], []))))} |\n"
+        for u in snap.get("users", []))
+    role_rows = "".join(
+        f"| {_md_cell(r['role_code'])} | {_md_cell(r['role_name'])} "
+        f"| {_md_cell(r['status'])} |\n"
+        for r in snap.get("roles", []))
+    return (f"{GEN_HEADER}\n# reference/accounts — 全量正典表\n\n"
+            f"來源＝{ACCOUNTS_SNAPSHOT}（refresh 自實庫撈；零密碼欄——契約明文）；"
+            "由 generate 重算。\n\n"
+            "## 帳號\n\n| 帳號 | 暱稱 | 狀態 | 角色綁定 |\n|---|---|---|---|\n"
+            + user_rows +
+            "\n## 角色\n\n| 角色碼 | 角色名 | 狀態 |\n|---|---|---|\n" + role_rows)
+
+
+def compute_snapshot_reference(root):
+    """兩快照＋archetype-map → reference/{schema,accounts}.md。回 {rel: content}。"""
+    refresh_hint = "先跑 tools/docs-sync refresh（需 dev stack 在跑）"
+    schema_snap = _load_reference_src(root, SCHEMA_SNAPSHOT, refresh_hint)
+    accounts_snap = _load_reference_src(root, ACCOUNTS_SNAPSHOT, refresh_hint)
+    amap = _load_reference_src(
+        root, ARCHETYPE_MAP, "追蹤中繼檔、隨 schema 刀維護（初始內容＝data-model §1 轉錄）")
+    archetypes = {t["table"]: t for t in amap.get("tables", [])
+                  if isinstance(t, dict) and "table" in t}
+    return {
+        f"{GENERATED_DIR}/reference/schema.md":
+            gen_reference_schema(schema_snap, archetypes),
+        f"{GENERATED_DIR}/reference/accounts.md":
+            gen_reference_accounts(accounts_snap),
+    }
+
+
 def parse_events_loose(text):
     """generate 用的寬鬆解析（壞行、非 object 行跳過——擋壞行是 L3 的職責）。"""
     events = []
@@ -1034,6 +1307,7 @@ def compute_generated(root):
             continue
         files[f"{GENERATED_DIR}/reference/{name}.md"] = gen_reference_stub(name)
     files[f"{GENERATED_DIR}/reference/ports.md"] = gen_reference_ports(compute_ports_rows(root))
+    files.update(compute_snapshot_reference(root))
     return files
 
 
@@ -1955,6 +2229,283 @@ class TestGitIntegration(unittest.TestCase):
             self.assertEqual(unstaged_generated(d), ["docs/generated/STATE.md"])
 
 
+SNAP_COLS = [
+    {"table": "sys_user", "column": "id", "ordinal": 1, "type": "bigint",
+     "nullable": False, "default": None},
+    {"table": "sys_user", "column": "user_name", "ordinal": 2,
+     "type": "character varying(64)", "nullable": False, "default": None},
+    {"table": "casbin_rule", "column": "id", "ordinal": 1, "type": "bigint",
+     "nullable": False, "default": "nextval('casbin_rule_id_seq'::regclass)"},
+]
+SNAP_IDX = [
+    {"table": "sys_user", "name": "sys_user_pkey",
+     "definition": "CREATE UNIQUE INDEX sys_user_pkey ON public.sys_user USING btree (id)"},
+    {"table": "casbin_rule", "name": "casbin_rule_pkey",
+     "definition": "CREATE UNIQUE INDEX casbin_rule_pkey ON public.casbin_rule USING btree (id)"},
+]
+SNAP_CONS = [
+    {"table": "sys_user", "name": "sys_user_pkey", "definition": "PRIMARY KEY (id)"},
+]
+ACC_USERS = [
+    {"id": 5, "user_name": "Admin", "nick_name": "Admin", "status": 1},
+    {"id": 4, "user_name": "Super", "nick_name": "Super", "status": 1},
+]
+ACC_ROLES = [
+    {"id": 5, "role_code": "R_ADMIN", "role_name": "管理員", "status": 1},
+    {"id": 4, "role_code": "R_SUPER", "role_name": "超管", "status": 1},
+]
+ACC_BINDS = [{"user_id": 5, "role_id": 5}, {"user_id": 4, "role_id": 4}]
+
+
+def _fake_fetch(sql, root=None):
+    """測試用 fetch：依 SQL 內容回對應 canned rows（sys_user_role 判在 sys_user 前）。"""
+    if "information_schema.columns" in sql:
+        return list(SNAP_COLS)
+    if "pg_indexes" in sql:
+        return list(SNAP_IDX)
+    if "pg_constraint" in sql:
+        return list(SNAP_CONS)
+    if "sys_user_role" in sql:
+        return list(ACC_BINDS)
+    if "sys_user" in sql:
+        return list(ACC_USERS)
+    if "sys_role" in sql:
+        return list(ACC_ROLES)
+    raise AssertionError("未知 SQL：" + sql)
+
+
+class TestSnapshot(unittest.TestCase):
+    """T015：refresh 快照面——確定性排序、密碼欄排除、缺 stack fail-loud、原子替換。"""
+
+    def test_schema_snapshot_sorted_and_deterministic(self):
+        a = snapshot_dumps(build_schema_snapshot(SNAP_COLS, SNAP_IDX, SNAP_CONS))
+        b = snapshot_dumps(build_schema_snapshot(
+            list(reversed(SNAP_COLS)), list(reversed(SNAP_IDX)), list(reversed(SNAP_CONS))))
+        self.assertEqual(a, b)                       # 入序無關、同 byte
+        snap = json.loads(a)
+        self.assertEqual(set(snap), {"columns", "indexes", "constraints"})  # 無產生時點欄位
+        self.assertEqual([c["table"] for c in snap["columns"]],
+                         ["casbin_rule", "sys_user", "sys_user"])            # 表名序
+        self.assertEqual([c["ordinal"] for c in snap["columns"][1:]], [1, 2])  # ordinal 序
+        self.assertEqual([i["name"] for i in snap["indexes"]],
+                         ["casbin_rule_pkey", "sys_user_pkey"])
+
+    def test_schema_snapshot_excludes_seaql_migrations(self):
+        cols = SNAP_COLS + [{"table": "seaql_migrations", "column": "version", "ordinal": 1,
+                             "type": "character varying", "nullable": False, "default": None}]
+        idx = SNAP_IDX + [{"table": "seaql_migrations", "name": "seaql_migrations_pkey",
+                           "definition": "CREATE UNIQUE INDEX …"}]
+        text = snapshot_dumps(build_schema_snapshot(cols, idx, SNAP_CONS))
+        self.assertNotIn("seaql_migrations", text)
+
+    def test_schema_snapshot_bad_row_shape_fail_loud(self):
+        with self.assertRaises(SnapshotError):
+            build_schema_snapshot([{"table": "t", "column": "c"}], [], [])  # 缺欄
+
+    def test_accounts_snapshot_password_excluded_fail_loud(self):
+        bad = dict(ACC_USERS[0])
+        bad["password"] = "$argon2id$假雜湊"
+        with self.assertRaises(SnapshotError) as cm:
+            build_accounts_snapshot([bad], ACC_ROLES, ACC_BINDS)
+        self.assertIn("password", str(cm.exception))
+        text = snapshot_dumps(build_accounts_snapshot(ACC_USERS, ACC_ROLES, ACC_BINDS))
+        self.assertNotIn("password", text)
+        self.assertNotIn("argon2", text)
+
+    def test_accounts_snapshot_sorted_and_deterministic(self):
+        a = snapshot_dumps(build_accounts_snapshot(ACC_USERS, ACC_ROLES, ACC_BINDS))
+        b = snapshot_dumps(build_accounts_snapshot(
+            list(reversed(ACC_USERS)), list(reversed(ACC_ROLES)), list(reversed(ACC_BINDS))))
+        self.assertEqual(a, b)
+        snap = json.loads(a)
+        self.assertEqual(set(snap), {"users", "roles", "bindings"})
+        self.assertEqual([u["id"] for u in snap["users"]], [4, 5])
+        self.assertEqual([r["id"] for r in snap["roles"]], [4, 5])
+        self.assertEqual([x["user_id"] for x in snap["bindings"]], [4, 5])
+
+    def test_atomic_write_no_leftover_tmp(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "sub", "x.json")
+            _atomic_write(p, "第一版\n")
+            _atomic_write(p, "第二版\n")
+            with open(p, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), "第二版\n")
+            self.assertEqual(os.listdir(os.path.join(d, "sub")), ["x.json"])  # 無殘留暫存檔
+
+    def test_refresh_writes_both_snapshots_byte_identical_rerun(self):
+        with tempfile.TemporaryDirectory() as d, \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cmd_refresh(root=d, fetch=_fake_fetch), 0)
+            p_schema = os.path.join(d, "docs/ops/reference-src/schema-snapshot.json")
+            p_accounts = os.path.join(d, "docs/ops/reference-src/accounts-snapshot.json")
+            with open(p_schema, encoding="utf-8") as fh:
+                schema1 = fh.read()
+            with open(p_accounts, encoding="utf-8") as fh:
+                accounts1 = fh.read()
+            self.assertEqual(set(json.loads(schema1)), {"columns", "indexes", "constraints"})
+            self.assertEqual(set(json.loads(accounts1)), {"users", "roles", "bindings"})
+            self.assertEqual(cmd_refresh(root=d, fetch=_fake_fetch), 0)  # 同庫重跑
+            with open(p_schema, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), schema1)                     # byte-identical
+            with open(p_accounts, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), accounts1)
+
+    def test_refresh_no_partial_write_on_late_failure(self):
+        calls = {"n": 0}
+
+        def flaky(sql, root=None):
+            calls["n"] += 1
+            if calls["n"] >= 4:                      # 帳號面撈取才失敗
+                raise SnapshotError("psql 撈取失敗（模擬）")
+            return []
+
+        with tempfile.TemporaryDirectory() as d, \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(SnapshotError):
+                cmd_refresh(root=d, fetch=flaky)
+            self.assertFalse(os.path.exists(os.path.join(d, "docs/ops/reference-src")))
+
+    def test_psql_fetch_stack_down_fail_loud(self):
+        class Down:
+            returncode = 1
+            stdout = ""
+            stderr = 'service "postgres" is not running'
+
+        with self.assertRaises(SnapshotError) as cm:
+            psql_fetch("SELECT 1", root=".", run=lambda *a, **k: Down())
+        self.assertIn(STACK_HINT, str(cm.exception))
+        self.assertIn("postgres", str(cm.exception))
+
+    def test_psql_fetch_docker_missing_fail_loud(self):
+        def boom(*a, **k):
+            raise OSError("No such file or directory: 'docker'")
+
+        with self.assertRaises(SnapshotError) as cm:
+            psql_fetch("SELECT 1", root=".", run=boom)
+        self.assertIn(STACK_HINT, str(cm.exception))
+
+    def test_cli_refresh_without_docker_exits_nonzero_with_hint(self):
+        env = dict(os.environ, PATH=os.devnull)      # docker 不可得
+        r = subprocess.run([sys.executable, os.path.abspath(__file__), "refresh"],
+                           capture_output=True, encoding="utf-8", errors="replace", env=env)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("up -d --wait", r.stderr)      # 提示啟動命令
+
+
+class TestSnapshotReference(unittest.TestCase):
+    """T017：generate／check 兩來源——快照→兩表、確定性、轉真、L2 分流、缺檔 fail-loud。"""
+
+    ARCH = {
+        "sys_user": {"table": "sys_user", "variant": "A", "label": "A 業務全六欄"},
+        "casbin_rule": {"table": "casbin_rule", "variant": "D", "label": "D 治理"},
+    }
+
+    def _schema_snap(self):
+        return build_schema_snapshot(SNAP_COLS, SNAP_IDX, SNAP_CONS)
+
+    def _accounts_snap(self):
+        return build_accounts_snapshot(ACC_USERS, ACC_ROLES, ACC_BINDS)
+
+    def test_gen_reference_schema_sections_and_archetype(self):
+        text = gen_reference_schema(self._schema_snap(), self.ARCH)
+        self.assertTrue(text.startswith(GEN_HEADER))
+        self.assertLess(text.index("## casbin_rule"), text.index("## sys_user"))  # 表名序分節
+        self.assertIn("A 業務全六欄", text)          # archetype 變體歸屬標註
+        self.assertIn("D 治理", text)
+        self.assertIn("| user_name | character varying(64) |", text)  # 欄明細列
+        self.assertIn("sys_user_pkey", text)         # 索引／約束清單入表
+
+    def test_gen_reference_schema_deterministic_same_bytes(self):
+        a = gen_reference_schema(self._schema_snap(), self.ARCH)
+        b = gen_reference_schema(
+            build_schema_snapshot(list(reversed(SNAP_COLS)), list(reversed(SNAP_IDX)),
+                                  list(reversed(SNAP_CONS))),
+            dict(reversed(list(self.ARCH.items()))))
+        self.assertEqual(a, b)
+
+    def test_gen_reference_schema_missing_archetype_fail_loud(self):
+        arch = {"sys_user": self.ARCH["sys_user"]}   # 缺 casbin_rule 歸屬
+        with self.assertRaises(SnapshotError) as cm:
+            gen_reference_schema(self._schema_snap(), arch)
+        self.assertIn("casbin_rule", str(cm.exception))
+
+    def test_gen_reference_accounts_bindings_and_zero_password(self):
+        text = gen_reference_accounts(self._accounts_snap())
+        self.assertTrue(text.startswith(GEN_HEADER))
+        self.assertIn("| Super | Super | 1 | R_SUPER |", text)   # 帳號｜暱稱｜狀態｜角色綁定
+        self.assertIn("| Admin | Admin | 1 | R_ADMIN |", text)
+        self.assertNotIn("password", text)
+        self.assertNotIn("argon2", text)
+
+    def test_gen_reference_accounts_dangling_binding_fail_loud(self):
+        snap = self._accounts_snap()
+        snap["bindings"].append({"user_id": 4, "role_id": 99})
+        with self.assertRaises(SnapshotError):
+            gen_reference_accounts(snap)
+
+    def test_reference_live_schema_accounts_promoted(self):
+        self.assertIn("schema", REFERENCE_LIVE)
+        self.assertIn("accounts", REFERENCE_LIVE)
+        text = gen_state(TestGenState.CTX)
+        state_lines = {name: line
+                       for line in text.splitlines()
+                       for name in ("routes", "ports", "schema", "accounts", "screens")
+                       if line.startswith(f"- reference/{name}：")}
+        for name in ("schema", "accounts"):
+            self.assertNotIn("stub", state_lines[name], msg=name)   # 轉真
+            self.assertIn("generate", state_lines[name], msg=name)
+        for name in ("routes", "screens"):
+            self.assertIn("stub", state_lines[name], msg=name)      # 對賬區只剩兩 stub
+
+    def test_check_reports_schema_accounts_drift_as_l2(self):
+        for base in ("schema", "accounts"):
+            with tempfile.TemporaryDirectory() as root:
+                os.makedirs(os.path.join(root, "docs/generated/reference"))
+                rel = f"docs/generated/reference/{base}.md"
+                with open(os.path.join(root, rel), "w", encoding="utf-8") as fh:
+                    fh.write("舊表\n")
+                f = check_generated(root, {rel: "新表\n"})
+                self.assertEqual(len(f), 1, msg=base)
+                self.assertEqual(f[0]["code"], "L2", msg=base)      # L2 分流（指名來源側）
+                self.assertIn(f"{base}-snapshot.json", f[0]["msg"], msg=base)
+
+    def _write_reference_src(self, root, schema=True, accounts=True, amap=True):
+        d = os.path.join(root, REFERENCE_SRC_DIR)
+        os.makedirs(d)
+        if schema:
+            with open(os.path.join(root, SCHEMA_SNAPSHOT), "w", encoding="utf-8") as fh:
+                fh.write(snapshot_dumps(self._schema_snap()))
+        if accounts:
+            with open(os.path.join(root, ACCOUNTS_SNAPSHOT), "w", encoding="utf-8") as fh:
+                fh.write(snapshot_dumps(self._accounts_snap()))
+        if amap:
+            with open(os.path.join(root, ARCHETYPE_MAP), "w", encoding="utf-8") as fh:
+                json.dump({"tables": list(self.ARCH.values())}, fh, ensure_ascii=False)
+
+    def test_compute_snapshot_reference_green_and_deterministic(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write_reference_src(root)
+            files = compute_snapshot_reference(root)
+            self.assertEqual(set(files), {"docs/generated/reference/schema.md",
+                                          "docs/generated/reference/accounts.md"})
+            self.assertEqual(files, compute_snapshot_reference(root))  # 同快照同 byte
+
+    def test_compute_snapshot_reference_missing_snapshot_fail_loud(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write_reference_src(root, schema=False)
+            with self.assertRaises(SnapshotError) as cm:
+                compute_snapshot_reference(root)
+            self.assertIn("schema-snapshot.json", str(cm.exception))
+            self.assertIn("refresh", str(cm.exception))              # 提示補救命令
+
+    def test_compute_snapshot_reference_missing_archetype_map_fail_loud(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write_reference_src(root, amap=False)
+            with self.assertRaises(SnapshotError) as cm:
+                compute_snapshot_reference(root)
+            self.assertIn("archetype-map.json", str(cm.exception))
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -1975,6 +2526,8 @@ def main(argv):
             return cmd_generate()
         if cmd == "check":
             return cmd_check()
+        if cmd == "refresh":
+            return cmd_refresh()
         if cmd == "errata":
             if len(argv) < 3:
                 print("用法：docs-sync errata <關鍵詞>", file=sys.stderr)
@@ -1986,6 +2539,9 @@ def main(argv):
         return 1
     except ComposePortsError as ex:
         print(f"[ERROR] ports 解析｜{ex}——fail-loud，處置後重跑", file=sys.stderr)
+        return 1
+    except SnapshotError as ex:
+        print(f"[ERROR] 快照管線｜{ex}", file=sys.stderr)
         return 1
     print(f"未知子命令：{cmd}", file=sys.stderr)
     print(__doc__)
