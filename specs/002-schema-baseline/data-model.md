@@ -272,7 +272,7 @@ adapter 固定、不重排（ADR 0015）；9~11＝ALTER 追加。
 | sys_role | 3 | role_memo 全 NULL |
 | sys_user_role | 3 | 綁定 user↔role（id 由插入序落位） |
 | sys_menu | 78 | 按原 id 升冪插入→id 確定性落 1..78；parent 以 route_name 子查詢解析（對具體 id 值零依賴）；menu_memo 全 NULL |
-| casbin_rule | 149 | 全 p 型 API 路徑政策（v1＝API path、v2＝HTTP method；**無欄位級 menu id 引用**）；與 menu 屬同批 db 重整定稿（ADR 0023） |
+| casbin_rule | 149 | 全 p 型：API 路徑政策 48（v1＝API path、v2＝HTTP method）＋menu 政策 85（v1＝route_name、v2＝'menu'）＋button 政策 16（**無欄位級 menu id 引用**）；與 menu 屬同批 db 重整定稿（ADR 0023） |
 | system_settings | 8 | 鍵值型初始設定 |
 
 - **機器基準**＝fixtures/ 的 6 支 seed json（user 定稿的機器形式、m002 生成來源）；

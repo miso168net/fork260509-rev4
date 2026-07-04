@@ -13,7 +13,8 @@ tags: [schema, casbin, foundation]
 
 ADR 0021 與 wave-0-plan 原定「casbin_rule 由 adapter 委派建表、其授權政策 seed 隨 casbin
 進場刀」。schema 基線的 user 定稿作業（rev3 session db 重整）重排了 menu id 並連同
-casbin 政策全量一併定稿——149 列政策為 p 型 API 路徑形（無欄位級 menu id 引用；政策與
+casbin 政策全量一併定稿——149 列政策全 p 型：API 路徑形 48＋menu 形 85（v1＝route_name）
+＋button 形 16（無欄位級 menu id 引用；政策與
 選單屬**同一批 db 重整定稿**）：只灌 menu 不灌 casbin，日後 casbin 進場刀得另行重建
 定稿批次的完整性、易漂移；雙庫互證（2026-07-03）也已連同 casbin 149 列一併驗綠。
 
