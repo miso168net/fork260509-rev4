@@ -12,6 +12,14 @@
 brainstorms/003-wire-foundation.md 拍板 4 題；活書 §8 錯誤碼與 datetime 兩列「隨 wire
 地基刀建立」義務由本刀清償）
 
+## Clarifications
+
+### Session 2026-07-04
+
+- Q: 本刀 contract test 以 wire-schema 快照為裁判時，受審面是什麼？ → A: 通用形受審
+  ——快照 common 型（分頁形等）對後端信封／分頁序列化輸出驗＋裁判機制自測；
+  per-route 業務型裁判自波 1 首功能刀起接上（機制本刀就位、消費者後到）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 一致的 wire 形（統一信封＋錯誤碼骨架） (Priority: P1)
@@ -69,9 +77,10 @@ table-driven contract case（HTTP status＋信封形狀整表覆蓋）；4 個�
 ### User Story 3 - 契約機器化骨架（typings 裁判＋覆蓋閘） (Priority: P3)
 
 維護者以一道顯式抽取命令（需運行中環境）從前端 typings 產出 JSON Schema 快照
-（唯讀、零前端改動）；contract test 離線以快照為裁判驗回應形；覆蓋閘強制「每條已
-註冊路由必有 contract case」、缺一條即紅。自本刀起，波 1 每條新端點都被此機制強制
-帶契約驗證。
+（唯讀、零前端改動）；contract test 離線以快照為裁判——本刀受審面＝信封與分頁
+**通用形**（快照 common 型對後端序列化輸出）＋裁判機制自測，per-route 業務型受審
+自波 1 起（機制就位、消費者後到）；覆蓋閘強制「每條已註冊路由必有 contract case」、
+缺一條即紅。自本刀起，波 1 每條新端點都被此機制強制帶契約驗證。
 
 **Why this priority**: 「typings 為裁判」是 constitution 凍結的機器化要求、本刀是其
 落地刀；但它建立在 US1 的信封骨架之上，故次於 US1/US2。
@@ -84,7 +93,7 @@ table-driven contract case（HTTP status＋信封形狀整表覆蓋）；4 個�
 1. **Given** dev 環境運行中，**When** 執行抽取命令，**Then** 產出 JSON Schema 快照
    （確定性排序、無產生時點欄位）；前端工作樹零改動、依賴清單零改動。
 2. **Given** 快照就位，**When** 執行驗證命令，**Then** contract test 以快照為裁判
-   全綠；同 typings 重跑抽取、快照 byte 級不變。
+   驗信封／分頁通用形全綠（含裁判機制自測）；同 typings 重跑抽取、快照 byte 級不變。
 3. **Given** 一條已註冊路由的 contract case 被暫時移除（驗證用），**When** 執行驗證
    命令，**Then** 覆蓋閘失敗並指名該路由；還原後重跑綠。
 
@@ -103,6 +112,8 @@ table-driven contract case（HTTP status＋信封形狀整表覆蓋）；4 個�
   （次選工具或自寫抽取腳本）於 research 定案、不影響本 spec 驗收語意。
 - `/metrics` 屬信封例外規則、但 endpoint 本身不在本刀（歸 obs 刀）——例外規則入
   常量與測試註記、避免 obs 刀進場時漏判。
+- 信封例外端點也入覆蓋閘——其 case 驗例外形（如 `/health` 驗純文字），防例外端點
+  成為守門盲區。
 
 ## Requirements *(mandatory)*
 
@@ -126,12 +137,15 @@ table-driven contract case（HTTP status＋信封形狀整表覆蓋）；4 個�
   HTTP status＋信封形狀、整表覆蓋）；保留碼永不發出（構造層＋列舉完整性）；時間欄
   一律 ISO-8601 帶時區偏移（demo 回應實測）。
 - **FR-008**: 契約裁判 MUST 機器化：顯式抽取命令（需運行中環境）自前端 typings 產
-  JSON Schema 快照——唯讀、前端工作樹與依賴清單零改動；快照確定性（同源重抽 byte
-  一致、無產生時點欄位）、原子替換；contract test 離線消費快照為裁判。
+  JSON Schema 快照——唯讀、前端工作樹與依賴清單零改動；抽取範圍＝typings 全檔
+  （機制一次就位）；快照確定性（同源重抽 byte 一致、無產生時點欄位）、原子替換；
+  contract test 離線消費快照為裁判——本刀受審面＝信封與分頁通用形＋裁判機制自測、
+  per-route 業務型受審自波 1 起。
 - **FR-009**: 覆蓋閘 MUST 成立：路由註冊收單一來源；每條已註冊路由必有 contract
-  case、缺即紅並指名；閘門類驗證不進提交前檢查（需環境在跑、與離線檢查分工）。
+  case、缺即紅並指名；信封例外端點（如 `/health`）同樣必有 case、驗其例外形
+  （例外不豁免守門）；閘門類驗證不進提交前檢查（需環境在跑、與離線檢查分工）。
 - **FR-010**: demo 驗證端點 MUST 提供：走 `/api/` 前綴、回時間欄與 string-id 欄假
-  資料；標記為暫時物（首功能刀進場後可刪、刪除義務記入該刀）。
+  資料；標記為暫時物——刪除義務於本刀收刀時登記待辦、由首個功能刀執行刪除。
 - **FR-011**: 版本 MUST 全數釘完整數字版（schema 抽取工具等新增依賴）；不留浮動；
   定值與查證紀錄凍結於設計文件、實作以該定案為準。
 - **FR-012**: 本刀全程 MUST 保持 base-web 零 fork 改動（工作樹乾淨、指針零新增）；
