@@ -53,7 +53,8 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 ## §5 Building blocks
 
 - **rust-api workspace＝四 crate**（目錄樹與導覽住 README.md）：
-  - `server`：axum HTTP 服務本體——boot 載入機密後監聽供 API；端點隨後續刀填入。
+  - `server`：axum HTTP 服務本體——boot 載入機密後監聽；統一信封 `Res`/`PageRes`＋13 碼
+    `AppError`（映射單一來源）＋route 註冊表就位，業務端點隨後續刀填入。
   - `migration`：schema 與 seed 的唯一寫入者——基線結構＋定稿 seed 兩支 migration，
     由 compose migrate 閘門套用，冪等可逆。
   - `entity`：sea-orm 型別化實體層（每張業務表一檔）——後續刀的資料存取消費介面；
@@ -97,9 +98,10 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 | 慣例 | 規則 | 守門機制 |
 |---|---|---|
-| datetime | DB 時間欄一律 `timestamptz` 存 UTC；wire 一律 ISO-8601 帶時區偏移、禁 naive datetime；前端唯一 formatter util、以瀏覽器時區顯示＋帶時區標示（使用者偏好時區留參數位、消費點只有 formatter 一處） | wire 驗收含「時間欄必帶 offset」斷言（隨 wire 地基刀建立）；前端 lint 禁繞過 formatter 裸格式化（隨 base-web 首刀建立） |
+| datetime | DB 時間欄一律 `timestamptz` 存 UTC；wire 一律 ISO-8601 帶時區偏移、禁 naive datetime；前端唯一 formatter util、以瀏覽器時區顯示＋帶時區標示（使用者偏好時區留參數位、消費點只有 formatter 一處） | wire 驗收含「時間欄必帶 offset」斷言（`cargo test --workspace` contract.rs offset 守門，003-wire 落地）；前端 lint 禁繞過 formatter 裸格式化（隨 base-web 首刀建立） |
 | i18n | primary locale＝zh-TW（預設 UI／開發驗收基準）；zh-cn 字典保留維護＝上游 rebase 同步錨點；語言選單「簡體／繁體／English」；業務錯誤 msg＝i18n key、前端 $t 翻譯（詳 constitution §I.3 與 I18N-WIRING 軌道） | locale 對等 lint：zh-cn／zh-tw 鍵集合一致、pre-commit 擋（隨 base-web 首刀建立）；`App.I18n.Schema` 型別使「加鍵漏語言」直接 typecheck 紅 |
-| 錯誤碼 | 13 碼矩陣整組凍結、新需求優先 reuse 既有碼；碼→HTTP 映射、保留碼規則、msg=key 詳 constitution §I.3 | 碼表 table-driven contract test＋「保留碼後端永不發出」斷言（隨 wire 地基刀建立）；後端錯誤型→業務碼映射收單一來源 |
+| 錯誤碼 | 13 碼矩陣整組凍結、新需求優先 reuse 既有碼；碼→HTTP 映射、保留碼規則、msg=key 詳 constitution §I.3 | 碼表 table-driven contract test＋「保留碼後端永不發出」斷言（`cargo test --workspace` error.rs 13 碼矩陣＋保留碼列舉完整性，003-wire 落地）；後端錯誤型→業務碼映射收單一來源 |
+| wire 契約 | 前端 typings 為裁判、統一信封／分頁通用形對其驗證；動 typings／加 route 的刀必於單元邊界重跑 `python3 tools/wire-schema extract` 並隨 commit（快照住 server/tests/fixtures/wire-schema.json） | 契約裁判（快照 vs 序列化通用形）＋路由↔case 雙向覆蓋閘（`cargo test --workspace`，003-wire 落地）；快照↔typings 一致由本紀律＋再抽 diff 空 |
 | 審計欄 | 業務表建表即帶 archetype 全欄；四變體歸屬與無 retrofit 條款詳 constitution §I.6 | `tools/schema-gate audit`（對實庫逐表驗變體矩陣、清單外業務表攔截；需運行中 stack、不進 pre-commit）；`/speckit-plan` 自查第 8 題每刀必答 |
 | soft-delete | 軟刪欄成對寫入（`deleted_at`＋`deleted_by` 同寫）；讀端預設過濾已刪列；軟刪表唯一鍵用 partial-uniq `WHERE deleted_at IS NULL` | partial-uniq 約束本身（DB 層直接擋重複）；facade 讀端過濾測試（隨對應 entity 刀建立）；刪除連動行為（如角色刪除清授權）隨對應刀立 ADR 入憲 |
 | 欄序 | 欄序＝基線刀 user 定稿、後續加欄一律 append（ADR 0021） | 加欄／動 schema 的刀於單元邊界跑 `tools/schema-gate gate2` 逐欄驗實庫欄序＝定稿（可重跑、需運行中 stack、不進 pre-commit） |

@@ -1,14 +1,14 @@
-<!-- next: B-056 -->
+<!-- next: B-057 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
 
-- B-001｜generated/reference/routes extractor（rust 路由註冊→全量表、對賬 lint L2）｜rust-api 首個路由落地時
+- B-001｜generated/reference/routes extractor（rust 路由註冊→全量表、對賬 lint L2）｜rust-api 首個業務路由落地時
 - B-005｜generated/reference/screens extractor（前端 route→全量表、對賬 lint L2）｜base-web 首個頁面落地時
 - B-006｜docs-sync lint L4/L5/L6 啟用（收刀事件存在性／review 分流雙源對賬／arch_impact 雙向驗）｜第一把功能刀收刀前
 - B-007｜觀測側 msg 可讀性補強候選（log 附 key→預設語言譯文、或維運字典對照表；ADR 0001 第 8 題配套）｜obs 層刀或維運痛點實際出現時
 - B-008｜替代登入／認證端點包處置拍板：做真／stub／砍表單三選一（連同驗證碼收發基建同批考慮；rev3 帳實分叉）｜auth 刀 brainstorm 開場｜出處：rev3:DECISIONS§1-⚠️c＋⚠️m（K1-12/22）
-- B-009｜應用層 RI hybrid 分層重審（焦點＝每自驗方法一 error enum 的樣板碼代價）｜rust-api 首刀 brainstorm｜出處：rev3:DECISIONS§1-⚠️o（K1-24）
+- B-009｜應用層 RI hybrid 分層重審（焦點＝每自驗方法一 error enum 的樣板碼代價）｜首個帶 facade 的功能刀 brainstorm｜出處：rev3:DECISIONS§1-⚠️o（K1-24）
 - B-010｜登入失敗節流以合成終態重設計（一般化訊息＋鎖中不逐筆稽核已反轉原案）｜節流刀 brainstorm｜出處：rev3:DECISIONS§1-⚠️w（K1-32）
 - B-011｜儀表板做不做／怎麼做（傾向 v1＝固定版面零新表）｜入波排程時｜出處：rev3:DECISIONS§1-待決⑥a（K1-06）
 - B-012｜報表匯出 PDF/CSV（傾向 v1＝同步匯出零新表）｜入波排程時｜出處：rev3:DECISIONS§1-待決⑥b（K1-07）
@@ -55,3 +55,4 @@
 - B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-055｜閘 1 型別比對不含 varchar 長度（fixtures/columns.txt 無 character_maximum_length 欄）——長度級漂移閘 1 不攔；機器閉環需把長度併入 fixtures 重凍（基準改動、拍板級）｜後續 schema 刀重凍基準時｜出處：002-schema-baseline U3b review
+- B-056｜刪 demo 驗證端點（handler/demo.rs＋router 註冊表 /demo-wire 條目＋contract.rs demo-wire case）｜首個功能刀｜出處：003-wire-foundation 收刀（demo 為暫時物）
