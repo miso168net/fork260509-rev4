@@ -52,8 +52,17 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §5 Building blocks
 
-本節承載程式體結構（crate／facade 地圖、前端結構、資料模型敘事），隨波次建置填入；
-欄位明細住 generated/reference/schema。workspace 目錄樹與導覽住 README.md。
+- **rust-api workspace＝四 crate**（目錄樹與導覽住 README.md）：
+  - `server`：axum HTTP 服務本體——boot 載入機密後監聽供 API；端點隨後續刀填入。
+  - `migration`：schema 與 seed 的唯一寫入者——基線結構＋定稿 seed 兩支 migration，
+    由 compose migrate 閘門套用，冪等可逆。
+  - `entity`：sea-orm 型別化實體層（每張業務表一檔）——後續刀的資料存取消費介面；
+    欄位宣告順序照定稿。
+  - `sea-orm-adapter`：vendored casbin 授權配接層（constitution §I.5 例外、內容零改寫）——
+    受 migration 委派建授權規則表基底。
+- 表／欄明細與 archetype 變體歸屬住 generated/reference/schema；初始帳號面住
+  generated/reference/accounts。
+- 前端結構與 facade 地圖隨對應波次建置填入。
 
 ## §6 Runtime
 
@@ -91,8 +100,10 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 | datetime | DB 時間欄一律 `timestamptz` 存 UTC；wire 一律 ISO-8601 帶時區偏移、禁 naive datetime；前端唯一 formatter util、以瀏覽器時區顯示＋帶時區標示（使用者偏好時區留參數位、消費點只有 formatter 一處） | wire 驗收含「時間欄必帶 offset」斷言（隨 wire 地基刀建立）；前端 lint 禁繞過 formatter 裸格式化（隨 base-web 首刀建立） |
 | i18n | primary locale＝zh-TW（預設 UI／開發驗收基準）；zh-cn 字典保留維護＝上游 rebase 同步錨點；語言選單「簡體／繁體／English」；業務錯誤 msg＝i18n key、前端 $t 翻譯（詳 constitution §I.3 與 I18N-WIRING 軌道） | locale 對等 lint：zh-cn／zh-tw 鍵集合一致、pre-commit 擋（隨 base-web 首刀建立）；`App.I18n.Schema` 型別使「加鍵漏語言」直接 typecheck 紅 |
 | 錯誤碼 | 13 碼矩陣整組凍結、新需求優先 reuse 既有碼；碼→HTTP 映射、保留碼規則、msg=key 詳 constitution §I.3 | 碼表 table-driven contract test＋「保留碼後端永不發出」斷言（隨 wire 地基刀建立）；後端錯誤型→業務碼映射收單一來源 |
-| 審計欄 | 業務表建表即帶 archetype 全欄；四變體歸屬與無 retrofit 條款詳 constitution §I.6 | migration 建表檢查＋schema 往返驗證（隨 schema 基線刀建立）；`/speckit-plan` 自查第 8 題每刀必答 |
+| 審計欄 | 業務表建表即帶 archetype 全欄；四變體歸屬與無 retrofit 條款詳 constitution §I.6 | `tools/schema-gate audit`（對實庫逐表驗變體矩陣、清單外業務表攔截；需運行中 stack、不進 pre-commit）；`/speckit-plan` 自查第 8 題每刀必答 |
 | soft-delete | 軟刪欄成對寫入（`deleted_at`＋`deleted_by` 同寫）；讀端預設過濾已刪列；軟刪表唯一鍵用 partial-uniq `WHERE deleted_at IS NULL` | partial-uniq 約束本身（DB 層直接擋重複）；facade 讀端過濾測試（隨對應 entity 刀建立）；刪除連動行為（如角色刪除清授權）隨對應刀立 ADR 入憲 |
+| 欄序 | 欄序＝基線刀 user 定稿、後續加欄一律 append（ADR 0021） | 加欄／動 schema 的刀於單元邊界跑 `tools/schema-gate gate2` 逐欄驗實庫欄序＝定稿（可重跑、需運行中 stack、不進 pre-commit） |
+| 快照新鮮度 | 加 migration 的刀必於單元邊界重跑 `python3 tools/docs-sync refresh`→`generate` 並隨該 commit 入庫 | pre-commit `docs-sync check` 攔快照↔生成物漂移（離線秒級）；快照↔實庫一致由本紀律＋收官重跑 refresh 驗 diff 空收斂 |
 
 route 全集等快變事實住 generated/reference/routes。
 
