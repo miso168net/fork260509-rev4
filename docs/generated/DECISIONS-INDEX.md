@@ -28,3 +28,5 @@
 | 0023 | accepted | 2026-07-04 | casbin 授權政策 seed 移入基線——連動一致性優先 | — | — | — |
 | 0024 | accepted | 2026-07-04 | 定稿工作坊產物的 provenance 認定——非前代 source、採認不觸 §I.5 拷貝禁令 | — | — | — |
 | 0025 | accepted | 2026-07-04 | wire 契約機器化執行面——typings 抽 JSON Schema 快照管線＋coverage gate cargo test 形 | — | — | — |
+| 0026 | accepted | 2026-07-05 | 系統設定值型驗證——可擴型別 registry＋per-key 可宣告範圍＋正規化落庫＋未知型拒收 | — | — | — |
+| 0027 | accepted | 2026-07-05 | 第一功能刀最小授權骨架——require_policy casbin enforce＋enforce_mw 骨架、登入延 auth 刀 | — | — | — |
