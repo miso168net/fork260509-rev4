@@ -61,6 +61,11 @@ fork260509-rev4/
 
 ## 常見疑惑
 
+- **不是用 arc42 嗎？為什麼待辦／教訓／風險不在 `docs/arc42/` 裡**：arc42 只取骨架概念、
+  不照單全收——它只承載活書一檔（12 節對映）＋decisions/；活書的 §9（決策）與 §11
+  （風險與技術債）是刻意的指路節，決策全文住 decisions/、風險與坑外掛 ops/
+  （BACKLOG／LESSONS）、快變事實外掛 generated/reference/——防書內時態混寫腐爛。
+  全景拍板見[退役啟動書](docs/brainstorms/000-doc-architecture.md) Q2／Q7。
 - **`git submodule status` 行首有「-」**：worktree 模式的正常現象、不是壞掉；
   **絕不要跑 `git submodule update`**（會 reset worktree）。
 - **想改 `docs/generated/` 裡的東西**：不要手改——改它的來源（events／ADR／BACKLOG…）
