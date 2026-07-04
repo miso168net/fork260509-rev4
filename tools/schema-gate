@@ -1,0 +1,585 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""tools/schema-gate — 基線 schema 驗證閘（python 標準庫、單檔、自帶測試）
+
+子命令：
+  gate1 [--live-rev3]   閘 1：結構零漂移——實庫 vs 凍結基準（contracts/gates.md §2）
+  test                  跑自帶測試（unittest、離線可跑）
+
+共同語意（contracts/gates.md §1）：全綠 exit 0；任一差異 exit 1＋stderr 逐項指名
+（表／欄／索引名）；環境不可用（stack 不在、psql 失敗）exit 2＋指名原因。
+只跑唯讀查詢（SELECT／information_schema／pg_catalog）、絕不寫庫；需 stack 在跑、
+不進 pre-commit（FR-014、與 docs-sync 分工）。
+
+gate1 比對規則：右側＝specs/002-schema-baseline/fixtures/（columns／constraints／
+indexes 三檔、凍結基準）；欄名經 rename map（data-model.md §2 節 2、14 組）映射後
+雙向配對；表內欄序不敏感（欄序歸閘 2）；型別以 information_schema 正規形比對；
+複合索引／複合主鍵內部欄序逐字；索引名沿凍結基準原名逐字；白名單恰 4 項
+（data-model.md §2 節 3）；seaql_migrations 框架表除外。
+`--live-rev3`＝運行期交叉驗證：右側改連容器 rev3-admin-postgres-1 的活庫直比
+（唯讀）；該容器不在機＝exit 2（無法驗證）而非誤報差異。
+
+lineage：specs/002-schema-baseline/（契約＝contracts/gates.md、定稿＝data-model.md、
+凍結基準＝fixtures/）。
+"""
+import os
+import re
+import subprocess
+import sys
+import unittest
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FIXTURES_DIR = os.path.join("specs", "002-schema-baseline", "fixtures")
+
+DB_USER = "soybean"
+DB_NAME = "soybean_admin_rust"
+COMPOSE_PSQL = ["docker", "compose", "-f", "docker-compose.yml",
+                "-f", "docker-compose.dev.yml", "exec", "-T", "postgres"]
+LIVE_CONTAINER = "rev3-admin-postgres-1"   # --live-rev3 交叉驗證目標容器（契約指定）
+LIVE_PSQL = ["docker", "exec", LIVE_CONTAINER]
+
+FRAMEWORK_TABLES = {"seaql_migrations"}
+SEP = "\x1f"
+
+# rename map（data-model §2 節 2 總表；14 組表×欄：凍結基準欄名 → 現行定稿欄名）
+RENAME_MAP = {
+    ("sys_user", "current_session_id"): "session_id",
+    ("sys_role", "code"): "role_code",
+    ("sys_role", "name"): "role_name",
+    ("sys_role", "home"): "role_home",
+    ("system_settings", "value_type"): "setting_type",
+    ("sys_operation_log", "operator_id"): "created_by",
+    ("sys_access_log", "operator_id"): "created_by",
+    ("sys_access_log", "method"): "http_method",
+    ("sys_access_log", "path"): "http_path",
+    ("sys_login_attempt", "operator_id"): "created_by",
+    ("sys_token", "user_id"): "created_by",
+    ("sys_ip_rule", "rule_type"): "wbip_type",
+    ("sys_ip_rule", "cidr"): "wbip_cidr",
+    ("sys_ip_rule", "description"): "wbip_memo",
+}
+
+# 白名單恰 4 項（data-model §2 節 3）：新增 3 欄（皆 text NULL 無預設）＋型別變更 1 處
+WHITELIST_ADD = {
+    ("sys_user", "user_memo"),
+    ("sys_role", "role_memo"),
+    ("sys_menu", "menu_memo"),
+}
+WHITELIST_TYPE = {
+    ("sys_ip_rule", "wbip_memo"): ("character varying", "text"),
+}
+
+
+class EnvUnavailable(Exception):
+    """環境不可用（stack 不在、psql 失敗、基準檔缺）——exit 2 途徑。"""
+
+
+# ---------------------------------------------------------------------------
+# 純函式面（測試先行）
+# ---------------------------------------------------------------------------
+
+def norm_ident(name):
+    """欄名正規化：剝除包覆雙引號（"order"→order）。"""
+    name = name.strip()
+    if len(name) >= 2 and name[0] == '"' and name[-1] == '"':
+        return name[1:-1]
+    return name
+
+
+def apply_rename(table, col):
+    """基準欄名經 rename map 映射為現行定稿欄名（table 域內；未列者原樣）。"""
+    col = norm_ident(col)
+    return RENAME_MAP.get((table, col), col)
+
+
+def norm_default(val):
+    """預設值正規化：無值形（None／''／'-'）→None；[]→NULL；
+    CURRENT_TIMESTAMP≡now()（同函式之兩種正規列印形）。"""
+    if val is None:
+        return None
+    val = val.strip()
+    if val in ("", "-", "[]", "'[]'::jsonb"):
+        return None
+    if val == "CURRENT_TIMESTAMP":
+        return "now()"
+    return val
+
+
+def rewrite_def(table, defstr):
+    """把基準側約束／索引定義內的欄識別字經 rename map 改寫為現行欄名
+    （word-boundary、僅該表域；索引「名」不在改寫面——沿凍結基準原名逐字）。"""
+    for (t, old), new in RENAME_MAP.items():
+        if t == table:
+            defstr = re.sub(rf"\b{re.escape(old)}\b", new, defstr)
+    return defstr
+
+
+def is_whitelisted_extra(table, col, attrs):
+    """白名單「新增欄」判定：表×欄在白名單且屬性＝text／可空／無預設。"""
+    dtype, nullable, default = attrs
+    return ((table, col) in WHITELIST_ADD and dtype == "text"
+            and nullable == "YES" and norm_default(default) is None)
+
+
+def is_whitelisted_type_change(table, col, base_type, live_type):
+    """白名單「型別變更」判定：恰為登記之（基準型別→實庫型別）方向。"""
+    return WHITELIST_TYPE.get((table, col)) == (base_type, live_type)
+
+
+def parse_psql_aligned(text):
+    """解析 psql 對齊表格輸出（凍結基準三檔之格式）→ list[list[str]]。
+    跳過表頭與分隔線、止於「(N rows)」注腳；儲存格 strip。"""
+    rows = []
+    for i, line in enumerate(text.splitlines()):
+        if i < 2:
+            continue
+        if re.match(r"^\(\d+ rows?\)\s*$", line):
+            break
+        if not line.strip():
+            continue
+        rows.append([cell.strip() for cell in line.split("|")])
+    return rows
+
+
+def compare_columns(table, left, right):
+    """單表欄比對。left／right＝{欄名:(型別,可空,預設)}；right＝基準欄名（映射前）。
+    回 (issues, hits)：issues＝白名單外差異逐項；hits＝白名單命中逐項。"""
+    issues, hits = [], []
+    mapped = {apply_rename(table, c): attrs for c, attrs in right.items()}
+    for col in sorted(set(left) - set(mapped)):
+        if is_whitelisted_extra(table, col, left[col]):
+            hits.append(f"{table}.{col}（白名單新增欄）")
+        elif (table, col) in WHITELIST_ADD:
+            lt, ln, ld = left[col]
+            issues.append(f"{table}.{col}：白名單新增欄屬性不符"
+                          f"（期 text／可空／無預設，實 {lt}／{ln}／{norm_default(ld)}）")
+        else:
+            issues.append(f"{table}.{col}：實庫多欄（白名單外）")
+    for col in sorted(set(mapped) - set(left)):
+        issues.append(f"{table}.{col}：實庫漏欄（基準經欄名映射後應在）")
+    for col in sorted(set(left) & set(mapped)):
+        lt, ln, ld = left[col]
+        rt, rn, rd = mapped[col]
+        if lt != rt:
+            if is_whitelisted_type_change(table, col, rt, lt):
+                hits.append(f"{table}.{col}（白名單型別變更 {rt}→{lt}）")
+            else:
+                issues.append(f"{table}.{col}：型別不符（基準 {rt}、實庫 {lt}、白名單外）")
+        if ln != rn:
+            issues.append(f"{table}.{col}：可空性不符（基準 {rn}、實庫 {ln}）")
+        if norm_default(ld) != norm_default(rd):
+            issues.append(f"{table}.{col}：預設值不符"
+                          f"（基準 {norm_default(rd)}、實庫 {norm_default(ld)}）")
+    return issues, hits
+
+
+def compare_named_defs(table, kind, left, right):
+    """按名稱配對比 def（約束／索引）；right def 先經 rewrite_def 映射；
+    名稱與定義皆逐字。回 issues。"""
+    issues = []
+    expected = {name: rewrite_def(table, d) for name, d in right.items()}
+    for name in sorted(set(left) - set(expected)):
+        issues.append(f"{table}：多{kind} {name}（基準無）")
+    for name in sorted(set(expected) - set(left)):
+        issues.append(f"{table}：漏{kind} {name}（基準有、實庫無）")
+    for name in sorted(set(left) & set(expected)):
+        if left[name] != expected[name]:
+            issues.append(f"{table}：{kind} {name} 定義不符"
+                          f"（基準映射後＝{expected[name]}｜實庫＝{left[name]}）")
+    return issues
+
+
+# ---------------------------------------------------------------------------
+# 取數（實庫唯讀查詢／凍結基準檔）
+# ---------------------------------------------------------------------------
+
+Q_COLUMNS = ("SELECT table_name, column_name, data_type, is_nullable, column_default "
+             "FROM information_schema.columns WHERE table_schema='public' "
+             "ORDER BY table_name, ordinal_position")
+# contype 排除 'n'（PG18 起 not-null 以約束列形出現；可空性已由欄比對面覆蓋）
+Q_CONSTRAINTS = ("SELECT conrelid::regclass::text, conname, pg_get_constraintdef(oid) "
+                 "FROM pg_constraint WHERE connamespace='public'::regnamespace "
+                 "AND contype IN ('p','u','f','c','x') ORDER BY 1, 2")
+Q_INDEXES = ("SELECT tablename, indexname, indexdef FROM pg_indexes "
+             "WHERE schemaname='public' ORDER BY tablename, indexname")
+
+
+def run_psql(prefix, sql):
+    """唯讀查詢（-qAt 無框輸出、\\x1f 分欄）；失敗＝EnvUnavailable（exit 2 途徑）。"""
+    cmd = prefix + ["psql", "-U", DB_USER, "-d", DB_NAME,
+                    "-v", "ON_ERROR_STOP=1", "-qAt", "-F", SEP, "-c", sql]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
+    except OSError as ex:
+        raise EnvUnavailable(f"無法執行 {cmd[0]}（{ex}）")
+    if proc.returncode != 0:
+        reason = (proc.stderr or proc.stdout).strip() or f"退出碼 {proc.returncode}"
+        raise EnvUnavailable(f"psql 失敗：{reason}")
+    return [line.split(SEP) for line in proc.stdout.splitlines() if line]
+
+
+def fetch_db_triple(prefix):
+    """自實庫撈（欄、約束、索引）三面；回 (cols_rows, con_rows, idx_rows)。"""
+    return (run_psql(prefix, Q_COLUMNS),
+            run_psql(prefix, Q_CONSTRAINTS),
+            run_psql(prefix, Q_INDEXES))
+
+
+def load_fixture_triple():
+    """讀凍結基準三檔；欄檔第 3 欄＝序（閘 2 面）、此處剝除。"""
+    rows3 = []
+    for fname, ncols in (("columns.txt", 6), ("constraints.txt", 3), ("indexes.txt", 3)):
+        path = os.path.join(REPO_ROOT, FIXTURES_DIR, fname)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                rows = parse_psql_aligned(fh.read())
+        except OSError as ex:
+            raise EnvUnavailable(f"凍結基準檔不可讀：{FIXTURES_DIR}/{fname}（{ex}）")
+        bad = [r for r in rows if len(r) != ncols]
+        if bad:
+            raise EnvUnavailable(f"凍結基準檔格式異常：{FIXTURES_DIR}/{fname}（欄數不符）")
+        rows3.append(rows)
+    cols, cons, idxs = rows3
+    cols = [[t, c, dt, nul, d] for t, c, _ordinal, dt, nul, d in cols]
+    return cols, cons, idxs
+
+
+def columns_by_table(rows):
+    by = {}
+    for table, col, dtype, nullable, default in rows:
+        by.setdefault(table, {})[norm_ident(col)] = (dtype, nullable, default)
+    return by
+
+
+def defs_by_table(rows):
+    by = {}
+    for table, name, defstr in rows:
+        by.setdefault(table, {})[name] = defstr
+    return by
+
+
+def cmd_gate1(args):
+    live = False
+    for a in args:
+        if a == "--live-rev3":
+            live = True
+        else:
+            print(f"gate1：未知參數 {a}（可用：--live-rev3）", file=sys.stderr)
+            return 2
+    left_raw = fetch_db_triple(COMPOSE_PSQL)
+    if live:
+        try:
+            right_raw = fetch_db_triple(LIVE_PSQL)
+        except EnvUnavailable as ex:
+            print(f"[gate1][ENV] --live-rev3：容器 {LIVE_CONTAINER} 不可用"
+                  f"（無法驗證、非差異）：{ex}", file=sys.stderr)
+            return 2
+        right_label = f"活庫（{LIVE_CONTAINER}、唯讀直比）"
+    else:
+        right_raw = load_fixture_triple()
+        right_label = f"凍結基準（{FIXTURES_DIR}/）"
+
+    lcols, lcons, lidxs = (columns_by_table(left_raw[0]),
+                           defs_by_table(left_raw[1]), defs_by_table(left_raw[2]))
+    rcols, rcons, ridxs = (columns_by_table(right_raw[0]),
+                           defs_by_table(right_raw[1]), defs_by_table(right_raw[2]))
+
+    ltables = set(lcols) - FRAMEWORK_TABLES
+    rtables = set(rcols) - FRAMEWORK_TABLES
+
+    print(f"[gate1] 左＝實庫（compose postgres／{DB_NAME}）；右＝{right_label}")
+    all_issues, all_hits = [], []
+    for table in sorted(ltables | rtables):
+        if table not in ltables:
+            issues = [f"{table}：實庫漏表（基準有）"]
+        elif table not in rtables:
+            issues = [f"{table}：實庫多表（基準無）"]
+        else:
+            issues, hits = compare_columns(table, lcols[table], rcols[table])
+            issues += compare_named_defs(table, "約束",
+                                         lcons.get(table, {}), rcons.get(table, {}))
+            issues += compare_named_defs(table, "索引",
+                                         lidxs.get(table, {}), ridxs.get(table, {}))
+            all_hits += hits
+        if issues:
+            print(f"  {table:<26} FAIL（差異 {len(issues)}）")
+            all_issues += issues
+        else:
+            ncol = len(lcols[table])
+            ncon = len(lcons.get(table, {}))
+            nidx = len(lidxs.get(table, {}))
+            print(f"  {table:<26} OK（欄 {ncol}｜約束 {ncon}｜索引 {nidx}）")
+
+    for msg in all_issues:
+        print(f"[gate1][FAIL] {msg}", file=sys.stderr)
+    n_tables = len(ltables | rtables)
+    n_ok = n_tables - len({m.split("：")[0].split(".")[0] for m in all_issues})
+    verdict = "PASS" if not all_issues else "FAIL"
+    print(f"[gate1] {verdict}｜表 {n_ok}/{n_tables} 過｜白名單命中 {len(all_hits)}/4"
+          f"｜白名單外差異 {len(all_issues)}")
+    return 0 if not all_issues else 1
+
+
+# ---------------------------------------------------------------------------
+# 自帶測試（離線；tools/schema-gate test）
+# ---------------------------------------------------------------------------
+
+class TestRenameMap(unittest.TestCase):
+    def test_map_has_14_pairs(self):
+        self.assertEqual(len(RENAME_MAP), 14)
+
+    def test_apply_rename_mapped(self):
+        self.assertEqual(apply_rename("sys_role", "code"), "role_code")
+        self.assertEqual(apply_rename("sys_role", "name"), "role_name")
+        self.assertEqual(apply_rename("sys_role", "home"), "role_home")
+        self.assertEqual(apply_rename("sys_user", "current_session_id"), "session_id")
+        self.assertEqual(apply_rename("system_settings", "value_type"), "setting_type")
+        self.assertEqual(apply_rename("sys_operation_log", "operator_id"), "created_by")
+        self.assertEqual(apply_rename("sys_access_log", "operator_id"), "created_by")
+        self.assertEqual(apply_rename("sys_access_log", "method"), "http_method")
+        self.assertEqual(apply_rename("sys_access_log", "path"), "http_path")
+        self.assertEqual(apply_rename("sys_login_attempt", "operator_id"), "created_by")
+        self.assertEqual(apply_rename("sys_token", "user_id"), "created_by")
+        self.assertEqual(apply_rename("sys_ip_rule", "rule_type"), "wbip_type")
+        self.assertEqual(apply_rename("sys_ip_rule", "cidr"), "wbip_cidr")
+        self.assertEqual(apply_rename("sys_ip_rule", "description"), "wbip_memo")
+
+    def test_apply_rename_passthrough(self):
+        self.assertEqual(apply_rename("sys_user", "user_name"), "user_name")
+        self.assertEqual(apply_rename("casbin_rule", "ptype"), "ptype")
+
+    def test_apply_rename_table_scoped(self):
+        # description 只在 sys_ip_rule 域內改名；system_settings.description 原樣
+        self.assertEqual(apply_rename("system_settings", "description"), "description")
+        # user_id 只在 sys_token 域內改名；sys_user_role.user_id 原樣
+        self.assertEqual(apply_rename("sys_user_role", "user_id"), "user_id")
+
+    def test_apply_rename_unquotes(self):
+        self.assertEqual(apply_rename("sys_menu", '"order"'), "order")
+
+
+class TestNormIdent(unittest.TestCase):
+    def test_unquote(self):
+        self.assertEqual(norm_ident('"order"'), "order")
+
+    def test_plain(self):
+        self.assertEqual(norm_ident("order"), "order")
+        self.assertEqual(norm_ident("user_name"), "user_name")
+
+
+class TestNormDefault(unittest.TestCase):
+    def test_null_forms(self):
+        self.assertIsNone(norm_default(None))
+        self.assertIsNone(norm_default(""))
+        self.assertIsNone(norm_default("-"))
+
+    def test_empty_json_array_to_null(self):
+        self.assertIsNone(norm_default("[]"))
+        self.assertIsNone(norm_default("'[]'::jsonb"))
+
+    def test_current_timestamp_equiv_now(self):
+        self.assertEqual(norm_default("CURRENT_TIMESTAMP"), "now()")
+        self.assertEqual(norm_default("now()"), "now()")
+
+    def test_passthrough(self):
+        self.assertEqual(norm_default("nextval('sys_user_id_seq'::regclass)"),
+                         "nextval('sys_user_id_seq'::regclass)")
+        self.assertEqual(norm_default("'inherit'::character varying"),
+                         "'inherit'::character varying")
+        self.assertEqual(norm_default("false"), "false")
+
+
+class TestRewriteDef(unittest.TestCase):
+    def test_rewrite_columns_in_def(self):
+        got = rewrite_def(
+            "sys_ip_rule",
+            "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
+            "USING btree (cidr, rule_type) WHERE (deleted_at IS NULL)")
+        self.assertEqual(
+            got,
+            "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
+            "USING btree (wbip_cidr, wbip_type) WHERE (deleted_at IS NULL)")
+
+    def test_rewrite_keeps_index_name_intact(self):
+        # 索引名內含 cidr／type 子字串、但識別字內無 word boundary——不得被改寫
+        got = rewrite_def("sys_ip_rule", "sys_ip_rule_cidr_type_active_uniq")
+        self.assertEqual(got, "sys_ip_rule_cidr_type_active_uniq")
+
+    def test_rewrite_partial_where(self):
+        got = rewrite_def(
+            "sys_token",
+            "CREATE INDEX idx_sys_token_user_active ON public.sys_token "
+            "USING btree (user_id) WHERE ((status)::text = 'active'::text)")
+        self.assertEqual(
+            got,
+            "CREATE INDEX idx_sys_token_user_active ON public.sys_token "
+            "USING btree (created_by) WHERE ((status)::text = 'active'::text)")
+
+    def test_rewrite_scoped_to_table(self):
+        # system_settings 域內 description 不改名
+        got = rewrite_def("system_settings", "USING btree (description)")
+        self.assertEqual(got, "USING btree (description)")
+
+
+class TestWhitelist(unittest.TestCase):
+    def test_whitelist_exactly_four(self):
+        self.assertEqual(len(WHITELIST_ADD) + len(WHITELIST_TYPE), 4)
+        self.assertEqual(WHITELIST_ADD,
+                         {("sys_user", "user_memo"), ("sys_role", "role_memo"),
+                          ("sys_menu", "menu_memo")})
+        self.assertEqual(WHITELIST_TYPE,
+                         {("sys_ip_rule", "wbip_memo"): ("character varying", "text")})
+
+    def test_extra_allowed(self):
+        self.assertTrue(is_whitelisted_extra("sys_user", "user_memo",
+                                             ("text", "YES", None)))
+        self.assertTrue(is_whitelisted_extra("sys_menu", "menu_memo",
+                                             ("text", "YES", "-")))
+
+    def test_extra_wrong_attrs_rejected(self):
+        self.assertFalse(is_whitelisted_extra("sys_user", "user_memo",
+                                              ("character varying", "YES", None)))
+        self.assertFalse(is_whitelisted_extra("sys_user", "user_memo",
+                                              ("text", "NO", None)))
+
+    def test_extra_probe_rejected(self):
+        self.assertFalse(is_whitelisted_extra("sys_user", "t_gate1_probe",
+                                              ("text", "YES", None)))
+
+    def test_type_change_allowed(self):
+        self.assertTrue(is_whitelisted_type_change(
+            "sys_ip_rule", "wbip_memo", "character varying", "text"))
+
+    def test_type_change_rejected(self):
+        self.assertFalse(is_whitelisted_type_change(
+            "sys_user", "password", "character varying", "text"))
+        # 反向不放行
+        self.assertFalse(is_whitelisted_type_change(
+            "sys_ip_rule", "wbip_memo", "text", "character varying"))
+
+
+class TestParseAligned(unittest.TestCase):
+    SAMPLE = (" tbl  | name | def \n"
+              "------+------+-----\n"
+              " a    | b    | c d \n"
+              " e    | f    | g   \n"
+              "(2 rows)\n")
+
+    def test_parse(self):
+        self.assertEqual(parse_psql_aligned(self.SAMPLE),
+                         [["a", "b", "c d"], ["e", "f", "g"]])
+
+    def test_single_row_footer(self):
+        text = " h | i \n---+---\n x | y \n(1 row)\n"
+        self.assertEqual(parse_psql_aligned(text), [["x", "y"]])
+
+
+class TestCompareColumns(unittest.TestCase):
+    def test_identical_ok(self):
+        cols = {"id": ("bigint", "NO", "nextval('t_id_seq'::regclass)")}
+        issues, hits = compare_columns("sys_user", dict(cols), dict(cols))
+        self.assertEqual(issues, [])
+        self.assertEqual(hits, [])
+
+    def test_rename_pairing(self):
+        left = {"role_code": ("character varying", "NO", None)}
+        right = {"code": ("character varying", "NO", "-")}
+        issues, hits = compare_columns("sys_role", left, right)
+        self.assertEqual(issues, [])
+
+    def test_extra_probe_named(self):
+        left = {"t_gate1_probe": ("text", "YES", None)}
+        issues, _ = compare_columns("sys_user", left, {})
+        self.assertEqual(len(issues), 1)
+        self.assertIn("sys_user.t_gate1_probe", issues[0])
+
+    def test_missing_named(self):
+        right = {"user_phone": ("character varying", "YES", "-")}
+        issues, _ = compare_columns("sys_user", {}, right)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("sys_user.user_phone", issues[0])
+
+    def test_whitelisted_add_hits(self):
+        left = {"user_memo": ("text", "YES", None)}
+        issues, hits = compare_columns("sys_user", left, {})
+        self.assertEqual(issues, [])
+        self.assertEqual(len(hits), 1)
+        self.assertIn("user_memo", hits[0])
+
+    def test_whitelisted_type_change_hits(self):
+        left = {"wbip_memo": ("text", "YES", None)}
+        right = {"description": ("character varying", "YES", "-")}
+        issues, hits = compare_columns("sys_ip_rule", left, right)
+        self.assertEqual(issues, [])
+        self.assertEqual(len(hits), 1)
+        self.assertIn("wbip_memo", hits[0])
+
+    def test_default_normalized_equiv(self):
+        left = {"created_at": ("timestamp with time zone", "NO", "CURRENT_TIMESTAMP")}
+        right = {"created_at": ("timestamp with time zone", "NO", "now()")}
+        issues, _ = compare_columns("sys_ip_rule", left, right)
+        self.assertEqual(issues, [])
+
+    def test_type_mismatch_named(self):
+        left = {"password": ("text", "NO", None)}
+        right = {"password": ("character varying", "NO", "-")}
+        issues, _ = compare_columns("sys_user", left, right)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("sys_user.password", issues[0])
+
+
+class TestCompareNamedDefs(unittest.TestCase):
+    def test_identical_ok(self):
+        d = {"sys_user_pkey": "PRIMARY KEY (id)"}
+        self.assertEqual(compare_named_defs("sys_user", "約束", dict(d), dict(d)), [])
+
+    def test_missing_index_named(self):
+        left = {"sys_casbin_policy_archive_pkey": "x"}
+        right = {"sys_casbin_policy_archive_pkey": "x",
+                 "idx_casbin_archive_archived_at": "y"}
+        issues = compare_named_defs("sys_casbin_policy_archive", "索引", left, right)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("idx_casbin_archive_archived_at", issues[0])
+
+    def test_def_rewritten_before_compare(self):
+        left = {"sys_ip_rule_cidr_type_active_uniq":
+                "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
+                "USING btree (wbip_cidr, wbip_type) WHERE (deleted_at IS NULL)"}
+        right = {"sys_ip_rule_cidr_type_active_uniq":
+                 "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
+                 "USING btree (cidr, rule_type) WHERE (deleted_at IS NULL)"}
+        self.assertEqual(compare_named_defs("sys_ip_rule", "索引", left, right), [])
+
+    def test_def_mismatch_named(self):
+        left = {"sys_user_role_pkey": "PRIMARY KEY (role_id, user_id)"}
+        right = {"sys_user_role_pkey": "PRIMARY KEY (user_id, role_id)"}
+        issues = compare_named_defs("sys_user_role", "約束", left, right)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("sys_user_role_pkey", issues[0])
+
+
+# ---------------------------------------------------------------------------
+# 入口
+# ---------------------------------------------------------------------------
+
+def main(argv):
+    if len(argv) < 2:
+        print(__doc__)
+        return 2
+    cmd = argv[1]
+    if cmd == "test":
+        result = unittest.main(argv=[argv[0]], exit=False, verbosity=1).result
+        return 0 if result.wasSuccessful() else 1
+    if cmd == "gate1":
+        try:
+            return cmd_gate1(argv[2:])
+        except EnvUnavailable as ex:
+            print(f"[gate1][ENV] 環境不可用：{ex}", file=sys.stderr)
+            return 2
+    print(f"未知子命令：{cmd}", file=sys.stderr)
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
