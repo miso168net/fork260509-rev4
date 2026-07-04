@@ -1,4 +1,4 @@
-<!-- next: L-105 -->
+<!-- next: L-106 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -80,6 +80,8 @@
   防：upstream 的 push URL 設成 no_push（fetch 留官方 URL），fetch 前 git remote -v 確認兩向 URL。｜出處：rev3:CLAUDE.md§4.6
 - **L-035**｜base-web 對 upstream rebase 改寫 history 後若忘了回外層 bump pin，outer 記的 SHA 指向已被改寫掉的舊 history。
   防：rebase 加 force-with-lease push 後立即回外層 git add base-web 更新 pin。｜出處：rev3:CLAUDE.md§4.6
+- **L-105**｜兩段式 commit 的外層 pin bump：docs-sync generate 必須跑在 git add <submodule>（暫存新 gitlink）之後——generate 與 pre-commit lint L1 的 check 都讀「已暫存的 gitlink」算 STATE 的 pin；generate 若跑在 add gitlink 前，STATE 沿用舊 pin、L1 擋 commit（003 U2 撞過、重跑修正）。
+  防：正確序＝git add <submodule> → docs-sync generate → git add docs/generated/STATE.md → commit（一路到底不回頭）。｜出處：003-wire-foundation
 
 ## 〔流程與編排（spec-kit／superpowers／Workflow／subagent）〕
 
