@@ -27,3 +27,4 @@
 | 0022 | accepted | 2026-07-03 | 部署腳本輔助映像沿 latest——FR-013 釘版義務的邊界豁免 | — | — | — |
 | 0023 | accepted | 2026-07-04 | casbin 授權政策 seed 移入基線——連動一致性優先 | — | — | — |
 | 0024 | accepted | 2026-07-04 | 定稿工作坊產物的 provenance 認定——非前代 source、採認不觸 §I.5 拷貝禁令 | — | — | — |
+| 0025 | accepted | 2026-07-04 | wire 契約機器化執行面——typings 抽 JSON Schema 快照管線＋coverage gate cargo test 形 | — | — | — |
