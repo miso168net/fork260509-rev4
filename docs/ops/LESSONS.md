@@ -1,4 +1,4 @@
-<!-- next: L-108 -->
+<!-- next: L-109 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -171,6 +171,8 @@
   防：marker 前必留空行且 marker 勿刪、下一步勿併入最新進展，改完回讀渲染驗證。｜出處：rev3:CLAUDE.md§7.5
 - **L-070**｜進度/帳本文件記「已push／未push」這類揮發 git 狀態，push 後立即 stale、誤導後續 session。
   防：只記 commit/merge SHA（可追溯、非揮發），推沒推看 git 本身。｜出處：rev3:CLAUDE.md§7.5
+- **L-108**｜base-web fork-delta「修改型」標記只寫描述、漏 `原行:`（緊鄰改動行、含上游那行原碼逐字）——upstream（soybean example 分支）常態更新、rebase 時無「原行」就無法定位/對照上游原本那行，fork-delta 標記核心用途落空；根因＝編排 prompt 條文過鬆（只說「原行加標記」未要求原行內容）、review 亦未驗。
+  防：修改型標記必含 `// [rev4-inline <軌道>] 原行: <example 原碼逐字>`（憲法 §III L114）；`tools/fork-delta-lint` 以 `fork260509-soybean-admin-base@example` 為基線 diff base-web、修改型缺原行即紅（含 self-test 防 vacuous、掛 pre-commit 於 base-web pin 變動時自動跑）——機器強制、不靠人工 review。｜出處：004-system-settings（user review 抓出）
 
 ## 〔後端／DB／redis〕
 

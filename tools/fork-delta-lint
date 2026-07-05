@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""fork-delta-lint — 機器式驗 base-web fork-delta「原行」紀律（constitution §III L114）。
+
+最原始源-基線＝`fork260509-soybean-admin-base/` @ `example` 分支 tip（實體目錄、須先切到）。
+判定：base-web 若改動 example 既有 inline 行（該行不再逐字存在於我方版）→ 我方檔內**必須**有
+`// [rev4-inline …] 原行: <example 那行原始內容>` 標記、且 `原行:` 後內容＝基線該行（正規化後相等）。
+缺 → 紅、指名「檔:上游原行」。我方新檔／純新增行（example 沒有）不要求原行。
+
+每次執行**先跑 self-test**（合成缺原行樣本、證 lint 真能攔——防 vacuous 恆綠），再跑實掃。
+"""
+import os
+import re
+import subprocess
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASEWEB = os.path.join(REPO, "base-web")
+FORK = os.path.join(REPO, "fork260509-soybean-admin-base")
+BASELINE = "example"
+
+MARKER = re.compile(r"原行:\s*(.*\S)\s*$")
+
+
+def die(msg):
+    print(f"[fork-delta-lint] ✗ {msg}", file=sys.stderr)
+    sys.exit(2)
+
+
+def sh(args, cwd):
+    # 清掉 GIT_* env：git hook 會把外層 repo 的 GIT_DIR/GIT_INDEX_FILE 洩漏給子行程，
+    # 害對 base-web worktree（.git 為檔）跑 git 抓錯 index（.git/index: Not a directory）。
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=env)
+
+
+def is_code(line):
+    s = line.strip()
+    return bool(s) and not s.startswith(("//", "/*", "*", "<!--"))
+
+
+def norm(line):
+    # 去尾端逗號/分號：加新同層條目使前一行多尾逗號，屬新增型副作用、非語意改變（§III「語意被改變」才算修改型）
+    return line.strip().rstrip(",;").rstrip()
+
+
+def find_missing(base_content, ours_content):
+    """回傳「基線有、我方既無此行、又無對應原行標記」的上游**原行**（供逐字補回）。
+    ★比對用 norm（去尾標點）、輸出保原行原貌（含尾逗號等）。"""
+    ours = ours_content.splitlines()
+    ours_lines = {norm(l) for l in ours}
+    recorded = set()
+    for l in ours:
+        m = MARKER.search(l)
+        if m:
+            recorded.add(norm(m.group(1)))
+    seen = set()
+    missing = []
+    for raw in base_content.splitlines():
+        if not is_code(raw):
+            continue
+        n = norm(raw)
+        if not n or n in ours_lines or n in recorded or n in seen:
+            continue
+        seen.add(n)
+        missing.append(raw.strip())  # 原行原貌（去首尾空白、保尾逗號）
+    return missing
+
+
+def self_test():
+    base = "  content: response.data.msg,\n  other: keep,\n"
+    bad = "  content: $t(x),\n  other: keep,\n"  # 改了 content、無原行 → 須攔
+    good = (
+        "  // [rev4-inline I18N-WIRING(i)] 原行: content: response.data.msg,\n"
+        "  content: $t(x),\n  other: keep,\n"
+    )
+    added = "  content: response.data.msg,\n  other: keep,\n  brandNew: 1,\n"  # 純新增、基線行未動
+    assert find_missing(base, bad) == ["content: response.data.msg,"], "self-test A：應攔缺原行"
+    assert find_missing(base, good) == [], "self-test B：有原行須過"
+    assert find_missing(base, added) == [], "self-test C：純新增不誤判"
+    assert find_missing(base, bad + "brandNew: 1,\n") == ["content: response.data.msg,"], "self-test D：改+新增混合仍攔改的"
+
+
+def assert_baseline():
+    if not os.path.isdir(FORK):
+        die(f"最原始源-基線目錄不存在：{FORK}")
+    r = sh(["git", "rev-parse", "--abbrev-ref", "HEAD"], FORK)
+    if r.returncode != 0:
+        die(f"基線 repo 不可讀：{FORK}")
+    cur = r.stdout.strip()
+    if cur != BASELINE:
+        die(f"最原始源-基線未就位：{FORK} 現在 '{cur}'、須切到 '{BASELINE}'"
+            f"（git -C {FORK} checkout {BASELINE}）")
+
+
+def changed_files():
+    r = sh(["git", "diff", "--name-only", BASELINE, "--", "src/"], BASEWEB)
+    if r.returncode != 0:
+        die(f"無法 diff base-web vs {BASELINE}：{r.stderr.strip()}")
+    return [f for f in r.stdout.splitlines() if f.endswith((".ts", ".vue"))]
+
+
+def scan():
+    errs = []
+    for rel in changed_files():
+        base = sh(["git", "show", f"{BASELINE}:{rel}"], BASEWEB)
+        if base.returncode != 0:
+            continue  # 我方新檔（example 沒有）→ 豁免
+        ours_path = os.path.join(BASEWEB, rel)
+        try:
+            ours = open(ours_path, encoding="utf-8").read()
+        except FileNotFoundError:
+            continue
+        for m in find_missing(base.stdout, ours):
+            errs.append((rel, m))
+    return errs
+
+
+def main():
+    try:
+        self_test()
+    except AssertionError as e:
+        die(f"self-test 失敗（lint 邏輯壞）：{e}")
+    assert_baseline()
+    tip = sh(["git", "rev-parse", "--short", BASELINE], BASEWEB).stdout.strip()
+    errs = scan()
+    if errs:
+        print(f"[fork-delta-lint] ✗ {len(errs)} 條 example 上游 inline 行被改動卻缺 `原行:` 標記"
+              f"（constitution §III L114；基線 {BASELINE}@{tip}）：")
+        for rel, m in errs:
+            print(f"    {rel}｜缺 原行: {m}")
+        print("  補法：緊鄰改動行之上加 `// [rev4-inline <track>] 原行: <上列原碼>`。")
+        sys.exit(1)
+    print(f"[fork-delta-lint] ✓ base-web 修改型全帶原行（self-test 過；基線 {BASELINE}@{tip}）")
+
+
+if __name__ == "__main__":
+    main()
