@@ -56,6 +56,9 @@ services:
       APP_JWT_REFRESH_TOKEN_SECRET_FILE: /run/secrets/refresh_token_secret
       APP_DATABASE_URL_FILE: /run/secrets/database_url
       APP_REDIS_URL_FILE: /run/secrets/redis_url
+      # 004-system-settings：JWT iss/aud（非機密→plain env、無需 secret 檔；值對齊 auth/jwt.rs 常數）
+      APP_JWT_ISS: rev4-admin
+      APP_JWT_AUD: rev4-admin-web
       RUST_LOG: "info"
     secrets:
       - jwt_secret

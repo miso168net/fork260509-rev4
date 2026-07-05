@@ -1,4 +1,4 @@
-<!-- next: L-106 -->
+<!-- next: L-109 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -47,6 +47,10 @@
   防：增量一律外科式：顯式 prune 變更檔舊節點→build_merge 帶 dedup=False（prune_sources 只給已刪除檔）；merge 後節點數必須成長、縮水即停手不寫檔；update 前先 grep graph.json 實際 source 覆蓋、別只信 manifest；export obsidian 前先清舊 .md。｜出處：rev3:memory/graphify-update-fuzzy-dedup
 - **L-020**｜spec-kit 有兩條獨立版本軸：repo release tag（如 v0.10.x）與 specify-cli 套件自報版本（如 0.8.x）本來就不相等，且安裝器把 tag 解析成 commit 釘著裝、uv 顯示裸 commit hash——看到落差容易誤判成裝錯或裝到 main HEAD。
   防：驗證是否釘在 release：比對 install log 的 build commit 是否等於該 tag peel 後的 commit（git ls-remote --tags）且不等於 HEAD；specify --version 只用來查 dev/rc/alpha/beta/pre 後綴、有就重裝穩定 tag。｜出處：rev3:memory/speckit-version-axes
+- **L-106**｜base-web worktree 在主機 git commit 會觸發 soybean 上游 husky/lint-staged hook 跑 pnpm install，但 rev4 設計 node toolchain 全在容器、主機無→hook 跑不動且中斷會汙染 node_modules（且 base_web_node_modules named volume 可能未掛載、/app/node_modules 落 9p drvfs 空殼）。
+  防：base-web 所有 commit 一律 `--no-verify`（驗證已於容器內 typecheck+lint load-bearing 完成）；node_modules 壞了在容器內 `pnpm install --prefer-offline`（CI=true frozen-lockfile、走 /pnpm-store、lock 不漂移）修復。｜出處：004 單元④/⑤ 實測
+- **L-107**｜base-web `pnpm gen-route`（sa gen-route）是互動式新增-route 精靈、`-T` 無 TTY 會卡在 `please enter route name`，非 headless 重生成器；route 實際由運行中 dev 容器的 ElegantVueRouter vite plugin 於 .vue file-add 事件自動生成。
+  防：base-web 驗收只跑容器內 `pnpm typecheck`＋`pnpm lint`（勿在腳本串 `pnpm gen-route`——會卡）；route 生成靠 dev 容器 plugin 自動觸發、手填 meta（roles/icon/order）regen 保留。｜出處：004 單元④ 實測
 
 ## 〔git／worktree／submodule〕
 
@@ -167,6 +171,8 @@
   防：marker 前必留空行且 marker 勿刪、下一步勿併入最新進展，改完回讀渲染驗證。｜出處：rev3:CLAUDE.md§7.5
 - **L-070**｜進度/帳本文件記「已push／未push」這類揮發 git 狀態，push 後立即 stale、誤導後續 session。
   防：只記 commit/merge SHA（可追溯、非揮發），推沒推看 git 本身。｜出處：rev3:CLAUDE.md§7.5
+- **L-108**｜base-web fork-delta「修改型」標記只寫描述、漏 `原行:`（緊鄰改動行、含上游那行原碼逐字）——upstream（soybean example 分支）常態更新、rebase 時無「原行」就無法定位/對照上游原本那行，fork-delta 標記核心用途落空；根因＝編排 prompt 條文過鬆（只說「原行加標記」未要求原行內容）、review 亦未驗。
+  防：修改型標記必含 `// [rev4-inline <軌道>] 原行: <example 原碼逐字>`（憲法 §III L114）；`tools/fork-delta-lint` 以 `fork260509-soybean-admin-base@example` 為基線 diff base-web、修改型缺原行即紅（含 self-test 防 vacuous、掛 pre-commit 於 base-web pin 變動時自動跑）——機器強制、不靠人工 review。｜出處：004-system-settings（user review 抓出）
 
 ## 〔後端／DB／redis〕
 

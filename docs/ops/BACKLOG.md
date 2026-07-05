@@ -1,4 +1,4 @@
-<!-- next: B-057 -->
+<!-- next: B-060 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -8,7 +8,6 @@
 - B-006｜docs-sync lint L4/L5/L6 啟用（收刀事件存在性／review 分流雙源對賬／arch_impact 雙向驗）｜第一把功能刀收刀前
 - B-007｜觀測側 msg 可讀性補強候選（log 附 key→預設語言譯文、或維運字典對照表；ADR 0001 第 8 題配套）｜obs 層刀或維運痛點實際出現時
 - B-008｜替代登入／認證端點包處置拍板：做真／stub／砍表單三選一（連同驗證碼收發基建同批考慮；rev3 帳實分叉）｜auth 刀 brainstorm 開場｜出處：rev3:DECISIONS§1-⚠️c＋⚠️m（K1-12/22）
-- B-009｜應用層 RI hybrid 分層重審（焦點＝每自驗方法一 error enum 的樣板碼代價）｜首個帶 facade 的功能刀 brainstorm｜出處：rev3:DECISIONS§1-⚠️o（K1-24）
 - B-010｜登入失敗節流以合成終態重設計（一般化訊息＋鎖中不逐筆稽核已反轉原案）｜節流刀 brainstorm｜出處：rev3:DECISIONS§1-⚠️w（K1-32）
 - B-011｜儀表板做不做／怎麼做（傾向 v1＝固定版面零新表）｜入波排程時｜出處：rev3:DECISIONS§1-待決⑥a（K1-06）
 - B-012｜報表匯出 PDF/CSV（傾向 v1＝同步匯出零新表）｜入波排程時｜出處：rev3:DECISIONS§1-待決⑥b（K1-07）
@@ -22,7 +21,6 @@
 - B-020｜CDN 位置錨是否上真驗證重估｜ingress 拓樸簡化時｜出處：rev3:REVIEW§6（K2-04）
 - B-021｜session 生命週期一次設計完整（併發/踢除/撤銷/輪替；rev3 三度改向）｜session 刀 brainstorm 開場｜出處：rev3:REVIEW§5（K2-05）
 - B-022｜登入嘗試審計「恰寫一筆」與快取短路的邊界第一性重想｜節流/審計刀｜出處：rev3:REVIEW§5＋§2（K2-06）
-- B-023｜系統設定域先定骨架再打樁（型別驗證/熱套用/UI 分區定形留空）｜系統設定刀 brainstorm｜出處：rev3:REVIEW§5（K2-07）
 - B-024｜先枚舉 ingress 拓樸全貌再定 IP 取證欄位形｜首次重設計 IP 取證欄形的刀（002 基線＝承襲 rev3 形＋user 定稿、不觸發）｜出處：rev3:REVIEW§5（K2-08）
 - B-025｜使用者編輯模式帳號名欄鎖定（消滅靜默 no-op 縫隙）｜使用者管理刀｜出處：rev3:REVIEW§3.2-F-5（K2-09）
 - B-026｜部分更新契約內建顯式 clear 語意｜部分更新 wire 設計時｜出處：rev3:REVIEW§3.4（K2-10）
@@ -50,9 +48,10 @@
 - B-048｜Redis 起手用 ConnectionManager（自動重連）＋session 指標熱快取條件啟用｜Redis 基建刀起手｜出處：rev3:CHECKLIST§3.H（K2-33）
 - B-049｜批次軟刪自管 transaction（去 sentinel DbErr 控制流）｜首個批次寫端刀｜出處：rev3:CHECKLIST§3.H（K2-34）
 - B-050｜部分更新全 None 提前 no-op 入 handler/facade 慣例｜部分更新語意設計時｜出處：rev3:CHECKLIST§3.H（K2-35）
-- B-051｜settings 值型驗證健壯化（未知型拒收＋number 正規形落庫）｜系統設定刀｜出處：rev3:CHECKLIST§3.E＋§3.H（K2-36）
 - B-052｜守門 lint 健壯化（route 抽取防漏＋self-test）＋fork-delta 標記覆蓋 lint 補位｜覆蓋 lint 建立時同批｜出處：rev3:CHECKLIST§3.E＋§3.H（K2-37）
 - B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-055｜閘 1 型別比對不含 varchar 長度（fixtures/columns.txt 無 character_maximum_length 欄）——長度級漂移閘 1 不攔；機器閉環需把長度併入 fixtures 重凍（基準改動、拍板級）｜後續 schema 刀重凍基準時｜出處：002-schema-baseline U3b review
-- B-056｜刪 demo 驗證端點（連 handler/demo.rs＋mod.rs 掛載、router ROUTES /demo-wire 條目與 in-module demo 測試、contract.rs demo-wire case 與 len 斷言——編譯器導引全清）｜首個功能刀｜出處：003-wire-foundation 收刀（demo 為暫時物）
+- B-057｜base_web_node_modules named volume 未掛載→/app/node_modules 落 9p drvfs（空 .pnpm 殼、易被主機 pnpm install 汙染）；根治＝隔離 node_modules 於 named volume、修 compose 掛載｜base-web 基建修復｜出處：004 單元⑤ 實測
+- B-058｜dynamic route/menu 模式切換（現 static＋roles meta 過濾；sys_menu manage_system-settings 已 seed；dynamic 需 getUserRoutes）｜auth 刀｜出處：004 拍板 7
+- B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（seed 說明改走 i18n help 鍵、或 tooltip 改 i18n）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）

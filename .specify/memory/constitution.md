@@ -143,14 +143,15 @@
 - 每改一處在 spec 內紀錄（位置＋改動內容＋upstream 衝突風險評估）
 - 共用元件改動 MUST 用附加 prop＋安全預設（不變既有呼叫端行為）
 
-#### BASE-WEB-I18N-WIRING ★ — 本檔授權三範圍 (i)~(iii)（§I.3「msg＝i18n key」的接線載體）
+#### BASE-WEB-I18N-WIRING ★ — 本檔授權四範圍 (i)~(iv)（§I.3「msg＝i18n key」的接線載體；(iv)＝ADR 0028）
 
 **邊界**（base-web，嚴格限以下三範圍）：
 - **(i)** 請求攔截器 msg 翻譯接線：`src/service/request/` 的 msg 顯示點——**僅**為「wire `msg`（key）經 `$t` 譯為在地化文字再顯示」之最小接線；**不改**攔截器的碼分組／logout／refresh／retry 等控制流語意
 - **(ii)** locale 字典 backend 命名空間：`src/locales/langs/*` 新增 top-level `backend` 命名空間（key 形＝`backend.<root>.<entity>.<condition>`）＋對應譯文——純新增、不改既有命名空間；zh-TW 首發 locale 的字典建置同循本範圍
 - **(iii)** i18n typed-key Schema：`src/typings/app.d.ts` 的 `App.I18n.Schema` 擴充 `backend` 型別＋視需要翻譯 helper——純新增型／匯出
+- **(iv)** zh-TW 首發 locale 完整建置（ADR 0028）：`src/locales/langs/zh-tw.ts` 全字典新檔（對齊 zh-cn 鍵集）＋註冊 inline（`src/locales/locale.ts` locale map、`src/typings/app.d.ts` `LangType` 加 `'zh-TW'`、`src/locales/naive.ts`、`src/locales/dayjs.ts`）＋語言選單（`src/store/modules/app/index.ts` `localeOptions` 加「繁體中文」）＋預設 locale（`src/locales/index.ts`／app store fallback `'zh-CN'`→`'zh-TW'`）——一次性建置授權、皆走 fork-delta `rev4-inline` 紀律
 
-**紀律**：嚴格限三範圍；第四種範圍 → §V.2 Amendment；每改一處在 spec／plan 內紀錄；走 fork-delta `rev4-inline` 紀律。
+**紀律**：嚴格限四範圍；第五種範圍 → §V.2 Amendment；每改一處在 spec／plan 內紀錄；走 fork-delta `rev4-inline` 紀律。
 
 ---
 
@@ -199,4 +200,7 @@
 
 ---
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-03
+**Version**: 1.1.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-05
+
+**Amendment log**:
+- 1.1.0（2026-07-05）：★BASE-WEB-I18N-WIRING 加 (iv) zh-TW 首發 locale 完整建置授權（ADR 0028；MINOR 軌道授權邊界擴展、§V.3）——觸發＝004-system-settings plan Constitution Check Q7。
