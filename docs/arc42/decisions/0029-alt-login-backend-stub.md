@@ -2,7 +2,7 @@
 id: "0029"
 title: 替代登入端點包處置＝後端 stub（B-008 三選一收斂）
 date: 2026-07-05
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-05 005-auth-login brainstorm 問答（拍板 1/7）；rev3:DECISIONS§1-⚠️c＋⚠️m（K1-12/22、帳實分叉）"

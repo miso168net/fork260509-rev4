@@ -31,5 +31,5 @@
 | 0026 | accepted | 2026-07-05 | 系統設定值型驗證——可擴型別 registry＋per-key 可宣告範圍＋正規化落庫＋未知型拒收 | — | — | — |
 | 0027 | accepted | 2026-07-05 | 第一功能刀最小授權骨架——require_policy casbin enforce＋enforce_mw 骨架、登入延 auth 刀 | — | — | — |
 | 0028 | accepted | 2026-07-05 | ★I18N-WIRING 軌道擴範圍 (iv)——授權 zh-TW 首發 locale 完整建置（全字典＋註冊＋語言選單） | — | — | — |
-| 0029 | draft | 2026-07-05 | 替代登入端點包處置＝後端 stub（B-008 三選一收斂） | — | — | — |
-| 0030 | draft | 2026-07-05 | 會話閒置逾時＝無狀態 sliding refresh（設定可調、無絕對上限） | — | — | — |
+| 0029 | accepted | 2026-07-05 | 替代登入端點包處置＝後端 stub（B-008 三選一收斂） | — | — | — |
+| 0030 | accepted | 2026-07-05 | 會話閒置逾時＝無狀態 sliding refresh（設定可調、無絕對上限） | — | — | — |
