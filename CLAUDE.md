@@ -12,7 +12,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - 本 repo＝rev4 傘狀 workspace：admin 後台系統的文件、spec、編排中樞；default branch `rev4-admin-root`。
 - 程式碼住兩個 submodule 目錄，各有雙身分（本機＝源倉的 git worktree；對外層＝submodule gitlink）：
   - `base-web/`：分支長名 `rev4-admin-base-web`；前端（soybean-admin fork）。
-  - `rust-api/`：分支長名 `rev4-admin-rust-api`；後端（rust）。
+  - `rust-api/`：分支長名 `rev4-admin-rust-api`；後端（rust；全新寫〔§I.5〕、無 fork-delta 最原始源基線）。
 - 短名/長名分工：目錄與口語用短名；git branch／push 一律用長名。
 - fork 源倉目錄（repo 根下 `fork260509-*/`、gitignored）必須保留——worktree 的 `.git` 檔指向它；docs 源倉僅參考不改。
 - **最原始源**（base-web fork-delta「原行」基線）＝upstream `soybeanjs/soybean-admin` 的 `example`
@@ -81,8 +81,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   「回外層更新 pin」方向，永不 `submodule update`。
 - **初始化／新機器**：clone 外層後跑 **`bash tools/bootstrap`**（一鍵幂等：源倉 clone＋worktree
   重建＋hooks＋基線/pin 斷言＋fork-delta-lint＋secrets 體檢；舊機重跑＝純體檢、worktree 斷裂給
-  自癒指引）。`git submodule update --init` 僅限唯讀快速看碼捷徑——該模式**無源倉＝無基線**、
-  不可做 base-web 開發。
+  自癒指引）。`git submodule update --init` 僅限唯讀快速看碼捷徑（fresh clone；worktree 模式下
+  誤跑撞 gitlink＝L-026）——該模式**無源倉＝無基線**、不可做 base-web 開發。
 - **upstream rebase**（base-web）：fetch 前 `git remote -v` 確認 upstream push URL 已設 no_push；
   rebase＋force-with-lease push 後**立即**回外層 bump pin；並同步前進最原始源基線
   （`fork260509-soybean-admin-base` fetch upstream 至 `example` 新 tip；各機自行向 upstream

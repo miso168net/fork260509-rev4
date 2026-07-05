@@ -23,6 +23,7 @@ fork260509-rev4/
 │                                      ／DECISIONS-INDEX（ADR 索引）／reference/（全量正典表）
 ├── tools/docs-sync                  生成器＋lint（generate／check／lint／errata／test）
 ├── tools/bootstrap                  新機器環境重建／舊機體檢（源倉＋worktree＋基線＋hooks）
+├── tools/fork-delta-lint            base-web fork-delta「原行」紀律機器強制（基線＝最原始源 @ example）
 ├── docker-compose.yml               dev stack base 層（六 service 共通定義；敘事見活書 §7）
 ├── docker-compose.dev.yml           dev override（host port／bind-mount／熱重載）
 ├── docker-compose.example.yml       example 視覺參照實例（獨立 project、與 dev stack 無關）
