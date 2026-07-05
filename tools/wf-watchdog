@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# tools/wf-watchdog — Workflow 看門狗（CLAUDE.md §2、L-104/L-112）
+#
+# 用法：Monitor 工具 command 欄填 `bash tools/wf-watchdog [冒煙token]`
+#   ★必與 Workflow launch 同一回合原子成對發射（兩 call 間零其他動作）。
+#   自動發現本專案最新 wf_* transcript 目錄（毋需 launch 回傳值→可同回合並發）。
+# 行為：sleep 10 讓 launch 建目錄 → ARMED 一行（夾帶冒煙：implementer transcript
+#   首行 byte 數＋冒煙 token 命中數）→ 靜默迴圈，僅 stall／runaway 告警時輸出並退出。
+# 完成通知一到請 TaskStop 本 Monitor（否則正常完成 ~13min 後誤觸 stall）。
+set -u
+TOKEN="${1:-}"
+STALL=780      # 秒；>最長合法 cargo（sub-agent Bash 單命令 600s 上限＋margin）
+RUNAWAY=25     # journal 行數；2× 單元理論上限（防呆③ AGENT_FUSE=20 之外部 backstop）
+
+# 專案 slug＝cwd 之 / 與 _ 全轉 -（Claude Code projects 目錄命名規則）
+SLUG=$(pwd | sed 's|[/_]|-|g')
+sleep 10
+ROOT=$(ls -dt "$HOME/.claude/projects/$SLUG"/*/subagents/workflows 2>/dev/null | head -1)
+DIR=$(ls -dt "${ROOT:-/nonexistent}"/wf_* 2>/dev/null | head -1)
+if [ -z "${DIR:-}" ]; then
+  echo "看門狗 發射失敗？找不到 wf transcript 目錄（slug=$SLUG）——確認 Workflow 已 launch"
+  exit 1
+fi
+
+# 冒煙：最早的 agent transcript（＝implementer）首行完整性
+f=$(ls -t "$DIR"/agent-*.jsonl 2>/dev/null | tail -1)
+smoke="尚無 agent transcript（疑零派發 throw 或未啟動）"
+if [ -n "${f:-}" ]; then
+  bytes=$(head -1 "$f" | wc -c)
+  hit="-"
+  [ -n "$TOKEN" ] && hit=$(head -1 "$f" | grep -c -- "$TOKEN" || true)
+  smoke="impl首行${bytes}bytes／token(${TOKEN:-無})命中=${hit}"
+fi
+echo "看門狗 ARMED → $(basename "$DIR")｜冒煙: $smoke（stall>${STALL}s／runaway>${RUNAWAY}行；完成通知到請 TaskStop 本 Monitor）"
+
+while true; do
+  sleep 60
+  now=$(date +%s)
+  newest=$(find "$DIR" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1); newest=${newest%.*}
+  if [ -z "${newest:-}" ]; then
+    echo "看門狗 目錄不可讀：$(basename "$DIR")——疑被清或發射失敗"
+    break
+  fi
+  idle=$(( now - newest ))
+  jl=$(wc -l < "$DIR/journal.jsonl" 2>/dev/null || echo 0)
+  if [ "${jl:-0}" -gt "$RUNAWAY" ]; then
+    echo "看門狗 RUNAWAY：journal ${jl}行 > ${RUNAWAY}（防呆③保險絲疑失效）→ /workflows 查→TaskStop wf"
+    break
+  fi
+  if [ "$idle" -gt "$STALL" ]; then
+    echo "看門狗 STALL：${idle}s 無寫入 > ${STALL}s（疑卡死/死迴圈）→ /workflows 查→TaskStop→修 script→resumeFromRunId 續跑"
+    break
+  fi
+done

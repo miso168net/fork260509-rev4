@@ -36,21 +36,25 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 讀 specs/<NNN>-<feature-name>/tasks.md → act-on-code 接地、依實際相依把 tasks 分執行單元；驗收對照 spec.md。
 ★編排用 Workflow 工具：每執行單元一支，內部 serial 跑
 　implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality review → fix 迴圈。
-　每個 agent prompt 烤進不可違反項：rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge。
+　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW（L-113）、
+　rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge。
 ★workflow script 防呆五件套（缺一不發射；根因與實證＝L-103）：
 　①agent prompt 全數烤進 script 本體模板字串；args 只傳短純量、script 首段逐欄斷言
 　　（型別＋非空），不符→零派發即 throw——防 args 以 JSON 字串抵達、屬性讀出 undefined。
-　②派發前斷言渲染後 prompt 非空、長度合理、開頭不含字面 "undefined"／"null"。
+　②派發前斷言渲染後 prompt 非空、長度合理、開頭不含字面 "undefined"／"null"、★必含 "zh-TW"
+　　字面（語言強制令漏烤→零派發即 throw；另有 PreToolUse hook 機器擋、L-113）。
 　③一切邊界寫死在 script 常數、絕不取自 args：fix 迴圈用 for 上限 ≤3 輪；
 　　單元 agent 總數保險絲 ≤20 支，超限 throw（fail-loud 讓主線立刻收到完成通知）。
 　④implementer／fix 一律 schema 回傳 {status, report}；status≠ok→立即 return 升級主線、不進 review。
 　⑤收斂偵測：review 連兩輪 blocker 集合（file×summary 結構化比較、勿比自由文字）相同、
 　　或 fix 連兩輪零改動→return 判不收斂；unresolved 一律帶 findings 回主線。
-★主線看門狗（絕不發射即睡——非終止型故障不會有完成通知；L-104）：
-　發射後即讀 agent transcript 首行驗 prompt 完整抵達（冒煙）→ 掛 Monitor 保險絲
-　（首筆 result 回報＋journal 事件數＞2× 單元理論上限告警＋停滯偵測、閾值＞最長合法
-　cargo 時長）；完成通知＋Monitor 雙訊號全覆蓋、毋需輪詢。
+★主線看門狗（非終止型故障不會有完成通知；L-104）：★Workflow launch 與 Monitor 看門狗
+　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（實證 L-112）。
+　Monitor command＝`bash tools/wf-watchdog <冒煙token>`（自動發現最新 wf 目錄、毋需 launch
+　回傳值故可同回合並發；ARMED 首行夾帶冒煙、stall/runaway 保險絲、happy-path 靜默）；
+　完成通知＋Monitor 雙訊號全覆蓋、毋需輪詢；完成通知一到→TaskStop 該 Monitor（防誤觸 stall）。
 　判死迴圈／卡死→TaskStop→修 script→以 resumeFromRunId 續跑（已完成 agent 走快取不重跑）。
+　hook 兜底：PostToolUse(Workflow) 注入配對提醒、PreToolUse(Workflow) 擋缺 zh-TW 之 script。
 主線例行只在單元邊界醒（看門狗告警除外）：復核＋load-bearing 自驗＋bump submodule pin → 啟下一支。
 全單元完成 → final holistic review → finishing-a-development-branch（push/merge 需 user 同意）→ 收刀簿記三步（events append＋NOTES＋docs-sync generate）。
   ```

@@ -1,4 +1,4 @@
-<!-- next: L-112 -->
+<!-- next: L-114 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -251,3 +251,8 @@
   防：as-built＝閒置過期靜默重導 /login（重導即再登入訊號、比 modal 輕合 research R7）；輕量 toast 需攔截器軌道 amendment（B-062、session 刀）。此類 UI 行為只有 CDP 真瀏覽器抓得到（L-053）。｜出處：005 CDP item#5 拍板
 - **L-111**｜base-web dev（pnpm dev＝vite --mode test、compose NODE_ENV=development→DEV=true、VITE_HTTP_PROXY=Y）下，VITE_SERVICE_BASE_URL 不是 axios baseURL、而是「跑在 base-web 容器內的 vite dev-server proxy」的 target；填 host-published port（localhost:42080）容器內連不到、CDP 登入會斷。
   防：填 docker 內網服務名 http://front-nginx/api（front-nginx 監聽 :80，經 nginx /api strip→rust-api）；改此類打點後以「容器內 wget http://front-nginx/api/health→ok」實測 proxy 鏈通再 commit。｜出處：005 U7a 拍板
+
+- **L-112**｜Workflow 發射後「再找時機」掛看門狗＝結構性漏掛——同 session 連漏兩次（user 兩度糾正）：掛錶被當「發射後的下一步」，任何 context-switch（寫下一單元 script、處理 blocker）即擠掉；且冗長 inline Monitor 命令的摩擦鼓勵延後。
+  防：launch 與 Monitor ★同一回合原子成對（兩 call 間零其他動作）；Monitor command＝`bash tools/wf-watchdog <冒煙token>`（自動發現最新 wf 目錄、毋需 launch 回傳值→可同回合並發）；PostToolUse(Workflow) hook 於發射當下注入配對提醒；完成通知一到→TaskStop 該 Monitor（防 ~13min 後誤觸 stall）。｜出處：005 編排實證
+- **L-113**｜sub-agent 不繼承主線 CLAUDE.md／session 語言紀律——編排出去的 implementer/reviewer/fixer 未被明令時預設英文寫 report/blocker/程式碼註解（user 審閱困難）；與 L-112 同病根：主線「持有」的紀律不會自動變成跨 agent 邊界的動作。
+  防：跨邊界紀律必須逐字烤進 prompt 本體（INVARIANTS 模板字串）——「★書面產物一律 zh-TW」為必備項；防呆② 派發前斷言渲染後 prompt 必含 "zh-TW" 字面（漏烤→零派發 throw）；PreToolUse(Workflow) hook 機器擋缺 zh-TW 之 script（.claude/hooks/pre-workflow-gate.py）。｜出處：005 編排實證
