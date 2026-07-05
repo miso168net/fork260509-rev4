@@ -1,4 +1,4 @@
-<!-- next: L-109 -->
+<!-- next: L-112 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -244,3 +244,10 @@
   防：curl 打登入端點取 token→CDP 把 JSON-stringify 的 token 寫進 localStorage 的 SOY_token（前綴來自 VITE_STORAGE_PREFIX）→navigate 到 front-nginx 整合路徑，全程鎖同一 origin；CDP 專驗 curl 抓不到的「頁面真的 render、i18n toast 在地化」。｜出處：rev3:memory/cdp-session-inject-soy-token；另 rev3:000-bootstrap§3.1
 - **L-101**｜apifox 雲端 mock 有四坑：不帶 apifoxToken header 回 HTTP 500 內包 401；取用戶路由無 Bearer token 回「用户已失效」、refreshToken 給 dummy 值回錯誤；連打觸發頻率限制回 5xx；限流時 login 顯 timeout toast 但請求常在背景完成並跳轉
   防：打 mock 帶齊 header/token、限流時間隔重試、驗收以頁面實際跳轉為準而非 toast｜出處：rev3:superpowers/000（雲端 mock 段）
+
+- **L-109**｜新增 seed 的 migration（如 m003 加 system_settings 一列）會靜默破 schema-gate 閘 2——閘 2 契約（ADR 0021）「實庫 seed 集合＝定稿清單、多 0」不容任何後續刀新增 seed；且非 pre-commit 閘、只在波段出口回歸才紅。
+  防：新 seed 隨其 migration 同 commit 於 tools/schema-gate 的 SEED_ADDITIVE_ALLOWLIST 宣告（ADR 0032 additive 白名單、比照閘 1 結構白名單）；002 凍結 fixtures 永不因新增 seed 改寫（保 rev3/定稿 byte-pure）。｜出處：005 D2 拍板
+- **L-110**｜8888（auth.session.reLogin）為 upstream soybean 的 logoutCode——攔截器 onBackendFail 對 logoutCode 是 handleLogout→resetStore→/login、return null、★無任何訊息（只有 modalLogoutCodes 7777 那條走 $t(backend.msg) 顯阻斷式 modal）；spec 想要的「請重新登入」輕量 toast 在攔截器控制流紅線下不可達（upstream 只有「靜默」或「阻斷 modal」兩種）。
+  防：as-built＝閒置過期靜默重導 /login（重導即再登入訊號、比 modal 輕合 research R7）；輕量 toast 需攔截器軌道 amendment（B-062、session 刀）。此類 UI 行為只有 CDP 真瀏覽器抓得到（L-053）。｜出處：005 CDP item#5 拍板
+- **L-111**｜base-web dev（pnpm dev＝vite --mode test、compose NODE_ENV=development→DEV=true、VITE_HTTP_PROXY=Y）下，VITE_SERVICE_BASE_URL 不是 axios baseURL、而是「跑在 base-web 容器內的 vite dev-server proxy」的 target；填 host-published port（localhost:42080）容器內連不到、CDP 登入會斷。
+  防：填 docker 內網服務名 http://front-nginx/api（front-nginx 監聽 :80，經 nginx /api strip→rust-api）；改此類打點後以「容器內 wget http://front-nginx/api/health→ok」實測 proxy 鏈通再 commit。｜出處：005 U7a 拍板

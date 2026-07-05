@@ -56,8 +56,10 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   - `server`：axum HTTP 服務本體——boot 載入機密＋連 DB＋init casbin enforcer 建 `AppState` 後監聽；
     統一信封 `Res`/`PageRes`＋13 碼 `AppError`（映射單一來源）＋route 註冊表；分層＝`model/facade`
     （entity 存取唯一管道、每 entity 一模組）＋`model/audit`（op-log `mutate_in_txn` seam）＋`auth`
-    （JWT decode／casbin `require_policy` 骨架，登入延 auth 刀）＋`validation`（型別 registry）＋
-    `handler`（薄編排）；系統設定兩端點（super-only）為首個業務縱切、後續循此範式。
+    （JWT `sign`(prod HS256)／`verify`＋TTL 公式；`enforce_mw` decode→Claims、`require_policy` DB-fresh→casbin）
+    ＋`model/password`（argon2 verify＋dummy 時序拉平）＋`validation`（型別 registry）＋`handler`（薄編排）；
+    三態 router `Protection{Public,Authed,Policy}`。系統設定端點（Policy super-only）＋auth 縱切
+    （登入/換發/個資＋動態選單路由＋替代登入 stub）為業務範式（端點全集住 generated/reference/routes）。
   - `migration`：schema 與 seed 的唯一寫入者——基線結構＋定稿 seed 兩支 migration，
     由 compose migrate 閘門套用，冪等可逆。
   - `entity`：sea-orm 型別化實體層（每張業務表一檔）——後續刀的資料存取消費介面；
@@ -70,7 +72,21 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §6 Runtime
 
-（本節尚無內容；登入鏈／RBAC 判定鏈／狀態機圖隨行為刀填入。）
+- **登入鏈**（POST /auth/login，Public）：`find_by_user_name`（濾軟刪）→ argon2 `verify`（未命中跑
+  `dummy_verify` 拉平時序、B-043）→ `status==2` 判（verify 後、carry uid）→ 三態（not-found／錯密／停用）
+  collapse `1000`（不洩存在性）→ DB-fresh roles → 生 sid/jti、讀 `session_idle_timeout`(N) 套 TTL 公式
+  `sign` access(min(300,N×60÷2)s)＋refresh(N×60s) → 終局寫 `sys_login_attempt`（exactly-one／best-effort、
+  operator 識別後 Some、IP 最小版）→ `LoginToken`。
+- **會話換發鏈**（POST /auth/refreshToken，Public、無狀態 sliding、ADR 0030）：`verify`(refresh_secret) 失敗
+  →`8888`（絕不 3333/9999/9998、防前端死迴圈）→ 活性 gate（`find_by_id` status==2／deleted→`8888`）→ 讀 N
+  → `sign` 新對（新 jti、窗推 now+N）；★零 sys_token 讀寫、零 rotation（留 session 刀）。登出界線＝閒置 [N−access, N]。
+- **RBAC 判定鏈**：`enforce_mw`（Authed/Policy：bearer→`verify`→注入 Claims、缺/壞→`3333`）→ Policy 端點另掛
+  `require_policy`（DB-fresh roles→casbin `enforce`→拒 `5003`）。roles 一律 DB-fresh、claims.roles 僅 hint。
+- **動態選單鏈**（GET /auth/getUserRoutes，Authed）：DB-fresh roles → casbin 枚舉 `act='menu'` 可見 route_name
+  → `sys_menu` `list_active` → 祖先包含組樹（命中葉之 parent 鏈全保留）→ `{routes:MenuRoute[], home}`
+  （home＝角色首個非空 role_home）。前端 dynamic 模式以此為選單唯一過濾源。
+- **替代登入 stub**（sendCaptcha/codeLogin/register/resetPwd，Public、ADR 0029）：一律 `2222`
+  （`biz.auth.notSupported`）、零 DB；前端表單改真呼叫、經攔截器顯譯文、captcha 成功才啟動倒數。
 
 ## §7 部署
 

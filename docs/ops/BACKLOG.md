@@ -1,4 +1,4 @@
-<!-- next: B-060 -->
+<!-- next: B-063 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -7,7 +7,6 @@
 - B-005｜generated/reference/screens extractor（前端 route→全量表、對賬 lint L2）｜base-web 首個頁面落地時
 - B-006｜docs-sync lint L4/L5/L6 啟用（收刀事件存在性／review 分流雙源對賬／arch_impact 雙向驗）｜第一把功能刀收刀前
 - B-007｜觀測側 msg 可讀性補強候選（log 附 key→預設語言譯文、或維運字典對照表；ADR 0001 第 8 題配套）｜obs 層刀或維運痛點實際出現時
-- B-008｜替代登入／認證端點包處置拍板：做真／stub／砍表單三選一（連同驗證碼收發基建同批考慮；rev3 帳實分叉）｜auth 刀 brainstorm 開場｜出處：rev3:DECISIONS§1-⚠️c＋⚠️m（K1-12/22）
 - B-010｜登入失敗節流以合成終態重設計（一般化訊息＋鎖中不逐筆稽核已反轉原案）｜節流刀 brainstorm｜出處：rev3:DECISIONS§1-⚠️w（K1-32）
 - B-011｜儀表板做不做／怎麼做（傾向 v1＝固定版面零新表）｜入波排程時｜出處：rev3:DECISIONS§1-待決⑥a（K1-06）
 - B-012｜報表匯出 PDF/CSV（傾向 v1＝同步匯出零新表）｜入波排程時｜出處：rev3:DECISIONS§1-待決⑥b（K1-07）
@@ -40,7 +39,6 @@
 - B-040｜cleanup sidecar 最小權限 DB 憑證（背景 job secret 最小權限＝預設）｜首個背景 job 設計期｜出處：rev3:CHECKLIST§3.A（K2-25）
 - B-041｜obs 採集容器非-root 硬化起手照配（docker.sock 窄化）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.A（K2-26）
 - B-042｜prod nginx 完整資源 CSP 收緊內建部署驗收｜prod 部署刀｜出處：rev3:CHECKLIST§3.J（K2-27）
-- B-043｜登入時序 oracle 拉平（not-found 也跑 dummy argon2）｜auth 刀內建｜出處：rev3:CHECKLIST§3.J（K2-28）
 - B-044｜op-log payload PII 遮蔽策略先拍再落庫｜審計 payload 設計期｜出處：rev3:CHECKLIST§3.J（K2-29）
 - B-045｜低位殘項 checklist（trace_id 控制字元/XFF 空 token/計數 race/migration down 非對稱/CDN 錨）｜重寫對應模組時逐項內建｜出處：rev3:CHECKLIST§3.J（K2-30）
 - B-046｜IP 閘門政策判定單一來源（純函式回命中規則、middleware 只呼叫）｜IP 閘刀設計期｜出處：rev3:CHECKLIST§3.E（K2-31）
@@ -53,5 +51,7 @@
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-055｜閘 1 型別比對不含 varchar 長度（fixtures/columns.txt 無 character_maximum_length 欄）——長度級漂移閘 1 不攔；機器閉環需把長度併入 fixtures 重凍（基準改動、拍板級）｜後續 schema 刀重凍基準時｜出處：002-schema-baseline U3b review
 - B-057｜base_web_node_modules named volume 未掛載→/app/node_modules 落 9p drvfs（空 .pnpm 殼、易被主機 pnpm install 汙染）；根治＝隔離 node_modules 於 named volume、修 compose 掛載｜base-web 基建修復｜出處：004 單元⑤ 實測
-- B-058｜dynamic route/menu 模式切換（現 static＋roles meta 過濾；sys_menu manage_system-settings 已 seed；dynamic 需 getUserRoutes）｜auth 刀｜出處：004 拍板 7
 - B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（seed 說明改走 i18n help 鍵、或 tooltip 改 i18n）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）
+- B-060｜demo 選單清理：002 casbin menu seed 給 R_SUPER 全 soybean template demo（about/document/plugin/alova/pro-naive/multi-menu/function）menu policy，rev4 真選單應只 home/manage/user-center｜動 002 casbin/sys_menu seed（新 migration）｜出處：005 CDP item#2 拍板 2026-07-06
+- B-061｜3 manage 子項 i18n：manage_audit/ip-rule/policy-archive 已 002 seed 選單項但 locale 三語無 route.manage_* 譯文→dynamic 選單顯 raw key｜各子系統刀建時補譯文｜出處：005 CDP item#2 拍板 2026-07-06
+- B-062｜閒置過期輕量 toast：8888 為 upstream logoutCode 靜默登出（無「請重新登入」訊息）、攔截器控制流紅線；輕量 toast 需攔截器軌道 amendment｜session 刀或新★軌道｜出處：005 CDP item#5 拍板 2026-07-06
