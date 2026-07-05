@@ -11,6 +11,17 @@ ADR 0027〔授權 seam 接續契約、簽發/登入明文留本刀〕＋B-008〔
 ＋B-058〔dynamic route 切換歸本刀〕＋B-043〔時序 oracle 拉平內建〕＋004 拍板 7〔login-gated
 瀏覽器走查債〕＋user 拍板閒置逾時語意→ADR 0030；brainstorm 七題拍板＋ADR 0029／0030）
 
+## Clarifications
+
+### Session 2026-07-05
+
+- Q: 停用帳號（status 欄）在本刀登入／換發是否即時擋？（此題 brainstorm 七拍板未涵蓋、
+  由 rev3 慣例帶入待確認；rev4 seed 三帳號皆 status=1、本刀無停用 UI）→ A: **本刀即防禦性
+  實作**——登入檢 status==2→collapse 進 `1000`（不洩存在性）、換發活性 gate 檢 status==2→
+  `8888`；軟刪 `deleted_at` 列因帳號活性唯一索引必然排除（併入「帳號不存在」）；本刀無停用
+  UI，故以測試 fixture 手動設 status=2 驗證（forward-compat：user-management 刀啟用停用 UI
+  後即生效）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 管理員以帳密登入並進入系統 (Priority: P1)
@@ -127,6 +138,8 @@ CDP 實機：三表單提交＋取驗證碼各得「暫未開放」toast、表�
   猜值）；壞值防線在設定寫入端型別驗證（ADR 0026 registry）。
 - 瀏覽器殘留過期憑證重開頁 → 首個請求 `3333`→自動換發（窗內）或跳訊息登出（窗外）；
   行為與閒置語意一致。
+- 停用帳號（status==2）→ 登入回 `1000`（先驗密碼後判、稽核帶已識別 uid）、換發回 `8888`
+  （活性 gate）；本刀無停用 UI，以測試 fixture 手動設 status=2 驗證。
 - 憑證有效但角色被拔 → 受政策保護端點即時 `5003`（角色即時查庫、與憑證時效無關）。
 - 稽核寫入失敗（DB 異常）→ 登入回應不受影響、僅 warn（best-effort）。
 - refresh 憑證被竊 → 竊者可無限續命（無輪替／盜用偵測——session 刀補；ADR 0030 明示接受）。
@@ -139,9 +152,10 @@ CDP 實機：三表單提交＋取驗證碼各得「暫未開放」toast、表�
 ### Functional Requirements
 
 - **FR-001**: 系統 MUST 提供登入端點：以帳號＋密碼驗證，成功回統一信封＋憑證對
-  `{token, refreshToken}`（wire 形循 upstream `Api.Auth.LoginToken` 凍結契約）；帳號不存在／
-  密碼錯誤／帳號停用三態一律回同一 `1000`（`auth.login.failed`）、不洩漏帳號存在性；
-  停用判定在密碼驗證之後（稽核可帶已識別身分）。
+  `{token, refreshToken}`（wire 形循 upstream `Api.Auth.LoginToken` 凍結契約）；帳號不存在
+  （帳號查詢排除已軟刪 `deleted_at` 列）／密碼錯誤／帳號停用（status==2）一律回同一 `1000`
+  （`auth.login.failed`）、不洩漏帳號存在性；停用判定在密碼驗證之後（稽核可帶已識別身分）。
+  本刀無停用管理 UI，停用路徑以測試 fixture（手動設 status=2）驗證（forward-compat）。
 - **FR-002**: 登入 MUST 拉平時間側信道（B-043）：帳號不存在路徑也執行等時雜湊驗證
   （dummy verify），使存在／不存在帳號的回應時間不可區分。
 - **FR-003**: 每次登入終局 MUST 寫恰一列登入稽核（`sys_login_attempt`）：attempted_user_name、
@@ -149,7 +163,8 @@ CDP 實機：三表單提交＋取驗證碼各得「暫未開放」toast、表�
   XFF 存原文不解析、信心標低）、trace_id；寫入 best-effort（失敗 warn、不影響登入回應）；
   不觸發 XFF 信任鏈設計（B-019/B-024 留 ingress 刀）。
 - **FR-004**: 系統 MUST 提供換發端點（無狀態 sliding refresh、ADR 0030）：驗 refresh 憑證
-  （專用密鑰／發行方／受眾／時效）→ 使用者活性 gate（停用或已刪→拒）→ 讀閒置設定 →
+  （專用密鑰／發行方／受眾／時效）→ 使用者活性 gate（status==2 停用或 `deleted_at` 已刪→拒）
+  → 讀閒置設定 →
   簽發全新憑證對（新唯一識別）；驗證失敗與活性拒一律 `8888`（絕不 `3333/9999/9998`）；
   不落、不查任何憑證狀態表（sys_token 零寫入）。
 - **FR-005**: 會話閒置逾時語意 MUST 為：refresh 憑證時效＝N 分鐘（閒置窗）；access 憑證
