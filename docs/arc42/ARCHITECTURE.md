@@ -53,8 +53,11 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 ## §5 Building blocks
 
 - **rust-api workspace＝四 crate**（目錄樹與導覽住 README.md）：
-  - `server`：axum HTTP 服務本體——boot 載入機密後監聽；統一信封 `Res`/`PageRes`＋13 碼
-    `AppError`（映射單一來源）＋route 註冊表就位，業務端點隨後續刀填入。
+  - `server`：axum HTTP 服務本體——boot 載入機密＋連 DB＋init casbin enforcer 建 `AppState` 後監聽；
+    統一信封 `Res`/`PageRes`＋13 碼 `AppError`（映射單一來源）＋route 註冊表；分層＝`model/facade`
+    （entity 存取唯一管道、每 entity 一模組）＋`model/audit`（op-log `mutate_in_txn` seam）＋`auth`
+    （JWT decode／casbin `require_policy` 骨架，登入延 auth 刀）＋`validation`（型別 registry）＋
+    `handler`（薄編排）；系統設定兩端點（super-only）為首個業務縱切、後續循此範式。
   - `migration`：schema 與 seed 的唯一寫入者——基線結構＋定稿 seed 兩支 migration，
     由 compose migrate 閘門套用，冪等可逆。
   - `entity`：sea-orm 型別化實體層（每張業務表一檔）——後續刀的資料存取消費介面；
@@ -98,10 +101,11 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 | 慣例 | 規則 | 守門機制 |
 |---|---|---|
-| datetime | DB 時間欄一律 `timestamptz` 存 UTC；wire 一律 ISO-8601 帶時區偏移、禁 naive datetime；前端唯一 formatter util、以瀏覽器時區顯示＋帶時區標示（使用者偏好時區留參數位、消費點只有 formatter 一處） | wire 驗收含「時間欄必帶 offset」斷言（`cargo test --workspace` contract.rs offset 守門，003-wire 落地）；前端 lint 禁繞過 formatter 裸格式化（隨 base-web 首刀建立） |
-| i18n | primary locale＝zh-TW（預設 UI／開發驗收基準）；zh-cn 字典保留維護＝上游 rebase 同步錨點；語言選單「簡體／繁體／English」；業務錯誤 msg＝i18n key、前端 $t 翻譯（詳 constitution §I.3 與 I18N-WIRING 軌道） | locale 對等 lint：zh-cn／zh-tw 鍵集合一致、pre-commit 擋（隨 base-web 首刀建立）；`App.I18n.Schema` 型別使「加鍵漏語言」直接 typecheck 紅 |
+| datetime | DB 時間欄一律 `timestamptz` 存 UTC；wire 一律 ISO-8601 帶時區偏移、禁 naive datetime；前端唯一 formatter util、以瀏覽器時區顯示＋帶時區標示（使用者偏好時區留參數位、消費點只有 formatter 一處） | wire 時間欄 offset 守門隨首個帶 wire 時間欄的端點建立（曾以 demo 為載體、demo 移除後暫無 wire 時間欄消費者→守門移除、隨首個顯示時間欄的刀重建、git 即史）；前端 formatter lint 隨首個顯示時間欄的前端刀建立（settings 頁無時間欄消費→續延、不宣稱就位） |
+| i18n | primary locale＝zh-TW（預設 UI／開發驗收基準）；zh-cn 字典保留維護＝上游 rebase 同步錨點；語言選單「簡體／繁體／English」；業務錯誤 msg＝i18n key、前端 $t 翻譯（詳 constitution §I.3 與 I18N-WIRING 軌道） | locale 對等 lint：zh-cn／zh-tw／en-us 三語鍵集一致——`App.I18n.Schema`（`Record<LangType,Schema>`）容器內 vue-tsc typecheck 使「加鍵漏語言」直接紅（base-web 首刀 004 建立；base-web host husky 主機無 node toolchain→驗證走容器 typecheck 非 pre-commit） |
 | 錯誤碼 | 13 碼矩陣整組凍結、新需求優先 reuse 既有碼；碼→HTTP 映射、保留碼規則、msg=key 詳 constitution §I.3 | 碼表 table-driven contract test＋「保留碼後端永不發出」斷言（`cargo test --workspace` error.rs 13 碼矩陣＋保留碼列舉完整性，003-wire 落地）；後端錯誤型→業務碼映射收單一來源 |
-| wire 契約 | 前端 typings 為裁判、統一信封／分頁通用形對其驗證；動 typings／加 route 的刀必於單元邊界重跑 `python3 tools/wire-schema extract` 並隨 commit（快照住 server/tests/fixtures/wire-schema.json） | 契約裁判（快照 vs 序列化通用形）＋路由↔case 雙向覆蓋閘（`cargo test --workspace`，003-wire 落地）；快照↔typings 一致由本紀律＋再抽 diff 空 |
+| wire 契約 | 前端 typings 為裁判、統一信封／分頁通用形對其驗證；動 typings／加 route 的刀必於單元邊界重跑 `python3 tools/wire-schema extract` 並隨 commit（快照住 server/tests/fixtures/wire-schema.json） | 契約裁判（快照 vs 序列化：通用形＋per-route 業務型受審接上，如 `SettingItem` vs `Api.SystemManage.SystemSetting`）＋路由↔case 雙向覆蓋閘（`cargo test --workspace`）；快照↔typings 一致由本紀律＋再抽 byte 冪等 |
+| facade 分層 | 資料存取全走 `model/facade`（每 entity 一模組＝存取唯一管道）；handler／auth 層零 path-root `entity::`；業務寫＋op-log 走 `mutate_in_txn` 同 txn | `entity_access_lint`（源碼掃描 handler 零 path-root `entity::`＋防-vacuous self-test，`cargo test --workspace`，004 首建） |
 | 審計欄 | 業務表建表即帶 archetype 全欄；四變體歸屬與無 retrofit 條款詳 constitution §I.6 | `tools/schema-gate audit`（對實庫逐表驗變體矩陣、清單外業務表攔截；需運行中 stack、不進 pre-commit）；`/speckit-plan` 自查第 8 題每刀必答 |
 | soft-delete | 軟刪欄成對寫入（`deleted_at`＋`deleted_by` 同寫）；讀端預設過濾已刪列；軟刪表唯一鍵用 partial-uniq `WHERE deleted_at IS NULL` | partial-uniq 約束本身（DB 層直接擋重複）；facade 讀端過濾測試（隨對應 entity 刀建立）；刪除連動行為（如角色刪除清授權）隨對應刀立 ADR 入憲 |
 | 欄序 | 欄序＝基線刀 user 定稿、後續加欄一律 append（ADR 0021） | 加欄／動 schema 的刀於單元邊界跑 `tools/schema-gate gate2` 逐欄驗實庫欄序＝定稿（可重跑、需運行中 stack、不進 pre-commit） |
