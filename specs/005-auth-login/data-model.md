@@ -47,7 +47,7 @@ rotation**（session 刀 B-021）。憑證＝HS256 JWT，claims 如下。
 
 每登入終局恰一列（exactly-one、best-effort）。欄（entity 現成）：`id`／`created_at`／
 `created_by`(operator uid、識別前 None)／`success: bool`／`attempted_user_name`／`real_ip`
-(inet=peer)／`peer_ip`／`x_forwarded_for`(XFF 原文)／`ip_confidence`(低標)／`region`／`trace_id`。
+(inet=peer)／`peer_ip`／`x_forwarded_for`(XFF 原文)／`ip_confidence`(值 `low`)／`region`／`trace_id`。
 寫失敗→warn、不改登入回應。**本刀唯一寫者**；節流刀（B-010）未來讀者。
 
 ## 5. 閒置逾時設定（session_idle_timeout、m003 seed）

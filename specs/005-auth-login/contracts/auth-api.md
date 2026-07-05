@@ -62,6 +62,11 @@ wire 權威＝base-web upstream `Api.Auth`／`Api.Route` 凍結 typings；後端
 
 保留碼（7778/8889/9998/9999）＋7777 本刀不發（contract test 斷言不變）。
 
+**msg key 前綴映射**：後端 wire 發**無前綴** key（`auth.login.failed`／`biz.auth.notSupported`
+…、§I.3 msg=key）；前端攔截器 `translateBackendMsg`（I18N-WIRING (i) 既有）映為字典鍵
+`backend.<key>`（如 `backend.auth.login.failed`）再 `$t` 顯示——前端字典鍵含 `backend.` 前綴、
+後端不含，非衝突。
+
 ## casbin 過濾規則（零新 policy 列）
 
 - Policy 端點 enforce `(role, path, method)`；本刀 auth/route 端點皆 Public/Authed（**不掛

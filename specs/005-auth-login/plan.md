@@ -118,7 +118,7 @@ rust-api/server/src/
 ├── model/facade/{sys_user,sys_menu,sys_role,sys_login_attempt}.rs  # 新 facade（過 entity_access_lint）
 ├── model/password.rs                  # argon2 verify＋dummy（B-043 時序拉平）
 ├── router.rs                          # Protection 三態（Public/Authed/Policy）＋10 端點註冊
-├── config.rs/state.rs                 # access_ttl 公式（讀 session_idle_timeout）
+├── config.rs/state.rs                 # JWT secret/iss/aud 配線（sign/TTL helper 落 auth/jwt.rs、R8）
 └── tests/                             # login/refresh/route/stub/三態/契約/wire-schema/entity_access_lint
 rust-api/migration/src/m003_session_idle_timeout_seed.rs  # seed 一列＋down 對稱
 

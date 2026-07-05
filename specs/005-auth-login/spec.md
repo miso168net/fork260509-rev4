@@ -160,7 +160,7 @@ CDP 實機：三表單提交＋取驗證碼各得「暫未開放」toast、表�
   （dummy verify），使存在／不存在帳號的回應時間不可區分。
 - **FR-003**: 每次登入終局 MUST 寫恰一列登入稽核（`sys_login_attempt`）：attempted_user_name、
   success、操作者（識別前 None／識別後 Some）、IP 取證最小版（peer 位址直採＝real_ip、
-  XFF 存原文不解析、信心標低）、trace_id；寫入 best-effort（失敗 warn、不影響登入回應）；
+  XFF 存原文不解析、`ip_confidence` 標 `low`）、trace_id；寫入 best-effort（失敗 warn、不影響登入回應）；
   不觸發 XFF 信任鏈設計（B-019/B-024 留 ingress 刀）。
 - **FR-004**: 系統 MUST 提供換發端點（無狀態 sliding refresh、ADR 0030）：驗 refresh 憑證
   （專用密鑰／發行方／受眾／時效）→ 使用者活性 gate（status==2 停用或 `deleted_at` 已刪→拒）
@@ -172,8 +172,9 @@ CDP 實機：三表單提交＋取驗證碼各得「暫未開放」toast、表�
   連續活躍永不強制重登（無絕對上限）。
 - **FR-006**: 系統 MUST 新增 `session_idle_timeout` 設定鍵（number 型、預設 60、單位分鐘、
   驗證範圍 5..=1440）：以新 migration seed（基線 m002 凍結不動、down 對稱刪除）；登入／換發
-  每次即時讀庫；設定變更對既有會話於下一次續命生效；設定頁自動落「工作階段設定」群組、
-  補三語 label 與數字控件範圍。
+  每次即時讀庫；設定變更對既有會話於下一次續命生效；設定頁自動落「工作階段設定」群組
+  （經既有 `description` fallback 顯示標籤、**不加** UI i18n label、設定頁零改動——R10；避免
+  逾 I18N-WIRING (ii) backend 命名空間），數字控件範圍由既有型別驅動。
 - **FR-007**: 系統 MUST 提供個人資訊端點：回 `Api.Auth.UserInfo` 凍結形（`userId` 字串、
   `userName`＝暱稱〔User→User01 alias、憲法 L45〕、`roles` 即時查庫、`buttons`＝按鈕政策
   枚舉）；身分驗證（authed）、不驗政策。
@@ -181,7 +182,8 @@ CDP 實機：三表單提交＋取驗證碼各得「暫未開放」toast、表�
   已 seed 85 列）過濾啟用選單，**祖先包含**組樹（命中葉之所有祖先自動保留），回
   `{routes, home}`（`Api.Route.UserRoute` 凍結形；home＝角色首個非空首頁鍵、預設 home）。
 - **FR-009**: 系統 MUST 提供常數路由端點（回 `constant=true` 選單、seed 現況空集）與
-  路由存在性查詢端點（routeName→bool）；保護層照 rev3 as-built 核對（傾向 public）。
+  路由存在性查詢端點（routeName→bool）；isRouteExist 保護層＝**Authed**（R4 核定：rev3
+  as-built auth-only、enforce_mw 無 require_policy）、getConstantRoutes＝Public。
 - **FR-010**: 路由保護 MUST 擴為三態：Public（無驗）／Authed（驗身分注入 Claims、無 token
   →`3333`、不驗政策）／Policy（身分＋即時角色政策、拒→`5003`）；既有受保護端點歸 Policy、
   健康檢查歸 Public；每條新端點照常入路由註冊表＋契約 case（缺 case 覆蓋閘紅）。
@@ -263,7 +265,7 @@ CDP 實機：三表單提交＋取驗證碼各得「暫未開放」toast、表�
 - 前端驗收面：base-web 無測試框架（004 拍板）→靜態閘（build／typecheck／lint／locale 對等／
   契約對齊）＋CDP 實機走查（本刀起 login-gated 走查可行、承 004 債）；CDP 環境＝
   `127.0.0.1:9229`＋front-nginx `http://localhost:42080`。
-- `isRouteExist` 保護層照 rev3 as-built 實作時核對（傾向 public——前端守衛於未登入時序
-  呼叫）；`getConstantRoutes` 現況回空集、可見性不受影響（前端合併修保常數頁）。
+- `isRouteExist` 保護層＝**Authed**（R4 核定：rev3 as-built auth-only）；`getConstantRoutes`
+  ＝Public、現況回空集、可見性不受影響（前端合併修保常數頁）。
 - rev3 為唯讀受控參照（§I.5）：006（login collapse／DTO）、014（refresh 骨架、剝離 rotation
   段）、010（route 端點＋合併修）——結構參照、全新寫、禁整檔拷貝。

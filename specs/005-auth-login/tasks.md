@@ -44,9 +44,10 @@ quickstart.md（層一 cargo／層二 curl+psql／層三 ★CDP 9 項）、比�
       `('session_idle_timeout','60','number','工作階段閒置逾時（分鐘）')`（ON CONFLICT DO NOTHING 冪等）、
       down 對稱 `DELETE … WHERE setting_key IN ('session_idle_timeout')`；`migration/src/lib.rs` 註冊
       m003；`server/src/validation.rs` `NUMBER_RANGES` 加 `("session_idle_timeout", 5, 1440)`；容器內
-      migrate 過＋validation 認得（number 界 5..=1440）
-- [ ] T003 [P] 前端打點：`base-web/.env.test` `VITE_SERVICE_BASE_URL` → rev4 rust-api（front-nginx
-      `/api` 經 42080）；ADAPT 軌道、fork-delta 修改型帶原行；fork-delta-lint 過
+      migrate 過＋validation 測試（界內正規化落庫；界外〔<5 或 >1440〕→2222 invalidValue、坐實 SC-004）
+- [ ] T003 [P] 前端打點：`base-web/.env.test` `VITE_SERVICE_BASE_URL` → rev4 rust-api（`pnpm dev`
+      ＝`vite --mode test` 載 `.env.test`；目標＝經 front-nginx 42080 proxy 到 rust-api〔非 apifox mock〕、
+      對齊 `/api` strip；CDP 驗收即載此值）；ADAPT 軌道、fork-delta 修改型帶原行；fork-delta-lint 過
 
 ---
 
@@ -187,7 +188,9 @@ quickstart.md（層一 cargo／層二 curl+psql／層三 ★CDP 9 項）、比�
 **Purpose**: 全鏈路總驗＋★CDP 實機 9 項＋收尾對照 SC
 
 - [ ] T030 後端總驗：容器內 `cargo test --workspace` 全綠（login/refresh/route/stub/三態/契約/覆蓋閘/
-      wire-schema byte 冪等/entity_access_lint/13 碼/保留碼斷言）
+      wire-schema byte 冪等/entity_access_lint/13 碼/保留碼斷言）＋**sys_token 零寫入斷言**（login/refresh
+      後 sys_token 列數不變、防 rotation 回歸、坐實 FR-016）＋**交付碼零前代代號 grep 閘**（rust-api＋
+      base-web 交付碼掃 `rev2|rev3|soybean|anew` 識別符、坐實 FR-017）
 - [ ] T031 前端總驗：`base-web` `pnpm gen-route`＋vue-tsc typecheck＋lint＋locale 對等 lint＋
       **fork-delta-lint**（★AUTH-WIRING 三處＋I18N/ADAPT 全標記齊）全綠
 - [ ] T032 ★CDP 實機瀏覽器 9 項（quickstart 層三、`CDP:127.0.0.1:9229`＋`http://localhost:42080`）：

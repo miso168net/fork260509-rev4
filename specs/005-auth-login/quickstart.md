@@ -37,22 +37,22 @@ docker compose exec rust-api cargo test --workspace
 
 ```bash
 # 真登入取 token（seed 帳密 Super/123456）
-TOK=$(curl -s -XPOST 127.0.0.1:42079/api/auth/login \
+TOK=$(curl -s -XPOST 127.0.0.1:42079/auth/login \
   -H 'content-type: application/json' -d '{"userName":"Super","password":"123456"}' \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["token"])')
 
 # getUserInfo（Authed）
-curl -s 127.0.0.1:42079/api/auth/getUserInfo -H "Authorization: Bearer $TOK"
+curl -s 127.0.0.1:42079/auth/getUserInfo -H "Authorization: Bearer $TOK"
 # getUserRoutes（Super 應含 manage_system-settings）
-curl -s 127.0.0.1:42079/api/route/getUserRoutes -H "Authorization: Bearer $TOK" | grep -o 'manage_system-settings'
+curl -s 127.0.0.1:42079/route/getUserRoutes -H "Authorization: Bearer $TOK" | grep -o 'manage_system-settings'
 # 無 token→3333
-curl -s 127.0.0.1:42079/api/auth/getUserInfo | python3 -c 'import sys,json;print(json.load(sys.stdin)["code"])'  # 3333
+curl -s 127.0.0.1:42079/auth/getUserInfo | python3 -c 'import sys,json;print(json.load(sys.stdin)["code"])'  # 3333
 # stub→2222
-curl -s -XPOST 127.0.0.1:42079/api/auth/register -H 'content-type: application/json' -d '{}' \
+curl -s -XPOST 127.0.0.1:42079/auth/register -H 'content-type: application/json' -d '{}' \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["code"])'  # 2222
 
 # psql 佐證稽核列
-docker compose exec postgres psql -U <user> -d <db> \
+docker compose exec postgres psql -U soybean -d soybean_admin_rust \
   -c "SELECT attempted_user_name, success, real_ip FROM sys_login_attempt ORDER BY created_at DESC LIMIT 3;"
 ```
 
@@ -66,7 +66,7 @@ docker compose exec postgres psql -U <user> -d <db> \
 
 | # | 操作 | 期望 CDP 證據 |
 |---|---|---|
-| 1 | pwd-login 輸 Super/123456 登入 | network `/auth/login`→`0000`；localStorage `token` 有值；URL 跳 home |
+| 1 | pwd-login 輸 Super/123456 登入 | network `/auth/login`→`0000`；localStorage `token` 有值（真 JWT、非 mock 固定值）；URL 跳 home |
 | 2 | 觀察左側選單 | network `/route/getUserRoutes` 回應含 `manage_system-settings`；DOM 側欄有「系統設定」；全頁無 raw key |
 | 3 | 進系統設定→改「工作階段閒置逾時」60→61→復原 | `updateSystemSetting`→`0000`；成功 toast 為譯文 |
 | 4 | 停留操作跨過 access TTL（設定調短便觀察） | network 自動出現 `refreshToken`→`0000`；頁面零中斷、無登出 |
