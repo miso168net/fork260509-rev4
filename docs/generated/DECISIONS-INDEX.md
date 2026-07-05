@@ -34,3 +34,4 @@
 | 0029 | accepted | 2026-07-05 | 替代登入端點包處置＝後端 stub（B-008 三選一收斂） | — | — | — |
 | 0030 | accepted | 2026-07-05 | 會話閒置逾時＝無狀態 sliding refresh（設定可調、無絕對上限） | — | — | — |
 | 0031 | accepted | 2026-07-05 | 新增 ★BASE-WEB-AUTH-WIRING 軌道（auth 刀三處 base-web inline 接线授權） | — | — | — |
+| 0032 | accepted | 2026-07-05 | schema-gate 閘 2 seed 契約放寬——容 post-baseline rev4 新增 seed（additive 白名單） | — | — | — |

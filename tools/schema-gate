@@ -120,6 +120,14 @@ PER_TABLE_SEED_EXCLUDE = {
     "sys_menu": {"parent_id"},       # 以 route_name 解析比對（menu_parent_map）
 }
 
+# ---- 閘 2 seed 面：post-baseline rev4 新增 seed 白名單（ADR 0032）----
+# 002 凍結基準（fixtures 凍結不改寫、byte 級原樣）之後、後續 feature 合法新增的 seed。
+# 比照 gate1 結構白名單（WHITELIST_ADD 4 項、ADR 0021）：白名單內的「實庫多列」＝容差 delta、非 FAIL；
+# 白名單外任何實庫多列＝FAIL（防意外多出 seed）。key＝(table, natural_key tuple)。
+SEED_ADDITIVE_ALLOWLIST = {
+    ("system_settings", ("session_idle_timeout",)),  # 005-auth-login m003（ADR 0030 閒置逾時設定）
+}
+
 # ---- audit 變體矩陣（contracts §4）----
 AUDIT_SIX = ("created_at", "created_by", "updated_at", "updated_by",
              "deleted_at", "deleted_by")
@@ -301,6 +309,13 @@ def natural_key_of(table, row):
 
 def fmt_natural_key(table, key):
     return ",".join(f"{c}={v}" for c, v in zip(SEED_KEYS[table], key))
+
+
+def is_allowlisted_seed_extra(table, key_str):
+    """實庫多列是否為 ADR 0032 白名單內的合法 post-baseline 新增 seed（凍結 fixtures 不含、但合法）。
+    key_str＝fmt_natural_key 格式；比對白名單各項的同格式字串（按 (table,key) 綁定、跨表不通用）。"""
+    allowed = {fmt_natural_key(t, k) for (t, k) in SEED_ADDITIVE_ALLOWLIST if t == table}
+    return key_str in allowed
 
 
 def rows_by_natural_key(table, rows):
@@ -710,7 +725,7 @@ def cmd_gate2():
     fixt_rows = {t: load_seed_fixture(t) for t in SEED_TABLES}
     n_matched = 0
     n_expected = sum(len(rows) for rows in fixt_rows.values())
-    n_extra = n_missing = 0
+    n_extra = n_missing = n_delta = 0
     for table in SEED_TABLES:
         issues = []
         if table == "sys_user_role":
@@ -732,8 +747,12 @@ def cmd_gate2():
         else:
             pairs, extra, missing, dups = match_seed_sets(
                 table, live_rows[table], fixt_rows[table])
-            for key_str in extra:
+            real_extra = [ks for ks in extra if not is_allowlisted_seed_extra(table, ks)]
+            delta_extra = [ks for ks in extra if is_allowlisted_seed_extra(table, ks)]
+            for key_str in real_extra:
                 issues.append(f"{table}：實庫多列（{key_str}）")
+            for key_str in delta_extra:
+                print(f"  {table:<26} seed 容差 delta（ADR 0032 白名單）：{key_str}")
             for key_str in missing:
                 issues.append(f"{table}：實庫缺列（{key_str}）")
             for key_str in dups:
@@ -748,7 +767,8 @@ def cmd_gate2():
                         issues.append(f"{table}（route_name={rn}）.parent_id：父節點不符"
                                       f"（定稿 {fmap[rn]!r}、實庫 {lmap[rn]!r}）")
             matched = len(pairs)
-            n_extra += len(extra)
+            n_extra += len(real_extra)
+            n_delta += len(delta_extra)
             n_missing += len(missing)
         n_matched += matched  # key 配對數一律累加（與多/缺計數同口徑）
         if issues:
@@ -761,7 +781,7 @@ def cmd_gate2():
         print(f"[gate2][FAIL] {msg}", file=sys.stderr)
     verdict = "PASS" if not all_issues else "FAIL"
     print(f"[gate2] {verdict}｜欄序 {n_ord_ok}/{len(dm)} 表"
-          f"｜seed 配對 {n_matched}/{n_expected} 列（多 {n_extra}、缺 {n_missing}）"
+          f"｜seed 配對 {n_matched}/{n_expected} 列（多 {n_extra}、缺 {n_missing}、容差 delta {n_delta}）"
           f"｜差異 {len(all_issues)}")
     return 0 if not all_issues else 1
 
@@ -941,6 +961,22 @@ class TestWhitelist(unittest.TestCase):
         # 反向不放行
         self.assertFalse(is_whitelisted_type_change(
             "sys_ip_rule", "wbip_memo", "text", "character varying"))
+
+
+class TestSeedAdditiveAllowlist(unittest.TestCase):
+    """閘 2 seed 白名單（ADR 0032）：白名單內的實庫多列＝容差、外＝FAIL、跨表不通用。"""
+    def test_allowlisted_extra_tolerated(self):
+        ks = fmt_natural_key("system_settings", ("session_idle_timeout",))
+        self.assertTrue(is_allowlisted_seed_extra("system_settings", ks))
+
+    def test_unlisted_extra_rejected(self):
+        ks = fmt_natural_key("system_settings", ("rogue_seed",))
+        self.assertFalse(is_allowlisted_seed_extra("system_settings", ks))
+
+    def test_allowlist_scoped_to_table(self):
+        # 同名 key 掛到別表 → 不放行（白名單按 (table,key) 綁定）
+        ks = fmt_natural_key("sys_user", ("session_idle_timeout",))
+        self.assertFalse(is_allowlisted_seed_extra("sys_user", ks))
 
 
 class TestParseAligned(unittest.TestCase):
