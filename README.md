@@ -22,6 +22,7 @@ fork260509-rev4/
 │   └── generated/                   機器生成、嚴禁手改：STATE（現況帳）／MILESTONES（全事件表）
 │                                      ／DECISIONS-INDEX（ADR 索引）／reference/（全量正典表）
 ├── tools/docs-sync                  生成器＋lint（generate／check／lint／errata／test）
+├── tools/bootstrap                  新機器環境重建／舊機體檢（源倉＋worktree＋基線＋hooks）
 ├── docker-compose.yml               dev stack base 層（六 service 共通定義；敘事見活書 §7）
 ├── docker-compose.dev.yml           dev override（host port／bind-mount／熱重載）
 ├── docker-compose.example.yml       example 視覺參照實例（獨立 project、與 dev stack 無關）
@@ -70,4 +71,5 @@ fork260509-rev4/
   **絕不要跑 `git submodule update`**（會 reset worktree）。
 - **想改 `docs/generated/` 裡的東西**：不要手改——改它的來源（events／ADR／BACKLOG…）
   再跑 `python3 tools/docs-sync generate`。
-- **新機器初始化**：見 CLAUDE.md §3（判 worktree 型態、`git config core.hooksPath .githooks`）。
+- **新機器初始化**：clone 本 repo 後跑 `bash tools/bootstrap`（自動補齊 gitignored 源倉
+  `fork260509-*`＋worktree＋hooks、斷言最原始源基線；詳 CLAUDE.md §3）。

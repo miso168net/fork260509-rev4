@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# tools/bootstrap — rev4 workspace 新機器重建／舊機體檢（幂等、fail-loud）
+#
+# 用途：clone 外層 repo 後一鍵補齊 gitignored 源倉（fork260509-*）＋雙 worktree＋hooks，
+#       並斷言最原始源基線（fork260509-soybean-admin-base @ example、CLAUDE.md §1）與
+#       pin 一致性；舊機重跑＝純體檢。任何斷言失敗→exit 2＋指名處置；分歧類問題只警告
+#       （⚠）不自動 reset、絕不半套。
+# 不含：deploy/secrets/*.txt 實值（僅體檢缺檔，實值人對人交接、見 deploy/secrets/README.md）；
+#       dev stack 起法（見 specs/001 quickstart）。
+# 測試掛點：RV4_BASEWEB_SRC_URL／RV4_RUSTAPI_SRC_URL 可覆寫 clone 來源（file:// 亦可）。
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BASEWEB_SRC="$ROOT/fork260509-soybean-admin-base"
+RUSTAPI_SRC="$ROOT/fork260509-rev2-anew-rust-api"
+BASEWEB_URL="${RV4_BASEWEB_SRC_URL:-https://github.com/miso168net/fork260509-soybean-admin-base.git}"
+RUSTAPI_URL="${RV4_RUSTAPI_SRC_URL:-https://github.com/miso168net/fork260509-rev2-anew-rust-api.git}"
+UPSTREAM_URL="https://github.com/soybeanjs/soybean-admin.git"
+BASELINE="example"
+WARNS=0
+
+ok()   { echo "[bootstrap] ✓ $*"; }
+warn() { echo "[bootstrap] ⚠ $*"; WARNS=$((WARNS + 1)); }
+die()  { echo "[bootstrap] ✗ $*" >&2; exit 2; }
+
+# ── 0. 外層 repo 身分斷言 ─────────────────────────────────────────────
+git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$ROOT 不是 git repo"
+origin_url="$(git -C "$ROOT" remote get-url origin 2>/dev/null || echo '')"
+case "$origin_url" in
+  *fork260509-rev4*) ok "外層 repo 身分（origin＝$origin_url）" ;;
+  *) die "外層 origin（$origin_url）不含 fork260509-rev4——請在 rev4 傘狀 repo 根下跑" ;;
+esac
+
+# ── 1. hooks ─────────────────────────────────────────────────────────
+git -C "$ROOT" config core.hooksPath .githooks
+ok "core.hooksPath=.githooks"
+
+# ── 2. 源倉（缺才 clone、幂等）────────────────────────────────────────
+ensure_src() { # $1=目錄 $2=URL $3=名
+  if [ -d "$1/.git" ]; then
+    ok "$3 源倉已存在"
+  else
+    echo "[bootstrap] … clone $3 源倉（$2）"
+    git clone "$2" "$1" || die "$3 源倉 clone 失敗（$2）"
+    ok "$3 源倉 clone 完成"
+  fi
+}
+ensure_src "$BASEWEB_SRC" "$BASEWEB_URL" "base-web"
+ensure_src "$RUSTAPI_SRC" "$RUSTAPI_URL" "rust-api"
+
+# base-web 源倉＝最原始源基線：恆切 example；upstream remote＋no_push（CLAUDE.md §1/§3）
+cur="$(git -C "$BASEWEB_SRC" branch --show-current || echo '')"
+if [ "$cur" != "$BASELINE" ]; then
+  [ -z "$(git -C "$BASEWEB_SRC" status --porcelain)" ] \
+    || die "最原始源不在 $BASELINE 且工作區不淨（現：${cur:-detached}）——手動處理後重跑"
+  git -C "$BASEWEB_SRC" checkout "$BASELINE" \
+    || die "最原始源 checkout $BASELINE 失敗（origin/$BASELINE 不存在？）"
+fi
+ok "最原始源基線＝$BASELINE（$(git -C "$BASEWEB_SRC" rev-parse --short "$BASELINE")）"
+if ! git -C "$BASEWEB_SRC" remote get-url upstream >/dev/null 2>&1; then
+  git -C "$BASEWEB_SRC" remote add upstream "$UPSTREAM_URL"
+fi
+git -C "$BASEWEB_SRC" remote set-url --push upstream no_push
+ok "upstream remote 就緒（push=no_push）"
+# 基線同步語意：example 各機自行向 upstream pull（CLAUDE.md §3、不 push）；跨機基線不合
+# 由下方 fork-delta-lint 實掃紅喊（原行≠基線行）、無獨立同步警告（浮動基線無機器可判真值）。
+
+# ── 3. worktree（缺才掛、斷裂指名）────────────────────────────────────
+ensure_worktree() { # $1=源倉 $2=目錄名 $3=分支
+  local src="$1" tgt="$ROOT/$2" br="$3"
+  if [ -f "$tgt/.git" ]; then
+    local gitdir; gitdir="$(sed -n 's/^gitdir: //p' "$tgt/.git")"
+    [ -d "$gitdir" ] || die "$2 worktree 斷裂（gitdir 不存在）——處置：git -C $src worktree prune、備份移除 $2/ 後重跑"
+    ok "$2 worktree 就緒（$(git -C "$tgt" rev-parse --short HEAD)）"
+    return
+  fi
+  [ -d "$tgt/.git" ] && die "$2/.git 是目錄＝submodule 模式（唯讀捷徑、不可開發）——要開發：確認無未收改動後移除 $2/、重跑本腳本"
+  if [ -d "$tgt" ]; then
+    rmdir "$tgt" 2>/dev/null || die "$2/ 非空且非 worktree——手動檢視後重跑"
+  fi
+  # 防呆：目標分支若被源倉本體占用、先 detach 源倉
+  [ "$(git -C "$src" branch --show-current || true)" = "$br" ] && git -C "$src" checkout --detach
+  if git -C "$src" show-ref --verify -q "refs/heads/$br"; then
+    git -C "$src" worktree add "$tgt" "$br"
+  else
+    git -C "$src" worktree add --track -b "$br" "$tgt" "origin/$br" \
+      || die "$2 worktree 掛載失敗（origin/$br 不存在？）"
+  fi
+  ok "$2 worktree 掛載（$br）"
+}
+ensure_worktree "$BASEWEB_SRC" "base-web" "rev4-admin-base-web"
+ensure_worktree "$RUSTAPI_SRC" "rust-api" "rev4-admin-rust-api"
+
+# ── 4. pin 一致性（分歧只警告；判讀＝回外層更新 pin 方向、CLAUDE.md §3）──
+check_pin() { # $1=目錄名
+  local pin head
+  pin="$(git -C "$ROOT" rev-parse "HEAD:$1" 2>/dev/null || echo 'none')"
+  head="$(git -C "$ROOT/$1" rev-parse HEAD)"
+  [ "$pin" = "$head" ] && ok "$1 pin＝worktree HEAD（${head:0:7}）" \
+    || warn "$1 pin（${pin:0:7}）≠ worktree HEAD（${head:0:7}）——健檢判讀：一律回外層更新 pin 方向"
+}
+check_pin "base-web"
+check_pin "rust-api"
+
+# ── 5. fork-delta 原行紀律全掃（含 lint 自身 self-test）────────────────
+python3 "$ROOT/tools/fork-delta-lint" || die "fork-delta-lint 未過——見上方指名"
+ok "fork-delta-lint 全綠（self-test＋實掃）"
+
+# ── 6. secrets 體檢（僅檢缺檔、不碰實值）──────────────────────────────
+missing=""
+for ex in "$ROOT"/deploy/secrets/*.example; do
+  [ -e "$ex" ] || continue
+  real="${ex%.example}"
+  [ -f "$real" ] || missing="$missing $(basename "$real")"
+done
+if [ -n "$missing" ]; then
+  warn "deploy/secrets 缺實值檔：$missing —— 照 deploy/secrets/README.md 自建（人對人交接）"
+else
+  ok "deploy/secrets 實值檔齊"
+fi
+
+# ── 摘要 ─────────────────────────────────────────────────────────────
+echo "[bootstrap] ── 完成：源倉×2／worktree×2／基線 $BASELINE@$(git -C "$BASEWEB_SRC" rev-parse --short "$BASELINE")／hooks／lint 全綠；警告 $WARNS 項$([ "$WARNS" -gt 0 ] && echo '（見上方 ⚠）' || echo '')"
