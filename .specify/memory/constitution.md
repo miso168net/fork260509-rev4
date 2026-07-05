@@ -153,6 +153,15 @@
 
 **紀律**：嚴格限四範圍；第五種範圍 → §V.2 Amendment；每改一處在 spec／plan 內紀錄；走 fork-delta `rev4-inline` 紀律。
 
+#### BASE-WEB-AUTH-WIRING ★ — 本檔授權三接线 (a)~(c)（auth 刀 dynamic 落地＋alt-login stub 收斂；ADR 0031）
+
+**邊界**（base-web，嚴格限以下三處 inline 接线，皆走 fork-delta `rev4-inline` 修改型帶 `原行:`＋fork-delta-lint 機器強制）：
+- **(a)** 動態常數路由合併修：`src/store/modules/route/index.ts` 的 `initConstantRoute` dynamic 分支——`addConstantRoutes(data)` → `addConstantRoutes([...staticRoute.constantRoutes, ...data])`；嚴格限「dynamic 模式保前端 builtin 常數頁（login/404/403）、防 No-match-for-login 破口」，不改其他 route store 邏輯（rev3 010 已驗證；§II #2 dynamic 落地必要接线）
+- **(b)** alt-login 表單 stub 接线：`src/views/_builtin/login/modules/{code-login,register,reset-pwd}.vue` 的 handleSubmit——假 success 改為呼叫 stub wrapper（WRAPPER 新檔）、回應經 `backend.*` i18n 顯示；嚴格限「三替代登入表單提交改真打後端 stub」，不改 pwd-login、不改表單結構（ADR 0029 帳實收斂）
+- **(c)** captcha stub 接线：`src/hooks/business/captcha.ts` 的 getCaptcha——setTimeout 假動作改為呼叫 sendCaptcha stub（WRAPPER）、成功才啟動倒數；嚴格限「取驗證碼改真打 stub」（ADR 0029）
+
+**紀律**：嚴格限三處接线；第四處 → §V.2 Amendment；每改一處在 spec／plan 內紀錄（位置＋改動＋upstream 衝突風險）；走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制。
+
 ---
 
 ## IV. Compliance Check（spec-kit `/speckit-plan` 用）
@@ -200,7 +209,8 @@
 
 ---
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-05
+**Version**: 1.2.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-05
 
 **Amendment log**:
+- 1.2.0（2026-07-05）：新增 ★BASE-WEB-AUTH-WIRING 軌道（ADR 0031；授權 auth 刀三處 base-web inline 接线 (a) route store 常數合併修／(b) alt-login 三表單 stub／(c) captcha stub；MINOR 新增 ★ 軌道、§V.3）——觸發＝005-auth-login plan Constitution Check Q2/Q7。
 - 1.1.0（2026-07-05）：★BASE-WEB-I18N-WIRING 加 (iv) zh-TW 首發 locale 完整建置授權（ADR 0028；MINOR 軌道授權邊界擴展、§V.3）——觸發＝004-system-settings plan Constitution Check Q7。
