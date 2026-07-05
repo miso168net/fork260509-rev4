@@ -1,4 +1,4 @@
-<!-- next: B-059 -->
+<!-- next: B-060 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -54,3 +54,4 @@
 - B-055｜閘 1 型別比對不含 varchar 長度（fixtures/columns.txt 無 character_maximum_length 欄）——長度級漂移閘 1 不攔；機器閉環需把長度併入 fixtures 重凍（基準改動、拍板級）｜後續 schema 刀重凍基準時｜出處：002-schema-baseline U3b review
 - B-057｜base_web_node_modules named volume 未掛載→/app/node_modules 落 9p drvfs（空 .pnpm 殼、易被主機 pnpm install 汙染）；根治＝隔離 node_modules 於 named volume、修 compose 掛載｜base-web 基建修復｜出處：004 單元⑤ 實測
 - B-058｜dynamic route/menu 模式切換（現 static＋roles meta 過濾；sys_menu manage_system-settings 已 seed；dynamic 需 getUserRoutes）｜auth 刀｜出處：004 拍板 7
+- B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（seed 說明改走 i18n help 鍵、或 tooltip 改 i18n）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）
