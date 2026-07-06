@@ -1,4 +1,4 @@
-<!-- next: B-063 -->
+<!-- next: B-071 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -18,7 +18,6 @@
 - B-018｜帳號級鎖定被第三方惡意鎖人的 DoS 面重估（漸進延遲/CAPTCHA）｜節流刀（併 B-010）｜出處：rev3:REVIEW§6（K2-02）
 - B-019｜XFF 信任模型改最小化信任錨（棄整段內網預設信任）｜IP/ingress 刀｜出處：rev3:REVIEW§6＋CLAUDE.md§8.2（K2-03）
 - B-020｜CDN 位置錨是否上真驗證重估｜ingress 拓樸簡化時｜出處：rev3:REVIEW§6（K2-04）
-- B-021｜session 生命週期一次設計完整（併發/踢除/撤銷/輪替；rev3 三度改向）｜session 刀 brainstorm 開場｜出處：rev3:REVIEW§5（K2-05）
 - B-022｜登入嘗試審計「恰寫一筆」與快取短路的邊界第一性重想｜節流/審計刀｜出處：rev3:REVIEW§5＋§2（K2-06）
 - B-024｜先枚舉 ingress 拓樸全貌再定 IP 取證欄位形｜首次重設計 IP 取證欄形的刀（002 基線＝承襲 rev3 形＋user 定稿、不觸發）｜出處：rev3:REVIEW§5（K2-08）
 - B-025｜使用者編輯模式帳號名欄鎖定（消滅靜默 no-op 縫隙）｜使用者管理刀｜出處：rev3:REVIEW§3.2-F-5（K2-09）
@@ -43,7 +42,6 @@
 - B-045｜低位殘項 checklist（trace_id 控制字元/XFF 空 token/計數 race/migration down 非對稱/CDN 錨）｜重寫對應模組時逐項內建｜出處：rev3:CHECKLIST§3.J（K2-30）
 - B-046｜IP 閘門政策判定單一來源（純函式回命中規則、middleware 只呼叫）｜IP 閘刀設計期｜出處：rev3:CHECKLIST§3.E（K2-31）
 - B-047｜protected-reject 錯誤訊息具體化（detail 插值通道＋洩漏評估）｜錯誤信封/治理刀｜出處：rev3:CHECKLIST§3.H（K2-32）
-- B-048｜Redis 起手用 ConnectionManager（自動重連）＋session 指標熱快取條件啟用｜Redis 基建刀起手｜出處：rev3:CHECKLIST§3.H（K2-33）
 - B-049｜批次軟刪自管 transaction（去 sentinel DbErr 控制流）｜首個批次寫端刀｜出處：rev3:CHECKLIST§3.H（K2-34）
 - B-050｜部分更新全 None 提前 no-op 入 handler/facade 慣例｜部分更新語意設計時｜出處：rev3:CHECKLIST§3.H（K2-35）
 - B-052｜守門 lint 健壯化（route 抽取防漏＋self-test）＋fork-delta 標記覆蓋 lint 補位｜覆蓋 lint 建立時同批｜出處：rev3:CHECKLIST§3.E＋§3.H（K2-37）
@@ -54,4 +52,11 @@
 - B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（seed 說明改走 i18n help 鍵、或 tooltip 改 i18n）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）
 - B-060｜demo 選單清理：002 casbin menu seed 給 R_SUPER 全 soybean template demo（about/document/plugin/alova/pro-naive/multi-menu/function）menu policy，rev4 真選單應只 home/manage/user-center｜動 002 casbin/sys_menu seed（新 migration）｜出處：005 CDP item#2 拍板 2026-07-06
 - B-061｜3 manage 子項 i18n：manage_audit/ip-rule/policy-archive 已 002 seed 選單項但 locale 三語無 route.manage_* 譯文→dynamic 選單顯 raw key｜各子系統刀建時補譯文｜出處：005 CDP item#2 拍板 2026-07-06
-- B-062｜閒置過期輕量 toast：8888 為 upstream logoutCode 靜默登出（無「請重新登入」訊息）、攔截器控制流紅線；輕量 toast 需攔截器軌道 amendment｜session 刀或新★軌道｜出處：005 CDP item#5 拍板 2026-07-06
+- B-063｜孤兒/背景 reaper：sys_token 跨 session 孤兒＋rotated 過期列完整回收（006 refresh-time prune_expired_rotated 已止血同 chain；跨 session/背景批次遞延）｜obs/維運刀｜出處：006 R6/SC-009
+- B-064｜停用帳號/管理員踢除 端點接线：消費 revoke_others_of_user primitive＋發 session_event(revoked)＋denylist(kicked/revoked)；006 只出 primitive、觸發端點遞延（併 B-029 改密撤 session）｜使用者管理刀｜出處：006 FR-008
+- B-065｜denylist 逐出/命中監控＋enforce PG-fallback 負載觀測（每受保護請求一次 ttl_from_settings SELECT、admin 規模可接受）｜obs 刀｜出處：006 U4/final review minor
+- B-066｜並發登入收斂整合測試（雙 committed 連線＋顯式清理、驗 advisory lock 序列化＋revoke_others loop-until-0-active 真並發 snapshot-miss）｜test 補強｜出處：006 U6/R1 review
+- B-067｜session_event 膨脹治理：reuse 同票重放逐次累積稽核列（006 SC-009 只列 sys_token 回收、未列 session_event；曝險有界於 refresh JWT exp、無安全風險）｜obs 刀｜出處：006 final review minor
+- B-068｜session_event source_ip 接入 kicked/logout（現全 None、login LoginAudit.real_ip 可取用供 forensics）｜obs/enrich｜出處：006 U9/U11 review
+- B-069｜alova 棧接入真實 auth 時：補 idle toast 副本＋修 onError raw msg 未 $t（現 demo-only dormant、ADR 0035/0036 觸發再議＝alova 接入真實 auth）｜前端/alova 刀｜出處：006 U11/ADR 0035-0036
+- B-070｜tools/wf-watchdog WSL slug 修正：Monitor command 需 cd /mnt 前綴否則 slug 失準找不到 wf 目錄｜tools 修復｜出處：006 orchestration 實測
