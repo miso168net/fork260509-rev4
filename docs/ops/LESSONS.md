@@ -1,4 +1,4 @@
-<!-- next: L-114 -->
+<!-- next: L-115 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -256,3 +256,5 @@
   防：launch 與 Monitor ★同一回合原子成對（兩 call 間零其他動作）；Monitor command＝`bash tools/wf-watchdog <冒煙token>`（自動發現最新 wf 目錄、毋需 launch 回傳值→可同回合並發）；PostToolUse(Workflow) hook 於發射當下注入配對提醒；完成通知一到→TaskStop 該 Monitor（防 ~13min 後誤觸 stall）。｜出處：005 編排實證
 - **L-113**｜sub-agent 不繼承主線 CLAUDE.md／session 語言紀律——編排出去的 implementer/reviewer/fixer 未被明令時預設英文寫 report/blocker/程式碼註解（user 審閱困難）；與 L-112 同病根：主線「持有」的紀律不會自動變成跨 agent 邊界的動作。
   防：跨邊界紀律必須逐字烤進 prompt 本體（INVARIANTS 模板字串）——「★書面產物一律 zh-TW」為必備項；防呆② 派發前斷言渲染後 prompt 必含 "zh-TW" 字面（漏烤→零派發 throw）；PreToolUse(Workflow) hook 機器擋缺 zh-TW 之 script（.claude/hooks/pre-workflow-gate.py）。｜出處：005 編排實證
+- **L-114**｜首度發出的凍結/預留 error code，其前端顯示 i18n key 需確認實際存在（L-015 之上一層、非只 restart）——005 凍結預留 7777、006 首度發出（single-session 踢除）卻沒補 7777 modal content 之 `backend.auth.session.kicked`（005 只建 8888 的 reLogin）；typecheck/fork-delta-lint/locale 對等靜態閘全綠（該 key 從未被靜態引用、curl 回 msg key 非 modal 的 $t 變體），唯 CDP 實機渲染 modal 才顯 raw key「backend.auth.session.kicked」。
+  防：消費既有/凍結碼首度發出時，把「該碼 backend msg → 前端 `$t(backend.<msg>)` key 存在且解析為譯文」列入 CDP 必驗項；final review 加「首度發出碼的前端 i18n key 存在性」鏡頭。｜出處：006 CDP-1 實測（L-053/L-015 同源）

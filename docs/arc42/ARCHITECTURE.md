@@ -56,8 +56,10 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   - `server`：axum HTTP 服務本體——boot 載入機密＋連 DB＋init casbin enforcer 建 `AppState` 後監聽；
     統一信封 `Res`/`PageRes`＋13 碼 `AppError`（映射單一來源）＋route 註冊表；分層＝`model/facade`
     （entity 存取唯一管道、每 entity 一模組）＋`model/audit`（op-log `mutate_in_txn` seam）＋`auth`
-    （JWT `sign`(prod HS256)／`verify`＋TTL 公式；`enforce_mw` decode→Claims、`require_policy` DB-fresh→casbin）
+    （JWT `sign`／`verify`＋TTL 公式＋`token_hash` SHA-256；`enforce_mw` decode→Claims＋denylist 前置；`require_policy`）
+    ＋`redis`（denylist/last_activity/grace 熱快取 client、ConnectionManager 自動重連、無 pub/sub；`Ok(None)`≠`Err` 分流）
     ＋`model/password`（argon2 verify＋dummy 時序拉平）＋`validation`（型別 registry）＋`handler`（薄編排）；
+    session 生命週期（DB-stateful rotation／single-session／denylist／精確 idle）狀態機不變式入憲 §I.7 島 A/B/C/D；
     三態 router `Protection{Public,Authed,Policy}`。系統設定端點（Policy super-only）＋auth 縱切
     （登入/換發/個資＋動態選單路由＋替代登入 stub）為業務範式（端點全集住 generated/reference/routes）。
   - `migration`：schema 與 seed 的唯一寫入者——基線結構＋定稿 seed 兩支 migration，
@@ -74,14 +76,23 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 - **登入鏈**（POST /auth/login，Public）：`find_by_user_name`（濾軟刪）→ argon2 `verify`（未命中跑
   `dummy_verify` 拉平時序、B-043）→ `status==2` 判（verify 後、carry uid）→ 三態（not-found／錯密／停用）
-  collapse `1000`（不洩存在性）→ DB-fresh roles → 生 sid/jti、讀 `session_idle_timeout`(N) 套 TTL 公式
-  `sign` access(min(300,N×60÷2)s)＋refresh(N×60s) → 終局寫 `sys_login_attempt`（exactly-one／best-effort、
-  operator 識別後 Some、IP 最小版）→ `LoginToken`。
-- **會話換發鏈**（POST /auth/refreshToken，Public、無狀態 sliding、ADR 0030）：`verify`(refresh_secret) 失敗
-  →`8888`（絕不 3333/9999/9998、防前端死迴圈）→ 活性 gate（`find_by_id` status==2／deleted→`8888`）→ 讀 N
-  → `sign` 新對（新 jti、窗推 now+N）；★零 sys_token 讀寫、零 rotation（留 session 刀）。登出界線＝閒置 [N−access, N]。
-- **RBAC 判定鏈**：`enforce_mw`（Authed/Policy：bearer→`verify`→注入 Claims、缺/壞→`3333`）→ Policy 端點另掛
-  `require_policy`（DB-fresh roles→casbin `enforce`→拒 `5003`）。roles 一律 DB-fresh、claims.roles 僅 hint。
+  collapse `1000`（不洩存在性）→ DB-fresh roles → 生 sid/jti、讀 N 套 TTL 公式 `sign` access(min(300,N×30)s)＋
+  refresh(N×60+access s) → ★insert `sys_token` active（rotation_chain=sid）；`effective_single`（per-user＞全域＝
+  島 A2）為真→per-user advisory lock（R1）＋`revoke_others_of_user` loop-until-0-active（保留新 sid）＋
+  denylist(kicked)＋session_event(kicked)＋write session_id → 記 last_activity → 終局寫 `sys_login_attempt`
+  （exactly-one／best-effort、IP 最小版）→ `LoginToken`。
+- **會話換發鏈**（POST /auth/refreshToken，Public、★DB-stateful rotation、ADR 0033 supersede 0030）：`verify`
+  →`8888`（絕不 3333/9999/9998）→ `token_hash`(SHA-256) `find_by_hash_for_update` 鎖呈遞列（島 B2 lock-then-
+  redecide、L-075）→ 依鎖住列現值重判：active→精確 idle（`now−last_activity>N×60`→`8888`＋session_event(idle)、
+  ★refresh 不推進 last_activity＝島 D2）→ rotate（舊 rotated+used_at／新 active、同 sid 新 jti、refresh TTL
+  N×60+access）＋grace 快取；rotated 窗內→grace 冪等回既發後繼（並發同票不誤撤、島 B1），窗外/revoked→reuse
+  `revoke_family` loop-until-0-active＋denylist(revoked)＋session_event(reuse)＋`8888`；denylist reason=kicked→
+  `7777`（島 A1）。refresh-time 清同 chain 過期 rotated 列（R6）。TTL 公式 access=min(300,N×30)/refresh=N×60+access。
+- **RBAC 判定鏈**：`enforce_mw`（Authed/Policy：bearer→`verify`→缺/壞→`3333`；★denylist 前置——`Ok(Some)` kicked→
+  `7777`/revoked→`8888`、`Ok(None)`＝未撤放行、`Err`→退 PG `has_active_in_chain` fail-closed〔島 C2〕、valid-access
+  推進 last_activity〔島 D2〕→注入 Claims）→ Policy 端點另掛 `require_policy`（DB-fresh→casbin→拒 `5003`）。
+- **登出鏈**（POST /auth/logout，Public、ADR 0033）：refresh 身分自證→`revoke_family`＋denylist(revoked)＋
+  session_event(logout, operator=本人)→`Res::ok`（verify 失敗冪等 no-op）；access 過期亦可登出。
 - **動態選單鏈**（GET /auth/getUserRoutes，Authed）：DB-fresh roles → casbin 枚舉 `act='menu'` 可見 route_name
   → `sys_menu` `list_active` → 祖先包含組樹（命中葉之 parent 鏈全保留）→ `{routes:MenuRoute[], home}`
   （home＝角色首個非空 role_home）。前端 dynamic 模式以此為選單唯一過濾源。
