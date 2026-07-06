@@ -8,6 +8,12 @@
 
 **Input**: User description: "@docs/brainstorms/006-session-lifecycle.md"（波1第三功能刀、auth family 第二把；核心＝B-021 會話生命週期一次設計完整〔併發／踢除／撤銷／輪替；rev3 三度改向 K2-05〕，併 B-029〔改密撤 session、本刀只出 primitive〕／B-048〔Redis 起手 ConnectionManager〕／B-062〔閒置 toast、新★軌道〕。上游＝ADR 0030〔無狀態 sliding refresh——本刀 supersede 其無狀態方向〕＋ADR 0027〔enforce_mw 接續契約〕；brainstorm 10 拍板＋對抗式健全性審查〔6 鏡頭、3 blocker/8 major 併入〕；治理＝ADR 0033〔session DB-stateful〕/0034〔★LOGOUT-UX-WIRING 軌道〕draft、§I.7 入島 A/B/C、version 1.2.0→1.3.0)
 
+## Clarifications
+
+### Session 2026-07-06
+
+- Q: 盜用（reuse）偵測觸發時的撤銷範圍——只撤被盜會話 vs 該使用者全部會話？ → A: **只撤該被盜會話**（其 `rotation_chain` token family）——本人＋竊者於該會話雙雙登出；該使用者其他會話不受影響（OAuth rotation 標準、proportionate，非「帳號全域受損」假設）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 憑證輪替與盜用偵測（refresh 被竊不再無限續命） (Priority: P1)
@@ -168,7 +174,8 @@ CDP 實機（CDP-2）：設定調短→持續操作不登出→閒置滿 N 恰�
   確保等值查得中）。輪替寫入須抗「撤銷穿插」競態（先讀後寫的發放決策必在鎖住的當前列上重判、L-075）。
 - **FR-002**: 系統 MUST 實作**盜用（重放）偵測**：呈遞一枚已作廢（已輪替／已撤銷）的 refresh 憑證→判盜用
   →撤銷整條會話（該會話所有憑證作廢）＋落稽核（reuse）＋回 `8888`。撤銷須完整涵蓋並發輪替剛產生的
-  後繼憑證（撤銷不得殘留任何仍可用憑證）。
+  後繼憑證（撤銷不得殘留任何仍可用憑證）。**撤銷 blast radius 限該被盜會話**（其 `rotation_chain` token
+  family）、**不及**該使用者其他會話（clarify 2026-07-06；OAuth 標準、proportionate）。
 - **FR-003**: 憑證輪替 MUST 對**合法並發/重試**保留寬限：呈遞一枚剛被輪替、且為當前有效憑證之直接前驅、
   且落在極短寬限窗（活書常數）內者，判良性並冪等回傳既發後繼（或放行）、**不撤會話**；僅超窗／更早世代／
   已撤銷者才判盜用。前端 refresh 去重須跨兩個請求棧共用單一在途承諾，避免雙棧各自觸發並發換發。
