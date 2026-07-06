@@ -10,7 +10,7 @@
 
 ## 帳面統計
 - ADR：36（accepted 34、superseded 2）
-- BACKLOG 待辦：55（next：B-071）
+- BACKLOG 待辦：54（next：B-071）
 - LESSONS：114 筆（next：L-115）
 - events：7 筆（feature_close 6、misc 1）
 
@@ -20,7 +20,7 @@
 - 2026-07-05｜feature_close｜004-system-settings｜系統設定縱切收刀（波1首功能刀＋base-web 首刀）：後端首建 auth seam（enforce_mw JWT-decode＋require_policy DB-fresh roles→casbin enforce super-only→5003；JWT sign/登入延 auth 刀）＋facade/op-log（mutate_in_txn 同 txn、KV String-PK entity_id=None、setting_key 進 payload）＋型別驗證 registry（ADR 0026 per-key 範圍＋canonical 正規化＋未知型 fail-loud）＋兩端點（getSystemSettings/updateSystemSetting、SettingItem camelCase settingType、審計欄不上 wire）＋entity_access_lint 首建＋per-route 契約裁判（SettingItem vs 快照 Api.SystemManage.SystemSetting）＋demo 清償（B-056、覆蓋閘 3↔3）；前端 base-web 首刀＝ADAPT typings/WRAPPER service/★MODAL-WIRING(e) 設定頁（前綴分區＋型別驅動控件＋恆 refetch＋密碼策略固定排序＋i18n label＋info-icon tooltip）＋★I18N-WIRING(i)~(iv)（攔截器 msg→$t backend 命名空間、全 zh-TW primary locale 525 鍵繁化、三語選單簡/繁/English）；jsonwebtoken 10.4.0(rust_crypto)/metrics 0.24.6 拍板釘版；cargo test --workspace 74 綠、quickstart A~H 全綠、SC-001~007/FR-001~016/US1-3 全滿足、holistic review SHIP-READY；fork-delta 原行紀律機器化（tools/fork-delta-lint 掛 pre-commit）
 
 ## reference 對賬
-- reference/routes：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
+- reference/routes：真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）
 - reference/ports：真表（來源＝compose 三檔的 ports: 段、由 generate 重算）
 - reference/schema：真表（來源＝reference-src 的 schema-snapshot.json＋archetype-map.json、由 generate 重算；快照由 refresh 自實庫撈）
 - reference/accounts：真表（來源＝reference-src 的 accounts-snapshot.json、由 generate 重算；快照由 refresh 自實庫撈）

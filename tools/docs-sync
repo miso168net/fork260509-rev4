@@ -575,6 +575,7 @@ GEN_HEADER = "<!-- 機器生成：tools/docs-sync generate——嚴禁手改；�
 REFERENCE_TABLES = ("routes", "ports", "schema", "accounts", "screens")
 # stub 轉真的表：STATE 對賬行改列真來源描述（其餘表維持 gen_reference_stub）
 REFERENCE_LIVE = {
+    "routes": "真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）",
     "ports": "真表（來源＝compose 三檔的 ports: 段、由 generate 重算）",
     "schema": "真表（來源＝reference-src 的 schema-snapshot.json＋archetype-map.json、"
               "由 generate 重算；快照由 refresh 自實庫撈）",
@@ -772,6 +773,9 @@ def errata_scan(texts, keyword):
 
 # L2 對賬：轉真表各有真來源——漂移指名來源側（其餘生成檔漂移歸 L1 泛訊息）
 L2_SOURCES = {
+    f"{GENERATED_DIR}/reference/routes.md":
+        "routes 對照表與 router.rs 重算結果不一致——"
+        "rust-api/server/src/router.rs ROUTES 改動後未跑 tools/docs-sync generate",
     f"{GENERATED_DIR}/reference/ports.md":
         "ports 對照表與 compose 重算結果不一致——compose 三檔"
         " ports: 段改動後未跑 tools/docs-sync generate",
@@ -1011,6 +1015,152 @@ def gen_reference_ports(rows):
         for src, svc, host, cont, ip in
         sorted(rows, key=lambda r: (r[0], r[1], int(r[2]), int(r[3]))))
     return (head + "| 服務 | host port | 容器內 port | 綁定 IP | 來源檔 |\n"
+            "|---|---|---|---|---|\n" + lines + "\n")
+
+
+# ---------------------------------------------------------------------------
+# routes 直解：rust-api/server/src/router.rs 的 `pub const ROUTES` 全量表（B-001）。
+# 比照上方 ports 直解範式（窄假設行級解析＋fail-loud）；B-052「route 抽取防漏」關鍵——
+# 寧可擋下、絕不靜默漏列一條 route。
+# ---------------------------------------------------------------------------
+
+ROUTER_SOURCE = "rust-api/server/src/router.rs"
+# router.rs 全部合法 variant（掌握全集才能讓 fail-loud 準確、新增即紅逼同步）：
+ROUTE_METHODS = {"Get": "GET", "Post": "POST"}       # HttpMethod variant → casbin act 字面
+ROUTE_PROTECTIONS = ("Public", "Authed", "Policy")   # Protection 三態
+ROUTE_REQUIRED_FIELDS = ("path", "method", "case_key", "envelope_exception", "protection")
+
+# 窄假設唯一合法項形（router.rs 現行實際使用的形；stripped 後 fullmatch）：
+RE_ROUTES_CONST_OPEN = re.compile(r"^pub const ROUTES:\s*&\[RouteDef\]\s*=\s*&\[$")
+RE_ROUTE_FIELD_PATH = re.compile(r'^path:\s*"([^"]*)",$')
+RE_ROUTE_FIELD_METHOD = re.compile(r"^method:\s*HttpMethod::(\w+),$")
+RE_ROUTE_FIELD_HANDLER = re.compile(r"^handler:\s*\|\|\s*(?:get|post)\(.+\),$")
+RE_ROUTE_FIELD_CASE_KEY = re.compile(r'^case_key:\s*"([^"]*)",$')
+RE_ROUTE_FIELD_ENVELOPE = re.compile(r"^envelope_exception:\s*(true|false),$")
+RE_ROUTE_FIELD_PROTECTION = re.compile(r"^protection:\s*Protection::(\w+),$")
+
+
+class RouterRoutesError(Exception):
+    """router.rs ROUTES 解析失敗（fail-loud：寧可擋下、不靜默漏列一條 route——B-052）。"""
+
+
+def _parse_route_field(stripped, rel, n):
+    """解析 RouteDef 條目內單行欄位。回 (key, value)；handler 識形後回 (None, None)（略過不入表）。
+
+    不認得的欄／形／未知 method 或 protection variant → RouterRoutesError 指名 rel:行。
+    """
+    m = RE_ROUTE_FIELD_PATH.fullmatch(stripped)
+    if m:
+        return "path", m.group(1)
+    m = RE_ROUTE_FIELD_CASE_KEY.fullmatch(stripped)
+    if m:
+        return "case_key", m.group(1)
+    m = RE_ROUTE_FIELD_ENVELOPE.fullmatch(stripped)
+    if m:
+        return "envelope_exception", m.group(1) == "true"
+    m = RE_ROUTE_FIELD_METHOD.fullmatch(stripped)
+    if m:
+        variant = m.group(1)
+        if variant not in ROUTE_METHODS:
+            raise RouterRoutesError(
+                f"{rel}:行 {n}｜未知 HttpMethod::{variant}"
+                f"（已知：{'／'.join(ROUTE_METHODS)}；router.rs 新增動詞請同步擴充本解析器）")
+        return "method", ROUTE_METHODS[variant]
+    m = RE_ROUTE_FIELD_PROTECTION.fullmatch(stripped)
+    if m:
+        variant = m.group(1)
+        if variant not in ROUTE_PROTECTIONS:
+            raise RouterRoutesError(
+                f"{rel}:行 {n}｜未知 Protection::{variant}"
+                f"（已知：{'／'.join(ROUTE_PROTECTIONS)}；router.rs 新增保護態請同步擴充本解析器）")
+        return "protection", variant
+    if RE_ROUTE_FIELD_HANDLER.fullmatch(stripped):
+        return None, None  # handler 閉包：識形後略過不入表（form 變即 fail-loud）
+    raise RouterRoutesError(
+        f"{rel}:行 {n}｜RouteDef 內不認得的欄/形「{stripped}」"
+        "（僅支援 path／method／handler／case_key／envelope_exception／protection；"
+        "router.rs 改寫法請同步擴充本解析器）")
+
+
+def parse_router_routes(text, rel):
+    """解析 router.rs 的 `pub const ROUTES` block。
+    回 [(path, method, protection, case_key, envelope_exception)]。
+
+    行級窄假設解析（標準庫、不 parse Rust；只支援 router.rs 現行實際使用的形）：
+    - 只解析 `pub const ROUTES: &[RouteDef] = &[` 起、`];` 止的那一段 block；其他 RouteDef
+      出現處（struct 定義、build() 迭代、doc 註解）一律不碰。
+    - block 內頂層只認 `RouteDef {` 起條目、`}`／`},` 收條目，空行／`//` 註解跳過；其餘 fail-loud。
+    - 條目內每欄一行；handler 閉包識形後略過不入表；method／protection variant 必屬已知集。
+    - 未知欄／重複欄／缺欄／未知 variant／找不到 ROUTES const／block 未收尾 → RouterRoutesError
+      指名 rel:行——防來源改寫法時對照表靜默漏列（fail-loud 逼人同步擴充解析器）。
+    """
+    rows = []
+    found_const, in_const, entry, entry_line = False, False, None, None
+    for n, raw in enumerate(text.splitlines(), start=1):
+        stripped = raw.strip()
+        if not in_const:
+            if RE_ROUTES_CONST_OPEN.fullmatch(stripped):
+                found_const, in_const = True, True
+            continue  # const 外一律忽略（含 struct 定義、build() 迭代、doc 註解）
+        if not stripped or stripped.startswith("//"):
+            continue  # 空行／註解行不終結區塊
+        if entry is None:
+            if stripped == "];":
+                in_const = False
+                break  # ROUTES const 收尾（唯一一段、無需續掃）
+            if stripped == "RouteDef {":
+                entry, entry_line = {}, n
+                continue
+            raise RouterRoutesError(
+                f"{rel}:行 {n}｜ROUTES block 頂層不認得的行「{stripped}」"
+                "（僅支援 RouteDef 條目與收尾 ];；router.rs 改寫法請同步擴充本解析器）")
+        if stripped in ("}", "},"):
+            missing = [f for f in ROUTE_REQUIRED_FIELDS if f not in entry]
+            if missing:
+                raise RouterRoutesError(
+                    f"{rel}:行 {entry_line}｜RouteDef 條目缺欄 {missing}"
+                    "（router.rs 改寫法請同步擴充本解析器）")
+            rows.append((entry["path"], entry["method"], entry["protection"],
+                         entry["case_key"], entry["envelope_exception"]))
+            entry = None
+            continue
+        key, value = _parse_route_field(stripped, rel, n)
+        if key is None:
+            continue  # handler：略過
+        if key in entry:
+            raise RouterRoutesError(f"{rel}:行 {n}｜RouteDef 內重複欄「{key}」")
+        entry[key] = value
+    if not found_const:
+        raise RouterRoutesError(
+            f"{rel}｜找不到 `pub const ROUTES: &[RouteDef] = &[`——routes 對照表無法重算")
+    if in_const:
+        raise RouterRoutesError(f"{rel}｜ROUTES const block 未見收尾 ];（fail-loud、防半解析漏列）")
+    return rows
+
+
+def compute_router_rows(root):
+    """讀 router.rs → parse_router_routes。回 rows；來源檔缺＝fail-loud。"""
+    text = _read(root, ROUTER_SOURCE)
+    if text is None:
+        raise RouterRoutesError(f"{ROUTER_SOURCE}｜router 來源檔不存在——routes 對照表無法重算")
+    return parse_router_routes(text, ROUTER_SOURCE)
+
+
+def gen_reference_routes(rows):
+    """reference/routes ← router.rs ROUTES const 全量表。
+
+    只列 ROUTES 實際註冊的路由（handler 閉包不入表；授權語意歸 router.rs 文件）；
+    列序確定性＝path→method。
+    """
+    head = (f"{GEN_HEADER}\n# reference/routes — 全量正典表\n\n"
+            f"來源＝{ROUTER_SOURCE} 的 ROUTES const（generate 重算；handler 閉包不入表）。\n\n")
+    if not rows:
+        return head + "（ROUTES 無任何條目）\n"
+    lines = "\n".join(
+        f"| {path} | {method} | {protection} | {case_key} | {'是' if env else '否'} |"
+        for path, method, protection, case_key, env in
+        sorted(rows, key=lambda r: (r[0], r[1])))
+    return (head + "| path | method | protection | case_key | envelope 例外 |\n"
             "|---|---|---|---|---|\n" + lines + "\n")
 
 
@@ -1307,6 +1457,7 @@ def compute_generated(root):
             continue
         files[f"{GENERATED_DIR}/reference/{name}.md"] = gen_reference_stub(name)
     files[f"{GENERATED_DIR}/reference/ports.md"] = gen_reference_ports(compute_ports_rows(root))
+    files[f"{GENERATED_DIR}/reference/routes.md"] = gen_reference_routes(compute_router_rows(root))
     files.update(compute_snapshot_reference(root))
     return files
 
@@ -2029,6 +2180,170 @@ class TestComposePorts(unittest.TestCase):
             self.assertEqual(len(f), 1)
             self.assertEqual(f[0]["code"], "L2")
             self.assertIn("ports", f[0]["msg"])
+
+
+# 單條乾淨 RouteDef 欄集（fail-loud 案例逐行代換其一）
+ROUTER_CLEAN_FIELDS = (
+    '        path: "/health",\n'
+    "        method: HttpMethod::Get,\n"
+    "        handler: || get(health_ok),\n"
+    '        case_key: "health",\n'
+    "        envelope_exception: true,\n"
+    "        protection: Protection::Public,\n"
+)
+# 完整樣本：const 前置 struct 定義＋block 內註解＋build() 迭代（皆須被忽略、不誤抓）
+ROUTER_ROUTES_SAMPLE = (
+    "use axum::Router;\n"
+    "pub struct RouteDef {\n"                     # ← const 外的 RouteDef 字樣：須忽略
+    "    pub path: &'static str,\n"               # ← 看似 path 欄、但不在 const：須忽略
+    "}\n"
+    "pub const ROUTES: &[RouteDef] = &[\n"
+    + ROUTER_CLEAN_FIELDS.join(("    RouteDef {\n", "    },\n"))
+    + "    // block 內註解：須跳過、不終結區塊\n"
+    "    RouteDef {\n"
+    '        path: "/auth/login",\n'
+    "        method: HttpMethod::Post,\n"
+    "        handler: || post(crate::handler::auth::login),\n"
+    '        case_key: "auth-login",\n'
+    "        envelope_exception: false,\n"
+    "        protection: Protection::Policy,\n"
+    "    },\n"
+    "];\n"
+    "pub fn build() {\n"
+    "    for def in ROUTES {}\n"                   # ← const 外的 ROUTES 字樣：須忽略
+    "}\n"
+)
+
+
+def _router_one(fields):
+    """把單條欄集包成完整 ROUTES const 文字（fail-loud 案例用）。"""
+    return ("pub const ROUTES: &[RouteDef] = &[\n"
+            "    RouteDef {\n" + fields + "    },\n"
+            "];\n")
+
+
+class TestRouterRoutes(unittest.TestCase):
+    def test_parse_clean_sample(self):
+        rows = parse_router_routes(ROUTER_ROUTES_SAMPLE, "router.rs")
+        # 恰 2 條（struct 定義／build() 迭代未被誤抓）；handler 不入表、method 已映射字面
+        self.assertEqual(rows, [
+            ("/health", "GET", "Public", "health", True),
+            ("/auth/login", "POST", "Policy", "auth-login", False),
+        ])
+
+    def test_parse_real_router_rs(self):
+        rows = compute_router_rows(ROOT)
+        self.assertGreater(len(rows), 0, "真實 router.rs 應解析出 route")
+        health = [r for r in rows if r[0] == "/health"]
+        self.assertEqual(len(health), 1, "應含且僅含一條 /health")
+        self.assertEqual(health[0][1], "GET")
+        self.assertTrue(health[0][4], "/health 應標 envelope 例外")
+
+    def test_unknown_method_variant_fails_loud(self):
+        bad = ROUTER_CLEAN_FIELDS.replace("HttpMethod::Get", "HttpMethod::Delete")
+        with self.assertRaises(RouterRoutesError) as cm:
+            parse_router_routes(_router_one(bad), "f.rs")
+        self.assertIn("Delete", str(cm.exception))
+        self.assertIn("行 4", str(cm.exception))
+
+    def test_unknown_protection_variant_fails_loud(self):
+        bad = ROUTER_CLEAN_FIELDS.replace("Protection::Public", "Protection::Admin")
+        with self.assertRaises(RouterRoutesError) as cm:
+            parse_router_routes(_router_one(bad), "f.rs")
+        self.assertIn("Admin", str(cm.exception))
+
+    def test_unknown_field_fails_loud(self):
+        bad = ROUTER_CLEAN_FIELDS + "        weight: 5,\n"
+        with self.assertRaises(RouterRoutesError) as cm:
+            parse_router_routes(_router_one(bad), "f.rs")
+        self.assertIn("f.rs", str(cm.exception))
+
+    def test_malformed_path_shape_fails_loud(self):
+        # path 無引號＝不認得的形（窄假設：必引號短語法）
+        bad = ROUTER_CLEAN_FIELDS.replace('path: "/health",', "path: /health,")
+        with self.assertRaises(RouterRoutesError):
+            parse_router_routes(_router_one(bad), "f.rs")
+
+    def test_handler_shape_change_fails_loud(self):
+        # handler 非 get()／post() 閉包＝不認得的形（不盲跳過）
+        bad = ROUTER_CLEAN_FIELDS.replace(
+            "handler: || get(health_ok),", "handler: || delete(health_ok),")
+        with self.assertRaises(RouterRoutesError):
+            parse_router_routes(_router_one(bad), "f.rs")
+
+    def test_duplicate_field_fails_loud(self):
+        bad = ROUTER_CLEAN_FIELDS + '        path: "/dup",\n'
+        with self.assertRaises(RouterRoutesError) as cm:
+            parse_router_routes(_router_one(bad), "f.rs")
+        self.assertIn("重複", str(cm.exception))
+
+    def test_missing_field_fails_loud(self):
+        bad = ROUTER_CLEAN_FIELDS.replace(
+            "        protection: Protection::Public,\n", "")
+        with self.assertRaises(RouterRoutesError) as cm:
+            parse_router_routes(_router_one(bad), "f.rs")
+        self.assertIn("protection", str(cm.exception))
+
+    def test_top_level_junk_in_block_fails_loud(self):
+        text = ("pub const ROUTES: &[RouteDef] = &[\n"
+                "    surprise_line,\n"
+                "];\n")
+        with self.assertRaises(RouterRoutesError) as cm:
+            parse_router_routes(text, "f.rs")
+        self.assertIn("行 2", str(cm.exception))
+
+    def test_missing_const_fails_loud(self):
+        with self.assertRaises(RouterRoutesError) as cm:
+            parse_router_routes("fn main() {}\n", "f.rs")
+        self.assertIn("ROUTES", str(cm.exception))
+
+    def test_unterminated_block_fails_loud(self):
+        text = "pub const ROUTES: &[RouteDef] = &[\n    RouteDef {\n" + ROUTER_CLEAN_FIELDS
+        with self.assertRaises(RouterRoutesError) as cm:
+            parse_router_routes(text, "f.rs")
+        self.assertIn("收尾", str(cm.exception))
+
+    def test_compute_router_rows_missing_source_fails_loud(self):
+        with tempfile.TemporaryDirectory() as root:
+            with self.assertRaises(RouterRoutesError) as cm:
+                compute_router_rows(root)
+            self.assertIn(ROUTER_SOURCE, str(cm.exception))
+
+    def test_gen_reference_routes_sorted_and_deterministic(self):
+        rows = [("/b", "GET", "Authed", "b", False),
+                ("/a", "POST", "Public", "a-post", False),
+                ("/a", "GET", "Public", "a-get", True)]
+        text = gen_reference_routes(rows)
+        self.assertTrue(text.startswith(GEN_HEADER))
+        self.assertLess(text.index("/a | GET"), text.index("/a | POST"))  # 同 path→method 序
+        self.assertLess(text.index("/a | POST"), text.index("/b | GET"))  # path 序
+        self.assertEqual(text, gen_reference_routes(list(reversed(rows))))  # 入序無關
+        self.assertIn("| 是 |", text)  # envelope True→是
+        self.assertIn("| 否 |", text)  # envelope False→否
+
+    def test_gen_reference_routes_empty(self):
+        self.assertIn("無任何條目", gen_reference_routes([]))
+
+    def test_state_routes_line_is_live_not_stub(self):
+        text = gen_state(TestGenState.CTX)
+        for line in text.splitlines():
+            if line.startswith("- reference/routes"):
+                self.assertNotIn("stub", line)
+                self.assertIn("generate", line)
+                break
+        else:
+            self.fail("STATE 缺 reference/routes 對賬行")
+
+    def test_check_reports_routes_drift_as_l2(self):
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, "docs/generated/reference"))
+            rel = "docs/generated/reference/routes.md"
+            with open(os.path.join(root, rel), "w", encoding="utf-8") as fh:
+                fh.write("舊表\n")
+            f = check_generated(root, {rel: "新表\n"})
+            self.assertEqual(len(f), 1)
+            self.assertEqual(f[0]["code"], "L2")
+            self.assertIn("routes", f[0]["msg"])
 
 
 class TestLintLinks(unittest.TestCase):
@@ -2978,8 +3293,8 @@ class TestSnapshotReference(unittest.TestCase):
         for name in ("schema", "accounts"):
             self.assertNotIn("stub", state_lines[name], msg=name)   # 轉真
             self.assertIn("generate", state_lines[name], msg=name)
-        for name in ("routes", "screens"):
-            self.assertIn("stub", state_lines[name], msg=name)      # 對賬區只剩兩 stub
+        for name in ("screens",):
+            self.assertIn("stub", state_lines[name], msg=name)      # routes 轉真後、僅餘 screens stub
 
     def test_check_reports_schema_accounts_drift_as_l2(self):
         for base in ("schema", "accounts"):
@@ -3063,6 +3378,9 @@ def main(argv):
         return 1
     except ComposePortsError as ex:
         print(f"[ERROR] ports 解析｜{ex}——fail-loud，處置後重跑", file=sys.stderr)
+        return 1
+    except RouterRoutesError as ex:
+        print(f"[ERROR] routes 解析｜{ex}——fail-loud，處置後重跑", file=sys.stderr)
         return 1
     except SnapshotError as ex:
         print(f"[ERROR] 快照管線｜{ex}", file=sys.stderr)
