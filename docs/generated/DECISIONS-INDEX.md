@@ -38,3 +38,4 @@
 | 0033 | accepted | 2026-07-06 | 會話生命週期改採 DB-stateful rotation（rotation＋reuse 偵測＋denylist 即時撤銷＋single-session＋精確 idle） | — | 0030 | — |
 | 0034 | accepted | 2026-07-06 | 新增 ★BASE-WEB-LOGOUT-UX-WIRING 軌道（logout server-call 接线＋閒置登出 toast 兩用途） | — | — | — |
 | 0035 | accepted | 2026-07-06 | T034 前端跨棧共用 refresh 在途承諾 won't-fix（by-design：alova 對真實 auth dormant＋後端 grace 冪等為並發正確性防線） | — | — | — |
+| 0036 | accepted | 2026-07-06 | FR-017(ii) service-alova 閒置 toast 副本 by-design 省略（alova 對真實 auth dormant＋既有 showErrorMsg 雙彈＋乾淨做須動 showErrorMsg 出軌道） | — | — | — |
