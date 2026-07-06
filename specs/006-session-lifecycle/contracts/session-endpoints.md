@@ -10,7 +10,7 @@ schema 細節見 `../data-model.md`；碼語意見憲法 §I.7 島 A。
 - **behavior**（島 B/D）：
   1. verify refresh JWT（refresh 密鑰/iss/aud/exp）失敗→**8888**。
   2. `token_hash`＝SHA256(refreshToken)→`SELECT … WHERE token_hash FOR UPDATE`。
-  3. status=`active`→**精確 idle 檢查**（`now−last_activity>N×60`→8888）→rotate（舊 rotated＋used_at／新 active）
+  3. status=`active`→**精確 idle 檢查**（`now−last_activity>N×60`→8888＋session_event(idle)、不寫 denylist）→rotate（舊 rotated＋used_at／新 active）
      →簽新對（同 sid、新 jti）→寫 grace 快取→**回 `LoginToken`**。★refresh **不**推進 last_activity。
   4. status=`rotated` 且直接前驅且 grace 窗內→**冪等回既發後繼對**（grace 快取）、不撤。
   5. status=`rotated`（窗外/更早世代）／`revoked`→**reuse 偵測**：`revoke_family`＋denylist(revoked)＋

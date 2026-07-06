@@ -47,7 +47,7 @@ active（涵蓋並發 rotate 插入的後繼列）；single-session login 另加
 | `sid` | String(36) NN | 受影響會話 |
 | `event_type` | String(20) NN | `kicked`／`revoked`／`logout`／`idle`／`reuse` |
 | `reason` | String(64) NULL | 補充原因 |
-| `operator_id` | i64 NULL | 觸發者 user_id（self-logout＝本人；系統事件 reuse/idle＝NULL） |
+| `created_by` | i64 NULL | 觸發者 operator user_id（§I.6/sys_login_attempt 一致「created_by 改名自 operator_id」；self-logout＝本人、系統事件 reuse/idle＝NULL） |
 | `source_ip` | String(45) NULL | 沿用 005 IP 取證最小版（best-effort） |
 
 - **變體 B**：只 `created_at` NN＋domain 欄；**無 `updated_*`/`deleted_*`、不可竄改**（§I.6）。
@@ -99,7 +99,7 @@ login(single→advisory lock; revoke_others+7777) ─▶ [session active: sys_to
    │ refresh(valid, in-window) ─▶ rotate(舊 rotated/新 active)  [持續]
    │ refresh(已作廢舊票, grace 窗內) ─▶ 冪等回既發後繼          [持續]
    │ refresh(已作廢舊票, 窗外/更早世代) ─▶ reuse: revoke_family+8888
-   │ refresh(idle 逾 N) ─▶ 8888（不寫 denylist）
+   │ refresh(idle 逾 N) ─▶ 8888（不寫 denylist、落 session_event(idle)）
    │ logout(refresh 身分) ─▶ revoke_family+denylist+8888
    │ 他處 single-login ─▶ 本會話 revoke_family+denylist(kicked)→下次請求 7777
    ▼
