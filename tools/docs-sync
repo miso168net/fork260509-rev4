@@ -5,7 +5,7 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 對賬）
-  lint            L3／L7~L15（L2 其餘表與 L4/L5/L6 隨事件源與實碼逐步啟用）
+  lint            L3～L15（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向）
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
   test            跑自帶測試（unittest）
@@ -1311,13 +1311,201 @@ def compute_generated(root):
     return files
 
 
+# ---------------------------------------------------------------------------
+# L4 收刀事件存在性／L5 review 分流雙源對賬／L6 arch_impact 存在性＋最新刀雙向
+# ---------------------------------------------------------------------------
+
+
+def _norm_bid(s):
+    """B-NNN 正規化為 3 位零填字串，令事件字串與 BACKLOG 條目可比。"""
+    m = re.fullmatch(r"B-(\d+)", s) if isinstance(s, str) else None
+    return f"B-{int(m.group(1)):03d}" if m else s
+
+
+def _open_backlog_ids(root):
+    """現況 BACKLOG.md 仍開放的 B-NNN 條目集（RE_ENTRY 認真條目、非散文引用）。"""
+    text = _read(root, BACKLOG) or ""
+    return {f"B-{int(m.group(1)):03d}" for m in RE_ENTRY["B"].finditer(text)}
+
+
+def _backlog_done_ids(events):
+    """曾在任一 feature_close.backlog_done 被標記完成的 B-NNN 集（＝已被消化的證據）。"""
+    out = set()
+    for e in events:
+        if e.get("type") == "feature_close" and isinstance(e.get("backlog_done"), list):
+            out.update(_norm_bid(b) for b in e["backlog_done"] if isinstance(b, str))
+    return out
+
+
+def _adr_ids_on_disk(root):
+    """現況 ADR_DIR 下合法檔名的 4 碼 ADR 編號集。"""
+    d = os.path.join(root, ADR_DIR)
+    ids = set()
+    if os.path.isdir(d):
+        for n in os.listdir(d):
+            m = RE_ADR_FILENAME.fullmatch(n)
+            if m:
+                ids.add(m.group(1))
+    return ids
+
+
+def lint_close_existence(root):
+    """L4：逐 feature_close 驗其引用之 ADR／backlog／specs 目錄真實存在。回 findings。"""
+    out = []
+    events = parse_events_loose(_read(root, EVENTS))
+    open_ids = _open_backlog_ids(root)
+    done_ids = _backlog_done_ids(events)
+    adr_ids = _adr_ids_on_disk(root)
+    for e in events:
+        if e.get("type") != "feature_close":
+            continue
+        feat = e.get("feature")
+        where = f"{EVENTS}｜{feat}"
+        for adr in e.get("adrs", []) or []:
+            if adr not in adr_ids:
+                out.append(finding(ERROR, "L4", where,
+                                   f"adrs 引用 ADR {adr} 但 {ADR_DIR}/ 無對應檔"))
+        for b in e.get("backlog_done", []) or []:
+            if _norm_bid(b) in open_ids:
+                out.append(finding(ERROR, "L4", where,
+                                   f"backlog_done {b} 仍在 BACKLOG.md（宣稱完成卻未刪列）"))
+        for b in e.get("backlog_add", []) or []:
+            nb = _norm_bid(b)
+            if nb not in open_ids and nb not in done_ids:
+                out.append(finding(ERROR, "L4", where,
+                                   f"backlog_add {b} 查無此項（現況 BACKLOG 無、亦無後續 backlog_done 消化）"))
+        if isinstance(feat, str) and not os.path.isdir(os.path.join(root, "specs", feat)):
+            out.append(finding(ERROR, "L4", where, f"specs/{feat}/ 目錄不存在"))
+    return out
+
+
+def lint_review_existence(root):
+    """L5：逐 review 驗分流引用（report 檔／to_backlog／wontfix_adr）真實存在。回 findings。"""
+    out = []
+    events = parse_events_loose(_read(root, EVENTS))
+    open_ids = _open_backlog_ids(root)
+    done_ids = _backlog_done_ids(events)
+    adr_ids = _adr_ids_on_disk(root)
+    tracked = set(tracked_files(root))
+    for e in events:
+        if e.get("type") != "review":
+            continue
+        where = f"{EVENTS}｜review {e.get('date')}"
+        report = e.get("report")
+        if isinstance(report, str):
+            rel = f"docs/{report}"
+            if not os.path.isfile(os.path.join(root, rel)) and rel not in tracked:
+                out.append(finding(ERROR, "L5", where, f"report 檔不存在：{rel}"))
+        fd = e.get("findings")
+        if isinstance(fd, dict):
+            for b in fd.get("to_backlog", []) or []:
+                nb = _norm_bid(b)
+                if nb not in open_ids and nb not in done_ids:
+                    out.append(finding(ERROR, "L5", where,
+                                       f"to_backlog {b} 查無此項（現況 BACKLOG 無、亦無後續 backlog_done 消化）"))
+            for adr in fd.get("wontfix_adr", []) or []:
+                if adr not in adr_ids:
+                    out.append(finding(ERROR, "L5", where,
+                                       f"wontfix_adr 引用 ADR {adr} 但 {ADR_DIR}/ 無對應檔"))
+    return out
+
+
+def _section_num(s):
+    return int(s[1:]) if isinstance(s, str) and RE_SECTION.fullmatch(s) else None
+
+
+def _arch_impact_nums(ai):
+    """arch_impact 欄轉節號集；"none" 或非 list→空集（非 §N 項交 L3 驗形）。"""
+    if not isinstance(ai, list):
+        return set()
+    return {n for n in (_section_num(s) for s in ai) if n is not None}
+
+
+def _book_section_content(text):
+    """活書各 §節內容（不含節標題行），供內容相異比對。回 {節號: 內容字串}。"""
+    sec, buf, out = None, [], {}
+    for line in (text or "").splitlines():
+        m = RE_BOOK_SECTION.match(line)
+        if m:
+            if sec is not None:
+                out[sec] = "\n".join(buf)
+            sec, buf = int(m.group(1)), []
+        elif sec is not None:
+            buf.append(line)
+    if sec is not None:
+        out[sec] = "\n".join(buf)
+    return out
+
+
+def _arch_changed_sections(book_a, book_b):
+    """兩版活書內容相異的 §節號集（含只存在於一版者）。"""
+    sa, sb = _book_section_content(book_a), _book_section_content(book_b)
+    return {n for n in set(sa) | set(sb) if sa.get(n) != sb.get(n)}
+
+
+def lint_arch_impact(root):
+    """L6：(a) 全 feature_close arch_impact §N 須為活書現存節；
+    (b) 僅最新 feature_close：merge→簿記活書變動節集與 arch_impact 雙向相等。回 findings。
+
+    (b) 現況側綁定該刀「簿記狀態」（非恆前進工作樹）：
+      - 簿記尚未 commit（HEAD＝該刀 merge）＝pre-commit 閘時刻，as-built 僅在工作樹→讀工作樹；
+      - 簿記已落地為 HEAD（HEAD^＝該刀 merge）→讀 HEAD 版活書（忽略工作樹後續漂移）；
+      - HEAD 已前進超過簿記（下一支 feature 已 commit）或 SHA 取不到→跳過 (b)（fail-safe、不誤報）。
+    綁定之必要：若恆讀工作樹，下一支 feature 的 mid-feature 活書編輯會被誤算進最新刀名下，
+    產生無法滿足的假陽（下一支尚無 close event 可登記 arch_impact），全程硬擋 commit。
+    歷史刀不做 (b)——其 merge 與現況簿記狀態無對應、慣例對不齊會誤報。
+    """
+    out = []
+    events = parse_events_loose(_read(root, EVENTS))
+    book = _read(root, BOOK)
+    sec_set = set(book_section_lines(book)) if book is not None else set()
+    closes = [e for e in events if e.get("type") == "feature_close"]
+    # (a) 存在性：全 feature_close
+    for e in closes:
+        where = f"{EVENTS}｜{e.get('feature')}"
+        for n in sorted(_arch_impact_nums(e.get("arch_impact"))):
+            if n not in sec_set:
+                out.append(finding(ERROR, "L6", where,
+                                   f"arch_impact §{n} 非活書（{BOOK}）現存節"))
+    # (b) 雙向：僅最新刀，且現況側綁定該刀簿記狀態（非恆前進工作樹）
+    if closes:
+        latest = closes[-1]
+        where = f"{EVENTS}｜{latest.get('feature')}"
+        m = latest.get("merge")
+        m_sha = git_out(["rev-parse", "--verify", m], root) if isinstance(m, str) else None
+        head = git_out(["rev-parse", "--verify", "HEAD"], root)
+        head_par = git_out(["rev-parse", "--verify", "HEAD^"], root)
+        book_m = git_out(["show", f"{m}:{BOOK}"], root) if isinstance(m, str) else None
+        book_now = None
+        if m_sha is not None and head is not None and m_sha.strip() == head.strip():
+            # State 1：pre-commit 簿記（HEAD＝merge、as-built 尚未落地、僅在工作樹）→ 讀工作樹
+            book_now = book
+        elif m_sha is not None and head_par is not None and m_sha.strip() == head_par.strip():
+            # State 2：簿記已落地為 HEAD（HEAD^＝merge）→ 讀 HEAD 版活書、忽略工作樹後續漂移
+            book_now = head_file(BOOK, root)
+        # 否則 HEAD 已前進超過簿記／SHA 取不到 → book_now=None → 跳過 (b)（fail-safe）
+        if book_m is not None and book_now is not None:
+            claimed = _arch_impact_nums(latest.get("arch_impact"))
+            changed = _arch_changed_sections(book_m, book_now)
+            for n in sorted(claimed - changed):
+                out.append(finding(ERROR, "L6", where,
+                                   f"最新刀宣稱 arch_impact §{n} 但 merge→簿記活書該節無實際變動"))
+            for n in sorted(changed - claimed):
+                out.append(finding(ERROR, "L6", where,
+                                   f"最新刀簿記活書 §{n} 內容有變動但 arch_impact 未宣稱"))
+    return out
+
+
 def run_lint(root):
-    """組裝 L3／L7~L15 全套。回 findings。git 不可用＝fail-closed 單發 ERROR。"""
+    """組裝 L3～L15（含 L4/L5/L6 收刀完整性閘）全套。回 findings。git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
         return [finding(ERROR, "L1", ".",
                         "git 不可用——HEAD 基線與掃描語料無法建立，lint fail-closed（修復 git 後重跑）")]
     findings = []
     findings += lint_events(_read(root, EVENTS) or "")
+    findings += lint_close_existence(root)
+    findings += lint_review_existence(root)
+    findings += lint_arch_impact(root)
     findings += lint_budgets(root)
     amend = os.environ.get("DOCS_SYNC_ADR_AMEND") == "1"
     findings += lint_adrs(load_adrs(root), load_head_adrs(root), amend=amend)
@@ -1973,6 +2161,291 @@ class TestLintEvents(unittest.TestCase):
     def test_blank_line_rejected(self):
         f = lint_events(json.dumps(VALID_MISC) + "\n\n" + json.dumps(VALID_MISC) + "\n")
         self.assertEqual(len(f), 1)
+
+
+class TestLintCloseExistence(unittest.TestCase):
+    """L4：收刀事件引用之 ADR／backlog／specs 目錄存在性。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        os.makedirs(os.path.join(self.root, "docs/ops"))
+        os.makedirs(os.path.join(self.root, ADR_DIR))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _w(self, rel, content):
+        p = os.path.join(self.root, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(content)
+
+    def _adr(self, fid):
+        self._w(f"{ADR_DIR}/{fid}-x.md", f'---\nid: "{fid}"\n---\n')
+
+    def _close(self, **kw):
+        e = {"type": "feature_close", "feature": "001-x", "merge": "abc1234",
+             "date": "2026-07-10", "summary": "s", "pins": {"web": "a", "api": "b"},
+             "adrs": [], "arch_impact": "none", "backlog_add": [], "backlog_done": []}
+        e.update(kw)
+        return e
+
+    def _clean(self):
+        # ADR 0007 存在、B-055 開放、B-003 已完成不在 BACKLOG、specs/001-x 存在
+        self._adr("0007")
+        self._w(BACKLOG, "<!-- next: B-100 -->\n# BACKLOG\n\n- B-055｜開放中\n")
+        os.makedirs(os.path.join(self.root, "specs/001-x"))
+        return self._close(adrs=["0007"], backlog_add=["B-055"], backlog_done=["B-003"])
+
+    def test_clean_passes(self):
+        self._w(EVENTS, _jl(self._clean()))
+        self.assertEqual(lint_close_existence(self.root), [])
+
+    def test_missing_adr(self):
+        e = self._clean()
+        e["adrs"] = ["0007", "0099"]  # 0099 無檔
+        self._w(EVENTS, _jl(e))
+        f = lint_close_existence(self.root)
+        self.assertEqual([x["code"] for x in f], ["L4"])
+        self.assertIn("0099", f[0]["msg"])
+
+    def test_backlog_done_still_open(self):
+        e = self._clean()
+        e["backlog_done"] = ["B-055"]  # B-055 仍開放在 BACKLOG＝未真的完成刪列
+        self._w(EVENTS, _jl(e))
+        f = lint_close_existence(self.root)
+        self.assertTrue(any("B-055" in x["msg"] and x["code"] == "L4" for x in f))
+
+    def test_backlog_add_phantom(self):
+        e = self._clean()
+        e["backlog_add"] = ["B-077"]  # 既非開放亦無後續 done 消化
+        self._w(EVENTS, _jl(e))
+        f = lint_close_existence(self.root)
+        self.assertTrue(any("B-077" in x["msg"] and x["code"] == "L4" for x in f))
+
+    def test_backlog_add_consumed_by_later_done(self):
+        self._adr("0007")
+        self._w(BACKLOG, "<!-- next: B-100 -->\n# BACKLOG\n")
+        os.makedirs(os.path.join(self.root, "specs/001-x"))
+        os.makedirs(os.path.join(self.root, "specs/002-y"))
+        e1 = self._close(feature="001-x", adrs=["0007"], backlog_add=["B-056"])
+        e2 = self._close(feature="002-y", adrs=["0007"], backlog_done=["B-056"])
+        self._w(EVENTS, _jl(e1, e2))
+        self.assertEqual(lint_close_existence(self.root), [])
+
+    def test_missing_specs_dir(self):
+        e = self._clean()
+        e["feature"] = "009-nope"  # 未建 specs/009-nope
+        self._w(EVENTS, _jl(e))
+        f = lint_close_existence(self.root)
+        self.assertTrue(any("specs/009-nope" in x["msg"] for x in f))
+
+
+class TestLintReviewExistence(unittest.TestCase):
+    """L5：review 分流引用（report 檔／to_backlog／wontfix_adr）存在性。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        os.makedirs(os.path.join(self.root, "docs/ops"))
+        os.makedirs(os.path.join(self.root, ADR_DIR))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _w(self, rel, content):
+        p = os.path.join(self.root, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(content)
+
+    def _adr(self, fid):
+        self._w(f"{ADR_DIR}/{fid}-x.md", f'---\nid: "{fid}"\n---\n')
+
+    def _review(self, **kw):
+        e = {"type": "review", "date": "2026-08-01", "scope": "s",
+             "report": "reviews/20260801-x.md",
+             "findings": {"total": 1, "fixed": 0, "to_backlog": [], "wontfix_adr": []}}
+        e.update(kw)
+        return e
+
+    def _clean(self):
+        self._adr("0012")
+        self._w(BACKLOG, "<!-- next: B-100 -->\n# BACKLOG\n\n- B-055｜開放中\n")
+        self._w("docs/reviews/20260801-x.md", "# review\n")
+        return self._review(findings={"total": 2, "fixed": 0,
+                                       "to_backlog": ["B-055"], "wontfix_adr": ["0012"]})
+
+    def test_clean_passes(self):
+        self._w(EVENTS, _jl(self._clean()))
+        self.assertEqual(lint_review_existence(self.root), [])
+
+    def test_empty_events_vacuous_pass(self):
+        self._w(EVENTS, "")
+        self.assertEqual(lint_review_existence(self.root), [])
+
+    def test_missing_report(self):
+        e = self._clean()
+        e["report"] = "reviews/nope.md"  # 檔不存在
+        self._w(EVENTS, _jl(e))
+        f = lint_review_existence(self.root)
+        self.assertTrue(any("report" in x["msg"] and x["code"] == "L5" for x in f))
+
+    def test_missing_wontfix_adr(self):
+        e = self._clean()
+        e["findings"]["wontfix_adr"] = ["0099"]  # 無檔
+        self._w(EVENTS, _jl(e))
+        f = lint_review_existence(self.root)
+        self.assertTrue(any("0099" in x["msg"] and x["code"] == "L5" for x in f))
+
+    def test_to_backlog_phantom(self):
+        e = self._clean()
+        e["findings"]["to_backlog"] = ["B-077"]  # 既非開放亦無 done 消化
+        self._w(EVENTS, _jl(e))
+        f = lint_review_existence(self.root)
+        self.assertTrue(any("B-077" in x["msg"] and x["code"] == "L5" for x in f))
+
+
+BOOK_3SEC = "# 活書\n\n## §1 甲\n一\n## §2 乙\n二\n## §3 丙\n三\n"
+
+
+class TestLintArchImpact(unittest.TestCase):
+    """L6：arch_impact 節存在性（a）＋最新刀 merge→HEAD 雙向（b）。"""
+
+    def test_changed_sections_content_diff(self):
+        a = "## §5 X\naaa\n## §6 Y\nbbb\n"
+        b = "## §5 X\nAAA\n## §6 Y\nbbb\n"  # 僅 §5 內容變
+        self.assertEqual(_arch_changed_sections(a, b), {5})
+
+    def test_changed_sections_added(self):
+        a = "## §5 X\naaa\n"
+        b = "## §5 X\naaa\n## §6 Y\nbbb\n"  # §6 新增
+        self.assertEqual(_arch_changed_sections(a, b), {6})
+
+    def _write_book_events(self, d, arch_impact):
+        os.makedirs(os.path.join(d, "docs/ops"))
+        os.makedirs(os.path.join(d, "docs/arc42"))
+        with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
+            fh.write(BOOK_3SEC)
+        ev = {"type": "feature_close", "feature": "001-x", "merge": "abc1234",
+              "date": "2026-07-10", "summary": "s", "pins": {"web": "a", "api": "b"},
+              "adrs": [], "arch_impact": arch_impact, "backlog_add": [], "backlog_done": []}
+        with open(os.path.join(d, EVENTS), "w", encoding="utf-8") as fh:
+            fh.write(_jl(ev))
+
+    def test_existence_clean_no_git_skips_b(self):
+        # 非 git 目錄＋不可解 merge SHA→(b) 跳過；(a) 驗 §2 存在→0
+        with tempfile.TemporaryDirectory() as d:
+            self._write_book_events(d, ["§2"])
+            self.assertEqual(lint_arch_impact(d), [])
+
+    def test_existence_bad_section(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write_book_events(d, ["§99"])
+            f = lint_arch_impact(d)
+            self.assertTrue(any("§99" in x["msg"] and x["code"] == "L6" for x in f))
+
+    def _git_repo(self, d, arch_impact, commit_bookkeeping=True):
+        """建 git repo：commit1＝merge M（活書 v1）；簿記 as-built（活書僅改 §5 內容）＋events 寫工作樹。
+        commit_bookkeeping=True→再 commit 成簿記 commit（post-commit 態、HEAD＝簿記）；
+        False→as-built／events 留工作樹不 commit（pre-commit 閘態、HEAD 仍＝merge M）。回 lint_arch_impact。"""
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+        def g(*args):
+            r = subprocess.run(["git", *args], cwd=d, capture_output=True,
+                               text=True, env=env)
+            assert r.returncode == 0, r.stderr
+            return r.stdout
+        g("init", "-q", "-b", "main")
+        os.makedirs(os.path.join(d, "docs/arc42"))
+        os.makedirs(os.path.join(d, "docs/ops"))
+        with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
+            fh.write("## §5 A\nold5\n## §6 B\nold6\n")
+        g("add", "-A")
+        g("commit", "-qm", "merge-M")
+        m = g("rev-parse", "HEAD").strip()
+        with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
+            fh.write("## §5 A\nNEW5\n## §6 B\nold6\n")  # 簿記僅改 §5 內容
+        ev = {"type": "feature_close", "feature": "001-x", "merge": m,
+              "date": "2026-07-10", "summary": "s", "pins": {"web": "a", "api": "b"},
+              "adrs": [], "arch_impact": arch_impact, "backlog_add": [], "backlog_done": []}
+        with open(os.path.join(d, EVENTS), "w", encoding="utf-8") as fh:
+            fh.write(_jl(ev))
+        if commit_bookkeeping:
+            g("add", "-A")
+            g("commit", "-qm", "bookkeeping")
+        return lint_arch_impact(d)
+
+    def test_bidirectional_clean(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(self._git_repo(d, ["§5"]), [])
+
+    def test_bidirectional_precommit_clean(self):
+        # pre-commit 閘時刻（HEAD＝merge、as-built 僅在工作樹）：宣稱 §5＝實改 §5→應綠。
+        # 回歸：舊碼讀 head_file(HEAD) 時 merge→HEAD 恆為空、此處會誤報「宣稱但無變動」。
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(self._git_repo(d, ["§5"], commit_bookkeeping=False), [])
+
+    def test_bidirectional_mismatch(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = self._git_repo(d, ["§6"])  # 宣稱 §6，實際改的是 §5
+            l6 = [x for x in f if x["code"] == "L6"]
+            msgs = " ".join(x["msg"] for x in l6)
+            self.assertEqual(len(l6), 2)
+            self.assertIn("§6", msgs)  # 宣稱卻沒改
+            self.assertIn("§5", msgs)  # 改了卻沒宣稱
+
+    def _runner(self, d):
+        """回一個對 tempdir d 執行 git 的 runner（與 _git_repo 同環境）。"""
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+        def g(*args):
+            r = subprocess.run(["git", *args], cwd=d, capture_output=True,
+                               text=True, env=env)
+            assert r.returncode == 0, r.stderr
+            return r.stdout
+        return g
+
+    def test_bidirectional_next_feature_committed_skips_b(self):
+        # 下一支 feature 於某單元 commit 編輯活書 §6（mid-feature、最新 close 仍＝001-x）：
+        # HEAD 前進超過簿記（HEAD^＝簿記 B≠merge M）→ (b) 應跳過、不誤報。
+        # 回歸 blocker：舊碼恆讀工作樹→ merge→工作樹＝{5,6}、claimed={5}→ 假陽全程硬擋下一支 feature。
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(self._git_repo(d, ["§5"]), [])  # 建到簿記 post-commit（HEAD=B）
+            g = self._runner(d)
+            with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
+                fh.write("## §5 A\nNEW5\n## §6 B\nDRIFT6\n")  # 007 動 §6
+            g("add", "-A")
+            g("commit", "-qm", "007-unit-book")
+            self.assertEqual(lint_arch_impact(d), [])
+
+    def test_bidirectional_next_feature_uncommitted_reads_head(self):
+        # 下一支 feature 活書漂移仍在工作樹未 commit（HEAD 仍＝簿記 B、HEAD^＝merge M）：
+        # (b) 綁 State 2 讀 HEAD 版活書（非工作樹）→ 忽略漂移、不誤報。
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(self._git_repo(d, ["§5"]), [])
+            with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
+                fh.write("## §5 A\nNEW5\n## §6 B\nDRIFT6\n")  # 工作樹漂移未 commit
+            self.assertEqual(lint_arch_impact(d), [])
+
+    def test_bidirectional_next_feature_unrelated_commit_skips_b(self):
+        # 下一支 feature 已 commit 一筆活書 §6 後、再來一筆無關（僅 NOTES）commit：
+        # HEAD 仍在簿記之後 → (b) 續跳過、無關 commit 不被誤擋（回歸 blocker「連改 NOTES 亦被擋」）。
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(self._git_repo(d, ["§5"]), [])
+            g = self._runner(d)
+            with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
+                fh.write("## §5 A\nNEW5\n## §6 B\nDRIFT6\n")
+            g("add", "-A")
+            g("commit", "-qm", "007-unit-book")
+            with open(os.path.join(d, "docs/ops/NOTES.md"), "w", encoding="utf-8") as fh:
+                fh.write("下一步\n")
+            g("add", "-A")
+            g("commit", "-qm", "007-notes")
+            self.assertEqual(lint_arch_impact(d), [])
 
 
 class TestLintBudgets(unittest.TestCase):
