@@ -2,9 +2,9 @@
 id: "0030"
 title: 會話閒置逾時＝無狀態 sliding refresh（設定可調、無絕對上限）
 date: 2026-07-05
-status: accepted
+status: superseded
 supersedes: []
-superseded_by: []
+superseded_by: [0033]
 provenance: "rev4:2026-07-05 005-auth-login brainstorm 問答（拍板 2＋5＋6/7、user 指定閒置語意）"
 tags: [auth, session, settings, behavior]
 ---

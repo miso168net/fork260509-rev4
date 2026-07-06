@@ -88,9 +88,25 @@
 
 ### I.7 行為島 invariants（隨刀進場）
 
-**本節為行為島狀態機不變式的凍結位，隨刀填充、初始為空。**
+**本節為行為島狀態機不變式的凍結位，隨刀填充（006 起首度填充、見本節末「已入憲行為島」）。**
 
 **進場規則**：每台狀態機（如 token rotation／policy governance／single-session）隨其刀的 brainstorm 拍板後，以 **MINOR Amendment** 將不變式條文入本節；rev3 已驗證的三台狀態機之不變式為對應刀 brainstorm 的直接輸入（出處經 ADR provenance 溯源）。入本節後，動任一條不變式走 Amendment；方向性反轉（fail-OPEN/closed 方向、DB-first、踢人雙通道分離等）＝MAJOR。常數值與欄級細節留活書（非凍結面）。
+
+**已入憲行為島**（方向性面凍結、反轉＝MAJOR；常數/欄級留活書）：
+
+- **島 A — single-session**（006、ADR 0033）
+  - **A1 碼語意固定**：`7777` 恆＝他處登入 modal 通道、`8888` 恆＝silent 通道，兩碼語意永不互換（Redis-down 無 reason 時 kicked 可降級 `8888`＝降級非語意互換）。
+  - **A2 政策解析階層**：per-user `session_policy` 覆寫優先於全域 `single_session_default`；`inherit` 讀全域。
+- **島 B — token rotation**（006、ADR 0033）
+  - **B1 reuse fail-secure**：已用/已撤 refresh 再現→撤整條 `rotation_chain` family（限該被盜會話、不及該使用者他會話）；例外＝grace 窗內、直接前驅之良性並發/重試→冪等回既發後繼、不撤。
+  - **B2 寫端 lock-then-redecide＋chain 級序列化**：發放/撤銷決策在 `FOR UPDATE` 鎖住列鎖後重判、revoke loop-until-0-active、永不信 pre-read（L-075）。
+- **島 C — denylist／即時撤銷**（006、ADR 0033）
+  - **C1 撤銷寫序 PG 優先**：先 PG（family→revoked）再 Redis denylist，PG 為真相。
+  - **C2 檢查分層**：Redis 連線故障→退 PG（fail-closed、不盲目放行）；denylist 為 blocklist、absence＝權威「未撤」；逐出/寫窗之 stale-allow 為有界 fail-open ≤access_TTL。
+- **島 D — 閒置／sliding refresh**（006、ADR 0033、supersede 0030）
+  - **D1 閒置唯一登出、無絕對上限**：連續活躍永不強制重登；不設絕對 session 壽命上限。
+  - **D2 idle-clock 推進來源固定**：last_activity 僅由通過驗證的受保護請求推進（含 refresh 後 client 重試的原請求）；refresh 端點本身絕不推進（防背景 refresh-loop 繞過閒置）。
+  - **D3 降級方向**：last_activity 熱快取不可用→退 refresh token TTL 為界（偏晚登出、絕不提前誤踢活躍者）；此為 idle-liveness fail 方向、與島 C 撤銷 fail-closed 各司其職不衝突。
 
 ---
 
@@ -162,6 +178,14 @@
 
 **紀律**：嚴格限三處接线；第四處 → §V.2 Amendment；每改一處在 spec／plan 內紀錄（位置＋改動＋upstream 衝突風險）；走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制。
 
+#### BASE-WEB-LOGOUT-UX-WIRING ★ — 本檔授權兩用途 (i)~(ii)（session 刀 logout 伺服器端撤銷＋閒置登出 UX；ADR 0034）
+
+**邊界**（base-web，嚴格限以下兩處，皆走 fork-delta `rev4-inline` 修改型帶 `原行:`＋fork-delta-lint 機器強制）：
+- **(i)** logout server-call 接线：`src/layouts/modules/global-header/components/user-avatar.vue` 主動登出——`authStore.resetStore()` 前先呼 `POST /auth/logout`（帶 refresh 憑證）；嚴格限「登出改先撤伺服器端會話」，不改 auth store 其他邏輯。
+- **(ii)** logoutCodes 靜默分支登出前 toast：`src/service/request/index.ts`＋`src/service-alova/request/index.ts` onBackendFail 的 `logoutCodes`(8888) 分支——`handleLogout()` 前顯輕量 toast（`$t(backend.auth.session.reLogin)`）；嚴格限「靜默登出前顯 toast」、不改碼分組/logout/refresh 其餘控制流語意。
+
+**紀律**：嚴格限兩用途；第三用途 → §V.2 Amendment；每改一處在 spec／plan 內紀錄（位置＋改動＋upstream 衝突風險）；走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制。
+
 ---
 
 ## IV. Compliance Check（spec-kit `/speckit-plan` 用）
@@ -209,8 +233,9 @@
 
 ---
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-05
+**Version**: 1.3.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-06
 
 **Amendment log**:
+- 1.3.0（2026-07-06）：§I.7 行為島首度填充——島 A single-session／B token rotation／C denylist／D 閒置sliding refresh（ADR 0033、supersede 0030）＋新增 ★BASE-WEB-LOGOUT-UX-WIRING 軌道兩用途〔(i) logout server-call 接线／(ii) logoutCodes 靜默分支 toast〕（ADR 0034）；MINOR（§V.3「行為島隨刀進場」＋「新增 ★ 軌道」）——觸發＝006-session-lifecycle plan Constitution Check Q2/Q7/Q9。
 - 1.2.0（2026-07-05）：新增 ★BASE-WEB-AUTH-WIRING 軌道（ADR 0031；授權 auth 刀三處 base-web inline 接线 (a) route store 常數合併修／(b) alt-login 三表單 stub／(c) captcha stub；MINOR 新增 ★ 軌道、§V.3）——觸發＝005-auth-login plan Constitution Check Q2/Q7。
 - 1.1.0（2026-07-05）：★BASE-WEB-I18N-WIRING 加 (iv) zh-TW 首發 locale 完整建置授權（ADR 0028；MINOR 軌道授權邊界擴展、§V.3）——觸發＝004-system-settings plan Constitution Check Q7。
