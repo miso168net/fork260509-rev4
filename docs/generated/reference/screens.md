@@ -1,4 +1,72 @@
 <!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->
 # reference/screens — 全量正典表
 
-狀態：stub｜來源未就緒——extractor 隨對應子系統首刀落地（見 ops/BACKLOG）。
+來源＝base-web/src/router/elegant/routes.ts 的 generatedRoutes const（generate 重算；全巢狀 route flatten、每條一列）。
+
+| name | path | component | i18nKey |
+|---|---|---|---|
+| 403 | /403 | layout.blank$view.403 | route.403 |
+| 404 | /404 | layout.blank$view.404 | route.404 |
+| 500 | /500 | layout.blank$view.500 | route.500 |
+| about | /about | layout.base$view.about | route.about |
+| alova | /alova | layout.base | route.alova |
+| alova_request | /alova/request | view.alova_request | route.alova_request |
+| alova_scenes | /alova/scenes | view.alova_scenes | route.alova_scenes |
+| function | /function | layout.base | route.function |
+| function_hide-child | /function/hide-child | — | route.function_hide-child |
+| function_hide-child_one | /function/hide-child/one | view.function_hide-child_one | route.function_hide-child_one |
+| function_hide-child_three | /function/hide-child/three | view.function_hide-child_three | route.function_hide-child_three |
+| function_hide-child_two | /function/hide-child/two | view.function_hide-child_two | route.function_hide-child_two |
+| function_multi-tab | /function/multi-tab | view.function_multi-tab | route.function_multi-tab |
+| function_request | /function/request | view.function_request | route.function_request |
+| function_super-page | /function/super-page | view.function_super-page | route.function_super-page |
+| function_tab | /function/tab | view.function_tab | route.function_tab |
+| function_toggle-auth | /function/toggle-auth | view.function_toggle-auth | route.function_toggle-auth |
+| home | /home | layout.base$view.home | route.home |
+| iframe-page | /iframe-page/:url | layout.base$view.iframe-page | route.iframe-page |
+| login | /login/:module(pwd-login\|code-login\|register\|reset-pwd\|bind-wechat)? | layout.blank$view.login | route.login |
+| manage | /manage | layout.base | route.manage |
+| manage_menu | /manage/menu | view.manage_menu | route.manage_menu |
+| manage_role | /manage/role | view.manage_role | route.manage_role |
+| manage_system-settings | /manage/system-settings | view.manage_system-settings | route.manage_system-settings |
+| manage_user | /manage/user | view.manage_user | route.manage_user |
+| manage_user-detail | /manage/user-detail/:id | view.manage_user-detail | route.manage_user-detail |
+| multi-menu | /multi-menu | layout.base | route.multi-menu |
+| multi-menu_first | /multi-menu/first | — | route.multi-menu_first |
+| multi-menu_first_child | /multi-menu/first/child | view.multi-menu_first_child | route.multi-menu_first_child |
+| multi-menu_second | /multi-menu/second | — | route.multi-menu_second |
+| multi-menu_second_child | /multi-menu/second/child | — | route.multi-menu_second_child |
+| multi-menu_second_child_home | /multi-menu/second/child/home | view.multi-menu_second_child_home | route.multi-menu_second_child_home |
+| plugin | /plugin | layout.base | route.plugin |
+| plugin_barcode | /plugin/barcode | view.plugin_barcode | route.plugin_barcode |
+| plugin_charts | /plugin/charts | — | route.plugin_charts |
+| plugin_charts_antv | /plugin/charts/antv | view.plugin_charts_antv | route.plugin_charts_antv |
+| plugin_charts_echarts | /plugin/charts/echarts | view.plugin_charts_echarts | route.plugin_charts_echarts |
+| plugin_charts_vchart | /plugin/charts/vchart | view.plugin_charts_vchart | route.plugin_charts_vchart |
+| plugin_copy | /plugin/copy | view.plugin_copy | route.plugin_copy |
+| plugin_editor | /plugin/editor | — | route.plugin_editor |
+| plugin_editor_markdown | /plugin/editor/markdown | view.plugin_editor_markdown | route.plugin_editor_markdown |
+| plugin_editor_quill | /plugin/editor/quill | view.plugin_editor_quill | route.plugin_editor_quill |
+| plugin_excel | /plugin/excel | view.plugin_excel | route.plugin_excel |
+| plugin_gantt | /plugin/gantt | — | route.plugin_gantt |
+| plugin_gantt_dhtmlx | /plugin/gantt/dhtmlx | view.plugin_gantt_dhtmlx | route.plugin_gantt_dhtmlx |
+| plugin_gantt_vtable | /plugin/gantt/vtable | view.plugin_gantt_vtable | route.plugin_gantt_vtable |
+| plugin_icon | /plugin/icon | view.plugin_icon | route.plugin_icon |
+| plugin_map | /plugin/map | view.plugin_map | route.plugin_map |
+| plugin_pdf | /plugin/pdf | view.plugin_pdf | route.plugin_pdf |
+| plugin_pinyin | /plugin/pinyin | view.plugin_pinyin | route.plugin_pinyin |
+| plugin_print | /plugin/print | view.plugin_print | route.plugin_print |
+| plugin_swiper | /plugin/swiper | view.plugin_swiper | route.plugin_swiper |
+| plugin_tables | /plugin/tables | — | route.plugin_tables |
+| plugin_tables_vtable | /plugin/tables/vtable | view.plugin_tables_vtable | route.plugin_tables_vtable |
+| plugin_typeit | /plugin/typeit | view.plugin_typeit | route.plugin_typeit |
+| plugin_video | /plugin/video | view.plugin_video | route.plugin_video |
+| pro-naive | /pro-naive | layout.base | route.pro-naive |
+| pro-naive_form | /pro-naive/form | — | route.pro-naive_form |
+| pro-naive_form_basic | /pro-naive/form/basic | view.pro-naive_form_basic | route.pro-naive_form_basic |
+| pro-naive_form_query | /pro-naive/form/query | view.pro-naive_form_query | route.pro-naive_form_query |
+| pro-naive_form_step | /pro-naive/form/step | view.pro-naive_form_step | route.pro-naive_form_step |
+| pro-naive_table | /pro-naive/table | — | route.pro-naive_table |
+| pro-naive_table_remote | /pro-naive/table/remote | view.pro-naive_table_remote | route.pro-naive_table_remote |
+| pro-naive_table_row-edit | /pro-naive/table/row-edit | view.pro-naive_table_row-edit | route.pro-naive_table_row-edit |
+| user-center | /user-center | layout.base$view.user-center | route.user-center |

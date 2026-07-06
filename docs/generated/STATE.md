@@ -10,7 +10,7 @@
 
 ## 帳面統計
 - ADR：36（accepted 34、superseded 2）
-- BACKLOG 待辦：54（next：B-071）
+- BACKLOG 待辦：53（next：B-071）
 - LESSONS：114 筆（next：L-115）
 - events：7 筆（feature_close 6、misc 1）
 
@@ -24,4 +24,4 @@
 - reference/ports：真表（來源＝compose 三檔的 ports: 段、由 generate 重算）
 - reference/schema：真表（來源＝reference-src 的 schema-snapshot.json＋archetype-map.json、由 generate 重算；快照由 refresh 自實庫撈）
 - reference/accounts：真表（來源＝reference-src 的 accounts-snapshot.json、由 generate 重算；快照由 refresh 自實庫撈）
-- reference/screens：stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）
+- reference/screens：真表（來源＝base-web/src/router/elegant/routes.ts 的 generatedRoutes const、由 generate 重算；全巢狀 route flatten）

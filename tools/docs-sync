@@ -581,6 +581,8 @@ REFERENCE_LIVE = {
               "由 generate 重算；快照由 refresh 自實庫撈）",
     "accounts": "真表（來源＝reference-src 的 accounts-snapshot.json、由 generate 重算；"
                 "快照由 refresh 自實庫撈）",
+    "screens": "真表（來源＝base-web/src/router/elegant/routes.ts 的 generatedRoutes const、"
+               "由 generate 重算；全巢狀 route flatten）",
 }
 # ports 對照表來源（base 層設計鐵律禁 host ports、映射只住 dev/example）
 COMPOSE_FILES = ("docker-compose.yml", "docker-compose.dev.yml", "docker-compose.example.yml")
@@ -785,6 +787,9 @@ L2_SOURCES = {
     f"{GENERATED_DIR}/reference/accounts.md":
         "accounts 正典表與快照重算結果不一致——docs/ops/reference-src/"
         "accounts-snapshot.json 改動後未跑 tools/docs-sync generate",
+    f"{GENERATED_DIR}/reference/screens.md":
+        "screens 正典表與 routes.ts 重算結果不一致——"
+        "base-web/src/router/elegant/routes.ts 的 generatedRoutes 改動後未跑 tools/docs-sync generate",
 }
 
 
@@ -1165,6 +1170,151 @@ def gen_reference_routes(rows):
 
 
 # ---------------------------------------------------------------------------
+# screens 直解：base-web/src/router/elegant/routes.ts 的 generatedRoutes const 全量表（B-005）。
+# 比照上方 routes 直解範式（窄假設行級解析＋fail-loud），惟來源含巢狀 children（深達 3 層）——
+# 以「容器框堆疊」追蹤 array／route／meta 邊界、遞迴 flatten 全部 route。B-052「防漏」關鍵：
+# 寧可擋下、絕不靜默漏列一條 screen。
+# ---------------------------------------------------------------------------
+
+ELEGANT_SOURCE = "base-web/src/router/elegant/routes.ts"
+# route 物件合法頂層欄全集（掌握全集才能讓 fail-loud 準確、來源新增欄即紅逼同步）：
+# name／path／component 抽值入表；props／redirect 識形後略過；meta／children 開子容器。
+ELEGANT_ROUTE_SKIP_FIELDS = ("props", "redirect")
+ELEGANT_ROUTE_REQUIRED_FIELDS = ("name", "path")   # 每條 route 物件必備（缺＝fail-loud）
+
+# 窄假設唯一合法形（routes.ts 現行實際使用的形：單引號字串、elegant-router prettier-ignore
+# 穩定格式；stripped 後 fullmatch）。其他寫法（雙引號、行內物件…）一律 fail-loud。
+RE_ELEGANT_CONST_OPEN = re.compile(r"^export const generatedRoutes: GeneratedRoute\[\] = \[$")
+RE_ELEGANT_NAME = re.compile(r"^name: '([^']*)',$")
+RE_ELEGANT_PATH = re.compile(r"^path: '([^']*)',$")
+RE_ELEGANT_COMPONENT = re.compile(r"^component: '([^']*)',$")
+RE_ELEGANT_I18NKEY = re.compile(r"^i18nKey: '([^']*)',?$")
+RE_ELEGANT_FIELD = {"name": RE_ELEGANT_NAME, "path": RE_ELEGANT_PATH,
+                    "component": RE_ELEGANT_COMPONENT}
+
+
+class ElegantRoutesError(Exception):
+    """routes.ts generatedRoutes 解析失敗（fail-loud：寧可擋下、不靜默漏列一條 screen——B-052）。"""
+
+
+def parse_elegant_routes(text, rel):
+    """解析 routes.ts 的 `export const generatedRoutes` 陣列、flatten 全巢狀 route。
+    回 [(name, path, component, i18nKey)]（每條 route 物件一列、含所有 children）。
+
+    行級窄假設解析（標準庫、不 parse TS；只支援 routes.ts 現行實際使用的形）：
+    - 只解析 `export const generatedRoutes: GeneratedRoute[] = [` 起、頂層 `];` 止的那一段；
+      其他 import／型別／別處一律不碰。
+    - 以容器框堆疊追蹤邊界：array（陣列，直屬子＝route 物件）／route（route 物件，欄集＝
+      name/path/component/props/redirect/meta/children）／meta（只抽 i18nKey、其餘欄安全略過）。
+      route 物件開＝裸 `{`；收＝`}`／`},`（收時即 flatten 入表，父／葉皆列）；children＝巢狀 array。
+    - route 頂層見不認得的欄／形、重複欄、缺 name/path、找不到 const、陣列未收尾 → ElegantRoutesError
+      指名 rel:行——防來源改寫法時對照表靜默漏列（fail-loud 逼人同步擴充解析器）。
+    """
+    rows = []
+    stack = []                        # [(kind, entry)]；kind∈{array,route,meta}；entry＝route dict 或 None
+    found_const = in_const = False
+    for n, raw in enumerate(text.splitlines(), start=1):
+        stripped = raw.strip()
+        if not in_const:
+            if RE_ELEGANT_CONST_OPEN.fullmatch(stripped):
+                found_const = in_const = True
+                stack.append(("array", None))
+            continue                  # const 外一律忽略（import／型別／註解）
+        if not stripped or stripped.startswith("//"):
+            continue                  # 空行／註解行不終結區塊
+        kind, entry = stack[-1]
+        if kind == "meta":
+            if stripped in ("}", "},"):
+                stack.pop()           # meta 收尾（`}` 或 `},`）
+                continue
+            m = RE_ELEGANT_I18NKEY.fullmatch(stripped)
+            if m:
+                if "i18nKey" in entry:
+                    raise ElegantRoutesError(f"{rel}:行 {n}｜meta 內重複 i18nKey")
+                entry["i18nKey"] = m.group(1)
+            continue                  # 其餘 meta 欄（title/icon/order/roles/…）安全略過、不 choke
+        if kind == "array":
+            if stripped == "{":
+                stack.append(("route", {"_line": n}))
+                continue
+            if stripped in ("]", "],", "];"):
+                stack.pop()
+                if not stack:
+                    in_const = False
+                    break             # 頂層 generatedRoutes 陣列收尾（唯一一段、無需續掃）
+                continue              # children 子陣列收尾
+            raise ElegantRoutesError(
+                f"{rel}:行 {n}｜陣列頂層不認得的行「{stripped}」"
+                "（僅支援 route 物件 `{` 與收尾 `]`；routes.ts 改寫法請同步擴充本解析器）")
+        # kind == "route"
+        if stripped in ("}", "},"):
+            missing = [f for f in ELEGANT_ROUTE_REQUIRED_FIELDS if f not in entry]
+            if missing:
+                raise ElegantRoutesError(
+                    f"{rel}:行 {entry['_line']}｜route 物件缺欄 {missing}"
+                    "（routes.ts 改寫法請同步擴充本解析器）")
+            rows.append((entry["name"], entry["path"],
+                         entry.get("component", ""), entry.get("i18nKey", "")))
+            stack.pop()
+            continue
+        if stripped == "meta: {":
+            stack.append(("meta", entry))     # meta 寫回同一 route entry（i18nKey 落此）
+            continue
+        if stripped == "children: [":
+            stack.append(("array", None))     # 巢狀 children：遞迴進 array 框
+            continue
+        key = stripped.split(":", 1)[0].strip()
+        if key in RE_ELEGANT_FIELD:
+            m = RE_ELEGANT_FIELD[key].fullmatch(stripped)
+            if not m:
+                raise ElegantRoutesError(
+                    f"{rel}:行 {n}｜route 欄「{key}」形不認得「{stripped}」"
+                    "（僅支援單引號字串；routes.ts 改寫法請同步擴充本解析器）")
+            if key in entry:
+                raise ElegantRoutesError(f"{rel}:行 {n}｜route 物件內重複欄「{key}」")
+            entry[key] = m.group(1)
+            continue
+        if key in ELEGANT_ROUTE_SKIP_FIELDS:
+            continue                  # props／redirect：欄名已知、值不入表故不需驗形
+        raise ElegantRoutesError(
+            f"{rel}:行 {n}｜route 物件內不認得的欄/形「{stripped}」"
+            "（僅支援 name／path／component／props／redirect／meta／children；"
+            "routes.ts 改寫法請同步擴充本解析器）")
+    if not found_const:
+        raise ElegantRoutesError(
+            f"{rel}｜找不到 `export const generatedRoutes: GeneratedRoute[] = [`——screens 對照表無法重算")
+    if in_const:
+        raise ElegantRoutesError(f"{rel}｜generatedRoutes 陣列未見收尾 ];（fail-loud、防半解析漏列）")
+    return rows
+
+
+def compute_screen_rows(root):
+    """讀 routes.ts → parse_elegant_routes。回 rows；來源檔缺＝fail-loud。"""
+    text = _read(root, ELEGANT_SOURCE)
+    if text is None:
+        raise ElegantRoutesError(f"{ELEGANT_SOURCE}｜elegant routes 來源檔不存在——screens 對照表無法重算")
+    return parse_elegant_routes(text, ELEGANT_SOURCE)
+
+
+def gen_reference_screens(rows):
+    """reference/screens ← routes.ts generatedRoutes 全量表（全巢狀 route flatten）。
+
+    每條 route 物件一列（父／葉皆入表）；列序確定性＝name（elegant-router name 全域唯一）。
+    component／i18nKey 某 route 無則留「—」；path 內含 `|`（如 login module 選擇器）由 _md_cell 轉義。
+    """
+    head = (f"{GEN_HEADER}\n# reference/screens — 全量正典表\n\n"
+            f"來源＝{ELEGANT_SOURCE} 的 generatedRoutes const"
+            f"（generate 重算；全巢狀 route flatten、每條一列）。\n\n")
+    if not rows:
+        return head + "（generatedRoutes 無任何 route）\n"
+    lines = "\n".join(
+        f"| {_md_cell(name)} | {_md_cell(path)} | {_md_cell(component)} | {_md_cell(i18nKey)} |"
+        for name, path, component, i18nKey in sorted(rows, key=lambda r: r[0]))
+    return (head + "| name | path | component | i18nKey |\n"
+            "|---|---|---|---|\n" + lines + "\n")
+
+
+# ---------------------------------------------------------------------------
 # 快照管線：refresh（需 stack）→ reference-src 兩快照（契約 specs/002-schema-baseline/
 # contracts/snapshot-reference.md §1）。generate／check 只讀快照、絕不碰 docker。
 # ---------------------------------------------------------------------------
@@ -1458,6 +1608,7 @@ def compute_generated(root):
         files[f"{GENERATED_DIR}/reference/{name}.md"] = gen_reference_stub(name)
     files[f"{GENERATED_DIR}/reference/ports.md"] = gen_reference_ports(compute_ports_rows(root))
     files[f"{GENERATED_DIR}/reference/routes.md"] = gen_reference_routes(compute_router_rows(root))
+    files[f"{GENERATED_DIR}/reference/screens.md"] = gen_reference_screens(compute_screen_rows(root))
     files.update(compute_snapshot_reference(root))
     return files
 
@@ -2344,6 +2495,227 @@ class TestRouterRoutes(unittest.TestCase):
             self.assertEqual(len(f), 1)
             self.assertEqual(f[0]["code"], "L2")
             self.assertIn("routes", f[0]["msg"])
+
+
+# 單條乾淨 route 欄集（fail-loud 案例逐行代換其一；i18nKey 為 meta 內末欄、無尾逗號）
+ELEGANT_CLEAN_FIELDS = (
+    "    name: 'demo',\n"
+    "    path: '/demo',\n"
+    "    component: 'view.demo',\n"
+    "    meta: {\n"
+    "      title: 'demo',\n"
+    "      i18nKey: 'route.demo'\n"
+    "    }\n"
+)
+# 完整巢狀樣本：含父 route（有／無 component）＋深達 3 層 children＋meta 雜欄（roles/localIcon…）；
+# const 外的 import／型別字樣須被忽略、不誤抓。
+ELEGANT_ROUTES_SAMPLE = (
+    "import type { GeneratedRoute } from '@elegant-router/types';\n"
+    "export const generatedRoutes: GeneratedRoute[] = [\n"
+    "  {\n"
+    "    name: '403',\n"
+    "    path: '/403',\n"
+    "    component: 'layout.blank$view.403',\n"
+    "    meta: {\n"
+    "      title: '403',\n"
+    "      i18nKey: 'route.403',\n"
+    "      constant: true,\n"
+    "      hideInMenu: true\n"
+    "    }\n"
+    "  },\n"
+    "  {\n"
+    "    name: 'alova',\n"
+    "    path: '/alova',\n"
+    "    component: 'layout.base',\n"
+    "    meta: {\n"
+    "      title: 'alova',\n"
+    "      i18nKey: 'route.alova',\n"
+    "      icon: 'carbon:http',\n"
+    "      order: 7,\n"
+    "      roles: ['R_SUPER']\n"
+    "    },\n"
+    "    children: [\n"
+    "      {\n"
+    "        name: 'alova_request',\n"
+    "        path: '/alova/request',\n"
+    "        component: 'view.alova_request',\n"
+    "        meta: {\n"
+    "          title: 'alova_request',\n"
+    "          i18nKey: 'route.alova_request',\n"
+    "          order: 1\n"
+    "        }\n"
+    "      }\n"
+    "    ]\n"
+    "  },\n"
+    "  {\n"
+    "    name: 'multi-menu_second',\n"
+    "    path: '/multi-menu/second',\n"
+    "    meta: {\n"
+    "      title: 'multi-menu_second',\n"
+    "      i18nKey: 'route.multi-menu_second',\n"
+    "      order: 2\n"
+    "    },\n"
+    "    children: [\n"
+    "      {\n"
+    "        name: 'multi-menu_second_child',\n"
+    "        path: '/multi-menu/second/child',\n"
+    "        meta: {\n"
+    "          title: 'multi-menu_second_child',\n"
+    "          i18nKey: 'route.multi-menu_second_child'\n"
+    "        },\n"
+    "        children: [\n"
+    "          {\n"
+    "            name: 'multi-menu_second_child_home',\n"
+    "            path: '/multi-menu/second/child/home',\n"
+    "            component: 'view.multi-menu_second_child_home',\n"
+    "            meta: {\n"
+    "              title: 'multi-menu_second_child_home',\n"
+    "              i18nKey: 'route.multi-menu_second_child_home'\n"
+    "            }\n"
+    "          }\n"
+    "        ]\n"
+    "      }\n"
+    "    ]\n"
+    "  }\n"
+    "];\n"
+)
+
+
+def _elegant_one(fields):
+    """把單條欄集包成完整 generatedRoutes const 文字（fail-loud 案例用）。"""
+    return ("export const generatedRoutes: GeneratedRoute[] = [\n"
+            "  {\n" + fields + "  }\n"
+            "];\n")
+
+
+class TestElegantRoutes(unittest.TestCase):
+    def test_parse_clean_nested_sample(self):
+        rows = parse_elegant_routes(ELEGANT_ROUTES_SAMPLE, "routes.ts")
+        # 6 條 route 物件（父＋葉全 flatten）：403／alova／alova_request／
+        # multi-menu_second／multi-menu_second_child／multi-menu_second_child_home
+        self.assertEqual(len(rows), 6)
+        d = {r[0]: r for r in rows}
+        self.assertEqual(d["403"],
+                         ("403", "/403", "layout.blank$view.403", "route.403"))
+        # 深層巢狀（3 層）child 確有入表
+        self.assertEqual(d["multi-menu_second_child_home"],
+                         ("multi-menu_second_child_home", "/multi-menu/second/child/home",
+                          "view.multi-menu_second_child_home", "route.multi-menu_second_child_home"))
+        # 父 route 無 component → 空字串（gen 時轉 —）；i18nKey 仍抽到
+        self.assertEqual(d["multi-menu_second"][2], "")
+        self.assertEqual(d["multi-menu_second"][3], "route.multi-menu_second")
+
+    def test_meta_extra_fields_do_not_choke(self):
+        # meta 內 roles 陣列／icon／order 等雜欄安全略過、不致 fail-loud
+        rows = parse_elegant_routes(ELEGANT_ROUTES_SAMPLE, "routes.ts")
+        alova = [r for r in rows if r[0] == "alova"][0]
+        self.assertEqual(alova, ("alova", "/alova", "layout.base", "route.alova"))
+
+    def test_parse_real_routes_ts(self):
+        rows = compute_screen_rows(ROOT)
+        self.assertGreater(len(rows), 0, "真實 routes.ts 應解析出 route")
+        names = [r[0] for r in rows]
+        self.assertIn("403", names)
+        # 深層巢狀（3 層）route 確有 flatten 入表
+        self.assertIn("multi-menu_second_child_home", names)
+        self.assertEqual(len(names), len(set(names)), "elegant-router name 應全域唯一")
+        # rows 數＝來源檔 route 物件總數（每條 route 恰一 name: 行）
+        src = _read(ROOT, ELEGANT_SOURCE)
+        self.assertEqual(len(rows), len(re.findall(r"(?m)^\s*name: '", src)))
+
+    def test_unknown_top_level_field_fails_loud(self):
+        bad = ELEGANT_CLEAN_FIELDS + "    surprise: 1,\n"
+        with self.assertRaises(ElegantRoutesError) as cm:
+            parse_elegant_routes(_elegant_one(bad), "f.ts")
+        self.assertIn("f.ts", str(cm.exception))
+        self.assertIn("surprise", str(cm.exception))
+
+    def test_malformed_name_shape_fails_loud(self):
+        # name 無引號＝不認得的形（窄假設：必單引號短語法）
+        bad = ELEGANT_CLEAN_FIELDS.replace("name: 'demo',", "name: demo,")
+        with self.assertRaises(ElegantRoutesError):
+            parse_elegant_routes(_elegant_one(bad), "f.ts")
+
+    def test_duplicate_field_fails_loud(self):
+        bad = ELEGANT_CLEAN_FIELDS + "    name: 'dup',\n"
+        with self.assertRaises(ElegantRoutesError) as cm:
+            parse_elegant_routes(_elegant_one(bad), "f.ts")
+        self.assertIn("重複", str(cm.exception))
+
+    def test_missing_required_field_fails_loud(self):
+        bad = ELEGANT_CLEAN_FIELDS.replace("    path: '/demo',\n", "")
+        with self.assertRaises(ElegantRoutesError) as cm:
+            parse_elegant_routes(_elegant_one(bad), "f.ts")
+        self.assertIn("path", str(cm.exception))
+
+    def test_top_level_junk_in_array_fails_loud(self):
+        text = ("export const generatedRoutes: GeneratedRoute[] = [\n"
+                "  surprise,\n"
+                "];\n")
+        with self.assertRaises(ElegantRoutesError) as cm:
+            parse_elegant_routes(text, "f.ts")
+        self.assertIn("行 2", str(cm.exception))
+
+    def test_missing_const_fails_loud(self):
+        with self.assertRaises(ElegantRoutesError) as cm:
+            parse_elegant_routes("const x = 1;\n", "f.ts")
+        self.assertIn("generatedRoutes", str(cm.exception))
+
+    def test_unterminated_array_fails_loud(self):
+        text = ("export const generatedRoutes: GeneratedRoute[] = [\n"
+                "  {\n" + ELEGANT_CLEAN_FIELDS + "  }\n")   # 缺頂層收尾 ];
+        with self.assertRaises(ElegantRoutesError) as cm:
+            parse_elegant_routes(text, "f.ts")
+        self.assertIn("收尾", str(cm.exception))
+
+    def test_compute_screen_rows_missing_source_fails_loud(self):
+        with tempfile.TemporaryDirectory() as root:
+            with self.assertRaises(ElegantRoutesError) as cm:
+                compute_screen_rows(root)
+            self.assertIn(ELEGANT_SOURCE, str(cm.exception))
+
+    def test_gen_reference_screens_sorted_and_deterministic(self):
+        rows = [("bravo", "/b", "view.b", "route.b"),
+                ("alpha", "/a", "", "route.a"),
+                ("charlie", "/c", "view.c", "")]
+        text = gen_reference_screens(rows)
+        self.assertTrue(text.startswith(GEN_HEADER))
+        self.assertLess(text.index("alpha"), text.index("bravo"))    # name 序
+        self.assertLess(text.index("bravo"), text.index("charlie"))
+        self.assertEqual(text, gen_reference_screens(list(reversed(rows))))  # 入序無關
+        self.assertIn("| alpha | /a | — | route.a |", text)          # 空 component→—
+        self.assertIn("| charlie | /c | view.c | — |", text)         # 空 i18nKey→—
+
+    def test_gen_reference_screens_escapes_pipe_in_path(self):
+        # login path 內含 module 選擇器 `|`——須轉義否則破表格欄
+        rows = [("login", "/login/:module(pwd-login|code-login)?",
+                 "layout.blank$view.login", "route.login")]
+        text = gen_reference_screens(rows)
+        self.assertIn(r"pwd-login\|code-login", text)
+
+    def test_gen_reference_screens_empty(self):
+        self.assertIn("無任何 route", gen_reference_screens([]))
+
+    def test_state_screens_line_is_live_not_stub(self):
+        text = gen_state(TestGenState.CTX)
+        for line in text.splitlines():
+            if line.startswith("- reference/screens"):
+                self.assertNotIn("stub", line)
+                self.assertIn("generate", line)
+                break
+        else:
+            self.fail("STATE 缺 reference/screens 對賬行")
+
+    def test_check_reports_screens_drift_as_l2(self):
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, "docs/generated/reference"))
+            rel = "docs/generated/reference/screens.md"
+            with open(os.path.join(root, rel), "w", encoding="utf-8") as fh:
+                fh.write("舊表\n")
+            f = check_generated(root, {rel: "新表\n"})
+            self.assertEqual(len(f), 1)
+            self.assertEqual(f[0]["code"], "L2")
+            self.assertIn("screens", f[0]["msg"])
 
 
 class TestLintLinks(unittest.TestCase):
@@ -3285,16 +3657,16 @@ class TestSnapshotReference(unittest.TestCase):
     def test_reference_live_schema_accounts_promoted(self):
         self.assertIn("schema", REFERENCE_LIVE)
         self.assertIn("accounts", REFERENCE_LIVE)
+        self.assertIn("screens", REFERENCE_LIVE)
         text = gen_state(TestGenState.CTX)
         state_lines = {name: line
                        for line in text.splitlines()
                        for name in ("routes", "ports", "schema", "accounts", "screens")
                        if line.startswith(f"- reference/{name}：")}
-        for name in ("schema", "accounts"):
+        # screens 轉真後、五表全為真表、無殘餘 stub
+        for name in ("schema", "accounts", "screens"):
             self.assertNotIn("stub", state_lines[name], msg=name)   # 轉真
             self.assertIn("generate", state_lines[name], msg=name)
-        for name in ("screens",):
-            self.assertIn("stub", state_lines[name], msg=name)      # routes 轉真後、僅餘 screens stub
 
     def test_check_reports_schema_accounts_drift_as_l2(self):
         for base in ("schema", "accounts"):
@@ -3381,6 +3753,9 @@ def main(argv):
         return 1
     except RouterRoutesError as ex:
         print(f"[ERROR] routes 解析｜{ex}——fail-loud，處置後重跑", file=sys.stderr)
+        return 1
+    except ElegantRoutesError as ex:
+        print(f"[ERROR] screens 解析｜{ex}——fail-loud，處置後重跑", file=sys.stderr)
         return 1
     except SnapshotError as ex:
         print(f"[ERROR] 快照管線｜{ex}", file=sys.stderr)
