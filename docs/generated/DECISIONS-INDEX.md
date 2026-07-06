@@ -37,3 +37,4 @@
 | 0032 | accepted | 2026-07-05 | schema-gate 閘 2 seed 契約放寬——容 post-baseline rev4 新增 seed（additive 白名單） | — | — | — |
 | 0033 | accepted | 2026-07-06 | 會話生命週期改採 DB-stateful rotation（rotation＋reuse 偵測＋denylist 即時撤銷＋single-session＋精確 idle） | — | 0030 | — |
 | 0034 | accepted | 2026-07-06 | 新增 ★BASE-WEB-LOGOUT-UX-WIRING 軌道（logout server-call 接线＋閒置登出 toast 兩用途） | — | — | — |
+| 0035 | accepted | 2026-07-06 | T034 前端跨棧共用 refresh 在途承諾 won't-fix（by-design：alova 對真實 auth dormant＋後端 grace 冪等為並發正確性防線） | — | — | — |
