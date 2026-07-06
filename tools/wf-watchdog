@@ -12,8 +12,11 @@ TOKEN="${1:-}"
 STALL=780      # 秒；>最長合法 cargo（sub-agent Bash 單命令 600s 上限＋margin）
 RUNAWAY=25     # journal 行數；2× 單元理論上限（防呆③ AGENT_FUSE=20 之外部 backstop）
 
-# 專案 slug＝cwd 之 / 與 _ 全轉 -（Claude Code projects 目錄命名規則）
-SLUG=$(pwd | sed 's|[/_]|-|g')
+# 專案 slug＝canonical path 之 / 與 _ 全轉 -（Claude Code projects 目錄命名規則）。
+# ★realpath 解析綁定路徑：primary working dir 可能是 /home/… 綁定（pwd 給非 canonical、
+#  slug 對不上 -mnt-d-… projects 目錄名→找不到 wf；B-070、006 orchestration 實測）。
+CANON=$(realpath "$PWD" 2>/dev/null || pwd)
+SLUG=$(printf '%s' "$CANON" | sed 's|[/_]|-|g')
 sleep 10
 ROOT=$(ls -dt "$HOME/.claude/projects/$SLUG"/*/subagents/workflows 2>/dev/null | head -1)
 DIR=$(ls -dt "${ROOT:-/nonexistent}"/wf_* 2>/dev/null | head -1)

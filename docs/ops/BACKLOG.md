@@ -58,4 +58,3 @@
 - B-067｜session_event 膨脹治理：reuse 同票重放逐次累積稽核列（006 SC-009 只列 sys_token 回收、未列 session_event；曝險有界於 refresh JWT exp、無安全風險）｜obs 刀｜出處：006 final review minor
 - B-068｜session_event source_ip 接入 kicked/logout（現全 None、login LoginAudit.real_ip 可取用供 forensics）｜obs/enrich｜出處：006 U9/U11 review
 - B-069｜alova 棧接入真實 auth 時：補 idle toast 副本＋修 onError raw msg 未 $t（現 demo-only dormant、ADR 0035/0036 觸發再議＝alova 接入真實 auth）｜前端/alova 刀｜出處：006 U11/ADR 0035-0036
-- B-070｜tools/wf-watchdog WSL slug 修正：Monitor command 需 cd /mnt 前綴否則 slug 失準找不到 wf 目錄｜tools 修復｜出處：006 orchestration 實測

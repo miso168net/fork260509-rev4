@@ -1328,6 +1328,15 @@ def _open_backlog_ids(root):
     return {f"B-{int(m.group(1)):03d}" for m in RE_ENTRY["B"].finditer(text)}
 
 
+def _backlog_id_ever_existed(root, nb):
+    """B-NNN 是否曾在 BACKLOG.md git 史出現過（真被 defer、非 phantom/typo）。
+    ★不問「何時加」：backlog 項或於 mid-feature commit、或於 merge 後之收刀簿記 commit 加入
+    （CLAUDE.md §2 簿記排在 merge 之後），故 merge SHA 非可靠參考點——只問「有沒有真加過」。
+    `｜` 為條目欄位分隔、散文引用不帶，故 `B-NNN｜` 專認真條目。git 不可用（測試）→False。"""
+    out = git_out(["log", "--oneline", "-S", f"{nb}｜", "--", BACKLOG], root)
+    return bool(out and out.strip())
+
+
 def _backlog_done_ids(events):
     """曾在任一 feature_close.backlog_done 被標記完成的 B-NNN 集（＝已被消化的證據）。"""
     out = set()
@@ -1371,9 +1380,15 @@ def lint_close_existence(root):
                                    f"backlog_done {b} 仍在 BACKLOG.md（宣稱完成卻未刪列）"))
         for b in e.get("backlog_add", []) or []:
             nb = _norm_bid(b)
-            if nb not in open_ids and nb not in done_ids:
-                out.append(finding(ERROR, "L4", where,
-                                   f"backlog_add {b} 查無此項（現況 BACKLOG 無、亦無後續 backlog_done 消化）"))
+            # 快速路徑：現況仍開放 或 後續 backlog_done 消化＝顯然真被 defer、免 git。
+            if nb in open_ids or nb in done_ids:
+                continue
+            # 事後獨立完成刪列（git 即史、不進 event）→查 BACKLOG git 史確認曾真加過；
+            # 從未出現＝phantom/typo。git 不可用（測試無 git）→_ever_existed False→仍抓 phantom。
+            if _backlog_id_ever_existed(root, nb):
+                continue
+            out.append(finding(ERROR, "L4", where,
+                               f"backlog_add {b} 查無此項（BACKLOG git 史從未出現、疑 phantom/typo）"))
         if isinstance(feat, str) and not os.path.isdir(os.path.join(root, "specs", feat)):
             out.append(finding(ERROR, "L4", where, f"specs/{feat}/ 目錄不存在"))
     return out
@@ -2240,6 +2255,42 @@ class TestLintCloseExistence(unittest.TestCase):
         self._w(EVENTS, _jl(e))
         f = lint_close_existence(self.root)
         self.assertTrue(any("specs/009-nope" in x["msg"] for x in f))
+
+    def _git_close(self, backlog_at_merge, backlog_now, backlog_add):
+        """建 git repo：commit＝merge M（BACKLOG＝backlog_at_merge）；工作樹 BACKLOG 改成 backlog_now
+        （模擬事後完成刪列、git 即史）；events 寫 feature_close(merge=M, backlog_add)。回 findings。"""
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+        def g(*args):
+            r = subprocess.run(["git", *args], cwd=self.root, capture_output=True,
+                               text=True, env=env)
+            assert r.returncode == 0, r.stderr
+            return r.stdout
+
+        def _bl(ids):
+            return "<!-- next: B-100 -->\n# BACKLOG\n\n" + "".join(f"- {b}｜開放中\n" for b in ids)
+        self._adr("0007")
+        os.makedirs(os.path.join(self.root, "specs/001-x"))
+        self._w(BACKLOG, _bl(backlog_at_merge))
+        g("init", "-q", "-b", "main")
+        g("add", "-A")
+        g("commit", "-qm", "merge-M")
+        m = g("rev-parse", "HEAD").strip()
+        self._w(BACKLOG, _bl(backlog_now))          # 事後刪列（工作樹）
+        self._w(EVENTS, _jl(self._close(merge=m, adrs=["0007"], backlog_add=backlog_add)))
+        return lint_close_existence(self.root)
+
+    def test_backlog_add_removed_after_close_passes(self):
+        # B-070 曾在 BACKLOG（commit M）、事後獨立完成刪列（現況/done 皆無）→git 史驗過、不誤報。
+        # 回歸：舊碼查現況 open_ids/done_ids→獨立維護任務完成刪列後恆假陽（B-070 實測）。
+        f = self._git_close(backlog_at_merge=["B-070"], backlog_now=[], backlog_add=["B-070"])
+        self.assertEqual(f, [])
+
+    def test_backlog_add_true_phantom_errors(self):
+        # B-099 從未在 BACKLOG git 史出現（phantom/typo）→仍抓錯。
+        f = self._git_close(backlog_at_merge=["B-070"], backlog_now=[], backlog_add=["B-099"])
+        self.assertTrue(any("B-099" in x["msg"] and x["code"] == "L4" for x in f))
 
 
 class TestLintReviewExistence(unittest.TestCase):
