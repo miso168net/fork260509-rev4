@@ -50,7 +50,7 @@
 - B-057｜base_web_node_modules named volume 未掛載→/app/node_modules 落 9p drvfs（空 .pnpm 殼、易被主機 pnpm install 汙染）；根治＝隔離 node_modules 於 named volume、修 compose 掛載｜base-web 基建修復｜出處：004 單元⑤ 實測
 - B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（seed 說明改走 i18n help 鍵、或 tooltip 改 i18n）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）
 - B-060｜demo 選單清理：002 casbin menu seed 給 R_SUPER 全 soybean template demo（about/document/plugin/alova/pro-naive/multi-menu/function）menu policy，rev4 真選單應只 home/manage/user-center｜動 002 casbin/sys_menu seed（新 migration）｜出處：005 CDP item#2 拍板 2026-07-06
-- B-061｜3 manage 子項 i18n：manage_audit/ip-rule/policy-archive 已 002 seed 選單項但 locale 三語無 route.manage_* 譯文→dynamic 選單顯 raw key｜各子系統刀建時補譯文｜出處：005 CDP item#2 拍板 2026-07-06
+- B-061｜3 manage 子項 i18n：manage_audit/ip-rule/policy-archive 已 002 seed 選單項但 locale 三語無 route.manage_* 譯文→dynamic 選單顯 raw key（未建頁、前端無 route/view→點擊 404）｜各子系統刀建時補譯文（★route locale 鍵無「獨立新增」授權、須隨建頁走 MODAL-WIRING(e)＝憲法 §III.2；004 manage_system-settings 即此範式；2026-07-06 定案延後、非 quick win）｜出處：005 CDP item#2 拍板 2026-07-06
 - B-063｜孤兒/背景 reaper：sys_token 跨 session 孤兒＋rotated 過期列完整回收（006 refresh-time prune_expired_rotated 已止血同 chain；跨 session/背景批次遞延）｜obs/維運刀｜出處：006 R6/SC-009
 - B-064｜停用帳號/管理員踢除 端點接线：消費 revoke_others_of_user primitive＋發 session_event(revoked)＋denylist(kicked/revoked)；006 只出 primitive、觸發端點遞延（併 B-029 改密撤 session）｜使用者管理刀｜出處：006 FR-008
 - B-065｜denylist 逐出/命中監控＋enforce PG-fallback 負載觀測（每受保護請求一次 ttl_from_settings SELECT、admin 規模可接受）｜obs 刀｜出處：006 U4/final review minor
