@@ -32,6 +32,10 @@
 | 0027 | accepted | 2026-07-05 | 第一功能刀最小授權骨架——require_policy casbin enforce＋enforce_mw 骨架、登入延 auth 刀 | — | — | — |
 | 0028 | accepted | 2026-07-05 | ★I18N-WIRING 軌道擴範圍 (iv)——授權 zh-TW 首發 locale 完整建置（全字典＋註冊＋語言選單） | — | — | — |
 | 0029 | accepted | 2026-07-05 | 替代登入端點包處置＝後端 stub（B-008 三選一收斂） | — | — | — |
-| 0030 | accepted | 2026-07-05 | 會話閒置逾時＝無狀態 sliding refresh（設定可調、無絕對上限） | — | — | — |
+| 0030 | superseded | 2026-07-05 | 會話閒置逾時＝無狀態 sliding refresh（設定可調、無絕對上限） | — | — | 0033 |
 | 0031 | accepted | 2026-07-05 | 新增 ★BASE-WEB-AUTH-WIRING 軌道（auth 刀三處 base-web inline 接线授權） | — | — | — |
 | 0032 | accepted | 2026-07-05 | schema-gate 閘 2 seed 契約放寬——容 post-baseline rev4 新增 seed（additive 白名單） | — | — | — |
+| 0033 | accepted | 2026-07-06 | 會話生命週期改採 DB-stateful rotation（rotation＋reuse 偵測＋denylist 即時撤銷＋single-session＋精確 idle） | — | 0030 | — |
+| 0034 | accepted | 2026-07-06 | 新增 ★BASE-WEB-LOGOUT-UX-WIRING 軌道（logout server-call 接线＋閒置登出 toast 兩用途） | — | — | — |
+| 0035 | accepted | 2026-07-06 | T034 前端跨棧共用 refresh 在途承諾 won't-fix（by-design：alova 對真實 auth dormant＋後端 grace 冪等為並發正確性防線） | — | — | — |
+| 0036 | accepted | 2026-07-06 | FR-017(ii) service-alova 閒置 toast 副本 by-design 省略（alova 對真實 auth dormant＋既有 showErrorMsg 雙彈＋乾淨做須動 showErrorMsg 出軌道） | — | — | — |
