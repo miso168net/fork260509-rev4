@@ -1,4 +1,4 @@
-<!-- next: L-115 -->
+<!-- next: L-116 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -258,3 +258,5 @@
   防：跨邊界紀律必須逐字烤進 prompt 本體（INVARIANTS 模板字串）——「★書面產物一律 zh-TW」為必備項；防呆② 派發前斷言渲染後 prompt 必含 "zh-TW" 字面（漏烤→零派發 throw）；PreToolUse(Workflow) hook 機器擋缺 zh-TW 之 script（.claude/hooks/pre-workflow-gate.py）。｜出處：005 編排實證
 - **L-114**｜首度發出的凍結/預留 error code，其前端顯示 i18n key 需確認實際存在（L-015 之上一層、非只 restart）——005 凍結預留 7777、006 首度發出（single-session 踢除）卻沒補 7777 modal content 之 `backend.auth.session.kicked`（005 只建 8888 的 reLogin）；typecheck/fork-delta-lint/locale 對等靜態閘全綠（該 key 從未被靜態引用、curl 回 msg key 非 modal 的 $t 變體），唯 CDP 實機渲染 modal 才顯 raw key「backend.auth.session.kicked」。
   防：消費既有/凍結碼首度發出時，把「該碼 backend msg → 前端 `$t(backend.<msg>)` key 存在且解析為譯文」列入 CDP 必驗項；final review 加「首度發出碼的前端 i18n key 存在性」鏡頭。｜出處：006 CDP-1 實測（L-053/L-015 同源）
+- **L-115**｜diff-based fork-delta「新增型圈界覆蓋」lint（B-052 補位 fork-delta-lint）的 block 邊界張力＝內在難解、須靠分工＋對抗驗證收斂：以 diff hunk/opcode 為覆蓋粒度必在「太粗（未圈界新增落在鄰近標記的同 hunk 被放行＝FN）」與「太細（結構延續行如閉合 } 被拆到無標記子塊＝FP）」間擺盪；純 line 級分析無法辨『修改的替換邏輯』（該由原行標記涵蓋）vs『獨立新增』（該自帶圈界）。
+  防：①分工化解——只驗『純新增 change-block（塊內無被移除碼行）』要求圈界，含被移除碼行者＝修改型、委派 find_missing 驗原行（captcha 型『替換邏輯與原行標記被空白 context 分隔』自動不誤報）；②多行區塊註解須逐字元掃描開閉（中段行不以註解符起頭、close token 同行後接碼＝繞過縫）；③標記偵測限『註解行』（字串常值內 [rev4-inline 子字串不算）；④diff 檔頭用 seen_hunk 旗標辨識（不靠 +++/--- 前綴、否則內容以 ++/-- 起首漏判）；⑤機器閘先跑 self-test＋mutation 驗非 vacuous（弄壞關鍵路徑須有 assert FAIL）。可接受殘留（文件化於函式 docstring）：與修改型同塊的額外新增歸原行涵蓋不另報、字串內未閉合 /* 的窄 FN；假 DEL 洗白被 find_missing『刪行缺原行』兜住。★流程收穫：守門 lint 用多鏡頭對抗驗證（FP/FN/整合各執行合成攻擊）2 輪抓出 9 真缺陷（首輪 6、v2 再 3）遠勝單審；agent 偶發故障（回傳答非所問、tool_uses=0）須以 §9 結構化狀態偵測、改自驗不盲採。｜出處：B-052（2 輪 workflow 對抗驗證＋自驗）

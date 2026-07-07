@@ -41,7 +41,6 @@
 - B-047｜protected-reject 錯誤訊息具體化（detail 插值通道＋洩漏評估）｜錯誤信封/治理刀｜出處：rev3:CHECKLIST§3.H（K2-32）
 - B-049｜批次軟刪自管 transaction（去 sentinel DbErr 控制流）｜首個批次寫端刀｜出處：rev3:CHECKLIST§3.H（K2-34）
 - B-050｜部分更新全 None 提前 no-op 入 handler/facade 慣例｜部分更新語意設計時｜出處：rev3:CHECKLIST§3.H（K2-35）
-- B-052｜守門 lint 健壯化（route 抽取防漏＋self-test）＋fork-delta 標記覆蓋 lint 補位｜覆蓋 lint 建立時同批｜出處：rev3:CHECKLIST§3.E＋§3.H（K2-37）
 - B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-055｜閘 1 型別比對不含 varchar 長度（fixtures/columns.txt 無 character_maximum_length 欄）——長度級漂移閘 1 不攔；機器閉環需把長度併入 fixtures 重凍（基準改動、拍板級）｜後續 schema 刀重凍基準時｜出處：002-schema-baseline U3b review
