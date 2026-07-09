@@ -8,10 +8,15 @@
   （session_event 變體B）；憲法 v1.3.0（§I.7 島 A/B/C/D＋LOGOUT-UX-WIRING）；ADR 0033(DB-stateful)/0034(軌道)/
   0035(T034 won't-fix)/0036(alova toast won't-fix)；cargo test 148 綠、CDP-1~4 實機全綠（CDP 揪出補 7777 modal
   i18n＝L-053/L-015 兌現）。
-- 下一步：波 1 續 **節流刀**（B-010 帳號級先落地、複用 006 Redis 基建）——登入失敗節流以合成終態重設計
-  （一般化訊息＋鎖中不逐筆稽核已反轉原案）；併 B-017（fail-OPEN 範圍重估＋降級告警）／B-018（惡意鎖人 DoS 面）／
-  B-032/B-033（強化包／快取遞延組）。auth family 次序（2026-07-06 拍板）：session（done）→節流刀（B-010）→
-  （ingress 拓樸定案後）IP 閘刀（B-019/B-024 升 IP 級）；理由＝節流複用 006 Redis 最緊、IP 閘 ingress 前置不 front-load。
+- 下一步：**節流刀 brainstorm 已定案並經對抗式審查修訂**（`docs/brainstorms/007-login-throttle.md`、commit cb12bbf；
+  11 題拍板、5 blocker＋23 major＋17 minor 全折入 §0.1）→ **由 user 手動起 `/speckit-specify`**（input＝該檔；
+  絕不自動觸發、否則 spec 落 default branch）。設計要點：per-user 純帳號級（per-IP 待 IP 閘刀——rev3 019 是
+  013 信任錨的下游消費者、防偽 IP 是前提，rev4 無等值基建）；L1 負快取僅由 L2 再判路徑寫入；稽核收斂為
+  「只有 argon2 驗過的終局才落列」；CAPTCHA 軟區（無狀態 HMAC 簽題、產題零 Redis 寫入）；七源降級矩陣全鏈
+  fail-OPEN（唯一例外＝unlock marker 讀失敗）；m005 settings 三鍵；nginx limit_req 納 scope。
+  ★實作期先決：§9 四項測試機制（DbErr 注入 seam／tracing 捕捉層／raw SQL 種 created_at／自簽 challenge）
+  必須先建，否則守門測試恆綠。產出規劃 ADR 0037-0040＋憲法 v1.4.0（島 E＋新軌道同筆 Amendment）。
+  auth family 次序（2026-07-06 拍板）：session（done）→節流刀（B-010）→（ingress 拓樸定案後）IP 閘刀。
 - 006 遺留 primitive／再議：停用帳號/改密/admin 踢除端點（B-064、消費 revoke_others_of_user primitive＋發
   session_event(revoked)；併 B-029 改密撤 session）；alova 棧接入真實 auth 時補 idle toast＋onError i18n
   （B-069、ADR 0035/0036 觸發再議）；孤兒 reaper（B-063）。005 遺留 B-060/B-061 仍在。
