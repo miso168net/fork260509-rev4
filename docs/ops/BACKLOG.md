@@ -52,6 +52,5 @@
 - B-065｜denylist 逐出/命中監控＋enforce PG-fallback 負載觀測（每受保護請求一次 ttl_from_settings SELECT、admin 規模可接受）｜obs 刀｜出處：006 U4/final review minor
 - B-066｜並發登入收斂整合測試（雙 committed 連線＋顯式清理、驗 advisory lock 序列化＋revoke_others loop-until-0-active 真並發 snapshot-miss）｜test 補強｜出處：006 U6/R1 review
 - B-067｜session_event 膨脹治理：reuse 同票重放逐次累積稽核列（006 SC-009 只列 sys_token 回收、未列 session_event；曝險有界於 refresh JWT exp、無安全風險）｜obs 刀｜出處：006 final review minor
-- B-068｜session_event source_ip 接入 kicked/logout（現全 None、login LoginAudit.real_ip 可取用供 forensics）｜obs/enrich｜出處：006 U9/U11 review
 - B-069｜alova 棧接入真實 auth 時：補 idle toast 副本＋修 onError raw msg 未 $t（現 demo-only dormant、ADR 0035/0036 觸發再議＝alova 接入真實 auth）｜前端/alova 刀｜出處：006 U11/ADR 0035-0036
 - B-071｜閘 1（schema-gate gate1）現紅：m004 合法結構新增（session_event 表＋uq_sys_token_chain_active 索引）無 additive 容差機制→FAIL 2 差異、紅燈裸奔中；處置＝結構 additive 容差（比照 ADR 0032 白名單範式）或整批重凍，與 B-055（varchar 長度併入 fixtures）綁同一拍板批次、一次 ADR＋一次重擷取覆蓋｜下一支帶 migration 的刀 schema 期（節流刀候選）必拍｜出處：B-055 偵察 2026-07-10 gate1 實測
