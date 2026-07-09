@@ -47,7 +47,7 @@
   防：增量一律外科式：顯式 prune 變更檔舊節點→build_merge 帶 dedup=False（prune_sources 只給已刪除檔）；merge 後節點數必須成長、縮水即停手不寫檔；update 前先 grep graph.json 實際 source 覆蓋、別只信 manifest；export obsidian 前先清舊 .md。｜出處：rev3:memory/graphify-update-fuzzy-dedup
 - **L-020**｜spec-kit 有兩條獨立版本軸：repo release tag（如 v0.10.x）與 specify-cli 套件自報版本（如 0.8.x）本來就不相等，且安裝器把 tag 解析成 commit 釘著裝、uv 顯示裸 commit hash——看到落差容易誤判成裝錯或裝到 main HEAD。
   防：驗證是否釘在 release：比對 install log 的 build commit 是否等於該 tag peel 後的 commit（git ls-remote --tags）且不等於 HEAD；specify --version 只用來查 dev/rc/alpha/beta/pre 後綴、有就重裝穩定 tag。｜出處：rev3:memory/speckit-version-axes
-- **L-106**｜base-web worktree 在主機 git commit 會觸發 soybean 上游 husky/lint-staged hook 跑 pnpm install，但 rev4 設計 node toolchain 全在容器、主機無→hook 跑不動且中斷會汙染 node_modules（且 base_web_node_modules named volume 可能未掛載、/app/node_modules 落 9p drvfs 空殼）。
+- **L-106**｜base-web worktree 在主機 git commit 會觸發 soybean 上游 husky/lint-staged hook 跑 pnpm install，但 rev4 設計 node toolchain 全在容器、主機無→hook 跑不動且中斷會汙染 node_modules（★汙染只落主機側 9p bind 源目錄：base_web_node_modules named volume 自 001-U3 已宣告＋掛載＋實效、容器內 /app/node_modules＝ext4 volume 遮罩主機殘留、容器不受害——2026-07-10 B-057 偵察 docker inspect/mount 實證；原句「可能未掛載」係推測、已勘誤）。
   防：base-web 所有 commit 一律 `--no-verify`（驗證已於容器內 typecheck+lint load-bearing 完成）；node_modules 壞了在容器內 `pnpm install --prefer-offline`（CI=true frozen-lockfile、走 /pnpm-store、lock 不漂移）修復。｜出處：004 單元④/⑤ 實測
 - **L-107**｜base-web `pnpm gen-route`（sa gen-route）是互動式新增-route 精靈、`-T` 無 TTY 會卡在 `please enter route name`，非 headless 重生成器；route 實際由運行中 dev 容器的 ElegantVueRouter vite plugin 於 .vue file-add 事件自動生成。
   防：base-web 驗收只跑容器內 `pnpm typecheck`＋`pnpm lint`（勿在腳本串 `pnpm gen-route`——會卡）；route 生成靠 dev 容器 plugin 自動觸發、手填 meta（roles/icon/order）regen 保留。｜出處：004 單元④ 實測

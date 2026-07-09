@@ -1,4 +1,4 @@
-<!-- next: B-071 -->
+<!-- next: B-072 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -38,13 +38,12 @@
 - B-044｜op-log payload PII 遮蔽策略先拍再落庫｜審計 payload 設計期｜出處：rev3:CHECKLIST§3.J（K2-29）
 - B-045｜低位殘項 checklist（trace_id 控制字元/XFF 空 token/計數 race/migration down 非對稱/CDN 錨）｜重寫對應模組時逐項內建｜出處：rev3:CHECKLIST§3.J（K2-30）
 - B-046｜IP 閘門政策判定單一來源（純函式回命中規則、middleware 只呼叫）｜IP 閘刀設計期｜出處：rev3:CHECKLIST§3.E（K2-31）
-- B-047｜protected-reject 錯誤訊息具體化（detail 插值通道＋洩漏評估）｜錯誤信封/治理刀｜出處：rev3:CHECKLIST§3.H（K2-32）
+- B-047｜protected-reject 錯誤訊息具體化（detail 插值通道＋洩漏評估；信封加欄＝憲法 §I.3 Amendment 級、payload 形等治理刀 brainstorm 定）｜治理刀（casbin 寫端設計期；003 錯誤信封刀已收且明拒本項、rev4 現零發射點）｜出處：rev3:CHECKLIST§3.H（K2-32）
 - B-049｜批次軟刪自管 transaction（去 sentinel DbErr 控制流）｜首個批次寫端刀｜出處：rev3:CHECKLIST§3.H（K2-34）
 - B-050｜部分更新全 None 提前 no-op 入 handler/facade 慣例｜部分更新語意設計時｜出處：rev3:CHECKLIST§3.H（K2-35）
 - B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-055｜閘 1 型別比對不含 varchar 長度（fixtures/columns.txt 無 character_maximum_length 欄）——長度級漂移閘 1 不攔；機器閉環需把長度併入 fixtures 重凍（基準改動、拍板級）｜後續 schema 刀重凍基準時｜出處：002-schema-baseline U3b review
-- B-057｜base_web_node_modules named volume 未掛載→/app/node_modules 落 9p drvfs（空 .pnpm 殼、易被主機 pnpm install 汙染）；根治＝隔離 node_modules 於 named volume、修 compose 掛載｜base-web 基建修復｜出處：004 單元⑤ 實測
 - B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（seed 說明改走 i18n help 鍵、或 tooltip 改 i18n）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）
 - B-060｜demo 選單清理：002 casbin menu seed 給 R_SUPER 全 soybean template demo（about/document/plugin/alova/pro-naive/multi-menu/function）menu policy，rev4 真選單應只 home/manage/user-center｜動 002 casbin/sys_menu seed（新 migration）｜出處：005 CDP item#2 拍板 2026-07-06
 - B-061｜3 manage 子項 i18n：manage_audit/ip-rule/policy-archive 已 002 seed 選單項但 locale 三語無 route.manage_* 譯文→dynamic 選單顯 raw key（未建頁、前端無 route/view→點擊 404）｜各子系統刀建時補譯文（★route locale 鍵無「獨立新增」授權、須隨建頁走 MODAL-WIRING(e)＝憲法 §III.2；004 manage_system-settings 即此範式；2026-07-06 定案延後、非 quick win）｜出處：005 CDP item#2 拍板 2026-07-06
@@ -55,3 +54,4 @@
 - B-067｜session_event 膨脹治理：reuse 同票重放逐次累積稽核列（006 SC-009 只列 sys_token 回收、未列 session_event；曝險有界於 refresh JWT exp、無安全風險）｜obs 刀｜出處：006 final review minor
 - B-068｜session_event source_ip 接入 kicked/logout（現全 None、login LoginAudit.real_ip 可取用供 forensics）｜obs/enrich｜出處：006 U9/U11 review
 - B-069｜alova 棧接入真實 auth 時：補 idle toast 副本＋修 onError raw msg 未 $t（現 demo-only dormant、ADR 0035/0036 觸發再議＝alova 接入真實 auth）｜前端/alova 刀｜出處：006 U11/ADR 0035-0036
+- B-071｜閘 1（schema-gate gate1）現紅：m004 合法結構新增（session_event 表＋uq_sys_token_chain_active 索引）無 additive 容差機制→FAIL 2 差異、紅燈裸奔中；處置＝結構 additive 容差（比照 ADR 0032 白名單範式）或整批重凍，與 B-055（varchar 長度併入 fixtures）綁同一拍板批次、一次 ADR＋一次重擷取覆蓋｜下一支帶 migration 的刀 schema 期（節流刀候選）必拍｜出處：B-055 偵察 2026-07-10 gate1 實測
