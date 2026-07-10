@@ -43,13 +43,13 @@ description: "Task list for 008-ip-gate implementation"
 
 ## Phase 2: Foundational（★阻塞實機驗收與治理）
 
-**Purpose**：P0 dev 反代拓樸前置（新★軌道 Amendment、user 親決）＋測試先決基礎。
+**Purpose**：S0 dev 反代拓樸前置（新★軌道 Amendment、user 親決）＋測試先決基礎。
 
-**⚠️ P0 含憲法 Amendment、需 user 親決；治理產物於 P0 完成即 commit（不延收刀）。**
+**⚠️ S0 含憲法 Amendment、需 user 親決；治理產物於 S0 完成即 commit（不延收刀）。**
 
-- [ ] T006 **[US-P0]** 立新★軌道 ADR draft（比照 ADR 0040）：`docs/arc42/decisions/00NN-devproxy-wiring-track.md`（背景／決定／後果、註明改憲法 §III.2；軌道文字嚴限「dev 反代拓樸」`service.ts` `createProxyPattern`＋`proxy.ts` target 推導兩處）；**★user 親決**後轉 accepted＋軌道全文入 `.specify/memory/constitution.md` §III.2＋version MINOR bump＋`docs(constitution): amend` commit＋`docs-sync generate`
-- [ ] T007 **[US-P0]** dev 反代拓樸修正（B-079、新★軌道；base-web `--no-verify`＋跑 `fork-delta-lint`）：`base-web/src/utils/service.ts:70` `createProxyPattern` 預設 `/proxy-default`→`/api`（修改型首筆、逐字 `原行:`）；`base-web/build/config/proxy.ts:34` target `item.baseURL`→`http://rust-api:8080`（修改型首筆＋新 env key 或寫死）；`base-web/src/typings/vite-env.d.ts` 新 proxy target env key（新增型圈界）；`base-web/.env.test:3`→`/api`（修改型、已有 005 標記）；`base-web/.env.prod:2`→`/api`（修改型首筆、拆 apifox mock）；容器內 `pnpm typecheck`＋`fork-delta-lint` 綠
-- [ ] T008 **[US-P0]** P0 驗收：restart base-web→CDP 經 `:42080` 走登入鏈、驗 API URL 為 `/api/auth/login`（單跳、非 `/proxy-default/*`）；驗 `pnpm build:test` 產物可連通後端（依賴 T007）
+- [ ] T006 **[US-S0]** 立新★軌道 ADR draft（比照 ADR 0040）：`docs/arc42/decisions/00NN-devproxy-wiring-track.md`（背景／決定／後果、註明改憲法 §III.2；軌道文字嚴限「dev 反代拓樸」**三處**＝`service.ts` `createProxyPattern`＋`proxy.ts` target 推導（讀 `VITE_PROXY_TARGET`）＋`vite-env.d.ts` `VITE_PROXY_TARGET` 宣告〔upstream 既有檔、不落 ADAPT；C1 拍板＝env key 案〕）；**★user 親決**後轉 accepted＋軌道全文入 `.specify/memory/constitution.md` §III.2＋version MINOR bump＋`docs(constitution): amend` commit＋`docs-sync generate`
+- [ ] T007 **[US-S0]** dev 反代拓樸修正（B-079、新★軌道；base-web `--no-verify`＋跑 `fork-delta-lint`）：`base-web/src/utils/service.ts:70` `createProxyPattern` 預設 `/proxy-default`→`/api`（修改型首筆、逐字 `原行:`）；`base-web/build/config/proxy.ts:34` target `item.baseURL`→讀新 env key `VITE_PROXY_TARGET`（值＝`http://rust-api:8080`；修改型首筆、C1 env key 案）；`base-web/src/typings/vite-env.d.ts` 宣告 `VITE_PROXY_TARGET`（新增型圈界、C1 env key 案）；`base-web/.env`／`base-web/.env.test` 加 `VITE_PROXY_TARGET=http://rust-api:8080`（ADAPT 新增）；`base-web/.env.test:3`→`/api`（修改型、已有 005 標記）；`base-web/.env.prod:2`→`/api`（修改型首筆、拆 apifox mock）；容器內 `pnpm typecheck`＋`fork-delta-lint` 綠
+- [ ] T008 **[US-S0]** S0 驗收：restart base-web→CDP 經 `:42080` 走登入鏈、驗 API URL 為 `/api/auth/login`（單跳、非 `/proxy-default/*`）；驗 `pnpm build:test` 產物可連通後端（依賴 T007）
 
 **Checkpoint**：dev/prod 拓樸同形；後端 US 的實機驗收此後有意義。
 
@@ -61,7 +61,7 @@ description: "Task list for 008-ip-gate implementation"
 
 ### 測試（先寫、應為紅）
 
-- [ ] T009 [P] [US1] `rust-api/server/src/trust/mod.rs` `#[cfg(test)] mod tests`（本檔自有 mod、可與他檔平行）：`resolve_client_ip` table-driven——四 ingress×七態；XFF 正規化邊角（port/zone/bracket/32-token 上限/garbage）；★**非 loopback tunnel origin 取回真訪客 IP 而非 origin 常數**（改善 1 守門）；★**client 自帶 X-CF-Verified 於 `peer∉cf_gate_egress` 時不採信**（改善 4 守門）；CF overlay 升 `cdn_verified`／降 `cdn_mismatch`；peer-gate 忽略偽造 XFF
+- [ ] T009 [US1] `rust-api/server/src/trust/mod.rs` `#[cfg(test)] mod tests`（與 T011/T013 同檔、同單元序列撰寫、不標 [P]）：`resolve_client_ip` table-driven——四 ingress×七態；XFF 正規化邊角（port/zone/bracket/上限/garbage）；★**超量截斷保留最右側 N token、丟左端溢出**（>N 洪泛時真實位址仍被取回、FR-006 守門）；★**非 loopback tunnel origin 取回真訪客 IP 而非 origin 常數**（改善 1 守門）；★**client 自帶 X-CF-Verified 於 `peer∉cf_gate_egress` 時不採信**（改善 4 守門）；★**屬信任集但不屬通道來源集之 peer 帶通道訪客標頭→不採信**（FR-007 負向案）；★**可升等集合恰 {cdn_anchored,proxy_clean,proxy_soft}、direct/fallback/cdn_mismatch 不升**（FR-008）；★**proxy_soft 兩觸發**（走過 dual_role my_public／綁定右鄰驗證不符、FR-004）；CF overlay 升 `cdn_verified`／降 `cdn_mismatch`；peer-gate 忽略偽造 XFF
 - [ ] T010 [US1] `rust-api/server/src/handler/auth.rs` `mod tests`（★全庫集中 mod、須與後續同檔測試序列）：既有 `ip_confidence='low'` 硬斷言（:1317/:1335）改七態真值（空信任模型＋test peer→`direct`）——連動改寫（比照 ADR 0037 稽核語意升級）
 
 ### 實作
@@ -69,7 +69,7 @@ description: "Task list for 008-ip-gate implementation"
 - [ ] T011 [US1] `rust-api/server/src/trust/mod.rs`：`TrustModel` struct＋`Confidence` 七態 enum（DB/wire 小寫 snake）＋★`is_trusted` 與 Tier-2 skip 集**由單一 helper 導出、對稱含 tunnel＋cf_gate_egress**（FR-004、L-081）
 - [ ] T012 [US1] `rust-api/server/src/config.rs`：`TrustModel` TOML 載入（`TRUST_MODEL_FILE`，全集合 `serde(default)` 空、壞 CIDR 該集合清空、整體 parse 失敗全空＝all-direct、FR-010；fallback flat env `TRUSTED_PROXY_CIDRS`）；boot 塞 `Arc<TrustModel>` 入 AppState（T005 落點）
 - [ ] T013 [US1] `rust-api/server/src/trust/mod.rs`：`resolve_client_ip(tm, peer, xff) -> (IpAddr, Confidence, Evidence)` 純函式——三層（peer-gate→Tier-1 CDN 位置錨最右盲剝→Tier-2 rightmost-untrusted）＋XFF 正規化＋兩 overlay（`apply_tunnel_fallback` conf 不升／`apply_cf_overlay` 增 `peer∈cf_gate_egress` 前置、只動 conf 不動 real_ip）（FR-002~008）；★單一權威（middleware 純消費，B-046）→ T009 轉綠
-- [ ] T014 [US1] `rust-api/server/src/middleware/mod.rs`：`request_context_mw`（`from_fn_with_state`）注入 `RequestContext{client_ip,peer_ip,ip_confidence,x_forwarded_for,region:None,trace_id}`——`req.extensions().get::<ConnectInfo<SocketAddr>>()`、★缺席 fail-open 容忍（絕不 mandatory、FR-018②）；`rust-api/server/src/router.rs:259` `.fallback()` 後、`.with_state()` 前掛 `.layer(...)`（最外層先注入）
+- [ ] T014 [US1] `rust-api/server/src/middleware/mod.rs`：`request_context_mw`（`from_fn_with_state`）注入 `RequestContext{client_ip,peer_ip,ip_confidence,x_forwarded_for,region:None,trace_id}`——`req.extensions().get::<ConnectInfo<SocketAddr>>()`、★缺席 fail-open 容忍（絕不 mandatory、FR-012②）；`rust-api/server/src/router.rs:259` `.fallback()` 後、`.with_state()` 前掛 `.layer(...)`（最外層先注入）
 - [ ] T015 [US1] `rust-api/server/src/handler/auth.rs`：`audit_from_request`（:137-150）改讀 ctx——`real_ip`＝還原後 client_ip（原 peer sentinel）、`ip_confidence`＝七態真值（原恆 "low" :393）；三處 `OptionalPeer` 呼叫點（:110/:430/:618）收斂讀 ctx；`sys_session_event.source_ip` 值語意 peer→ctx.client_ip（同步改 auth.rs:250/:433-435/:596 doc、FR-037）→ T010 轉綠
 - [ ] T016 [US1] `deploy/nginx/nginx.conf`（外層 repo、零 fork-delta）：加 CF 權威驗證閘 `geo $cf_edge`＋`map` 產 `X-CF-Verified`（插 :41 裁剪聲明處）；`conf.d/_locations.inc` 三個 /api 塊（:30/:40/:49 後）★以 `map` **無條件覆寫** `X-CF-Verified`＋`CF-Connecting-IP`（非 CF→空→移除、不讓 client 自帶倖存、FR-008）；`nginx.conf:45` 註解補述（信任錨與限流鍵分工）；CF 網段值註明部署參數 B-037；front-nginx `up -d --force-recreate`（L-016）
 - [ ] T017 [US1] 負向自證：暫改 Tier-2 walk 恆取最左 → T009 信任解析測試轉紅；還原後全綠（結果寫入執行單元 report、FR-004 守門）
@@ -84,7 +84,7 @@ description: "Task list for 008-ip-gate implementation"
 
 ### 測試（先寫、應為紅）
 
-- [ ] T018 [P] [US2] `rust-api/server/src/ipgate/mod.rs` `#[cfg(test)] mod tests`：`decide` table-driven——白優先於黑、私網結構豁免（六段）、未知 `wbip_type` skip、any-match 非 first-match、matched_cidr 回傳（FR-012/013）
+- [ ] T018 [US2] `rust-api/server/src/ipgate/mod.rs` `#[cfg(test)] mod tests`（與 T020/T023/T025/T026 同檔、序列撰寫、不標 [P]）：`decide` table-driven——白優先於黑、私網結構豁免（六段）、未知 `wbip_type` skip、any-match 非 first-match、matched_cidr 回傳（FR-012/013）
 - [ ] T019 [P] [US2] `rust-api/server/tests/contract.rs`：五規則端點契約案（`Request::get/post/delete`）＋registry 計數斷言 16→(16+5)（覆蓋閘、contracts/ip-gate-endpoints.md）
 
 ### 實作
@@ -105,7 +105,7 @@ description: "Task list for 008-ip-gate implementation"
 
 ### 測試（先寫、應為紅）
 
-- [ ] T025 [P] [US3] `rust-api/server/src/ipgate/mod.rs` `mod tests`（與 T018 同檔、序列）：`would_self_lock` 四路徑——add deny／update 成 deny／delete 操作者的 allow／restore deny 皆拒；allow 永不自鎖；非自身來源相同操作皆過（FR-022）
+- [ ] T025 [US3] `rust-api/server/src/ipgate/mod.rs` `mod tests`（與 T018 同檔、序列、不標 [P]）：`would_self_lock` 四路徑——add deny／update 成 deny／delete 操作者的 allow／restore deny 皆拒；allow 永不自鎖；非自身來源相同操作皆過（FR-022）
 
 ### 實作
 
@@ -123,8 +123,8 @@ description: "Task list for 008-ip-gate implementation"
 
 ### 測試（先寫、應為紅）
 
-- [ ] T029 [US4] `rust-api/server/src/handler/auth.rs` `mod tests`（★集中 mod、與 T010/T015 序列）：per-IP 兩段式（超 captcha_after→軟區／超 max_fails→硬鎖 2222 一般化）；跨維度合成四組合（任一硬鎖→硬鎖）；維度隔離（兩來源互不影響）；★**IPv6 同一 /64 內不同位址聚合至同桶**（FR-026/SC-006b）；★**穿插成功登入不重置 IP 計數**（FR-027/SC-005 blocker 守門）；缺 ConnectInfo→IP 維跳過
-- [ ] T030 [P] [US4] `rust-api/server/src/validation.rs` `mod tests`：IP 三鍵界值測試（界內/上下界/界外±1，比照 :129-156）
+- [ ] T029 [US4] `rust-api/server/src/handler/auth.rs` `mod tests`（★集中 mod、與 T010/T015 序列）：per-IP 兩段式（達（≥）captcha_after→軟區／達（≥）max_fails→硬鎖 2222 一般化；★界值案入表：計數**恰等於** captcha_after／max_fails 即觸發、FR-028 ≥ 語意守門）；跨維度合成四組合（任一硬鎖→硬鎖）；維度隔離（兩來源互不影響）；★**IPv6 同一 /64 內不同位址聚合至同桶**（FR-026/SC-006b）；★**穿插成功登入不重置 IP 計數**（FR-027/SC-005 blocker 守門）；缺 ConnectInfo→IP 維跳過
+- [ ] T030 [US4] `rust-api/server/src/validation.rs` `mod tests`（與 T034 同檔、序列、不標 [P]）：IP 三鍵設定值域界值測試（界內/上下界/界外±1，比照 :129-156）
 
 ### 實作
 
@@ -140,11 +140,11 @@ description: "Task list for 008-ip-gate implementation"
 
 ## Phase 7: User Story 5 — 白名單跳節流（P5）
 
-**Goal**：顯式 allow 來源跳過來源維度節流。**Independent Test**：quickstart §5（allow 白名單失敗超門檻仍不鎖）。**依賴**：US2（allow 規則）＋US4（節流）。
+**Goal**：顯式 allow 來源跳過來源維度節流。**Independent Test**：quickstart §5（allow 白名單失敗達（≥）門檻仍不鎖）。**依賴**：US2（allow 規則）＋US4（節流）。
 
 ### 測試（先寫、應為紅）
 
-- [ ] T036 [US5] `rust-api/server/src/handler/auth.rs` `mod tests`（序列）：allow 命中來源失敗超硬門檻仍不鎖（帳號維仍生效）；結構豁免私網未登記 allow 仍被鎖（FR-032/SC-006）
+- [ ] T036 [US5] `rust-api/server/src/handler/auth.rs` `mod tests`（序列）：allow 命中來源失敗達（≥）硬門檻仍不鎖（帳號維仍生效）；結構豁免私網未登記 allow 仍被鎖（FR-032/SC-006）
 
 ### 實作
 
@@ -184,7 +184,7 @@ description: "Task list for 008-ip-gate implementation"
 
 ## Phase 10: unlock 維度欄（跨 US4）
 
-- [ ] T041 [US4] `rust-api/server/src/handler/throttle.rs`：`UnlockReq`（:64-68）加**選用** `dimension` 欄；未帶→預設 `"user"`（帳號維、向後相容 FR-033）；動作序 DIM_USER 字面（:106/:116）隨維度參數化（不換序、T056 測試維持）；op-log payload_after 加維度；`mod tests` 補「未帶＝帳號維」「顯式來源維」兩案（contracts 覆蓋）
+- [ ] T041 [US4] `rust-api/server/src/handler/throttle.rs`：`UnlockReq`（:64-68）加**選用** `dimension`＋`target` 欄；未帶 dimension→預設 `"user"`（帳號維、向後相容 FR-033）；`dimension="ip"` 時以 `target` 承載來源位址字面（`userName` 可省）、★`target` 必經與計數鍵相同粒度導出（IPv6 先聚合 /64、與 FR-026 一致）否則解鎖鍵對不上鎖定鍵；非法 `dimension` 值→回 `2222`（零新碼）；動作序 DIM_USER 字面（:106/:116）隨維度參數化（不換序、T056 測試維持）；op-log payload_after 加維度與標的；`mod tests` 補三案「未帶＝帳號維」「顯式 ip 維帶 target（/64 導鍵）」「非法維度→2222」（★落 handler 測試、非 contract.rs registry case，FR-033）
 
 ---
 
@@ -213,7 +213,7 @@ description: "Task list for 008-ip-gate implementation"
 ### Phase 依賴
 
 - **Setup（P1）**：無依賴、最先。
-- **Foundational P0（P2）**：base-web＋Amendment，與後端 US 正交但阻塞實機驗收；含 user 親決。
+- **Foundational S0（P2）**：base-web＋Amendment，與後端 US 正交但阻塞實機驗收；含 user 親決。
 - **US1（P3）🎯 MVP**：依 Setup。信任錨是 US2/US4/US6 的前提。
 - **US2（P4）**：依 US1（client_ip）。
 - **US3（P5）**：依 US2（decide＋寫端）。
@@ -226,17 +226,17 @@ description: "Task list for 008-ip-gate implementation"
 
 ### 執行單元切分（Workflow 編排：每單元一支）
 
-U1＝T001-T005（Setup）｜U2＝T006-T008（P0，user 親決）｜U3＝T009,T011-T013,T017（US1 信任錨純函式）｜U4＝T010,T014-T016（US1 middleware＋稽核升級＋nginx CF 閘）｜U5＝T018,T020-T021（US2 decide＋facade）｜U6＝T022-T023（US2 gate mw＋門鈴）｜U7＝T019,T024（US2 寫端五端點）｜U8＝T025-T028（US3 自鎖）｜U9＝T029,T031-T033（US4 節流核心）｜U10＝T030,T034-T035（US4 seed＋負向自證）｜U11＝T036-T037（US5）｜U12＝T038-T039（US6 GeoIP）｜U13＝T040（US7 nginx）｜U14＝T041（unlock 維度）｜U15＝T042-T047（Polish）。約 **15 執行單元**。
+U1＝T001-T005（Setup）｜U2＝T006-T008（S0，user 親決）｜U3＝T009,T011-T013,T017（US1 信任錨純函式）｜U4＝T010,T014-T016（US1 middleware＋稽核升級＋nginx CF 閘）｜U5＝T018,T020-T021（US2 decide＋facade）｜U6＝T022-T023（US2 gate mw＋門鈴）｜U7＝T019,T024（US2 寫端五端點）｜U8＝T025-T028（US3 自鎖）｜U9＝T029,T031-T033（US4 節流核心）｜U10＝T030,T034-T035（US4 seed＋負向自證）｜U11＝T036-T037（US5）｜U12＝T038-T039（US6 GeoIP）｜U13＝T040（US7 nginx）｜U14＝T041（unlock 維度）｜U15＝T042-T047（Polish）。約 **15 執行單元**。
 
 ### Within Each Story
 
 - 測試先寫、應為紅 → 純函式/model → facade → middleware/endpoint → 整合 → 負向自證。
-- ★`handler/auth.rs` 的 `#[cfg(test)] mod tests` 為全庫集中 mod（T010/T015/T029/T036/T038 同檔）→ 一律**不標 `[P]`、須同一或相鄰執行單元序列撰寫**；`trust/`、`ipgate/`、`validation.rs` 各自 mod 可分不同單元（已標 `[P]`）。
+- ★`handler/auth.rs` 的 `#[cfg(test)] mod tests` 為全庫集中 mod（T010/T015/T029/T036/T038 同檔）→ 一律**不標 `[P]`、須同一或相鄰執行單元序列撰寫**；`trust/`（T009/T011/T013）、`ipgate/`（T018/T020/T023/T025/T026）、`validation.rs`（T030/T034）同檔系列同理不標 `[P]`、單元內／相鄰單元序列撰寫。
 
 ### Parallel Opportunities
 
 - Setup T004 [P]（新檔骨架）。
-- US1 T009 [P]（trust/ 自有 mod）與 US2 T018/T019 [P]（ipgate/、contract.rs）分屬不同檔，可分派不同執行單元；但 rust cargo **全程 serial 跑**。
+- US2 T019 [P]（contract.rs、與同單元 T024 不同檔）可分派不同執行單元；但 rust cargo **全程 serial 跑**。
 - Polish T045/T046/T047 [P]（三個不同 docs 檔）。
 
 ---
@@ -245,7 +245,7 @@ U1＝T001-T005（Setup）｜U2＝T006-T008（P0，user 親決）｜U3＝T009,T01
 
 ### MVP（US1 信任錨）
 
-Setup → P0 → US1 → **STOP & VALIDATE**（crafted-XFF 實機、稽核真值）。此時已交付「稽核鑑識從零變可用」的獨立價值。
+Setup → S0 → US1 → **STOP & VALIDATE**（crafted-XFF 實機、稽核真值）。此時已交付「稽核鑑識從零變可用」的獨立價值。
 
 ### 增量交付
 
@@ -262,5 +262,5 @@ US1（MVP）→ US2（閘門）→ US3（自鎖）→ US4（節流）→ US5（�
 - [P]＝不同檔、無依賴、可分派不同執行單元（非平行跑 cargo）。
 - rust 全程容器內 serial；base-web commit `--no-verify`；驗收經 `:42080`。
 - 零新錯誤碼（reuse 5003/2222）；零建表（sys_ip_rule 已 baseline）；唯一 schema 變更＝三 settings seed。
-- 治理：P0 新★軌道＋新島 F Amendment 需 user 親決；五份 ADR（含 won't-fix）user 親決。
+- 治理：S0 新★軌道＋新島 F Amendment 需 user 親決；五份 ADR（含 won't-fix）user 親決。
 - ★活書 as-built 不在 feature branch（L-124）；push/merge 不入本清單（L-021）。

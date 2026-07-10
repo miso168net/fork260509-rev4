@@ -44,7 +44,7 @@
 
 ---
 
-## R3. 信任錨真實 IP 還原（P1 核心、純函式 test-first）
+## R3. 信任錨真實 IP 還原（S1 核心、純函式 test-first）
 
 **Decision**: 新 `trust/` 模組，`resolve_client_ip(trust_model, peer, xff) -> (IpAddr, Confidence, Evidence)` 純函式；三層（peer-gate → Tier-1 CDN 位置錨 → Tier-2 rightmost-untrusted）＋兩 overlay（tunnel fallback → CF overlay）＋七態 confidence。機理承襲 rev3 `audit_ctx.rs`、實作全新寫。
 
@@ -60,7 +60,7 @@
 
 ---
 
-## R4. RequestContext middleware 掛載（P1）
+## R4. RequestContext middleware 掛載（S1）
 
 **Decision**: 拆兩支 middleware——`request_context_mw`（注入 `RequestContext{client_ip, peer_ip, ip_confidence, x_forwarded_for, region, trace_id}`）＋`ip_gate_mw`（讀 ctx.client_ip 判定）。掛點＝`router.rs:259` `.fallback()` 後、`.with_state()` 前的 `.layer(from_fn_with_state(state, ...))`。
 
@@ -74,7 +74,7 @@
 
 ---
 
-## R5. 規則集門鈴（ArcSwap＋Redis pub/sub、P2）
+## R5. 規則集門鈴（ArcSwap＋Redis pub/sub、S2）
 
 **Decision**: in-process `RuleSet{allow, deny}`（兩袋 `Vec<IpNetwork>`、ArcSwap `.load()` lock-free）；CRUD 寫後 `reload_and_publish`（本機 store＋Redis PUBLISH `ipgate:invalidate`）；`spawn_ipgate_watcher`（tokio::spawn）SUBSCRIBE 收訊重讀 DB→store（≤5s）。
 
@@ -88,7 +88,7 @@
 
 ---
 
-## R6. per-IP 節流啟用（P3、supersede ADR 0038 調整項二）
+## R6. per-IP 節流啟用（S3、supersede ADR 0038 調整項二）
 
 **Decision**: precheck 加 IP 入參（call site auth.rs:193-201，`audit.real_ip` 已在手）；user 維與 IP 維並列判定，合成＝任一硬鎖→硬鎖、否則任一軟區→軟區、否則放行（FR-029）。IP 維鍵＝`throttle_key("lock", DIM_IP, ip_str)`（helper 零改動、加 `DIM_IP` 常數）。
 
@@ -96,7 +96,7 @@
 
 **★IPv6 /64 聚合**（clarify Q1，FR-026）：計數鍵 IPv4 用 /32、IPv6 用 `Ipv6Network::new(v6,64)?.network()`（★必須 `.network()` 截斷 host bits，否則同 /64 內不同主機值不相等、聚合失效）；ipnetwork 0.20.0 現有、零新依賴。
 
-**★缺 ConnectInfo 處置**（自拍）：oneshot 測試/無 connect-info 環境 real_ip＝0.0.0.0 sentinel → IP 維節流跳過（沿 fail-open、與 FR-018 ②一致），不對 sentinel 建計數桶。
+**★缺 ConnectInfo 處置**（自拍）：oneshot 測試/無 connect-info 環境 real_ip＝0.0.0.0 sentinel → IP 維節流跳過（沿 fail-open、與 FR-012 ②一致），不對 sentinel 建計數桶。
 
 **兩段式獨立三鍵**（FR-031）：`ip_max_fails`/`ip_window_minutes`/`ip_captcha_after`，預設值入活書常數（brainstorm 拍 50/15/10、假設出口人口上界 ≤50）；四處對齊（新 m00X seed＋NUMBER_RANGES＋KEY_* 字面＋defaults）。
 
@@ -106,24 +106,25 @@
 
 ## R7. unlock 端點加維度欄（FR-033、clarify Q2）
 
-**Decision**: `UnlockReq` 加**選用** `dimension` 欄；未帶→預設帳號維（向後相容 007）、來源維須顯式指明。動作序（SET marker→DEL lock→op-log）的 `DIM_USER` 字面（handler/throttle.rs:106/:116）隨維度參數化；op-log `payload_after` 加維度資訊（工程判斷、spec 未硬性規定形）。
+**Decision**: `UnlockReq` 加**選用** `dimension`＋`target` 欄；未帶 dimension→預設帳號維（向後相容 007）、來源維須顯式指明——`dimension="ip"` 時以 `target` 承載來源位址字面（`userName` 可省）、★`target` 必經與計數鍵相同粒度導出（IPv6 先聚合 /64、與 FR-026 一致）否則解鎖鍵對不上鎖定鍵；非法 `dimension` 值→回 `2222`（零新碼）。動作序（SET marker→DEL lock→op-log）的 `DIM_USER` 字面（handler/throttle.rs:106/:116）隨維度參數化；op-log `payload_after` 加維度（與標的）資訊（工程判斷、spec 未硬性規定形）。
 
-**Rationale**: 既有端點最小驚訝＋向後相容；契約案覆蓋「未帶＝帳號維」＋「顯式來源維」兩案。動作序不可換序（測試 T056 機器強制）維持。
+**Rationale**: 既有端點最小驚訝＋向後相容；行為案覆蓋三案（未帶＝帳號維／顯式來源維帶 `target`／非法維度→`2222`），落 handler/throttle.rs `mod tests`（非 contract.rs registry case）。動作序不可換序（測試 T056 機器強制）維持。
 
 ---
 
-## R8. nginx 面（P1 CF 閘＋P3 B-072）與 P0 前置
+## R8. nginx 面（S1 CF 閘＋S3 B-072）與 S0 前置
 
 **Decision（nginx，外層 repo、零 fork-delta）**:
 - **CF geo/map 閘**（B-020、兌現 nginx.conf:41 裁剪聲明）：`geo $cf_edge`＋`map` 產 `X-CF-Verified` 插 nginx.conf:41（http 層級）；三 /api 塊五支 proxy_set_header 後注入，★**以 map 無條件覆寫**（非 CF 流量→空→移除），`CF-Connecting-IP` 同理——不得讓 client 自帶同名標頭倖存（FR-008）。CF 網段值＝部署參數（B-037）。dev 驗收：dev.conf 測試值覆蓋 geo。
 - **B-072 兩塊**（D6、FR-039）：`= /api/auth/refreshToken`、`= /api/auth/logout` 插 `_locations.inc:41-43` 之間，掛既有 `auth_limit` zone、burst 沿 40、完整複製五支 header（exact-match 不繼承外層 proxy）。後端路徑 router.rs:103/:111（皆 Public POST）。
 - **不動**（007 拍死、FR-040）：limit_req zone/鍵/429、`/api/metrics` 擋門、`location /api/` strip。
 
-**Decision（P0 B-079、base-web 新★軌道）**:
-- `service.ts:70` `createProxyPattern` 預設 `/proxy-default`→`/api`（修改型首筆、逐字 `原行:`）；`proxy.ts:34` target `item.baseURL`→`http://rust-api:8080`（修改型首筆、來源新 env key 或寫死）；`vite-env.d.ts` 新 env key（新增型）；`.env.test:3`→`/api`（修改型、已有 005 標記）；`.env.prod:2`→`/api`（修改型首筆、拆 apifox mock）。
-- fork-delta 修改型範式：`.ts` 用 `// [rev4-inline <軌道> <feature>] 原行: <example 原碼>`（auth/index.ts:104 範式）；base-web commit 必 `--no-verify`、每次改動跑 `tools/fork-delta-lint`（範圍確認：只掃 base-web src/*.ts/.vue、nginx 不觸）。
+**Decision（S0 B-079、base-web 新★軌道；C1 拍板＝env key 案）**:
+- `service.ts:70` `createProxyPattern` 預設 `/proxy-default`→`/api`（修改型首筆、逐字 `原行:`）；`proxy.ts:34` target `item.baseURL`→**讀新 env key `VITE_PROXY_TARGET`（值＝`http://rust-api:8080`）**（修改型首筆）；`vite-env.d.ts` **宣告 `VITE_PROXY_TARGET`**（新增型、C1 env key 案）；`.env`／`.env.test` 加 `VITE_PROXY_TARGET=http://rust-api:8080`（ADAPT 新增）；`.env.test:3`→`/api`（修改型、已有 005 標記）；`.env.prod:2`→`/api`（修改型首筆、拆 apifox mock）。
+- ★**C1（analyze CRITICAL）解**：`vite-env.d.ts` 為 upstream 既有檔、不落 ADAPT（限 `.env*`＋`typings/api/` 新檔）——故其新增型改動連同 `service.ts`／`proxy.ts` **三處**一併由**新★軌道**顯式授權（user 親決 C1）。曾評估「寫死案」（target 直接寫常數、不動 vite-env.d.ts、軌道僅兩處），user 拍板取 env key 案（保未來可換 target 的彈性）。
+- fork-delta 範式：`.ts` 修改型用 `// [rev4-inline <軌道> <feature>] 原行: <example 原碼>`（auth/index.ts:104 範式）；`.d.ts` 新增型走圈界標記；base-web commit 必 `--no-verify`、每次改動跑 `tools/fork-delta-lint`（範圍確認：只掃 base-web src/*.ts/.vue、nginx 不觸）。
 
-**Rationale**: P0 使 dev/prod 拓樸同形（單跳、XFF 一元素）、`build:test` 修復、實機驗收有意義；治理＝新★軌道 ADR＋Amendment 於 P0 完成即 commit。
+**Rationale**: S0 使 dev/prod 拓樸同形（單跳、XFF 一元素）、`build:test` 修復、實機驗收有意義；治理＝新★軌道 ADR＋Amendment 於 S0 完成即 commit。
 
 ---
 

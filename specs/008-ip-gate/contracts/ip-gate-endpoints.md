@@ -45,15 +45,20 @@
 |---|---|---|---|
 | 手動解鎖 | POST | `/systemManage/unlockLogin` | POST（既有、m002 已 seed） |
 
-- Req（擴充）：`{ userName, dimension? }`。★`dimension` **選用**：未帶→預設 `"user"`（帳號維、向後相容 007）；`"ip"`＝來源維（顯式指明）。
-- 動作序（不可換序、測試機器強制）：SET marker→DEL lock→op-log；`DIM_USER` 字面隨 `dimension` 參數化。
-- op-log `payload_after` 加 `dimension` 資訊。
-- **契約案覆蓋兩案**：①`{userName}`（未帶維度欄）→ 作用帳號維；②`{userName, dimension:"ip"}` → 作用來源維。
+- Req（擴充）：`{ userName?, dimension?, target? }`（camelCase wire、FR-033）。
+  - `dimension` **選用**：未帶→預設 `"user"`（帳號維、向後相容 007）；`"ip"`＝來源維。**非 {user,ip} 值→回 `2222`**（業務驗證碼、零新碼）。
+  - **解鎖標的**：`dimension="user"`（或未帶）時以既有 `userName` 欄承載帳號名（此維度 `userName` 必填、向後相容 `{userName}`）；`dimension="ip"` 時以 `target` 欄承載來源位址字面（`userName` 於此維度可省）。★`target` 的 IP MUST 經與計數鍵相同的粒度導出（IPv6 先聚合 /64、與 FR-026 一致），否則解鎖鍵與鎖定鍵不符、解不到。
+- 動作序（不可換序、測試機器強制）：SET marker→DEL lock→op-log；`DIM_USER` 字面隨 `dimension` 參數化；解鎖鍵 value＝帳號維用 `userName`、來源維用 `target`（經 /64 聚合）。
+- op-log `payload_after` 加 `dimension`（與標的）資訊。
+- **契約案覆蓋三案**：①`{userName}`（未帶維度欄）→ 作用帳號維；②`{dimension:"ip", target:"<IP>"}` → 作用來源維（IPv6 經 /64 聚合導鍵）；③非法 `dimension` 值 → `2222`。
 
 ---
 
 ## 契約測試落點
 
-- `contract.rs`：五規則端點各補 case（`Request::get/post/delete`）；unlock 補「未帶維度」「顯式來源維」兩案；registry 計數斷言 16→（16+新端點數）。
+- `contract.rs`（純 case_key↔route 雙向 bijection、形狀級）：五規則端點各補一 registry case（`Request::get/post/delete`）；registry 計數斷言 16→21（現 16 案＋5 規則端點；unlock-login 既有 case 不動）。
+- ★unlock 的三行為案（未帶維度／顯式來源維帶 target／非法維度）落 `handler/throttle.rs` 的 `mod tests`（**非** contract.rs——同一 unlock-login 路由無法再補 keyed case、bijection 機制不容）；FR-033「契約案覆蓋」指此三行為測試案。
+- 規則重複寫入→`2222`（partial-uniq 23505 remap）之行為案落 `handler/ip_rule.rs` 的 `mod tests`（同非 registry case）。
+- **list record wire 型**：五端點回應的 record `id` 欄依 §I.3 預設——DB `i64`→JSON `number`、序列化帶 2^53 fail-loud 守衛；本刀無 base-web typings oracle（FR-042 不建頁），若任何 id 欄偏離 number＝型別謊言、須立 ADR。
 - `docs-sync`：`ROUTE_METHODS` 加 `"Delete":"DELETE"`；self-test 探針 `HttpMethod::Delete`→`Patch`（未知 variant fail-loud 測試不失效）。
 - 覆蓋閘：每條新 route 必有 contract case（§I.3 coverage gate）。

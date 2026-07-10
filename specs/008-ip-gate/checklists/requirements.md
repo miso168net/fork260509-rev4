@@ -48,6 +48,6 @@
 
 兩個 clarification 折入後，「Requirements are testable and unambiguous」與「Scope is clearly bounded」兩項的支撐更強（原本 FR-026 的位址粒度、FR-033 的預設維度屬 Partial，現已明確）：
 - **IPv6 節流粒度**：FR-026 明定 IPv4 /32、IPv6 /64；SC-006b 綁可量測結果；US4-6 與 Edge Cases 同步。消除了「per-IP 對 IPv6 是否有效」的高 impact 歧義。
-- **手動解鎖預設維度**：FR-033 明定未指明＝帳號維（向後相容）；US4-7、Edge Cases、治理節 wire 契約句同步。契約案覆蓋兩案。
+- **手動解鎖預設維度**：FR-033 明定未指明＝帳號維（向後相容）；US4-7、Edge Cases、治理節 wire 契約句同步。契約案覆蓋兩案（analyze remediation 後 FR-033 擴來源標的欄、行為案擴為三案：未帶維度／顯式來源維帶來源標的／非法維度值）。
 
 全 16 項維持通過（16/16 → 16/16）。三個 plan 拍板題（DNAT 前提、地理欄值形制、刪除端點動詞衝突）維持 defer 至 plan，非規格歧義。

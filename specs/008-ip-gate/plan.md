@@ -6,20 +6,23 @@
 
 ## Summary
 
-一把刀、兩台狀態機、四個施工分段。**P0** 前置＝dev 反代拓樸修正（B-079，使 dev/prod 拓樸同形、實機驗收有意義）；**P1** 信任錨基建＝operator TOML 信任模型 → 真實來源位址還原（三層＋兩 overlay、七態 confidence，純函式 test-first）→ `request_context_mw` 全域注入 → 稽核三欄值語意升級＋GeoIP → nginx CF 驗證閘；**P2** IP 閘門＝`sys_ip_rule` facade（表已 baseline）→ `ip_gate_mw` 白黑判定（ArcSwap lock-free＋Redis 門鈴）→ 寫端五端點（自鎖防護＝模擬變更後規則集）；**P3** per-IP 節流＝兩段式獨立三鍵（IP 維 GREATEST 只取兩源、拔 reset-on-success）→ L0 白名單跳節流 → unlock 加維度欄 → B-072 nginx 兩塊 → 降級/觀測收口。
+一把刀、兩台狀態機、四個施工分段。★**施工分段（S0~S3）與 user story 優先級（P1~P7）是兩套獨立編號、勿混**——對照：S0＝前置（B-079）｜S1＝US1｜S2＝US2＋US3｜S3＝US4＋US5＋US6＋US7。
+
+**S0** 前置＝dev 反代拓樸修正（B-079，使 dev/prod 拓樸同形、實機驗收有意義）；**S1** 信任錨基建＝operator TOML 信任模型 → 真實來源位址還原（三層＋兩 overlay、七態 confidence，純函式 test-first）→ `request_context_mw` 全域注入 → 稽核三欄值語意升級 → nginx CF 驗證閘；**S2** IP 閘門＝`sys_ip_rule` facade（表已 baseline）→ `ip_gate_mw` 白黑判定（ArcSwap lock-free＋Redis 門鈴）→ 寫端五端點（自鎖防護＝模擬變更後規則集）；**S3** per-IP 節流＝兩段式獨立三鍵（IP 維 GREATEST 只取兩源、拔 reset-on-success）→ L0 白名單跳節流 → unlock 加維度/target 欄 → B-072 nginx 兩塊 → GeoIP region 填值 → 降級/觀測收口。
 
 技術途徑全新寫（RUSTAPI-SOURCE-ISOLATION），rev3 rust 源倉實碼作機理參照；xdb 工具 crate 依 §I.5 例外整檔拷貝。本刀**零建表 migration**（`sys_ip_rule` 已於 m001 凍結基線）、唯一 schema 變更＝三個 per-IP 門檻 settings seed。
 
 ## Technical Context
 
-**Language/Version**: Rust（rust-api，容器內 serial build/test）；TypeScript/Vue（base-web，P0）
+**Language/Version**: Rust（rust-api，容器內 serial build/test）；TypeScript/Vue（base-web，S0）
 
-**Primary Dependencies**（釘版皆取 lockfile 現值、零新編譯，符 §6 雙查——lockfile 現值即採用並報告）：
+**Primary Dependencies**（arc-swap/once_cell/futures-util 皆取 lockfile 現值、加直依零新編譯，符 §6 雙查）：
 - `arc-swap 1.9.2`（現為 redis transitive dep、加為直接依賴；lock-free 規則集熱交換）
 - `once_cell 1.21.4`（現 transitive；xdb crate 的全域 region 快取需要）
 - `futures-util`（redis pub/sub 的 `on_message()` stream 消費；redis 已拉進 compile graph）
 - `ipnetwork 0.20.0`（現有，經 sea-orm `with-ipnetwork`；IPv6 /64 聚合用 `Ipv6Network::new(v6,64)?.network()`）
-- `xdb`（vendored path crate，version 0.1.0、publish=false，§I.5 例外整檔拷貝自 rev3；依賴 once_cell＋tracing）
+- `xdb`（vendored path crate，version 0.1.0、publish=false，§I.5 例外整檔拷貝自 rev3；依賴 `once_cell`＋`tracing`＋`tracing-subscriber`〔workspace 已有〕）
+- ★**xdb dev-deps 帶入 lock 漂移（預期、非錯誤）**：xdb crate 的 `[dev-dependencies]` 含 `criterion 0.5.1`（現 rust-api Cargo.lock 零筆）＋`rand 0.8`（bench 用），拷入 workspace member 後 lock 必然新增 criterion 依賴樹——此為 xdb 整檔拷貝的預期漂移，`cargo test` 首次會編其 dev-tree；勿與 arc-swap 等三者的「零新編譯」混淆。
 
 **Storage**: PostgreSQL（`sys_ip_rule` 規則表已 baseline、`sys_login_attempt` 稽核表、`system_settings` 三新 seed）；Redis（規則集門鈴 pub/sub＋per-IP 節流 L1 負快取）；operator TOML 信任模型檔（boot 一次載入、非 DB）；xdb 二進位資料檔（git-tracked、進 repo）
 
@@ -27,7 +30,7 @@
 
 **Target Platform**: Linux 容器（rust-api＝axum 0.8.9；front-nginx 反代）
 
-**Project Type**: web-service（rust-api 後端）＋前端接線（base-web，僅 P0）
+**Project Type**: web-service（rust-api 後端）＋前端接線（base-web，僅 S0）
 
 **Performance Goals**: 閘門判定每請求零 DB/Redis（ArcSwap `.load()` 微秒級）；規則變更 ≤5s 多副本收斂；per-IP 節流沿 007 的 L1/L2 分層
 
@@ -42,16 +45,16 @@
 | # | 題 | 判定 |
 |---|---|---|
 | Q1 | 違反 §I.1 base-web 為權威？rust-api 未提供 base-web 用到的端點？ | **否**。IP 規則五端點的 casbin 政策已於 m002 baseline seed（getIpRuleList/addIpRule/updateIpRule/deleteIpRule/restoreIpRule）；`unlockLogin` 為 007 既有端點本刀擴維度欄。base-web 目前無 ipRule service 呼叫（D4 拍出 UI）——後端先出端點、前端頁遞延（B-061），不違權威（base-web 未用即無對應缺口）。 |
-| Q2 | 動 base-web inline？屬 §III.2 哪個用途？授權邊界內？依 fork-delta 紀律？ | **是**（僅 P0）。B-079 改 `src/utils/service.ts`＋`build/config/proxy.ts`（兩檔首筆 fork-delta 修改型、逐字 `原行:`）＋`.env.test`／`.env.prod` 修改型（ADAPT 涵蓋）＋`vite-env.d.ts` 新增型。前兩檔**逾現有★軌道涵蓋** ⇒ **需登記新★軌道**（§V.2 Amendment、MINOR bump、user 親決，比照 ADR 0040）。→ 見 Complexity Tracking。 |
+| Q2 | 動 base-web inline？屬 §III.2 哪個用途？授權邊界內？依 fork-delta 紀律？ | **是**（僅 S0）。B-079 改 `src/utils/service.ts`＋`build/config/proxy.ts`（兩檔首筆 fork-delta 修改型、逐字 `原行:`）＋**`src/typings/vite-env.d.ts` 新增型**（新 `VITE_PROXY_TARGET` env key 宣告；upstream 既有檔、非 `typings/api/` 新檔故不落 ADAPT）＋`.env.test`／`.env.prod` 修改型（ADAPT 涵蓋）。★**三檔（service.ts／proxy.ts／vite-env.d.ts）皆逾現有★軌道涵蓋** ⇒ **需登記新★軌道、授權此三處**（§V.2 Amendment、MINOR bump、user 親決 C1＝env key 案，比照 ADR 0040）。→ 見 Complexity Tracking。 |
 | Q3 | menu 顯示走 Casbin enforce？demo menu 進 seed 而非隱藏？ | **不涉**。`manage_ip-rule` 選單項 002 已 seed、本刀不建頁（D4）；無新 menu。 |
-| Q4 | wire 設計對齊 §I.3 權威序與不變式？（envelope／id 型／13 碼／msg=key） | **是**。阻擋 reuse `5003`→403；selfLock 走既有業務碼（`2222` 系，plan 定）；unlock 加**選用** `dimension` 欄（未帶＝帳號維、向後相容）＝既有端點契約擴充、有契約案覆蓋；**零新碼**。 |
+| Q4 | wire 設計對齊 §I.3 權威序與不變式？（envelope／id 型／13 碼／msg=key） | **是**。阻擋 reuse `5003`→403；selfLock 走既有業務碼（`2222` 系，plan 定）；unlock 加**選用** `dimension`＋`target` 欄（未帶維度＝帳號維、向後相容；ip 維以 `target` 承載標的、經 /64 導鍵；非法維度回 `2222`）＝既有端點契約擴充、三行為案覆蓋；**零新碼**。 |
 | Q5 | 從前代 source 拷貝 code？屬 §I.5 例外？觸發防回歸？ | **部分**。`xdb` 工具 crate 屬 §I.5 明列例外（整檔拷貝、已預授權）。信任錨/閘門/節流全新寫、rev3 實碼僅機理參照；防回歸＝rev3 已被本刀改善的四項（tunnel skip 集對稱、decide 單一來源、信任錨最小化、CF overlay peer 條件）與 IP 維 GREATEST 兩源**不得帶回 rev3 舊行為**。 |
 | Q6 | 抵觸 §II 拍板？ | **否**。§II #3 prod 路徑前綴 `/api/*` strip 主流不動；本刀在 nginx 加 CF 閘與兩塊 exact-match，不改 strip 語意。 |
 | Q7 | 觸及 §III ★ 軌道？授權邊界內？補完還是新能力？ | **是**（同 Q2）。B-079 兩檔屬**新能力**（新 dev 反代拓樸接線、逾現有五★軌道枚舉）→ 立新★軌道 ADR、user 親決。 |
 | Q8 | 新建業務表？含 §I.6 六審計欄？ | **否**。`sys_ip_rule` 已於 m001 凍結基線建齊（11 欄含六審計欄、partial-uniq、archetype-map variant A 已登記、fixtures 已凍結）。本刀唯一 schema 變更＝三個 settings seed（gate2 additive 白名單）。→ 零建表、零 archetype 登記、零表數 bump、零 gate1 結構白名單。 |
 | Q9 | 觸及 §I.7 已入憲行為島？invariants 保持？state-machine 鏡頭？新島進場？ | **是**。①**新島 F（IP 閘）進場**＝MINOR Amendment、不變式入 §I.7（F1~F5）；②**島 E 交互**＝E1~E4 全數保持（IP 維 GREATEST 兩源、跨維度硬鎖優先、captcha 綁帳號提交即消耗、審計邊界、防枚舉一般化）；③supersede ADR 0038 調整項二（啟用 IP 維）。全走 state-machine 鏡頭（判定序、真相分層、降級方向）。 |
 
-**Gate 結論**：通過。唯一需 Amendment 者＝Q2/Q7 的 B-079 新★軌道（user 親決、於 P0 完成時 commit）＋Q9 的新島 F 進場（MINOR）＋四份 ADR draft。皆為既定治理動作、非違規；記於 Complexity Tracking。
+**Gate 結論**：通過。唯一需 Amendment 者＝Q2/Q7 的 B-079 新★軌道（user 親決、於 S0 完成時 commit）＋Q9 的新島 F 進場（MINOR）＋四份 ADR draft。皆為既定治理動作、非違規；記於 Complexity Tracking。
 
 ## Project Structure
 
@@ -83,14 +86,14 @@ rust-api/                         # RUSTAPI-SOURCE-ISOLATION 軌道、全新寫
 │   ├── ipgate/                   # ★新增：RuleSet／decide 純函式／load_ruleset／would_self_lock／watcher
 │   ├── middleware/               # ★新增：request_context_mw（注入 RequestContext）＋ip_gate_mw（判定）
 │   ├── router.rs                 # ＋HttpMethod::Delete；＋規則五端點路由；掛 request_context_mw（:259）
-│   ├── redis/mod.rs              # ＋DIM_IP 常數；pub/sub（另存 Client）；throttle_key 零改動
-│   ├── throttle/mod.rs           # precheck 加 IP 入參；IP 維並列判定；DIM_IP
+│   ├── redis/mod.rs              # pub/sub（另存 Client）；throttle_key 零改動（dim 已參數化）
+│   ├── throttle/mod.rs           # ＋DIM_IP 常數（與 DIM_USER 對稱、:122）；precheck 加 IP 入參；IP 維並列判定
 │   ├── model/facade/
 │   │   ├── sys_ip_rule.rs        # ★新增：load_active／list／CRUD（mutate_in_txn＋op-log）
 │   │   └── sys_login_attempt.rs  # per-IP count SQL（WHERE 改 IP 欄、GREATEST 拔源②）；region 落值
 │   ├── handler/
 │   │   ├── ip_rule.rs            # ★新增：五端點（normalize_cidr／validate＋自鎖檢查）
-│   │   ├── throttle.rs           # unlock 加 dimension 欄（預設帳號維）
+│   │   ├── throttle.rs           # unlock 加 dimension＋target 欄（預設帳號維；ip 維 target 經 /64 導鍵）
 │   │   └── auth.rs               # audit_from_request 讀 ctx；region 組裝；precheck 傳 real_ip
 │   └── validation.rs             # ＋IP 三鍵 NUMBER_RANGES
 ├── migration/src/
@@ -102,14 +105,14 @@ tools/
 deploy/nginx/                     # 外層 repo、零 fork-delta
 ├── nginx.conf                    # ＋CF geo/map 閘（:41）；:45 註解補述
 └── conf.d/_locations.inc         # ＋refreshToken/logout 兩塊 exact-match；三 /api 塊＋X-CF-Verified 注入
-base-web/                         # 僅 P0（B-079 新★軌道）
-├── src/utils/service.ts          # 修改型（首筆）：createProxyPattern → '/api'
-├── build/config/proxy.ts         # 修改型（首筆）：target → rust-api:8080
-├── src/typings/vite-env.d.ts     # 新增型：新 proxy target env key
-└── .env / .env.test / .env.prod  # 修改型（ADAPT）
+base-web/                         # 僅 S0（B-079 新★軌道，授權此三檔＋ADAPT 涵蓋 .env*）
+├── src/utils/service.ts          # 修改型（首筆）：createProxyPattern → '/api'（新軌道）
+├── build/config/proxy.ts         # 修改型（首筆）：target ← VITE_PROXY_TARGET（新軌道）
+├── src/typings/vite-env.d.ts     # 新增型：VITE_PROXY_TARGET env key 宣告（新軌道、C1 env key 案）
+└── .env / .env.test / .env.prod  # 修改型（ADAPT 涵蓋）
 ```
 
-**Structure Decision**: rust-api 全新寫，新增 `trust/`（信任錨純函式）、`ipgate/`（規則集＋判定＋watcher）、`middleware/`（兩支 mw）、`xdb/`（§I.5 例外拷貝）四個模組群；middleware 拆兩支（`request_context_mw` 注入＋`ip_gate_mw` 判定）契合 B-046 單一來源與 rev3 疊放先例。P2 的 facade/handler 沿既有 archetype B 先例（`sys_login_attempt.rs`）。
+**Structure Decision**: rust-api 全新寫，新增 `trust/`（信任錨純函式）、`ipgate/`（規則集＋判定＋watcher）、`middleware/`（兩支 mw）、`xdb/`（§I.5 例外拷貝）四個模組群；middleware 拆兩支（`request_context_mw` 注入＋`ip_gate_mw` 判定）契合 B-046 單一來源與 rev3 疊放先例。S2 的 facade/handler 沿既有 archetype B 先例（`sys_login_attempt.rs`）。
 
 ## Complexity Tracking
 
@@ -117,8 +120,8 @@ base-web/                         # 僅 P0（B-079 新★軌道）
 
 | 項目 | 為何需要 | 治理路徑 |
 |---|---|---|
-| B-079 新★軌道（Q2/Q7） | `service.ts`／`proxy.ts` 兩檔首筆 fork-delta 逾現有五★軌道枚舉 | 立新★軌道 ADR（比照 0040）、user 親決、軌道全文入 §III.2＋MINOR bump；於 **P0 完成時** commit（不延收刀），使治理產物不與 008 主體耦合 |
-| 新島 F 進場（Q9） | IP 閘為新行為島 | MINOR Amendment、F1~F5 入 §I.7；入憲後 fail-OPEN 方向反轉＝MAJOR |
+| B-079 新★軌道（Q2/Q7） | `service.ts`／`proxy.ts`／`vite-env.d.ts` **三檔**逾現有五★軌道枚舉（C1 拍板＝env key 案、`vite-env.d.ts` 宣告 `VITE_PROXY_TARGET`） | 立新★軌道 ADR（比照 0040）、軌道文字**授權三處**、user 親決、軌道全文入 §III.2＋MINOR bump；於 **S0 完成時** commit（不延收刀），使治理產物不與 008 主體耦合 |
+| 新島 F 進場（Q9） | IP 閘為新行為島 | MINOR Amendment、F1~F5 入 §I.7；入憲後 fail-OPEN 方向反轉＝MAJOR。★**同步對島 E2 做射程釐清**（帳號維「判定鍵＝帳號名原文」之射程與本刀來源維並列判定不衝突、FR-030）＝已入憲 invariant 細項調整（MINOR），與島 F 同 Amendment 落地，避免憲法 E2 原文與並列雙維度實作解讀分歧 |
 | supersede ADR 0017 真實 IP 還原節 | 四項改善（tunnel skip 集對稱／decide 單一來源／信任錨最小化／CF overlay peer 條件）翻案 0017 骨架 | 新 ADR `supersedes: [0017 對應節]`、user 親決 |
 | supersede ADR 0038 調整項二 | 啟用 IP 維（0038 只啟用帳號維） | 新 ADR、含 IP 維 GREATEST 兩源拍板 |
 | region/GeoIP 語意 ADR | 消化 B-073、xdb 進 repo（P-Q2 拍板） | 新 ADR、記 §I.5 例外拷貝＋資料檔 provenance |

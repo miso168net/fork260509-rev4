@@ -6,7 +6,7 @@
 
 ---
 
-## 0. 前置：P0（B-079）驗收
+## 0. 前置：S0（B-079）驗收
 
 ```
 容器內 pnpm typecheck ＋ tools/fork-delta-lint（base-web 全綠）
@@ -22,7 +22,7 @@ CDP 經 :42080 走登入鏈 → 驗 API URL 為 /api/auth/login（單跳、非 /
 cargo test --workspace（容器內 serial）
 ```
 覆蓋（table-driven）：
-- `resolve_client_ip`：四 ingress × 七態 confidence；XFF 正規化邊角（port/zone/bracket/32-token 上限/garbage）；**非 loopback tunnel origin 取回真訪客 IP 而非 origin 常數**（改善 1 守門）；**client 自帶 X-CF-Verified 於 peer∉cf_gate_egress 時不採信**（改善 4 守門）；CF overlay 升/降態。
+- `resolve_client_ip`：四 ingress × 七態 confidence；XFF 正規化邊角（port/zone/bracket/上限 N〔活書常數〕/garbage）；**超量截斷保留最右側 N token、丟左端溢出**（>N 洪泛時真實位址仍被取回、FR-006 守門）；**非 loopback tunnel origin 取回真訪客 IP 而非 origin 常數**（改善 1 守門）；**client 自帶 X-CF-Verified 於 peer∉cf_gate_egress 時不採信**（改善 4 守門）；CF overlay 升/降態。
 - `decide`：白優先於黑、私網豁免、未知 wbip_type skip、any-match 非 first-match。
 - `would_self_lock`：add/update/delete allow/restore deny 四路徑皆拒。
 - middleware fail-OPEN 三軌：ctx 缺席／DB 空規則／Redis 降級。
@@ -75,13 +75,14 @@ dev.conf 以測試網段暫覆蓋 geo $cf_edge：
 
 ```
 per-IP 兩段式（用模擬來源、避免自傷）：
-- 超 ip_captcha_after → 該來源所有登入要求 captcha（含零失敗帳號首發）
-- 超 ip_max_fails → 硬鎖回 2222 一般化（不洩維度）
-- allow 白名單來源 → 失敗超硬門檻仍不鎖（FR-032）
-- unlock：{userName,dimension:"ip"} 解來源鎖；{userName} 解帳號鎖（FR-033）
+- 達（≥）ip_captcha_after → 該來源所有登入要求 captcha（含零失敗帳號首發）
+- 達（≥）ip_max_fails → 硬鎖回 2222 一般化（不洩維度）
+- 界值：失敗數恰等於門檻值即觸發（≥ 語意、FR-028）
+- allow 白名單來源 → 失敗達（≥）硬門檻仍不鎖（FR-032）
+- unlock：{dimension:"ip", target:"<模擬IP>"} 解來源鎖（userName 可省、target 經 /64 導鍵）；{userName} 解帳號鎖（FR-033）
 B-072：對 /api/auth/refreshToken、/api/auth/logout 超 burst → 429（非信封）
 ```
-★**自傷警告與復原**：勿以真實共用桶打滿硬鎖（會鎖死整個 dev 環境登入 15 分鐘、L1 marker 不隨 psql 清列消失）。復原＝psql 清模擬 IP 的 attempt 列＋`unlockLogin{dimension:"ip"}` 清 L1 marker。
+★**自傷警告與復原**：勿以真實共用桶打滿硬鎖（會鎖死整個 dev 環境登入 15 分鐘、L1 marker 不隨 psql 清列消失）。復原＝psql 清模擬 IP 的 attempt 列＋`unlockLogin{dimension:"ip", target:"<模擬IP>"}` 清 L1 marker。
 
 ---
 

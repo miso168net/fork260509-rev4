@@ -49,11 +49,11 @@ RuleSet { allow: Vec<IpNetwork>, deny: Vec<IpNetwork> }
 | 集合 | 語意 |
 |---|---|
 | `internal_default` | Tier-2 skip 集（私網段） |
-| `tunnel` | ◆升一等（B-035）：同時入 is_trusted 與 skip 集（FR-004 對稱） |
+| `tunnel`（networks＋connecting_ip_header） | ◆升一等（B-035）：同時入 is_trusted 與 skip 集（FR-004 對稱）；★`connecting_ip_header` 承載 FR-007 通道訪客位址標頭名（無設定則沿固定常數 `CF-Connecting-IP`） |
 | `cf_gate_egress` | ◆新增：掛 CF geo/map 閘的我方 nginx 出口（FR-008 CF overlay peer 前置） |
 | `[[cdn]]`（networks＋connecting_ip_header） | Tier-1 位置錨 |
-| `[[my_public]]`（networks＋dual_role） | Tier-2 我方公開出口 |
-| `[[bindings]]`（public＋internal） | 公開出口專屬後置內網（軟驗證） |
+| `[[my_public]]`（networks＋dual_role） | Tier-2 我方公開出口；`dual_role=true`→walk 過此出口降 proxy_soft（FR-004 觸發①） |
+| `[[bindings]]`（public＋internal） | 公開出口專屬後置內網；該 public 在鏈中右鄰不屬其 internal 集→降 proxy_soft（FR-004 觸發②） |
 
 ★`is_trusted` 與 Tier-2 skip 集由**單一 helper** 導出（FR-004、L-081 同源）。fallback：缺檔/讀失→flat env `TRUSTED_PROXY_CIDRS` 充 internal_default。
 
@@ -72,8 +72,8 @@ RequestContext {
 }
 ```
 - `request_context_mw` 注入、下游（ip_gate_mw／throttle／稽核）消費（FR-001）。
-- **Confidence 七態**（DB/wire 小寫 snake）：`cdn_verified`／`proxy_clean`／`direct`／`cdn_anchored`／`proxy_soft`／`cdn_mismatch`／`fallback`。
-- ctx 缺席→下游 fail-open（FR-018 ②）。
+- **Confidence 七態**（DB/wire 小寫 snake）：`cdn_verified`（最高）／`proxy_clean`／`direct`／`cdn_anchored`／`proxy_soft`／`cdn_mismatch`（異常）／`fallback`（最低）。★**CF overlay 可升等集合＝{`cdn_anchored`,`proxy_clean`,`proxy_soft`}→`cdn_verified`**（FR-008）；`direct`/`fallback`/`cdn_mismatch` 不可升等；tunnel overlay 採信標頭但 conf 維持 `fallback` 不升。
+- ctx 缺席→下游 fail-open（FR-012 ②）。
 
 ---
 
@@ -114,7 +114,7 @@ RequestContext {
 ## 7. Redis 鍵（沿 007、加 IP 維）
 
 - `throttle_key(kind, dim, value)` → `throttle:{kind}:{dim}:{value}`（helper 零改動；加 `DIM_IP="ip"` 常數）。
-- IP 維：`throttle:lock:ip:{ip}`／`throttle:unlock:ip:{ip}`／`throttle:suppressed:ip:{ip}`；suppressed_breadcrumb 的 DIM_USER 字面（throttle/mod.rs:370）一併參數化。
+- IP 維：`throttle:lock:ip:{ip}`／`throttle:unlock:ip:{ip}`／`throttle:suppressed:ip:{ip}`；suppressed_breadcrumb 的 DIM_USER 字面（throttle/mod.rs:370）一併參數化。★`{ip}` 一律為經計數鍵同粒度導出之值（IPv4 /32、IPv6 先聚合 /64、FR-026）——lock/unlock/suppressed 三鍵同形，unlock `target` 導鍵才對得上 lock 鍵。
 - 門鈴：PUBLISH/SUBSCRIBE 頻道 `ipgate:invalidate`（rev4 首個 pub/sub、專用 Client 連線）。
 
 ---
