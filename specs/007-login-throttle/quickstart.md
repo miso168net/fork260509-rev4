@@ -67,7 +67,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T rust-api 
 | 重放 | 同一 `captchaId` 帶正確答案二次提交 → 第二次拒 |
 | 跨帳號 | 為 A 簽的 challenge 用於 B → 拒（★**不消耗** `used` 標記） |
 | 簽章/exp 失敗 | 竄改 `captchaId` ／ `exp` 過期 → 拒（★**不消耗**） |
-| 答案不可還原 | 僅憑 `captchaId`（無 secret）對 36⁴ 空間暴力 → **全數失敗** |
+| 答案不可還原 | 僅憑 `captchaId`（無 secret）對 34⁴ 空間（as-built 勘誤 2026-07-10）暴力 → **全數失敗** |
 | 硬鎖優先 | 鎖中附**有效** captcha → 仍 `2222 locked`，且該 `used` 標記**未被寫入** |
 | 未達軟區忽略 | `count < captcha_after` 時附 captcha → **不驗、不消耗**；該題稍後於軟區**仍可用** |
 

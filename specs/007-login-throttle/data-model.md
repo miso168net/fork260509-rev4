@@ -93,8 +93,10 @@ throttle_captcha_used_key(nonce)   -> "throttle:captcha:used:{nonce}"
 ```
 THROTTLE_LOCK_TTL_SECS   = 900    // L1 上界；實際 TTL = min(window_secs, 900)
 CAPTCHA_TTL_SECS         = 300    // challenge exp
-CAPTCHA_ANSWER_LEN       = 4      // 36^4 = 1,679,616 ≥ 10^6（FR-006 ④）
-CAPTCHA_CHARSET          = 不分大小寫英數（36）
+CAPTCHA_ANSWER_LEN       = 4      // 34^4 = 1,336,336 ≥ 10^6（FR-006 ④）
+CAPTCHA_CHARSET          = 34 字（25 小寫字母去 o＋9 數字去 0；比對不分大小寫）
+// ★as-built 勘誤 2026-07-10：captcha 1.0.0 字型無 0/o glyph（add_char 對無 glyph 字元靜默跳過）、
+// 原定 36 字改 34、34⁴=1,336,336 仍 ≥10⁶（FR-006 ④）；詳 rust-api throttle/mod.rs CAPTCHA_CHARSET
 SUPPRESSED_WARN_PERIOD_S = 60     // 麵包屑節奏 ≤1/60s/key
 DEFAULT_MAX_FAILS        = 5      // settings 缺值 fail-default（降級源⑥）
 DEFAULT_WINDOW_MINUTES   = 15
@@ -124,8 +126,8 @@ CaptchaClaims {
 captchaId = HS256(CaptchaClaims, captcha_secret)   // 不設 iss/aud
 ```
 
-★**答案不可還原**（FR-006 ③／SC-006）：`ans_mac` 以秘鑰參與雜湊 ⇒ 無秘鑰即無法對 36⁴ 答案空間離線暴力。
-（若僅存 `SHA256(answer)`，1.68×10⁶ 組合可秒破 ⇒ 該設計不可用。）
+★**答案不可還原**（FR-006 ③／SC-006）：`ans_mac` 以秘鑰參與雜湊 ⇒ 無秘鑰即無法對 34⁴（as-built 勘誤
+2026-07-10、詳 §3）答案空間離線暴力。（若僅存 `SHA256(answer)`，1.34×10⁶ 組合可秒破 ⇒ 該設計不可用。）
 
 ★**比對的常數時間性質**（research R1）：兩側皆為 secret-keyed 高熵摘要，逐位元組比對的時序至多洩漏摘要前綴，
 對還原答案無助 ⇒ **by construction 安全**，不需 `subtle`。**實作註解必須寫明此理由**，防後人反射性 `use subtle`。
