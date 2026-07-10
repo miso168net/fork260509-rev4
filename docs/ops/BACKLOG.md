@@ -65,5 +65,8 @@
   屆時定、含 vite-env.d.ts 新增型）＋.env.test/.env.prod 修改型；是否登記新★軌道屆時拍。附帶已拍＝:42081 成
   零限流直達（與 :42079 同級、非新威脅面）記入活書 dev 曝露、活書 §7 分桶語意按新拓樸重寫（落收刀簿記
   commit、L-124）、勘誤點＝L-111 終局／L-122①／L-125 結案註記／NOTES CDP 三坑句、429/T084 型驗收此後必打
-  :42080。遺留＝對外 0.0.0.0 publish 之 DNAT 是否保留外部來源 IP 未實測（決定 FR-017 prod 粗閘與否、需外部
-  機器或改 publish 形實測）｜IP 閘刀（B-019/B-024）前置清理批次｜出處：2026-07-10 反代拓樸偵察＋user 拍板
+  :42080。遺留＝對外 0.0.0.0 publish 之 DNAT 是否保留外部來源 IP 未實測（決定 FR-017 prod 粗閘與否。實測方法候選＝
+  拋棄式容器 `docker run --rm -p 0.0.0.0:<port>:80 nginx` 自 LAN 另一裝置直打 host 實體 IP，判準＝access log
+  remote_addr 顯外部裝置 IP 即 DNAT 保留、顯 bridge gateway 即不保留；★本機 WSL2 NAT 模式下 Windows portproxy
+  ＝userland 轉發會改寫來源、結論失真——需 .wslconfig mirrored networking 或任一真 Linux 機驗；iptables NAT 表
+  規則只可佐證、不算實測；全程不動 rev4-admin 既有 stack）｜IP 閘刀（B-019/B-024）前置清理批次｜出處：2026-07-10 反代拓樸偵察＋user 拍板
