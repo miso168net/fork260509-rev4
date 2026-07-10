@@ -107,6 +107,11 @@
   - **D1 閒置唯一登出、無絕對上限**：連續活躍永不強制重登；不設絕對 session 壽命上限。
   - **D2 idle-clock 推進來源固定**：last_activity 僅由通過驗證的受保護請求推進（含 refresh 後 client 重試的原請求）；refresh 端點本身絕不推進（防背景 refresh-loop 繞過閒置）。
   - **D3 降級方向**：last_activity 熱快取不可用→退 refresh token TTL 為界（偏晚登出、絕不提前誤踢活躍者）；此為 idle-liveness fail 方向、與島 C 撤銷 fail-closed 各司其職不衝突。
+- **島 E — 登入失敗節流**（007、ADR 0037、負快取層 ADR 0038 supersede 0016）
+  - **E1 真相分層與 fail 方向**：鎖定真相＝PG `sys_login_attempt` 滑動窗（L2）；Redis 負快取（L1）為快路徑、其職僅短路已鎖判定、absence 非權威，且 **L1 僅由 L2 再判路徑寫入**（保證恆衍生自新鮮 L2 讀、杜絕假鎖）；L1 TTL 不長於時窗、命中不續期。全鏈 fail-OPEN（＝不因基建故障而拒絕本應放行的登入）：L1 讀故障→退 L2 並停用 captcha 要求；L2 count 故障→視 0 放行、若快取可用則無條件要求 captcha；稽核寫故障→不改登入回應；settings 缺值→退預設常數。★**唯一例外**：解鎖標記讀故障→視為無標記（可能 re-lock 剛解鎖之帳號、admin 可重解）。每一次降級 MUST 發結構化告警訊號。
+  - **E2 防枚舉延伸**：判定鍵＝所送出帳號名原文（不存在帳號同計、同鎖、同要 captcha），其正規化 MUST 與帳號身分解析的正規化嚴格一致；鎖定與 captcha 要求皆回 `2222` ＋靜態一般化訊息，MUST NOT 洩觸發維度、剩餘時間、帳號存在性。
+  - **E3 審計邊界**：**僅**被密碼雜湊實際驗證的登入終局落恰一列；L1 命中短路、L2 再判鎖、captcha-gate 拒絕、輸入形制超限 MUST NOT 落稽核列，量級訊號走觀測層麵包屑（非稽核表、best-effort）。鎖的最長存續＝一個時窗（非 L1 TTL）。
+  - **E4 captcha gate 與硬鎖優先**：軟區要求 captcha；challenge MUST 綁定帳號名、**提交即消耗**（單次標記寫入先於答案比對）、且其答案 MUST NOT 可自 challenge 本身還原。缺／錯／過期／重放之 captcha 嘗試 MUST NOT 計入失敗數（落列規範見 E3）。硬鎖優先於 captcha——鎖中附有效 captcha 亦不受理、且該 captcha 不被消耗。
 
 ---
 
@@ -186,6 +191,18 @@
 
 **紀律**：嚴格限兩用途；第三用途 → §V.2 Amendment；每改一處在 spec／plan 內紀錄（位置＋改動＋upstream 衝突風險）；走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制。
 
+#### BASE-WEB-LOGIN-CAPTCHA-WIRING ★ — 本檔授權一用途 (i)（節流刀 CAPTCHA 軟區的登入表單接线；ADR 0040）
+
+**邊界**（base-web，嚴格限以下一處，走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制）：
+- **(i)** 密碼登入表單的圖形驗證碼接线：`src/views/_builtin/login/modules/pwd-login.vue` 於收到「需要驗證碼」回應（`2222`＋`auth.login.captchaRequired`）時條件渲染驗證碼圖與輸入欄；支援點圖換題、帳號名變更時重新取題、答錯後自動重取新題（提交即消耗、舊題已失效）。**含其資料取得所需之最小 store/service 接线**——使 pwd-login 能取得後端 `msg` 以區分 `locked` 與 `captchaRequired`（兩態同為 `2222`、僅 `msg` 相異，而 `authStore.login` 現吞掉 `msg`）。
+
+**紀律**：
+- 嚴格限此一用途；第二用途 → §V.2 Amendment。
+- ★**不改攔截器碼分組／logout／refresh／retry 控制流語意**（`2222` 走既有一般錯誤提示通道）；**`.env` 三個碼分組清單不動**。
+- 修改型帶 `原行:`：`<script>` 區用 `//`、★`<template>` 區用 `<!-- [rev4-inline …] 原行: … -->`；新增型走圈界標記。
+- 新 typing／service wrapper 走既有預設軌道（ADAPT 新 `.d.ts` declaration merging、WRAPPER `rev4-*.ts` 新檔），**不動凍結的 `typings/api/auth.d.ts`**。
+- 每改一處在 spec／plan 內紀錄（位置＋改動＋upstream 衝突風險）。
+
 ---
 
 ## IV. Compliance Check（spec-kit `/speckit-plan` 用）
@@ -233,9 +250,10 @@
 
 ---
 
-**Version**: 1.3.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-06
+**Version**: 1.4.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-10
 
 **Amendment log**:
+- 1.4.0（2026-07-10）：§I.7 行為島進場——島 E 登入失敗節流（E1 真相分層與 fail 方向〔含唯一 fail-closed 例外〕／E2 防枚舉延伸／E3 審計邊界／E4 captcha gate 與硬鎖優先；ADR 0037，負快取層 ADR 0038 supersede 0016）＋新增 ★BASE-WEB-LOGIN-CAPTCHA-WIRING 軌道一用途〔(i) 密碼登入表單圖形驗證碼接线，含其資料取得所需之最小 store/service 接线〕（ADR 0040）；MINOR（§V.3「行為島隨刀進場」＋「新增 ★ 軌道」）——觸發＝007-login-throttle plan Constitution Check Q2/Q7/Q9。
 - 1.3.0（2026-07-06）：§I.7 行為島首度填充——島 A single-session／B token rotation／C denylist／D 閒置sliding refresh（ADR 0033、supersede 0030）＋新增 ★BASE-WEB-LOGOUT-UX-WIRING 軌道兩用途〔(i) logout server-call 接线／(ii) logoutCodes 靜默分支 toast〕（ADR 0034）；MINOR（§V.3「行為島隨刀進場」＋「新增 ★ 軌道」）——觸發＝006-session-lifecycle plan Constitution Check Q2/Q7/Q9。
 - 1.2.0（2026-07-05）：新增 ★BASE-WEB-AUTH-WIRING 軌道（ADR 0031；授權 auth 刀三處 base-web inline 接线 (a) route store 常數合併修／(b) alt-login 三表單 stub／(c) captcha stub；MINOR 新增 ★ 軌道、§V.3）——觸發＝005-auth-login plan Constitution Check Q2/Q7。
 - 1.1.0（2026-07-05）：★BASE-WEB-I18N-WIRING 加 (iv) zh-TW 首發 locale 完整建置授權（ADR 0028；MINOR 軌道授權邊界擴展、§V.3）——觸發＝004-system-settings plan Constitution Check Q7。
