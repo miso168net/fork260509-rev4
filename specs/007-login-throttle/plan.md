@@ -105,7 +105,7 @@ rust-api/
     ├── validation.rs                           # NUMBER_RANGES 加三行＋界值測試
     ├── throttle/                               # ★新模組：門檻解析＋fail-default／狀態機判定／降級告警
     ├── captcha/                                # ★新模組：產圖＋簽題（獨立 claims）＋驗題＋單次標記
-    ├── redis/mod.rs                            # 新 key-builder（throttle_dim_key）＋單次標記 SET NX
+    ├── redis/mod.rs                            # 新 key-builder（throttle_key(kind,dim,value)）＋單次標記 SET NX
     ├── model/facade/
     │   ├── sys_login_attempt.rs                # ★新增 count_recent_failures（首支 facade raw SQL）＋cfg(test) 注入接點
     │   ├── system_settings.rs                  # ★新增 find_by_keys（is_in）

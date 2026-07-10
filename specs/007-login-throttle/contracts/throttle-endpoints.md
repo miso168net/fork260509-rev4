@@ -81,7 +81,10 @@ GET /auth/loginCaptcha?userName=<帳號名>
 
 - ★`userName` **必帶**（challenge 綁定帳號名、FR-006 ①）。
 - ★對**任意** `userName`（含不存在者）一律發題 ⇒ **零存在性洩漏**（島 E2）。
-- ★`userName` 亦受 FR-022 形制上限約束（超限 → `1000`；零 Redis 寫入、零產圖 CPU）。
+- ★`userName` 亦受 FR-022 形制上限約束（超限 → `1000`；零 Redis 寫入、零產圖 CPU、零簽章）。
+  **為何是 `1000` 而非新碼**：①合法 UI 流程永不觸及——前端僅在登入回 `captchaRequired` 後才取題，而超限帳號名
+  在登入端點就已被 `1000` 擋下、根本走不到取題；②超限帳號名本就無法登入成功，`auth.login.failed` 語意成立；
+  ③對取題端點回**不同於登入端點**的碼會成為新的辨識訊號；④零新碼、零新 i18n key。此路徑僅由直呼 API 可達。
 
 ### Response
 
@@ -90,7 +93,7 @@ GET /auth/loginCaptcha?userName=<帳號名>
 {
   "data": {
     "captchaId":  "<JWT: nonce|userName|exp|ans_mac，HS256(APP_CAPTCHA_SECRET)>",
-    "captchaImg": "data:image/<png|jpeg>;base64,<...>"   // 格式隨產圖 crate 拍板（research R2）
+    "captchaImg": "data:image/png;base64,<...>"          // PNG（`captcha` 1.0.0，★user 拍板 2026-07-10、ADR 0037 §G.22）
   },
   "code": "0000",
   "msg": "common.success"
@@ -160,7 +163,8 @@ GET /auth/loginCaptcha?userName=<帳號名>
 | 觸發回應 | `429`（`limit_req_status 429;`；★rev3 無此指令、本刀新增） |
 | body | **不作信封**（基建層拒絕，與 `502`／`504` 同類） |
 | 前端行為 | `error.code !== BACKEND_ERROR_CODE` ⇒ 走 `error.message`（axios 原生英文）、通用 error toast |
-| 套用落點 | ★user 拍板：(A) 共享 `location /api/` vs (B) dedicated exact-match（research R8） |
+| 套用落點 | **(B) dedicated exact-match**（登入端點與取題端點各一塊、照 `location = /api/metrics` 範式）——★user 拍板 2026-07-10、ADR 0037 §F.17 |
+| rate／burst | ★**待定**（A1；依全域 §6 釘版紀律攤案拍板後入活書常數） |
 
 ★**dev 曝露**：直連 `127.0.0.1:42079`（rust-api debug port）**繞過 nginx、不受限流**。prod 無此缺口。
 驗收紀律：**不得以直連 42079 規避限流**。

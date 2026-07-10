@@ -62,12 +62,16 @@
 ## 2. 熱快取層（Redis）——**皆可重建、非權威**
 
 key-builder 集中單一 helper 導出（L-081 防法：讀寫端同源渲染、免 IPv6/大小寫漂移）；
-`dim` 參數化為未來 IP 維度留位（**本刀只啟用 `user` 維**，ADR 0038 調整項二）。
+`dim` 參數化為未來 IP 維度留位（**本刀只啟用 `user` 維**，ADR 0038 調整項二＋其 `[adr-amend]` helper 形制段）。
 
 ```
-throttle_dim_key(dim, value)      -> "throttle:{dim}:{value}"
-throttle_captcha_used_key(nonce)  -> "throttle:captcha:used:{nonce}"
+throttle_key(kind, dim, value)     -> "throttle:{kind}:{dim}:{value}"   // kind ∈ {lock, unlock, suppressed}；dim 現僅 "user"
+throttle_captcha_used_key(nonce)   -> "throttle:captcha:used:{nonce}"
 ```
+
+★**`kind` 段不可省**：三種 dim-keyed key 僅靠 `dim` 無法區分。若照兩參數形 `throttle:{dim}:{value}` 渲染，
+`lock` 與 `unlock` 會產出同一把 `throttle:user:{name}` ⇒ §5.4 的解鎖動作序「先 `SET` 標記、後 `DEL` 快取」
+退化為**同 key 寫後即刪**、解鎖標記永不存在、下一擊被舊失敗列 re-lock（SC-007 必紅）。
 
 | key | 值 | TTL | 唯一寫入者 | R7 分流語意 |
 |---|---|---|---|---|
@@ -282,8 +286,8 @@ admin 解鎖」的帳號、admin 可重解。理由入 ADR 0037。
 | zone key | `$binary_remote_addr`（nginx 自身 TCP peer，**偽造不了**；不依賴 XFF 信任模型） |
 | 宣告位置 | `nginx.conf` 的 `http` context（取代 :41-42 裁剪聲明） |
 | 觸發回應 | `limit_req_status 429;`（★rev3 無此指令、用預設 503 ⇒ 本刀新增） |
-| 套用落點 | **(A) 共享 `location /api/` vs (B) dedicated exact-match** — ★user 拍板（research R8） |
-| rate／burst | 隨落點定；burst MUST 足以容納正常使用者與 CDP 驗收 |
+| 套用落點 | **(B) dedicated exact-match**（登入端點與取題端點各一塊、照 `location = /api/metrics` 範式）——★user 拍板 2026-07-10、ADR 0037 §F.17 |
+| rate／burst | ★**待定**（analyze A1）：依全域 §6 釘版紀律攤案拍板後填入本檔 §3 常數表；burst MUST 足以容納正常使用者操作與 CDP-1/CDP-2 驗收流程 |
 
 ★**`429` 為基建層拒絕**：請求根本不進 rust-api、不走信封（與 `502`／`504` 同類），不受 §I.3「信封普遍性」約束。
 前端 `$t` 分支僅在「後端回 HTTP 200＋非成功碼」時觸發 ⇒ 顯示通用錯誤訊息（clarify 2026-07-10 已知並接受）。

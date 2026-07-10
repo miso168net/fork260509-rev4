@@ -37,9 +37,16 @@ ADR 0016 保存了 rev3 021 刀的負快取層已驗證結論，並自述「節�
 
 ### 調整項二：雙維度 key 只啟用帳號維
 
-0016 的「帳號／IP 雙維度 key」——**key 形保留**（`throttle_dim_key(dim, value)`，`dim` 參數化為未來 IP 維度留位），
+0016 的「帳號／IP 雙維度 key」——**key 形保留**（單一 helper 導出、`dim` 參數化為未來 IP 維度留位），
 但**只啟用 `user` 維**。IP 維度的啟用遞延 IP 閘刀：per-IP 節流的安全性 100% 由「防偽的真實來源位址」承擔，
 rev4 尚無等值信任錨基建（詳 ADR 0037 §H.28、ADR 0017、B-019/B-024）。
+
+★**helper 形制**（`[adr-amend]` 2026-07-10，釐清級；★本 ADR 的**決定不變**——key 形保留、`dim` 參數化留位、
+只啟用 user 維）：key 由單一 helper `throttle_key(kind, dim, value) -> "throttle:{kind}:{dim}:{value}"` 導出，
+其中 `kind ∈ {lock, unlock, suppressed}`、`dim` 現僅 `"user"`。原稿舉例的兩參數形 `throttle_dim_key(dim, value)`
+**缺 `kind` 段**、渲染不出本層實際需要的三種 key——照字面實作會使鎖定負快取與解鎖標記產出同一把
+`throttle:user:{name}`，令解鎖動作序（先寫標記、後清快取）退化為「同 key 寫後即刪」、標記永不存在。
+權威形制以本段為準（發現於 007 `/speckit-analyze` 的 I1 finding）。
 
 ### 追加不變式一：負快取僅由「L2 再判路徑」寫入
 
