@@ -124,6 +124,7 @@ desktop.ini
 *.log
 logs/
 *.tmp
+tmp/
 *.bak
 .cache/
 *.orig
