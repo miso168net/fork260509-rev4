@@ -89,6 +89,70 @@
       "default": null
     },
     {
+      "table": "session_event",
+      "column": "id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": "nextval('session_event_id_seq'::regclass)"
+    },
+    {
+      "table": "session_event",
+      "column": "created_at",
+      "ordinal": 2,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    },
+    {
+      "table": "session_event",
+      "column": "user_id",
+      "ordinal": 3,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "session_event",
+      "column": "sid",
+      "ordinal": 4,
+      "type": "character varying(36)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "session_event",
+      "column": "event_type",
+      "ordinal": 5,
+      "type": "character varying(20)",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "session_event",
+      "column": "reason",
+      "ordinal": 6,
+      "type": "character varying(64)",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "session_event",
+      "column": "created_by",
+      "ordinal": 7,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
+      "table": "session_event",
+      "column": "source_ip",
+      "ordinal": 8,
+      "type": "character varying(45)",
+      "nullable": true,
+      "default": null
+    },
+    {
       "table": "sys_access_log",
       "column": "id",
       "ordinal": 1,
@@ -1221,6 +1285,16 @@
       "definition": "CREATE UNIQUE INDEX unique_key_sea_orm_adapter ON public.casbin_rule USING btree (ptype, v0, v1, v2, v3, v4, v5)"
     },
     {
+      "table": "session_event",
+      "name": "idx_session_event_user_time",
+      "definition": "CREATE INDEX idx_session_event_user_time ON public.session_event USING btree (user_id, created_at)"
+    },
+    {
+      "table": "session_event",
+      "name": "session_event_pkey",
+      "definition": "CREATE UNIQUE INDEX session_event_pkey ON public.session_event USING btree (id)"
+    },
+    {
       "table": "sys_access_log",
       "name": "idx_access_log_created_at",
       "definition": "CREATE INDEX idx_access_log_created_at ON public.sys_access_log USING btree (created_at)"
@@ -1341,6 +1415,11 @@
       "definition": "CREATE UNIQUE INDEX sys_token_token_hash_key ON public.sys_token USING btree (token_hash)"
     },
     {
+      "table": "sys_token",
+      "name": "uq_sys_token_chain_active",
+      "definition": "CREATE UNIQUE INDEX uq_sys_token_chain_active ON public.sys_token USING btree (rotation_chain) WHERE ((status)::text = 'active'::text)"
+    },
+    {
       "table": "sys_user",
       "name": "sys_user_pkey",
       "definition": "CREATE UNIQUE INDEX sys_user_pkey ON public.sys_user USING btree (id)"
@@ -1421,6 +1500,36 @@
       "table": "casbin_rule",
       "name": "unique_key_sea_orm_adapter",
       "definition": "UNIQUE (ptype, v0, v1, v2, v3, v4, v5)"
+    },
+    {
+      "table": "session_event",
+      "name": "session_event_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "session_event",
+      "name": "session_event_event_type_not_null",
+      "definition": "NOT NULL event_type"
+    },
+    {
+      "table": "session_event",
+      "name": "session_event_id_not_null",
+      "definition": "NOT NULL id"
+    },
+    {
+      "table": "session_event",
+      "name": "session_event_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "session_event",
+      "name": "session_event_sid_not_null",
+      "definition": "NOT NULL sid"
+    },
+    {
+      "table": "session_event",
+      "name": "session_event_user_id_not_null",
+      "definition": "NOT NULL user_id"
     },
     {
       "table": "sys_access_log",

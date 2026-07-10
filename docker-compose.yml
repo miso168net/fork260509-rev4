@@ -56,6 +56,8 @@ services:
       APP_JWT_REFRESH_TOKEN_SECRET_FILE: /run/secrets/refresh_token_secret
       APP_DATABASE_URL_FILE: /run/secrets/database_url
       APP_REDIS_URL_FILE: /run/secrets/redis_url
+      # 007-login-throttle：captcha challenge HS256 密鑰（第三把秘鑰、與 jwt/refresh 隔離）
+      APP_CAPTCHA_SECRET_FILE: /run/secrets/captcha_secret
       # 004-system-settings：JWT iss/aud（非機密→plain env、無需 secret 檔；值對齊 auth/jwt.rs 常數）
       APP_JWT_ISS: rev4-admin
       APP_JWT_AUD: rev4-admin-web
@@ -65,6 +67,7 @@ services:
       - refresh_token_secret
       - database_url
       - redis_url
+      - captcha_secret
     # healthcheck 住 dev override（dev 映像無 curl/wget、以 TCP 探針）
     networks:
       - rev4_net
@@ -149,3 +152,5 @@ secrets:
     file: ./deploy/secrets/database_url.txt
   redis_url:
     file: ./deploy/secrets/redis_url.txt
+  captcha_secret:
+    file: ./deploy/secrets/captcha_secret.txt

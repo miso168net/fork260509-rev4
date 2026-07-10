@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# deploy/generate-secrets.sh — rev4-admin 六機密一鍵生成（001-compose-stack）
+# deploy/generate-secrets.sh — rev4-admin 七機密一鍵生成（001-compose-stack；007 增 captcha_secret）
 # 用法：./deploy/generate-secrets.sh [--force]
 #
-# 六機密（deploy/secrets/*.txt）：
+# 七機密（deploy/secrets/*.txt）：
 #   leaf      postgres_password（hex 24、URL-safe）／redis_password（hex 24、URL-safe）
 #   leaf      jwt_secret（base64 48）／refresh_token_secret（base64 48）
+#   leaf      captcha_secret（base64 48；007-login-throttle challenge HS256）
 #   composite database_url ＝ postgres://soybean:<postgres_password>@postgres:5432/soybean_admin_rust
 #   composite redis_url    ＝ redis://:<redis_password>@redis:6379
 #
@@ -17,7 +18,7 @@
 #
 # 冪等語意：
 #   - 零參數：已存在跳過（SKIPPED）、缺則補（GENERATED）。
-#   - --force：六支全重生。
+#   - --force：七支全重生。
 #   - dual-write 連動：composite 以「期望值 vs 檔案現值」逐位元組比對判定——涵蓋
 #     ①leaf 本次重生 ②leaf 曾單獨改動（比 composite 新） ③僅缺 composite
 #     三種情境，任何不一致一律重寫 composite、絕不留兩處不一致。
@@ -61,7 +62,7 @@ clear_dir_placeholder() {
 }
 
 # ============================================================
-# Step 1: leaf secret ×4
+# Step 1: leaf secret ×5
 # ============================================================
 echo "=== Step 1: 生成 leaf secret ==="
 
@@ -83,6 +84,7 @@ gen_leaf "postgres_password"    -hex 24
 gen_leaf "redis_password"       -hex 24
 gen_leaf "jwt_secret"           -base64 48
 gen_leaf "refresh_token_secret" -base64 48
+gen_leaf "captcha_secret"       -base64 48
 
 # ============================================================
 # Step 2: composite secret ×2（由 leaf 組合、dual-write 連動）
@@ -126,7 +128,7 @@ chmod 600 "$SECRETS_DIR"/*.txt
 echo ""
 echo "=== Secret 生成摘要 ==="
 for name in postgres_password redis_password jwt_secret refresh_token_secret \
-            database_url redis_url; do
+            captcha_secret database_url redis_url; do
     printf "  %-26s %s\n" "${name}.txt" "${STATUS[$name]}"
 done
 echo ""

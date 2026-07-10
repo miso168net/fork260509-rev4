@@ -2,9 +2,9 @@
 id: "0016"
 title: 已生效鎖定加 Redis 負快取層（DB 真相、fail-OPEN）
 date: 2026-07-03
-status: accepted
+status: superseded
 supersedes: []
-superseded_by: []
+superseded_by: [0038]
 provenance: "rev3:DECISIONS§1-⚠️ad（K1-40、021 刀）"
 tags: [auth, redis, security]
 ---

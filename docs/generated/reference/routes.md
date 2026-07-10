@@ -8,6 +8,7 @@
 | /auth/codeLogin | POST | Public | auth-code-login | 否 |
 | /auth/getUserInfo | GET | Authed | auth-get-user-info | 否 |
 | /auth/login | POST | Public | auth-login | 否 |
+| /auth/loginCaptcha | GET | Public | auth-login-captcha | 否 |
 | /auth/logout | POST | Public | auth-logout | 否 |
 | /auth/refreshToken | POST | Public | auth-refresh-token | 否 |
 | /auth/register | POST | Public | auth-register | 否 |
@@ -18,4 +19,5 @@
 | /route/getUserRoutes | GET | Authed | route-get-user-routes | 否 |
 | /route/isRouteExist | GET | Authed | route-is-route-exist | 否 |
 | /systemManage/getSystemSettings | GET | Policy | get-system-settings | 否 |
+| /systemManage/unlockLogin | POST | Policy | unlock-login | 否 |
 | /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |

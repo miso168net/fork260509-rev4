@@ -7,7 +7,7 @@
 
 ```bash
 ./deploy/generate-secrets.sh          # 冪等：已存在跳過、缺則補
-./deploy/generate-secrets.sh --force  # 六支全重生
+./deploy/generate-secrets.sh --force  # 七支全重生
 ```
 
 > 檔案權限：腳本對生成的 `.txt` 設 `chmod 600`。WSL2 掛載 Windows 磁碟（drvfs，
@@ -17,7 +17,7 @@
 > 絕不可手動改單一 leaf 檔（如 `postgres_password.txt`）而不重跑腳本——腳本會以
 > 內容比對偵測 drift 並連動重寫 composite；跳過腳本手改則兩處不一致、連線必失敗。
 
-## 六機密對照表（secret 檔 ↔ 消費服務 ↔ env 變數）
+## 七機密對照表（secret 檔 ↔ 消費服務 ↔ env 變數）
 
 | secret 檔 | 類型 | 消費服務 | env 變數／注入方式 |
 |---|---|---|---|
@@ -25,6 +25,7 @@
 | `redis_password.txt` | leaf（hex 24） | redis＋healthcheck | command 內 `cat /run/secrets/redis_password`（requirepass） |
 | `jwt_secret.txt` | leaf（base64 48） | rust-api | `APP_JWT_JWT_SECRET_FILE`（001 僅驗在場；簽章歸功能刀） |
 | `refresh_token_secret.txt` | leaf（base64 48） | rust-api | `APP_JWT_REFRESH_TOKEN_SECRET_FILE`（001 僅驗在場；簽章歸功能刀） |
+| `captcha_secret.txt` | leaf（base64 48） | rust-api | `APP_CAPTCHA_SECRET_FILE`（007 captcha challenge HS256 密鑰） |
 | `database_url.txt` | composite | rust-api、migrate | `APP_DATABASE_URL_FILE`（migrate 真連庫；server 驗在場＋非空＋非佔位） |
 | `redis_url.txt` | composite | rust-api | `APP_REDIS_URL_FILE`（001 僅驗在場；連線歸功能刀） |
 

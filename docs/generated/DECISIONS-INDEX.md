@@ -18,7 +18,7 @@
 | 0013 | accepted | 2026-07-03 | migration 檔名採短編號＋語意名 | — | — | — |
 | 0014 | superseded | 2026-07-03 | schema 基線＝rev3 終態語意 squash＋欄序重設計、兩道閘驗證 | — | — | 0021 |
 | 0015 | accepted | 2026-07-03 | casbin 規則表採委派式建表（adapter 建基底＋同檔 ALTER 補治理欄） | — | — | — |
-| 0016 | accepted | 2026-07-03 | 已生效鎖定加 Redis 負快取層（DB 真相、fail-OPEN） | — | — | — |
+| 0016 | superseded | 2026-07-03 | 已生效鎖定加 Redis 負快取層（DB 真相、fail-OPEN） | — | — | 0038 |
 | 0017 | accepted | 2026-07-03 | IP 存取控制閘——白＞黑＞default-allow、DB 真相＋記憶體微秒判定、fail-OPEN | — | — | — |
 | 0018 | accepted | 2026-07-03 | B8 處置流水總帳——K1 27 筆去向＋K2 全量轉 BACKLOG | — | — | — |
 | 0019 | accepted | 2026-07-03 | rev4 port 配號——host 4xxxx、容器內回歸預設值 | — | — | — |
@@ -39,3 +39,8 @@
 | 0034 | accepted | 2026-07-06 | 新增 ★BASE-WEB-LOGOUT-UX-WIRING 軌道（logout server-call 接线＋閒置登出 toast 兩用途） | — | — | — |
 | 0035 | accepted | 2026-07-06 | T034 前端跨棧共用 refresh 在途承諾 won't-fix（by-design：alova 對真實 auth dormant＋後端 grace 冪等為並發正確性防線） | — | — | — |
 | 0036 | accepted | 2026-07-06 | FR-017(ii) service-alova 閒置 toast 副本 by-design 省略（alova 對真實 auth dormant＋既有 showErrorMsg 雙彈＋乾淨做須動 showErrorMsg 出軌道） | — | — | — |
+| 0037 | accepted | 2026-07-10 | 登入失敗節流合成終態（per-user 滑動窗＋負快取＋CAPTCHA 軟區＋手動解鎖；§I.7 島 E 進場） | — | — | — |
+| 0038 | accepted | 2026-07-10 | 節流負快取層（DB 真相、fail-OPEN、TTL 不長於時窗、僅由 L2 再判路徑寫入） | — | 0016 | — |
+| 0039 | accepted | 2026-07-10 | schema 閘批次修復（gate1 結構 additive 容差＋B-055 varchar 長度 sidecar＋archetype-map 補登記＋快照重擷取） | — | — | — |
+| 0040 | accepted | 2026-07-10 | 新增 ★BASE-WEB-LOGIN-CAPTCHA-WIRING 軌道（密碼登入表單圖形驗證碼接线，嚴限一用途） | — | — | — |
+| 0041 | accepted | 2026-07-10 | §III.2「補完 vs 新能力判準」之「零新 key」釋義（不含既有授權頁既有子命名空間下的資料級 label key） | — | — | — |
