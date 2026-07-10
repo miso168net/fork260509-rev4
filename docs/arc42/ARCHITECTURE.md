@@ -57,8 +57,12 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
     統一信封 `Res`/`PageRes`＋13 碼 `AppError`（映射單一來源）＋route 註冊表；分層＝`model/facade`
     （entity 存取唯一管道、每 entity 一模組）＋`model/audit`（op-log `mutate_in_txn` seam）＋`auth`
     （JWT `sign`／`verify`＋TTL 公式＋`token_hash` SHA-256；`enforce_mw` decode→Claims＋denylist 前置；`require_policy`）
-    ＋`redis`（denylist/last_activity/grace 熱快取 client、ConnectionManager 自動重連、無 pub/sub；`Ok(None)`≠`Err` 分流）
-    ＋`model/password`（argon2 verify＋dummy 時序拉平）＋`validation`（型別 registry）＋`handler`（薄編排）；
+    ＋`redis`（熱快取 client：denylist／last_activity／grace＋throttle lock／unlock marker／captcha used
+    ／suppressed 麵包屑；ConnectionManager 自動重連、無 pub/sub；`Ok(None)`≠`Err` 分流）
+    ＋`model/password`（argon2 verify＋dummy 時序拉平）＋`validation`（型別 registry）＋`handler`（薄編排）
+    ＋`throttle`（登入失敗節流狀態機：形制閘＋L1/L2 判定序＋captcha gate＋七源降級告警與壓制麵包屑；
+    活書常數與三門檻鍵解析；不變式入憲 §I.7 島 E）＋`captcha`（無狀態圖形驗證碼：HS256 簽題〔第三秘鑰
+    `APP_CAPTCHA_SECRET`〕、`ans_mac` 答案不可還原、`captcha` crate 產圖、34 字字集）；
     session 生命週期（DB-stateful rotation／single-session／denylist／精確 idle）狀態機不變式入憲 §I.7 島 A/B/C/D；
     三態 router `Protection{Public,Authed,Policy}`。系統設定端點（Policy super-only）＋auth 縱切
     （登入/換發/個資＋動態選單路由＋替代登入 stub）為業務範式（端點全集住 generated/reference/routes）。
@@ -74,13 +78,25 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §6 Runtime
 
-- **登入鏈**（POST /auth/login，Public）：`find_by_user_name`（濾軟刪）→ argon2 `verify`（未命中跑
+- **登入鏈**（POST /auth/login，Public）——先過**節流判定序**（憲法 §I.7 島 E；詳 specs/007-login-throttle/
+  spec.md FR-022＋data-model.md §5/§7）：形制閘（user_name≤64／password≤512B，超限 `1000`【零列零雜湊零計數】）
+  → ① L1 GET `throttle:lock` 命中→`2222 auth.login.locked`【零 DB 零 argon2 零列；附有效 captcha 亦不受理且不消耗】
+  → ② unlock marker＋settings 三鍵（缺值退預設 5/15/2）＋L2 滑動窗 count（facade 單 statement raw SQL；窗內最近
+  成功列與 unlock marker 為計數下界＝reset-on-success／語意解鎖）→ ③ count≥max_fails→SET L1（★L1 唯一寫入點、
+  TTL=min(window,900)、命中不續期）→`2222 locked`【★零稽核列＝sticky 續鎖構造上不可能】→ ④ captcha gate
+  （count≥captcha_after 須附題：驗簽/exp/帳號綁定→★提交即消耗 `SET NX`→比對 `ans_mac`；未過關
+  `2222 auth.login.captchaRequired`【零列零計數】）→ ⑤ authenticate（★⑤絕不寫 L1）＝`find_by_user_name`（濾軟刪）→ argon2 `verify`（未命中跑
   `dummy_verify` 拉平時序、B-043）→ `status==2` 判（verify 後、carry uid）→ 三態（not-found／錯密／停用）
   collapse `1000`（不洩存在性）→ DB-fresh roles → 生 sid/jti、讀 N 套 TTL 公式 `sign` access(min(300,N×30)s)＋
   refresh(N×60+access s) → ★insert `sys_token` active（rotation_chain=sid）；`effective_single`（per-user＞全域＝
   島 A2）為真→per-user advisory lock（R1）＋`revoke_others_of_user` loop-until-0-active（保留新 sid）＋
   denylist(kicked)＋session_event(kicked)＋write session_id → 記 last_activity → 終局寫 `sys_login_attempt`
-  （exactly-one／best-effort、IP 最小版）→ `LoginToken`。
+  （★稽核口徑 FR-010：只有被密碼雜湊實際驗證過的登入終局才落恰一列——鎖定/captcha 短路一律零列、量級走麵包屑；
+  exactly-one／best-effort、IP 最小版）→ `LoginToken`。
+- **取題鏈**（GET /auth/loginCaptcha?userName=，Public）：無狀態產題——`captcha` crate 產圖＋HS256 簽
+  `CaptchaClaims{nonce,user_name,exp,ans_mac}`；★產題零 Redis/DB 寫入（無界灌入面封死）、量受 nginx auth_limit 有界。
+- **手動解鎖鏈**（POST /systemManage/unlockLogin，Policy super-only）：動作序寫死＝SET unlock marker（EX window）
+  → DEL L1 lock → op-log best-effort（失敗僅告警）；marker 進 L2 計數下界＝語意解鎖（append-only 稽核列刪不得）。
 - **會話換發鏈**（POST /auth/refreshToken，Public、★DB-stateful rotation、ADR 0033 supersede 0030）：`verify`
   →`8888`（絕不 3333/9999/9998）→ `token_hash`(SHA-256) `find_by_hash_for_update` 鎖呈遞列（島 B2 lock-then-
   redecide、L-075）→ 依鎖住列現值重判：active→精確 idle（`now−last_activity>N×60`→`8888`＋session_event(idle)、
@@ -150,7 +166,25 @@ route 全集等快變事實住 generated/reference/routes。
 
 ## §10 品質要求
 
-（本節尚無內容；fail-open／closed 語意總表與效能目標隨對應拍板填入。）
+**fail-open／closed 語意總表**（隨刀累積；效能目標隨對應拍板填入）：
+
+**登入節流七源降級**（憲法 §I.7 島 E1；每源降級必發 `warn!(target="security.throttle",
+degraded=<label>)` 結構化告警＋計數器；fail-OPEN＝不因基建故障而拒絕本應放行的登入）：
+
+| # | 降級源 | 行為 | 方向 | degraded label |
+|---|---|---|---|---|
+| ① | L1 lock GET → Err | 退 L2（節流仍生效）＋整體停用 captcha 要求 | fail-OPEN | `redis_lock` |
+| ② | captcha 單次標記 SET NX → Err | 拒絕但零計數（不懲罰） | 中性 | `redis_captcha` |
+| ③ | L2 count → DbErr | count:=0 放行；redis 可用則無條件要求 captcha | fail-OPEN＋fail-safe | `db_count` |
+| ④ | record_attempt INSERT → DbErr | 不改登入回應（best-effort）；計數斷供、永不鎖亦永不 captcha | fail-OPEN | `db_write` |
+| ⑤ | unlock marker GET → Err | 視為無 marker（以原始列判定） | ★fail-CLOSED、全鏈唯一例外 | `redis_unlock_marker` |
+| ⑥ | settings 缺值/不可解析/DbErr | 退預設常數（5/15/2） | fail-OPEN | `settings_default` |
+| ⑦ | L1 SET → Err | 忽略（真相由 L2 維持、下一請求重試武裝） | 中性 | `redis_lock_set` |
+
+⑤ 例外理由（ADR 0037 決定 12）：若改「視 marker 為 now」，Redis 故障期間全站每帳號 count 下界推到
+now＝節流整體關閉、與①「退 L2 節流仍生效」矛盾；受影響集合僅「window 內剛被解鎖」帳號、admin 可重解。
+★E1 的 fail-OPEN 方向一經入島、反轉即 MAJOR。與島 C2 不衝突：C2（撤銷檢查）fail-closed＝已撤會話
+絕不因故障放行；E1＝登入入口不因儲存層抖動拒真人。
 
 ## §11 風險與技術債
 
