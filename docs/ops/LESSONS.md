@@ -1,4 +1,4 @@
-<!-- next: L-125 -->
+<!-- next: L-127 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -250,7 +250,7 @@
 - **L-110**｜8888（auth.session.reLogin）為 upstream soybean 的 logoutCode——攔截器 onBackendFail 對 logoutCode 是 handleLogout→resetStore→/login、return null、★無任何訊息（只有 modalLogoutCodes 7777 那條走 $t(backend.msg) 顯阻斷式 modal）；spec 想要的「請重新登入」輕量 toast 在攔截器控制流紅線下不可達（upstream 只有「靜默」或「阻斷 modal」兩種）。
   防：as-built＝閒置過期靜默重導 /login（重導即再登入訊號、比 modal 輕合 research R7）；輕量 toast 需攔截器軌道 amendment（B-062、session 刀）。此類 UI 行為只有 CDP 真瀏覽器抓得到（L-053）。｜出處：005 CDP item#5 拍板
 - **L-111**｜base-web dev（pnpm dev＝vite --mode test、compose NODE_ENV=development→DEV=true、VITE_HTTP_PROXY=Y）下，VITE_SERVICE_BASE_URL 不是 axios baseURL、而是「跑在 base-web 容器內的 vite dev-server proxy」的 target；填 host-published port（localhost:42080）容器內連不到、CDP 登入會斷。
-  防：填 docker 內網服務名 http://front-nginx/api（front-nginx 監聽 :80，經 nginx /api strip→rust-api）；改此類打點後以「容器內 wget http://front-nginx/api/health→ok」實測 proxy 鏈通再 commit。｜出處：005 U7a 拍板
+  防：填 docker 內網服務名 http://front-nginx/api（front-nginx 監聽 :80，經 nginx /api strip→rust-api）；改此類打點後以「容器內 wget http://front-nginx/api/health→ok」實測 proxy 鏈通再 commit（★2026-07-10 勘誤補充：此 target 指回 front-nginx 會使 dev 每發 API 雙穿 front-nginx、且 build 模式下同值變瀏覽器 baseURL——見 L-125）。｜出處：005 U7a 拍板
 
 - **L-112**｜Workflow 發射後「再找時機」掛看門狗＝結構性漏掛——同 session 連漏兩次（user 兩度糾正）：掛錶被當「發射後的下一步」，任何 context-switch（寫下一單元 script、處理 blocker）即擠掉；且冗長 inline Monitor 命令的摩擦鼓勵延後。
   防：launch 與 Monitor ★同一回合原子成對（兩 call 間零其他動作）；Monitor command＝`bash tools/wf-watchdog <冒煙token>`（自動發現最新 wf 目錄、毋需 launch 回傳值→可同回合並發）；PostToolUse(Workflow) hook 於發射當下注入配對提醒；完成通知一到→TaskStop 該 Monitor（防 ~13min 後誤觸 stall）。｜出處：005 編排實證
@@ -279,3 +279,8 @@
   防：CDP 連續兩擊要驗「同碼異訊息」（如 `2222` 的 locked vs captchaRequired）時，兩擊之間需等 duration 過期，否則第二則 toast 恆空。｜出處：007 U13（CDP-2）
 - **L-124**｜活書（`docs/arc42/ARCHITECTURE.md`）的 as-built 變動**必須落在收刀簿記 commit**、不可由 feature branch 帶進 merge——`docs-sync` 的 L6(b) 閘把 events `arch_impact` 定義為「merge 版活書 → 簿記版活書之間實際變動的節集」，若活書在 feature branch 內改完，merge 版與簿記版相同、`changed` 為空集合，簿記 commit 會被四個 L6 ERROR 硬擋（007 實測；006 先例 merge 209d9a0 的 merge commit 確實零活書變動、as-built 全在簿記 commit 45d0132）。
   防：`/speckit-tasks` 產出的「更新 ARCHITECTURE」任務**不得**排進 feature branch 的 Phase（007 的 T079 即此瑕疵、analyze 未攔），應移入收尾簿記步驟；已誤排時的修復＝重做 merge（`merge --no-ff --no-commit` 後 `git checkout HEAD -- docs/arc42/ARCHITECTURE.md` 剔除活書變動，再於簿記 commit 回填）。★CLAUDE.md §2「架構影響→活書對應節【就在 feature branch 內改】」與此機器閘措辭相衝突，待 user 拍板修訂。｜出處：007 T086（收刀）
+
+- **L-125**｜base-web dev 的 vite proxy target 指回 front-nginx（`.env.test` `VITE_SERVICE_BASE_URL=http://front-nginx/api`、即 L-111 拍下的值）造成 **dev 每發 API 雙穿 front-nginx**：第一跳命中 `location /`（無 limit_req）進 vite，rewrite 後第二跳以 base-web 容器為來源命中 `/api` 限流塊——`limit_req` 鍵恆為 base-web 容器 IP、XFF 多一個內部跳、nginx 日誌同一請求雙倍計數。且同一 env 值有**雙重身分**：serve（`DEV=true`）時是 vite proxy 的 server-side target（容器 DNS 可解），`vite build`（`DEV=false`；`DEV` 綁 command、與 `--mode` 無關）時直接變瀏覽器 axios baseURL——`pnpm build:test` 產物打不到後端（瀏覽器解析不了容器名）；`.env.prod` 仍指 apifox mock、同屬此坑的未爆彈。
+  防：反代拓樸 review 必追完整 hop 鏈到 upstream 落點（nginx 存取日誌同一 API 雙倍出現＝紅旗）；動 `VITE_SERVICE_BASE_URL` 類 env 前分別推演 serve 與 build 兩形消費者各拿它當什麼用。｜出處：2026-07-10 反代拓樸偵察（007 U13 CDP 除錯衍生）
+- **L-126**｜docker **loopback publish**（`127.0.0.1:PORT:80`、`userland-proxy` 預設 true）下 host 進來的流量走 docker-proxy **另開連線**，nginx 的 `remote_addr` 恆為 docker gateway——與單跳/雙跳無關（實測：瀏覽器直打與雙穿第一跳的 `remote_addr` 皆 gateway）。故 dev 下 `$binary_remote_addr` 的 per-IP `limit_req` 本質是**常數桶**、全部瀏覽器流量共用一桶；消掉代理迴圈也只是把常數換一個值。容器 IP 與 gateway 均為動態指派、絕不可硬寫進斷言或設定。對外 `0.0.0.0` publish 時外部 client 來源 IP 是否經 iptables DNAT 保留**未實測**——勿把 dev 觀察直接外推到 prod。
+  防：評估任何 per-IP 機制前先查 publish 形式（`docker inspect` 看 HostIp）與 `userland-proxy` 設定；per-IP 分桶正確性需外部機器或非 loopback publish 才驗得到，dev 內只能驗「機制會觸發」不能驗「分桶正確」。｜出處：2026-07-10 反代拓樸偵察（實測 nginx 存取日誌）
