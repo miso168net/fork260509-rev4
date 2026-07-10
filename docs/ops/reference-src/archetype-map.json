@@ -56,6 +56,12 @@
       "note": "僅 created_at NN＋created_by（可空）；禁 updated_*／deleted_*"
     },
     {
+      "table": "session_event",
+      "variant": "B",
+      "label": "B append-only 日誌",
+      "note": "僅 created_at NN＋created_by（可空）；禁 updated_*／deleted_*。來源＝006-session-lifecycle m004（變體 B）"
+    },
+    {
       "table": "sys_user_role",
       "variant": "C",
       "label": "C join",

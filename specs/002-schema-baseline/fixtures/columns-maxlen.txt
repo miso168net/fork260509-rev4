@@ -1,0 +1,50 @@
+        table_name         |    column_name     | character_maximum_length 
+---------------------------+--------------------+--------------------------
+ casbin_rule               | ptype              |                       18
+ casbin_rule               | v0                 |                      125
+ casbin_rule               | v1                 |                      125
+ casbin_rule               | v2                 |                      125
+ casbin_rule               | v3                 |                      125
+ casbin_rule               | v4                 |                      125
+ casbin_rule               | v5                 |                      125
+ sys_casbin_policy_archive | archive_reason     |                       32
+ sys_casbin_policy_archive | ptype              |                       18
+ sys_casbin_policy_archive | v0                 |                      125
+ sys_casbin_policy_archive | v1                 |                      125
+ sys_casbin_policy_archive | v2                 |                      125
+ sys_casbin_policy_archive | v3                 |                      125
+ sys_casbin_policy_archive | v4                 |                      125
+ sys_casbin_policy_archive | v5                 |                      125
+ sys_ip_rule               | description        |                         
+ sys_ip_rule               | rule_type          |                         
+ sys_menu                  | active_menu        |                         
+ sys_menu                  | component          |                         
+ sys_menu                  | href               |                         
+ sys_menu                  | i18n_key           |                         
+ sys_menu                  | icon               |                         
+ sys_menu                  | menu_name          |                         
+ sys_menu                  | route_name         |                         
+ sys_menu                  | route_path         |                         
+ sys_operation_log         | entity_table       |                       64
+ sys_operation_log         | operation          |                       20
+ sys_operation_log         | trace_id           |                       64
+ sys_role                  | code               |                         
+ sys_role                  | home               |                         
+ sys_role                  | name               |                         
+ sys_role                  | role_desc          |                         
+ sys_token                 | rotation_chain     |                       36
+ sys_token                 | status             |                       20
+ sys_token                 | token_hash         |                       64
+ sys_user                  | current_session_id |                       36
+ sys_user                  | nick_name          |                         
+ sys_user                  | password           |                         
+ sys_user                  | session_policy     |                       20
+ sys_user                  | user_email         |                         
+ sys_user                  | user_name          |                         
+ sys_user                  | user_phone         |                         
+ system_settings           | description        |                         
+ system_settings           | setting_key        |                       64
+ system_settings           | setting_value      |                         
+ system_settings           | value_type         |                         
+(46 rows)
+

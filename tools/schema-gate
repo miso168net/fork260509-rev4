@@ -22,7 +22,11 @@ gate1 比對規則：右側＝specs/002-schema-baseline/fixtures/（columns／co
 indexes 三檔、凍結基準）；欄名經 rename map（data-model.md §2 節 2、14 組）映射後
 雙向配對；表內欄序不敏感（欄序歸閘 2）；型別以 information_schema 正規形比對；
 複合索引／複合主鍵內部欄序逐字；索引名沿凍結基準原名逐字；白名單恰 4 項
-（data-model.md §2 節 3）；seaql_migrations 框架表除外。
+（data-model.md §2 節 3）；結構 additive 白名單（ADR 0039、STRUCT_ADDITIVE_ALLOWLIST）
+容 post-baseline 合法「新增」（多表／多索引）為容差 delta——只放寬新增、不放寬改動；
+varchar 長度面以 sidecar（fixtures/columns-maxlen.txt、B-055）為基準額外比對
+（範圍＝sidecar 所列之表欄；post-baseline 新表不在 sidecar 屬正常設計）；
+seaql_migrations 框架表除外。
 `--live-rev3`＝運行期交叉驗證：右側改連容器 rev3-admin-postgres-1 的活庫直比
 （唯讀）；該容器不在機＝exit 2（無法驗證）而非誤報差異。
 
@@ -60,6 +64,7 @@ import unittest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURES_DIR = os.path.join("specs", "002-schema-baseline", "fixtures")
+MAXLEN_SIDECAR = os.path.join(FIXTURES_DIR, "columns-maxlen.txt")  # B-055 長度基準（非凍結集）
 DATA_MODEL = os.path.join("specs", "002-schema-baseline", "data-model.md")
 ARCHETYPE_MAP = os.path.join("docs", "ops", "reference-src", "archetype-map.json")
 
@@ -99,6 +104,17 @@ WHITELIST_ADD = {
 }
 WHITELIST_TYPE = {
     ("sys_ip_rule", "wbip_memo"): ("character varying", "text"),
+}
+
+# ---- 閘 1 結構面：post-baseline rev4 新增結構白名單（ADR 0039）----
+# 002 凍結基準之後、後續刀合法「新增」的結構物件。比照 SEED_ADDITIVE_ALLOWLIST（ADR 0032）
+# 範式：逐項註明來源刀、零萬用字元；白名單內的「實庫多表／多索引」＝容差 delta、非 FAIL；
+# 白名單外＝FAIL。★只放寬「新增」、不放寬「改動」——名稱撞基準既有物件者仍走定義比對；
+# 凍結 fixtures 永不因新增而改寫。形＝(kind, table, name)：kind="table"（整表容差、
+# 含其自身欄/約束/索引——基準無此表、無從比對；name=None）／kind="index"（既有表上的新增索引）。
+STRUCT_ADDITIVE_ALLOWLIST = {
+    ("table", "session_event", None),                     # 006-session-lifecycle m004
+    ("index", "sys_token", "uq_sys_token_chain_active"),  # 006-session-lifecycle m004
 }
 
 # ---- 閘 2 seed 面（contracts §3）----
@@ -173,6 +189,16 @@ def norm_default(val):
     return val
 
 
+def norm_maxlen(val):
+    """varchar 長度正規形（B-055）：無值形（None／''）→None（無長度上限）；數字字串→int。"""
+    if val is None:
+        return None
+    val = val.strip()
+    if val == "":
+        return None
+    return int(val)
+
+
 def rewrite_def(table, defstr):
     """把基準側約束／索引定義內的欄識別字經 rename map 改寫為現行欄名
     （word-boundary、僅該表域；索引「名」不在改寫面——沿凍結基準原名逐字）。"""
@@ -184,7 +210,7 @@ def rewrite_def(table, defstr):
 
 def is_whitelisted_extra(table, col, attrs):
     """白名單「新增欄」判定：表×欄在白名單且屬性＝text／可空／無預設。"""
-    dtype, nullable, default = attrs
+    dtype, nullable, default, _maxlen = attrs
     return ((table, col) in WHITELIST_ADD and dtype == "text"
             and nullable == "YES" and norm_default(default) is None)
 
@@ -192,6 +218,18 @@ def is_whitelisted_extra(table, col, attrs):
 def is_whitelisted_type_change(table, col, base_type, live_type):
     """白名單「型別變更」判定：恰為登記之（基準型別→實庫型別）方向。"""
     return WHITELIST_TYPE.get((table, col)) == (base_type, live_type)
+
+
+def is_allowlisted_struct_extra_table(table):
+    """gate1 結構 additive（ADR 0039）：實庫多表是否在白名單（整表容差、
+    含其自身欄/約束/索引——基準無此表、無從比對）。"""
+    return ("table", table, None) in STRUCT_ADDITIVE_ALLOWLIST
+
+
+def is_allowlisted_struct_extra_index(table, name):
+    """gate1 結構 additive（ADR 0039）：既有表上的實庫多索引是否在白名單
+    （按 (table, name) 綁定、跨表不通用；只涵蓋「多」向、改動不放行）。"""
+    return ("index", table, name) in STRUCT_ADDITIVE_ALLOWLIST
 
 
 def parse_psql_aligned(text):
@@ -210,7 +248,8 @@ def parse_psql_aligned(text):
 
 
 def compare_columns(table, left, right):
-    """單表欄比對。left／right＝{欄名:(型別,可空,預設)}；right＝基準欄名（映射前）。
+    """單表欄比對。left／right＝{欄名:(型別,可空,預設,maxlen)}；right＝基準欄名（映射前）。
+    maxlen（尾端）不在本面比對——長度面另以 sidecar 為基準（compare_maxlen、B-055）。
     回 (issues, hits)：issues＝白名單外差異逐項；hits＝白名單命中逐項。"""
     issues, hits = [], []
     mapped = {apply_rename(table, c): attrs for c, attrs in right.items()}
@@ -218,7 +257,7 @@ def compare_columns(table, left, right):
         if is_whitelisted_extra(table, col, left[col]):
             hits.append(f"{table}.{col}（白名單新增欄）")
         elif (table, col) in WHITELIST_ADD:
-            lt, ln, ld = left[col]
+            lt, ln, ld, _lm = left[col]
             issues.append(f"{table}.{col}：白名單新增欄屬性不符"
                           f"（期 text／可空／無預設，實 {lt}／{ln}／{norm_default(ld)}）")
         else:
@@ -226,8 +265,8 @@ def compare_columns(table, left, right):
     for col in sorted(set(mapped) - set(left)):
         issues.append(f"{table}.{col}：實庫漏欄（基準經欄名映射後應在）")
     for col in sorted(set(left) & set(mapped)):
-        lt, ln, ld = left[col]
-        rt, rn, rd = mapped[col]
+        lt, ln, ld, _lm = left[col]
+        rt, rn, rd, _rm = mapped[col]
         if lt != rt:
             if is_whitelisted_type_change(table, col, rt, lt):
                 hits.append(f"{table}.{col}（白名單型別變更 {rt}→{lt}）")
@@ -241,19 +280,43 @@ def compare_columns(table, left, right):
     return issues, hits
 
 
-def compare_named_defs(table, kind, left, right):
+def compare_named_defs(table, kind, left, right, allow_extra=None):
     """按名稱配對比 def（約束／索引）；right def 先經 rewrite_def 映射；
-    名稱與定義皆逐字。回 issues。"""
-    issues = []
+    名稱與定義皆逐字。allow_extra＝結構 additive 白名單判定（ADR 0039；僅適用
+    「多」向——只放寬新增，名稱撞基準既有者仍走定義比對）。
+    回 (issues, deltas)：issues＝差異逐項；deltas＝白名單容差逐項（非 FAIL）。"""
+    issues, deltas = [], []
     expected = {name: rewrite_def(table, d) for name, d in right.items()}
     for name in sorted(set(left) - set(expected)):
-        issues.append(f"{table}：多{kind} {name}（基準無）")
+        if allow_extra is not None and allow_extra(table, name):
+            deltas.append(f"{table}：多{kind} {name}（ADR 0039 結構 additive 白名單）")
+        else:
+            issues.append(f"{table}：多{kind} {name}（基準無）")
     for name in sorted(set(expected) - set(left)):
         issues.append(f"{table}：漏{kind} {name}（基準有、實庫無）")
     for name in sorted(set(left) & set(expected)):
         if left[name] != expected[name]:
             issues.append(f"{table}：{kind} {name} 定義不符"
                           f"（基準映射後＝{expected[name]}｜實庫＝{left[name]}）")
+    return issues, deltas
+
+
+def compare_maxlen(sidecar, live_cols_by_table):
+    """B-055 varchar 長度面（ADR 0039）：以 sidecar 為長度基準額外比對。
+    sidecar＝{(表, 現行欄名): maxlen(int|None)}；live_cols_by_table＝
+    {表:{欄:(型別,可空,預設,maxlen)}}（maxlen 併 attrs 尾端）。
+    比對範圍＝sidecar 所列之表欄（僅此、不外擴——post-baseline 新表如 session_event
+    不在 sidecar 屬正常設計、其長度治理歸各自刀）；None≠int 亦屬漂移（界撤除／新設界）。
+    白名單型別變更欄（wbip_memo varchar→text）兩側 maxlen 皆 None、自然等值。回 issues。"""
+    issues = []
+    for (table, col), want in sorted(sidecar.items(), key=str):
+        attrs = live_cols_by_table.get(table, {}).get(col)
+        if attrs is None:
+            issues.append(f"{table}.{col}：sidecar 長度基準有此欄、實庫無")
+            continue
+        got = attrs[3]
+        if got != want:
+            issues.append(f"{table}.{col}：varchar 長度不符（sidecar {want}、實庫 {got}）")
     return issues
 
 
@@ -431,13 +494,13 @@ def audit_table(table, variant, active_unique, cols, index_defs):
                 issues.append(f"{table}.{col}：型別不符（期 {TSTZ}、實 {cols[col][0]}）")
         for col in ("created_by", "updated_by", "deleted_by"):
             if col in cols:
-                dtype, nullable, _ = cols[col]
+                dtype, nullable, _, _ = cols[col]
                 if dtype != "bigint":
                     issues.append(f"{table}.{col}：型別不符（期 bigint、實 {dtype}）")
                 if nullable != "YES":
                     issues.append(f"{table}.{col}：應可空（憲法 §I.6 *_by nullable 通則）")
         if "created_at" in cols:
-            _, nullable, default = cols["created_at"]
+            _, nullable, default, _ = cols["created_at"]
             if nullable != "NO" or norm_default(default) != "now()":
                 issues.append(f"{table}.created_at：應 NOT NULL default now()"
                               f"（實 {nullable}／{norm_default(default)}）")
@@ -475,14 +538,14 @@ def audit_table(table, variant, active_unique, cols, index_defs):
         if "protected" not in cols:
             issues.append(f"{table}.protected：ALTER 治理欄缺")
         else:
-            _, nullable, default = cols["protected"]
+            _, nullable, default, _ = cols["protected"]
             if nullable != "NO" or norm_default(default) != "false":
                 issues.append(f"{table}.protected：應 NOT NULL default false"
                               f"（實 {nullable}／{norm_default(default)}）")
         if "created_at" not in cols:
             issues.append(f"{table}.created_at：ALTER 治理欄缺")
         else:
-            _, nullable, default = cols["created_at"]
+            _, nullable, default, _ = cols["created_at"]
             if nullable != "NO" or norm_default(default) != "now()":
                 issues.append(f"{table}.created_at：應 NOT NULL default now()"
                               f"（實 {nullable}／{norm_default(default)}）")
@@ -497,7 +560,8 @@ def audit_table(table, variant, active_unique, cols, index_defs):
 # 取數（實庫唯讀查詢／凍結基準檔）
 # ---------------------------------------------------------------------------
 
-Q_COLUMNS = ("SELECT table_name, column_name, data_type, is_nullable, column_default "
+Q_COLUMNS = ("SELECT table_name, column_name, data_type, is_nullable, column_default, "
+             "character_maximum_length "  # B-055 長度面（sidecar 為基準；maxlen 併 attrs 尾端）
              "FROM information_schema.columns WHERE table_schema='public' "
              "ORDER BY table_name, ordinal_position")
 # contype 排除 'n'（PG18 起 not-null 以約束列形出現；可空性已由欄比對面覆蓋）
@@ -554,9 +618,13 @@ def load_fixture_triple():
 
 
 def columns_by_table(rows):
+    """rows＝[表, 欄, 型別, 可空, 預設(, maxlen)]；attrs 四元組（maxlen 併尾端、B-055）。
+    來源無 maxlen 欄（凍結基準 columns.txt 三檔）＝None——長度面另以 sidecar 為基準比對。"""
     by = {}
-    for table, col, dtype, nullable, default in rows:
-        by.setdefault(table, {})[norm_ident(col)] = (dtype, nullable, default)
+    for row in rows:
+        table, col, dtype, nullable, default = row[:5]
+        maxlen = norm_maxlen(row[5]) if len(row) > 5 else None
+        by.setdefault(table, {})[norm_ident(col)] = (dtype, nullable, default, maxlen)
     return by
 
 
@@ -565,6 +633,32 @@ def defs_by_table(rows):
     for table, name, defstr in rows:
         by.setdefault(table, {})[name] = defstr
     return by
+
+
+def load_maxlen_sidecar():
+    """讀 B-055 varchar 長度 sidecar（ADR 0039；來源＝rev3 live 重擷取、非凍結集、
+    psql 對齊格式：表｜欄｜character_maximum_length）；欄名經 rename map 映射為現行
+    定稿欄名。回 {(表, 欄): maxlen(int|None)}；不可讀／格式異常＝EnvUnavailable。"""
+    path = os.path.join(REPO_ROOT, MAXLEN_SIDECAR)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            rows = parse_psql_aligned(fh.read())
+    except OSError as ex:
+        raise EnvUnavailable(f"長度基準 sidecar 不可讀：{MAXLEN_SIDECAR}（{ex}）")
+    if any(len(r) != 3 for r in rows):
+        raise EnvUnavailable(f"長度基準 sidecar 格式異常：{MAXLEN_SIDECAR}（欄數不符）")
+    out = {}
+    for table, col, maxlen in rows:
+        key = (table, apply_rename(table, col))
+        if key in out:
+            raise EnvUnavailable(f"長度基準 sidecar 格式異常：{MAXLEN_SIDECAR}"
+                                 f"（{key[0]}.{key[1]} 重複）")
+        try:
+            out[key] = norm_maxlen(maxlen)
+        except ValueError:
+            raise EnvUnavailable(f"長度基準 sidecar 格式異常：{MAXLEN_SIDECAR}"
+                                 f"（{key[0]}.{key[1]} 長度值非數字：{maxlen!r}）")
+    return out
 
 
 def load_datamodel_ordinals():
@@ -653,21 +747,36 @@ def cmd_gate1(args):
     ltables = set(lcols) - FRAMEWORK_TABLES
     rtables = set(rcols) - FRAMEWORK_TABLES
 
+    maxlen_side = load_maxlen_sidecar()   # B-055 長度基準（sidecar；比對範圍＝其所列表欄）
+
     print(f"[gate1] 左＝實庫（compose postgres／{DB_NAME}）；右＝{right_label}")
-    all_issues, all_hits = [], []
+    all_issues, all_hits, all_deltas = [], [], []
     n_ok = 0
     for table in sorted(ltables | rtables):
+        deltas = []
         if table not in ltables:
             issues = [f"{table}：實庫漏表（基準有）"]
         elif table not in rtables:
+            # 實庫多表：白名單內＝容差 delta（ADR 0039、比照 gate2 real/delta 分流）、外＝FAIL
+            if is_allowlisted_struct_extra_table(table):
+                delta = f"{table}：實庫多表（ADR 0039 結構 additive 白名單、整表容差）"
+                print(f"  {table:<26} 容差 delta：{delta}")
+                all_deltas.append(delta)
+                continue
             issues = [f"{table}：實庫多表（基準無）"]
         else:
             issues, hits = compare_columns(table, lcols[table], rcols[table])
-            issues += compare_named_defs(table, "約束",
-                                         lcons.get(table, {}), rcons.get(table, {}))
-            issues += compare_named_defs(table, "索引",
-                                         lidxs.get(table, {}), ridxs.get(table, {}))
+            con_issues, con_deltas = compare_named_defs(
+                table, "約束", lcons.get(table, {}), rcons.get(table, {}))
+            idx_issues, idx_deltas = compare_named_defs(
+                table, "索引", lidxs.get(table, {}), ridxs.get(table, {}),
+                allow_extra=is_allowlisted_struct_extra_index)
+            issues += con_issues + idx_issues
+            deltas = con_deltas + idx_deltas
             all_hits += hits
+        for delta in deltas:
+            print(f"  {table:<26} 容差 delta：{delta}")
+        all_deltas += deltas
         if issues:
             print(f"  {table:<26} FAIL（差異 {len(issues)}）")
             all_issues += issues
@@ -678,12 +787,18 @@ def cmd_gate1(args):
             nidx = len(lidxs.get(table, {}))
             print(f"  {table:<26} OK（欄 {ncol}｜約束 {ncon}｜索引 {nidx}）")
 
+    # B-055 長度面（ADR 0039）：以 sidecar 為 varchar 長度基準額外比對（左恆＝rev4 實庫）
+    maxlen_issues = compare_maxlen(maxlen_side, lcols)
+    all_issues += maxlen_issues
+    print(f"[gate1] 長度面（B-055 sidecar）：{len(maxlen_side)} 欄比對"
+          f"｜差異 {len(maxlen_issues)}")
+
     for msg in all_issues:
         print(f"[gate1][FAIL] {msg}", file=sys.stderr)
     n_tables = len(ltables | rtables)
     verdict = "PASS" if not all_issues else "FAIL"
     print(f"[gate1] {verdict}｜表 {n_ok}/{n_tables} 過｜白名單命中 {len(all_hits)}/4"
-          f"｜白名單外差異 {len(all_issues)}")
+          f"｜結構容差 delta {len(all_deltas)}｜白名單外差異 {len(all_issues)}")
     return 0 if not all_issues else 1
 
 
@@ -940,19 +1055,19 @@ class TestWhitelist(unittest.TestCase):
 
     def test_extra_allowed(self):
         self.assertTrue(is_whitelisted_extra("sys_user", "user_memo",
-                                             ("text", "YES", None)))
+                                             ("text", "YES", None, None)))
         self.assertTrue(is_whitelisted_extra("sys_menu", "menu_memo",
-                                             ("text", "YES", "-")))
+                                             ("text", "YES", "-", None)))
 
     def test_extra_wrong_attrs_rejected(self):
         self.assertFalse(is_whitelisted_extra("sys_user", "user_memo",
-                                              ("character varying", "YES", None)))
+                                              ("character varying", "YES", None, None)))
         self.assertFalse(is_whitelisted_extra("sys_user", "user_memo",
-                                              ("text", "NO", None)))
+                                              ("text", "NO", None, None)))
 
     def test_extra_probe_rejected(self):
         self.assertFalse(is_whitelisted_extra("sys_user", "t_gate1_probe",
-                                              ("text", "YES", None)))
+                                              ("text", "YES", None, None)))
 
     def test_type_change_allowed(self):
         self.assertTrue(is_whitelisted_type_change(
@@ -1000,53 +1115,53 @@ class TestParseAligned(unittest.TestCase):
 
 class TestCompareColumns(unittest.TestCase):
     def test_identical_ok(self):
-        cols = {"id": ("bigint", "NO", "nextval('t_id_seq'::regclass)")}
+        cols = {"id": ("bigint", "NO", "nextval('t_id_seq'::regclass)", None)}
         issues, hits = compare_columns("sys_user", dict(cols), dict(cols))
         self.assertEqual(issues, [])
         self.assertEqual(hits, [])
 
     def test_rename_pairing(self):
-        left = {"role_code": ("character varying", "NO", None)}
-        right = {"code": ("character varying", "NO", "-")}
+        left = {"role_code": ("character varying", "NO", None, None)}
+        right = {"code": ("character varying", "NO", "-", None)}
         issues, hits = compare_columns("sys_role", left, right)
         self.assertEqual(issues, [])
 
     def test_extra_probe_named(self):
-        left = {"t_gate1_probe": ("text", "YES", None)}
+        left = {"t_gate1_probe": ("text", "YES", None, None)}
         issues, _ = compare_columns("sys_user", left, {})
         self.assertEqual(len(issues), 1)
         self.assertIn("sys_user.t_gate1_probe", issues[0])
 
     def test_missing_named(self):
-        right = {"user_phone": ("character varying", "YES", "-")}
+        right = {"user_phone": ("character varying", "YES", "-", None)}
         issues, _ = compare_columns("sys_user", {}, right)
         self.assertEqual(len(issues), 1)
         self.assertIn("sys_user.user_phone", issues[0])
 
     def test_whitelisted_add_hits(self):
-        left = {"user_memo": ("text", "YES", None)}
+        left = {"user_memo": ("text", "YES", None, None)}
         issues, hits = compare_columns("sys_user", left, {})
         self.assertEqual(issues, [])
         self.assertEqual(len(hits), 1)
         self.assertIn("user_memo", hits[0])
 
     def test_whitelisted_type_change_hits(self):
-        left = {"wbip_memo": ("text", "YES", None)}
-        right = {"description": ("character varying", "YES", "-")}
+        left = {"wbip_memo": ("text", "YES", None, None)}
+        right = {"description": ("character varying", "YES", "-", None)}
         issues, hits = compare_columns("sys_ip_rule", left, right)
         self.assertEqual(issues, [])
         self.assertEqual(len(hits), 1)
         self.assertIn("wbip_memo", hits[0])
 
     def test_default_normalized_equiv(self):
-        left = {"created_at": ("timestamp with time zone", "NO", "CURRENT_TIMESTAMP")}
-        right = {"created_at": ("timestamp with time zone", "NO", "now()")}
+        left = {"created_at": ("timestamp with time zone", "NO", "CURRENT_TIMESTAMP", None)}
+        right = {"created_at": ("timestamp with time zone", "NO", "now()", None)}
         issues, _ = compare_columns("sys_ip_rule", left, right)
         self.assertEqual(issues, [])
 
     def test_type_mismatch_named(self):
-        left = {"password": ("text", "NO", None)}
-        right = {"password": ("character varying", "NO", "-")}
+        left = {"password": ("text", "NO", None, None)}
+        right = {"password": ("character varying", "NO", "-", None)}
         issues, _ = compare_columns("sys_user", left, right)
         self.assertEqual(len(issues), 1)
         self.assertIn("sys_user.password", issues[0])
@@ -1055,13 +1170,14 @@ class TestCompareColumns(unittest.TestCase):
 class TestCompareNamedDefs(unittest.TestCase):
     def test_identical_ok(self):
         d = {"sys_user_pkey": "PRIMARY KEY (id)"}
-        self.assertEqual(compare_named_defs("sys_user", "約束", dict(d), dict(d)), [])
+        self.assertEqual(compare_named_defs("sys_user", "約束", dict(d), dict(d)),
+                         ([], []))
 
     def test_missing_index_named(self):
         left = {"sys_casbin_policy_archive_pkey": "x"}
         right = {"sys_casbin_policy_archive_pkey": "x",
                  "idx_casbin_archive_archived_at": "y"}
-        issues = compare_named_defs("sys_casbin_policy_archive", "索引", left, right)
+        issues, _ = compare_named_defs("sys_casbin_policy_archive", "索引", left, right)
         self.assertEqual(len(issues), 1)
         self.assertIn("idx_casbin_archive_archived_at", issues[0])
 
@@ -1072,14 +1188,131 @@ class TestCompareNamedDefs(unittest.TestCase):
         right = {"sys_ip_rule_cidr_type_active_uniq":
                  "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
                  "USING btree (cidr, rule_type) WHERE (deleted_at IS NULL)"}
-        self.assertEqual(compare_named_defs("sys_ip_rule", "索引", left, right), [])
+        self.assertEqual(compare_named_defs("sys_ip_rule", "索引", left, right),
+                         ([], []))
 
     def test_def_mismatch_named(self):
         left = {"sys_user_role_pkey": "PRIMARY KEY (role_id, user_id)"}
         right = {"sys_user_role_pkey": "PRIMARY KEY (user_id, role_id)"}
-        issues = compare_named_defs("sys_user_role", "約束", left, right)
+        issues, _ = compare_named_defs("sys_user_role", "約束", left, right)
         self.assertEqual(len(issues), 1)
         self.assertIn("sys_user_role_pkey", issues[0])
+
+
+class TestStructAdditiveAllowlist(unittest.TestCase):
+    """閘 1 結構 additive 白名單（ADR 0039）：白名單內多表／多索引＝容差 delta、
+    白名單外＝仍 FAIL；只放寬「新增」、不放寬「改動」；零萬用字元。"""
+
+    def test_allowlist_exactly_two(self):
+        self.assertEqual(STRUCT_ADDITIVE_ALLOWLIST, {
+            ("table", "session_event", None),
+            ("index", "sys_token", "uq_sys_token_chain_active")})
+
+    def test_extra_table_allowlisted(self):
+        self.assertTrue(is_allowlisted_struct_extra_table("session_event"))
+
+    def test_extra_table_unlisted_rejected(self):
+        self.assertFalse(is_allowlisted_struct_extra_table("t_rogue"))
+        # index 項不放行整表
+        self.assertFalse(is_allowlisted_struct_extra_table("sys_token"))
+
+    def test_extra_index_allowlisted(self):
+        self.assertTrue(is_allowlisted_struct_extra_index(
+            "sys_token", "uq_sys_token_chain_active"))
+
+    def test_extra_index_unlisted_rejected(self):
+        self.assertFalse(is_allowlisted_struct_extra_index("sys_token", "idx_rogue"))
+
+    def test_extra_index_scoped_to_table(self):
+        # 同名索引掛到別表 → 不放行（白名單按 (table, name) 綁定）
+        self.assertFalse(is_allowlisted_struct_extra_index(
+            "sys_user", "uq_sys_token_chain_active"))
+
+    def test_named_defs_extra_index_tolerated(self):
+        # 正向：白名單內多索引 → 容差 delta、非差異
+        left = {"sys_token_pkey": "PRIMARY KEY (id)",
+                "uq_sys_token_chain_active": "CREATE UNIQUE INDEX … WHERE …"}
+        right = {"sys_token_pkey": "PRIMARY KEY (id)"}
+        issues, deltas = compare_named_defs("sys_token", "索引", left, right,
+                                            allow_extra=is_allowlisted_struct_extra_index)
+        self.assertEqual(issues, [])
+        self.assertEqual(len(deltas), 1)
+        self.assertIn("uq_sys_token_chain_active", deltas[0])
+
+    def test_named_defs_extra_index_unlisted_still_fails(self):
+        # 負向：白名單外多索引 → 仍 FAIL
+        left = {"idx_rogue": "CREATE INDEX idx_rogue ON x"}
+        issues, deltas = compare_named_defs("sys_token", "索引", left, {},
+                                            allow_extra=is_allowlisted_struct_extra_index)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("idx_rogue", issues[0])
+        self.assertEqual(deltas, [])
+
+    def test_named_defs_allowlist_not_applied_to_def_change(self):
+        # 負向：只放寬「新增」——名稱撞基準既有者仍走定義比對（改動不放行）
+        left = {"uq_sys_token_chain_active": "def-live"}
+        right = {"uq_sys_token_chain_active": "def-base"}
+        issues, deltas = compare_named_defs("sys_token", "索引", left, right,
+                                            allow_extra=is_allowlisted_struct_extra_index)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("定義不符", issues[0])
+        self.assertEqual(deltas, [])
+
+
+class TestMaxlenSidecar(unittest.TestCase):
+    """B-055 varchar 長度面（ADR 0039）：sidecar 為長度基準、gate1 額外比對。"""
+
+    def test_norm_maxlen(self):
+        self.assertIsNone(norm_maxlen(None))
+        self.assertIsNone(norm_maxlen(""))
+        self.assertIsNone(norm_maxlen("  "))
+        self.assertEqual(norm_maxlen("36"), 36)
+
+    def test_columns_by_table_attrs_quadruple(self):
+        # attrs 四元組、maxlen 併尾端；來源無 maxlen 欄（凍結基準三檔）＝None
+        by = columns_by_table([["t", "a", "character varying", "NO", "-", "64"],
+                               ["t", "b", "text", "YES", "", ""]])
+        self.assertEqual(by["t"]["a"], ("character varying", "NO", "-", 64))
+        self.assertEqual(by["t"]["b"], ("text", "YES", "", None))
+        by5 = columns_by_table([["t", "a", "character varying", "NO", "-"]])
+        self.assertEqual(by5["t"]["a"], ("character varying", "NO", "-", None))
+
+    def test_equal_ok(self):
+        side = {("sys_token", "token_hash"): 64, ("sys_user", "user_name"): None}
+        live = {"sys_token": {"token_hash": ("character varying", "NO", None, 64)},
+                "sys_user": {"user_name": ("character varying", "NO", None, None)}}
+        self.assertEqual(compare_maxlen(side, live), [])
+
+    def test_mismatch_fails_named(self):
+        # 負向：長度不符 → FAIL 逐項指名
+        side = {("sys_token", "token_hash"): 64}
+        live = {"sys_token": {"token_hash": ("character varying", "NO", None, 128)}}
+        issues = compare_maxlen(side, live)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("sys_token.token_hash", issues[0])
+        self.assertIn("64", issues[0])
+
+    def test_bound_dropped_fails(self):
+        # 負向：界撤除（varchar(36)→無上限）亦屬長度漂移
+        side = {("sys_user", "session_id"): 36}
+        live = {"sys_user": {"session_id": ("character varying", "YES", None, None)}}
+        self.assertEqual(len(compare_maxlen(side, live)), 1)
+
+    def test_missing_live_col_fails(self):
+        side = {("sys_user", "session_id"): 36}
+        issues = compare_maxlen(side, {"sys_user": {}})
+        self.assertEqual(len(issues), 1)
+        self.assertIn("sys_user.session_id", issues[0])
+
+    def test_real_sidecar_file(self):
+        side = load_maxlen_sidecar()
+        self.assertEqual(len(side), 46)
+        # rename map 已映射（current_session_id→session_id）；範圍＝12 基線表
+        self.assertEqual(side[("sys_user", "session_id")], 36)
+        self.assertEqual(side[("sys_token", "token_hash")], 64)
+        self.assertIsNone(side[("sys_menu", "route_name")])
+        # post-baseline 新表（session_event）不在 sidecar 屬正常設計
+        self.assertFalse(any(t == "session_event" for t, _ in side))
 
 
 # ---- 閘 2／audit 純函式測試（T010／T011 測試先行）----
@@ -1303,14 +1536,14 @@ class TestAuditTable(unittest.TestCase):
     @staticmethod
     def a_cols():
         return {
-            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)"),
-            "created_at": ("timestamp with time zone", "NO", "now()"),
-            "created_by": ("bigint", "YES", None),
-            "updated_at": ("timestamp with time zone", "YES", None),
-            "updated_by": ("bigint", "YES", None),
-            "deleted_at": ("timestamp with time zone", "YES", None),
-            "deleted_by": ("bigint", "YES", None),
-            "user_name": ("character varying", "NO", None),
+            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
+            "created_at": ("timestamp with time zone", "NO", "now()", None),
+            "created_by": ("bigint", "YES", None, None),
+            "updated_at": ("timestamp with time zone", "YES", None, None),
+            "updated_by": ("bigint", "YES", None, None),
+            "deleted_at": ("timestamp with time zone", "YES", None, None),
+            "deleted_by": ("bigint", "YES", None, None),
+            "user_name": ("character varying", "NO", None, None),
         }
 
     def test_a_full_ok(self):
@@ -1326,21 +1559,21 @@ class TestAuditTable(unittest.TestCase):
 
     def test_a_created_at_bad_default(self):
         cols = self.a_cols()
-        cols["created_at"] = ("timestamp with time zone", "NO", None)
+        cols["created_at"] = ("timestamp with time zone", "NO", None, None)
         issues = audit_table("sys_user", "A", "user_name", cols, self.IDX)
         self.assertEqual(len(issues), 1)
         self.assertIn("created_at", issues[0])
 
     def test_a_by_col_not_nullable(self):
         cols = self.a_cols()
-        cols["updated_by"] = ("bigint", "NO", None)
+        cols["updated_by"] = ("bigint", "NO", None, None)
         issues = audit_table("sys_user", "A", "user_name", cols, self.IDX)
         self.assertEqual(len(issues), 1)
         self.assertIn("updated_by", issues[0])
 
     def test_a_at_col_bad_type(self):
         cols = self.a_cols()
-        cols["deleted_at"] = ("timestamp without time zone", "YES", None)
+        cols["deleted_at"] = ("timestamp without time zone", "YES", None, None)
         issues = audit_table("sys_user", "A", "user_name", cols, self.IDX)
         self.assertEqual(len(issues), 1)
         self.assertIn("deleted_at", issues[0])
@@ -1353,16 +1586,16 @@ class TestAuditTable(unittest.TestCase):
     def test_a_settings_pk_exempt(self):
         cols = self.a_cols()
         del cols["user_name"]
-        cols["setting_key"] = ("character varying", "NO", None)
+        cols["setting_key"] = ("character varying", "NO", None, None)
         self.assertEqual(audit_table("system_settings", "A", None, cols, []), [])
 
     @staticmethod
     def b_cols():
         return {
-            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)"),
-            "created_at": ("timestamp with time zone", "NO", "now()"),
-            "created_by": ("bigint", "YES", None),
-            "http_status": ("smallint", "YES", None),
+            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
+            "created_at": ("timestamp with time zone", "NO", "now()", None),
+            "created_by": ("bigint", "YES", None, None),
+            "http_status": ("smallint", "YES", None, None),
         }
 
     def test_b_ok(self):
@@ -1370,31 +1603,31 @@ class TestAuditTable(unittest.TestCase):
 
     def test_b_updated_present_fail(self):
         cols = self.b_cols()
-        cols["updated_at"] = ("timestamp with time zone", "YES", None)
+        cols["updated_at"] = ("timestamp with time zone", "YES", None, None)
         issues = audit_table("sys_access_log", "B", None, cols, [])
         self.assertEqual(len(issues), 1)
         self.assertIn("updated_at", issues[0])
 
     def test_b_deleted_present_fail(self):
         cols = self.b_cols()
-        cols["deleted_by"] = ("bigint", "YES", None)
+        cols["deleted_by"] = ("bigint", "YES", None, None)
         issues = audit_table("sys_access_log", "B", None, cols, [])
         self.assertEqual(len(issues), 1)
         self.assertIn("deleted_by", issues[0])
 
     def test_b_created_at_nullable_fail(self):
         cols = self.b_cols()
-        cols["created_at"] = ("timestamp with time zone", "YES", "now()")
+        cols["created_at"] = ("timestamp with time zone", "YES", "now()", None)
         issues = audit_table("sys_access_log", "B", None, cols, [])
         self.assertEqual(len(issues), 1)
 
     def test_c_join_zero_audit_ok(self):
-        cols = {"user_id": ("bigint", "NO", None), "role_id": ("bigint", "NO", None)}
+        cols = {"user_id": ("bigint", "NO", None, None), "role_id": ("bigint", "NO", None, None)}
         self.assertEqual(audit_table("sys_user_role", "C", None, cols, []), [])
 
     def test_c_join_any_audit_fail(self):
-        cols = {"user_id": ("bigint", "NO", None), "role_id": ("bigint", "NO", None),
-                "created_at": ("timestamp with time zone", "NO", "now()")}
+        cols = {"user_id": ("bigint", "NO", None, None), "role_id": ("bigint", "NO", None, None),
+                "created_at": ("timestamp with time zone", "NO", "now()", None)}
         issues = audit_table("sys_user_role", "C", None, cols, [])
         self.assertEqual(len(issues), 1)
         self.assertIn("created_at", issues[0])
@@ -1402,11 +1635,11 @@ class TestAuditTable(unittest.TestCase):
     @staticmethod
     def token_cols():
         return {
-            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)"),
-            "created_at": ("timestamp with time zone", "NO", "now()"),
-            "created_by": ("bigint", "NO", None),   # domain 欄、NN 合法
-            "status": ("character varying", "NO", None),
-            "token_hash": ("character varying", "NO", None),
+            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
+            "created_at": ("timestamp with time zone", "NO", "now()", None),
+            "created_by": ("bigint", "NO", None, None),   # domain 欄、NN 合法
+            "status": ("character varying", "NO", None, None),
+            "token_hash": ("character varying", "NO", None, None),
         }
 
     def test_c_token_ok(self):
@@ -1421,7 +1654,7 @@ class TestAuditTable(unittest.TestCase):
 
     def test_c_token_deleted_fail(self):
         cols = self.token_cols()
-        cols["deleted_at"] = ("timestamp with time zone", "YES", None)
+        cols["deleted_at"] = ("timestamp with time zone", "YES", None, None)
         issues = audit_table("sys_token", "C", None, cols, [])
         self.assertEqual(len(issues), 1)
         self.assertIn("deleted_at", issues[0])
@@ -1429,13 +1662,13 @@ class TestAuditTable(unittest.TestCase):
     @staticmethod
     def archive_cols():
         return {
-            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)"),
-            "created_at": ("timestamp with time zone", "YES", None),
-            "created_by": ("bigint", "YES", None),
-            "archived_at": ("timestamp with time zone", "NO", "now()"),
-            "archived_by": ("bigint", "YES", None),
-            "archive_reason": ("character varying", "NO", None),
-            "ptype": ("character varying", "YES", None),
+            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
+            "created_at": ("timestamp with time zone", "YES", None, None),
+            "created_by": ("bigint", "YES", None, None),
+            "archived_at": ("timestamp with time zone", "NO", "now()", None),
+            "archived_by": ("bigint", "YES", None, None),
+            "archive_reason": ("character varying", "NO", None, None),
+            "ptype": ("character varying", "YES", None, None),
         }
 
     def test_d_archive_ok(self):
@@ -1444,26 +1677,26 @@ class TestAuditTable(unittest.TestCase):
 
     def test_d_archive_reason_nullable_fail(self):
         cols = self.archive_cols()
-        cols["archive_reason"] = ("character varying", "YES", None)
+        cols["archive_reason"] = ("character varying", "YES", None, None)
         issues = audit_table("sys_casbin_policy_archive", "D", None, cols, [])
         self.assertEqual(len(issues), 1)
         self.assertIn("archive_reason", issues[0])
 
     def test_d_archive_snapshot_created_at_must_be_nullable(self):
         cols = self.archive_cols()
-        cols["created_at"] = ("timestamp with time zone", "NO", None)
+        cols["created_at"] = ("timestamp with time zone", "NO", None, None)
         issues = audit_table("sys_casbin_policy_archive", "D", None, cols, [])
         self.assertEqual(len(issues), 1)
         self.assertIn("created_at", issues[0])
 
     @staticmethod
     def casbin_cols():
-        cols = {"id": ("bigint", "NO", "nextval('x_id_seq'::regclass)")}
+        cols = {"id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None)}
         for c in ("ptype", "v0", "v1", "v2", "v3", "v4", "v5"):
-            cols[c] = ("character varying", "YES", None)
-        cols["protected"] = ("boolean", "NO", "false")
-        cols["created_at"] = ("timestamp with time zone", "NO", "now()")
-        cols["created_by"] = ("bigint", "YES", None)
+            cols[c] = ("character varying", "YES", None, None)
+        cols["protected"] = ("boolean", "NO", "false", None)
+        cols["created_at"] = ("timestamp with time zone", "NO", "now()", None)
+        cols["created_by"] = ("bigint", "YES", None, None)
         return cols
 
     def test_d_casbin_ok(self):
@@ -1485,30 +1718,33 @@ class TestAuditTable(unittest.TestCase):
 
     def test_d_casbin_protected_default_fail(self):
         cols = self.casbin_cols()
-        cols["protected"] = ("boolean", "NO", "true")
+        cols["protected"] = ("boolean", "NO", "true", None)
         issues = audit_table("casbin_rule", "D", None, cols, [])
         self.assertEqual(len(issues), 1)
         self.assertIn("protected", issues[0])
 
     def test_unknown_variant_flagged(self):
-        issues = audit_table("t_x", "X", None, {"id": ("bigint", "NO", None)}, [])
+        issues = audit_table("t_x", "X", None, {"id": ("bigint", "NO", None, None)}, [])
         self.assertEqual(len(issues), 1)
         self.assertIn("X", issues[0])
 
 
 class TestArchetypeMapFile(unittest.TestCase):
     def test_map_matches_datamodel_s1(self):
+        # 002 基線 12 表（data-model §1 轉錄）＋post-baseline 隨刀登記
+        # （session_event＝006-session-lifecycle m004、變體 B）＝13 表
         entries = load_archetype_map()
         tables = [e["table"] for e in entries]
-        self.assertEqual(len(tables), 12)
-        self.assertEqual(len(set(tables)), 12)
+        self.assertEqual(len(tables), 13)
+        self.assertEqual(len(set(tables)), 13)
         self.assertEqual(sorted(e["variant"] for e in entries),
-                         ["A"] * 5 + ["B"] * 3 + ["C"] * 2 + ["D"] * 2)
+                         ["A"] * 5 + ["B"] * 4 + ["C"] * 2 + ["D"] * 2)
         by = {e["table"]: e for e in entries}
         self.assertEqual({t: by[t]["variant"] for t in tables}, {
             "sys_user": "A", "sys_role": "A", "sys_menu": "A",
             "system_settings": "A", "sys_ip_rule": "A",
             "sys_operation_log": "B", "sys_access_log": "B", "sys_login_attempt": "B",
+            "session_event": "B",
             "sys_user_role": "C", "sys_token": "C",
             "sys_casbin_policy_archive": "D", "casbin_rule": "D"})
         au = {e["table"]: e.get("active_unique") for e in entries if e["variant"] == "A"}

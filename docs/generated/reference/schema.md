@@ -37,6 +37,31 @@
 - casbin_rule_v5_not_null｜NOT NULL v5
 - unique_key_sea_orm_adapter｜UNIQUE (ptype, v0, v1, v2, v3, v4, v5)
 
+## session_event（archetype B append-only 日誌）
+
+| 欄 | 型別 | 可空 | 預設 |
+|---|---|---|---|
+| id | bigint | 否 | nextval('session_event_id_seq'::regclass) |
+| created_at | timestamp with time zone | 否 | CURRENT_TIMESTAMP |
+| user_id | bigint | 否 | — |
+| sid | character varying(36) | 否 | — |
+| event_type | character varying(20) | 否 | — |
+| reason | character varying(64) | 是 | — |
+| created_by | bigint | 是 | — |
+| source_ip | character varying(45) | 是 | — |
+
+索引：
+- idx_session_event_user_time｜CREATE INDEX idx_session_event_user_time ON public.session_event USING btree (user_id, created_at)
+- session_event_pkey｜CREATE UNIQUE INDEX session_event_pkey ON public.session_event USING btree (id)
+
+約束：
+- session_event_created_at_not_null｜NOT NULL created_at
+- session_event_event_type_not_null｜NOT NULL event_type
+- session_event_id_not_null｜NOT NULL id
+- session_event_pkey｜PRIMARY KEY (id)
+- session_event_sid_not_null｜NOT NULL sid
+- session_event_user_id_not_null｜NOT NULL user_id
+
 ## sys_access_log（archetype B append-only 日誌）
 
 | 欄 | 型別 | 可空 | 預設 |
@@ -287,6 +312,7 @@
 - idx_sys_token_user_active｜CREATE INDEX idx_sys_token_user_active ON public.sys_token USING btree (created_by) WHERE ((status)::text = 'active'::text)
 - sys_token_pkey｜CREATE UNIQUE INDEX sys_token_pkey ON public.sys_token USING btree (id)
 - sys_token_token_hash_key｜CREATE UNIQUE INDEX sys_token_token_hash_key ON public.sys_token USING btree (token_hash)
+- uq_sys_token_chain_active｜CREATE UNIQUE INDEX uq_sys_token_chain_active ON public.sys_token USING btree (rotation_chain) WHERE ((status)::text = 'active'::text)
 
 約束：
 - sys_token_created_at_not_null｜NOT NULL created_at
