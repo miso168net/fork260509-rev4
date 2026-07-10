@@ -15,7 +15,9 @@
   安全性 100% 由「防偽的真實來源位址」承擔，013 XFF 取證明確不承襲不重建）。該刀進場前 007 的 per-user 節流
   **結構性無法涵蓋**輪換帳號名的資源消耗型攻擊（已由 FR-022 形制上限＋FR-017 網路層限流分擔）。
   ★brainstorm 起手前先讀 B-032／B-033 殘餘（IPv6 前綴鍵、IP 白名單跳節流、鎖定專屬審計欄／grafana 規則、HLL 廣度、
-  IP 維 TTL 拆分）與 B-072（refreshToken/logout 端點零節流）。
+  IP 維 TTL 拆分）與 B-072（refreshToken/logout 端點零節流）。★前置已拍（2026-07-10）：dev 反代拓樸修正＝B-079
+  （同源 /api＋vite proxy 直指 rust-api、細節見該條），作為該刀前置清理批次施工；已驗證前提＝L-125/L-126；
+  DNAT 爭點（prod 對外 publish 是否保留外部來源 IP）未實測、屬該刀 scope。
 - 007 遺留：B-072（refreshToken/logout 無節流）／B-073（region 地理解析恆空之去處）／B-074（軟區決策負快取）／
   B-075（captcha 強化＋兩則 UX 觀察）／B-076（schema-gate 白名單整批重凍退路）／B-077（unlock op-log 持久化）／
   B-078（refresh ±5s 容差測試在全量並行下偶發 flaky）。B-018 部分消化（三層緩解已落；殘餘＝per-user 維度結構性

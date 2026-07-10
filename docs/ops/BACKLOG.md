@@ -1,4 +1,4 @@
-<!-- next: B-079 -->
+<!-- next: B-080 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -55,3 +55,15 @@
 - B-076｜schema-gate 白名單整批重凍退路：ADR 0039 建立 STRUCT/SEED additive 白名單範式（只放寬新增），白名單隨刀累積會稀釋「凍結基準」語意；需保留「重擷取 fixtures 整批重凍＋清空白名單」退路（基準改動、拍板級）｜白名單膨脹或下次大 schema 刀｜出處：ADR 0039／007 U3
 - B-077｜unlock op-log 持久化強化：unlockLogin 動作序＝SET marker→DEL lock→op-log insert（Redis 兩步成功後 best-effort、失敗僅告警不回滾）⇒ 管理動作可能零審計列；候選＝失敗重試/事後補記/回報 caller｜審計功能刀｜出處：007 U7／data-model §5.4
 - B-078｜既有 flaky：handler::auth::tests::refresh_valid_super_returns_new_pair_public 的 ±5s 時鐘容差於全量並行（argon2 吃滿 CPU）下偶發超窗、單跑綠；候選解＝放寬容差或降時間敏感度｜再度復發或 rust 測試整備刀｜出處：007 U2 發現
+- B-079｜dev 反代拓樸修正（拍板 2026-07-10＝「同源 /api＋proxy 直指 rust-api」）：瀏覽器面 baseURL 改同源相對
+  /api（serve/build 同值）＋vite proxy 改 key `^/api(/|$)`、target http://rust-api:8080（rewrite strip /api、
+  鏡射 nginx strip）＋.env.prod 同批改 /api 拆 apifox mock 地雷。已驗證前提＝L-125（雙穿迴圈＋env 雙重身分）／
+  L-126（loopback publish 常數桶——本修正不解 dev per-IP 常數桶；效益＝:42080 單跳 prod 同形＋XFF 一元素＋
+  build:test 修復＋429 可瀏覽器驗）；:42080 之 /api/* 被 nginx location 先攔不達 vite（容器內 vite 8.0.12
+  urlJoin 實碼驗證）、rust-api 路由不帶 /api 前綴且只聽 8080（容器內探針實測）。實作面＝service.ts
+  createProxyPattern＋proxy.ts target 推導解耦（兩檔皆該檔首筆修改型 fork-delta；target 來源新 env key 或寫死
+  屆時定、含 vite-env.d.ts 新增型）＋.env.test/.env.prod 修改型；是否登記新★軌道屆時拍。附帶已拍＝:42081 成
+  零限流直達（與 :42079 同級、非新威脅面）記入活書 dev 曝露、活書 §7 分桶語意按新拓樸重寫（落收刀簿記
+  commit、L-124）、勘誤點＝L-111 終局／L-122①／L-125 結案註記／NOTES CDP 三坑句、429/T084 型驗收此後必打
+  :42080。遺留＝對外 0.0.0.0 publish 之 DNAT 是否保留外部來源 IP 未實測（決定 FR-017 prod 粗閘與否、需外部
+  機器或改 publish 形實測）｜IP 閘刀（B-019/B-024）前置清理批次｜出處：2026-07-10 反代拓樸偵察＋user 拍板
