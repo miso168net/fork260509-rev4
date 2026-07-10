@@ -43,3 +43,11 @@
 - **可能的 analyze 假衝突預防**：FR-030 已顯式釐清「既有『判定不得依賴來源 IP』條文的射程＝帳號維度判定鍵」，避免 `/speckit-analyze` 將本刀的來源維度並列判定誤判為違反 007 FR-001。
 
 首輪全通過，無需迭代。
+
+### clarify 後重驗（2026-07-11）
+
+兩個 clarification 折入後，「Requirements are testable and unambiguous」與「Scope is clearly bounded」兩項的支撐更強（原本 FR-026 的位址粒度、FR-033 的預設維度屬 Partial，現已明確）：
+- **IPv6 節流粒度**：FR-026 明定 IPv4 /32、IPv6 /64；SC-006b 綁可量測結果；US4-6 與 Edge Cases 同步。消除了「per-IP 對 IPv6 是否有效」的高 impact 歧義。
+- **手動解鎖預設維度**：FR-033 明定未指明＝帳號維（向後相容）；US4-7、Edge Cases、治理節 wire 契約句同步。契約案覆蓋兩案。
+
+全 16 項維持通過（16/16 → 16/16）。三個 plan 拍板題（DNAT 前提、地理欄值形制、刪除端點動詞衝突）維持 defer 至 plan，非規格歧義。
