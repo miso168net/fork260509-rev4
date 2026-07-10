@@ -1,4 +1,4 @@
-<!-- next: L-116 -->
+<!-- next: L-121 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -260,3 +260,14 @@
   防：消費既有/凍結碼首度發出時，把「該碼 backend msg → 前端 `$t(backend.<msg>)` key 存在且解析為譯文」列入 CDP 必驗項；final review 加「首度發出碼的前端 i18n key 存在性」鏡頭。｜出處：006 CDP-1 實測（L-053/L-015 同源）
 - **L-115**｜diff-based fork-delta「新增型圈界覆蓋」lint（B-052 補位 fork-delta-lint）的 block 邊界張力＝內在難解、須靠分工＋對抗驗證收斂：以 diff hunk/opcode 為覆蓋粒度必在「太粗（未圈界新增落在鄰近標記的同 hunk 被放行＝FN）」與「太細（結構延續行如閉合 } 被拆到無標記子塊＝FP）」間擺盪；純 line 級分析無法辨『修改的替換邏輯』（該由原行標記涵蓋）vs『獨立新增』（該自帶圈界）。
   防：①分工化解——只驗『純新增 change-block（塊內無被移除碼行）』要求圈界，含被移除碼行者＝修改型、委派 find_missing 驗原行（captcha 型『替換邏輯與原行標記被空白 context 分隔』自動不誤報）；②多行區塊註解須逐字元掃描開閉（中段行不以註解符起頭、close token 同行後接碼＝繞過縫）；③標記偵測限『註解行』（字串常值內 [rev4-inline 子字串不算）；④diff 檔頭用 seen_hunk 旗標辨識（不靠 +++/--- 前綴、否則內容以 ++/-- 起首漏判）；⑤機器閘先跑 self-test＋mutation 驗非 vacuous（弄壞關鍵路徑須有 assert FAIL）。可接受殘留（文件化於函式 docstring）：與修改型同塊的額外新增歸原行涵蓋不另報、字串內未閉合 /* 的窄 FN；假 DEL 洗白被 find_missing『刪行缺原行』兜住。★流程收穫：守門 lint 用多鏡頭對抗驗證（FP/FN/整合各執行合成攻擊）2 輪抓出 9 真缺陷（首輪 6、v2 再 3）遠勝單審；agent 偶發故障（回傳答非所問、tool_uses=0）須以 §9 結構化狀態偵測、改自驗不盲採。｜出處：B-052（2 輪 workflow 對抗驗證＋自驗）
+
+- **L-116**｜`subtle`／`hmac` 是傳遞依賴（經 argon2 等引入 lockfile）、直接 `use` 編不過——想用就得改 Cargo.toml 顯式宣告新依賴（版本治理面擴大）。
+  防：先第一性檢查是否真需要：007 `ans_mac` 比對兩側皆 secret-keyed 高熵摘要、by construction 不需常數時間比對——以實作註解寫明理由＋禁令，防後人反射性 `use subtle`。｜出處：007 U5（data-model §4／ADR 0037 決定 23）
+- **L-117**｜Postgres `GREATEST` 非 strict——忽略 NULL 引數（與「任一引數 NULL→整式 NULL」的常見函式直覺相反）。
+  防：此性質是「無 unlock marker → 綁 SQL NULL」免 sentinel 的依據（NULL 自然退化為不參與下界）；依賴處以實作註解＋守門測試明載，防誤用 epoch sentinel、防誤判 NULL 毒化整式。｜出處：007 U4（data-model §5.3）
+- **L-118**｜`bad_redis()` 測試 helper 住 `auth/enforce.rs` 的 `#[cfg(test)]` mod、跨模組不可見——`handler::auth` 測試要連壞 Redis 的 client 無法 reuse、只能複製一份。
+  防：小型測試 helper 直接複製勝過為它重構可見性；第三處再要用時屆時抽共用 test-util。｜出處：007 U2/U8
+- **L-119**｜`.vue` 檔 template 區不認 `//`／`/* */` 註解，fork-delta 標記在 template 區必須用 HTML 註解形 `<!-- [rev4-inline …] -->`（007 首用；`tools/fork-delta-lint` 已支援該形）。
+  防：base-web 改 template 區照 pwd-login.vue 範式落標記；script 區維持 `//` 形。｜出處：007 U6（pwd-login.vue）
+- **L-120**｜`captcha` crate 1.0.0 內嵌字型僅 57 個 glyph、無 `0`／`o`；`add_char` 對無 glyph 字元**靜默跳過**——字集含 0/o 時產出的圖少字元、題不可解且無任何錯誤訊號。
+  防：字集必須先驗字型涵蓋再定案（守門測試 `font_covers_full_charset` 逐字元斷言可渲染）；007 `CAPTCHA_CHARSET` 36→34（去 0/o）即此根因。｜出處：007 U5（captcha/mod.rs）
