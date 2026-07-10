@@ -132,6 +132,17 @@ tools/schema-gate                               # gate1 結構 additive 白名�
 docs/ops/reference-src/archetype-map.json       # 補登記 session_event（audit 閘現紅）
 ```
 
+★**US6 設定頁三鍵（T072／T073）§III.2 紀律記錄**（授權＝`MODAL-WIRING (e)` **用途補完**、ADR 0041
+「零新 key」釋義、憲法 v1.4.1——非 BASE-WEB-LOGIN-CAPTCHA-WIRING 軌道）：
+
+- **改動位置**：`src/views/manage/system-settings/index.vue`（`labelKeyMap`＋`numberRanges` 各加三鍵；
+  004 我方新檔、免 fork-delta 標記）；`src/typings/app.d.ts`（`page.manage.systemSettings.items` 型加三欄；
+  004 既有 `I18N-WIRING(iii)` 圈界內）；`src/locales/langs/{zh-tw,zh-cn,en-us}.ts`（`items.*` 各加三 label；
+  zh-tw 免標記、zh-cn／en-us 落 004 既有 START…END 圈界內）。
+- **upstream 衝突風險**：**近零**——system-settings 頁與 `page.manage.systemSettings` 子命名空間皆為
+  004 新建之我方領土（upstream `example` 分支無此檔、無此 key 子樹），rebase 不會撞 upstream 行；
+  locale／typings 的既有圈界僅內部擴行、不觸圈界外任何 upstream 行。
+
 **Structure Decision**: rust-api 後端主體（全新寫 §I.5）＋base-web 前端接线（fork-delta）＋deploy/nginx（網路層限流）。
 沿用 005 三態 router（Public/Authed/Policy）／facade 分層（handler 禁 path-root `entity::`、facade 豁免）／
 契約機器化（ROUTES↔case bijective 覆蓋閘）。★新增兩個 server 子模組（`throttle/`、`captcha/`）而非塞進
