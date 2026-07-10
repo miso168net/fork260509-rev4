@@ -28,6 +28,10 @@ location = /api/auth/login {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Request-Id $request_id;
+    # 008 CF 權威驗證閘（FR-008）：★以 map 值無條件覆寫——非 CF 流量 map 產空值＝nginx 移除
+    # 該標頭、client 自帶不倖存（geo/map 定義於 nginx.conf）。
+    proxy_set_header X-CF-Verified $cf_verified;
+    proxy_set_header CF-Connecting-IP $cf_connecting_ip;
 }
 
 location = /api/auth/loginCaptcha {
@@ -38,6 +42,9 @@ location = /api/auth/loginCaptcha {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Request-Id $request_id;
+    # 008 CF 權威驗證閘（FR-008）：以 map 值無條件覆寫（同 /api/auth/login 塊註解）。
+    proxy_set_header X-CF-Verified $cf_verified;
+    proxy_set_header CF-Connecting-IP $cf_connecting_ip;
 }
 
 location /api/ {
@@ -47,6 +54,9 @@ location /api/ {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Request-Id $request_id;
+    # 008 CF 權威驗證閘（FR-008）：以 map 值無條件覆寫（同 /api/auth/login 塊註解）。
+    proxy_set_header X-CF-Verified $cf_verified;
+    proxy_set_header CF-Connecting-IP $cf_connecting_ip;
 }
 
 location / {
