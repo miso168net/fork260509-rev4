@@ -14,6 +14,32 @@ location = /api/metrics {
     return 404;
 }
 
+# ★ 007 登入節流：登入端點與取題端點 dedicated exact-match 限流塊（ADR 0037 §F.17 落點 (B)）。
+#   專用桶不與 /api/ 一般流量共享——共享桶會逼 burst 開大而稀釋防護精度（rev3 註解自承此妥協）。
+#   burst=40 準則：≥ CDP-1(~8)/CDP-2(~10) 單次驗收請求數上限 ×2、優先確保 CDP 驗收不 flaky（L-100）；
+#   應用層 per-account 節流才是主防線，本層僅為 per-IP 粗閘。
+#   ★exact-match 塊不繼承外層 proxy 指令 ⇒ 完整複製 location /api/ 的 proxy 語意；
+#   proxy_pass 帶 URI 形＝匹配整段被替換（/api/auth/login → /auth/login），等價 strip /api 前綴、query string 自動保留。
+location = /api/auth/login {
+    limit_req zone=auth_limit burst=40 nodelay;
+    proxy_pass http://rust-api:8080/auth/login;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-Id $request_id;
+}
+
+location = /api/auth/loginCaptcha {
+    limit_req zone=auth_limit burst=40 nodelay;
+    proxy_pass http://rust-api:8080/auth/loginCaptcha;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-Id $request_id;
+}
+
 location /api/ {
     proxy_pass http://rust-api:8080/;   # ★ 末尾 / 必要：strip /api 前綴（路由契約：後端 route 不帶 /api）
     proxy_set_header Host $host;

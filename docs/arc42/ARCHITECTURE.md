@@ -120,6 +120,9 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   fallback 並留 marker）；front-nginx 同時聽 HTTP 與 HTTPS。
 - **rev3 同機並行**：以 compose project 名（rev4-admin）前綴隔離容器／網路／named volume，
   host port 空間錯開——兩套 stack 同時運行互不干擾。
+- **dev 曝露**：dev 層把 rust-api debug port 直曝 loopback，直連該 port 繞過 front-nginx 的
+  `limit_req` 速率限制（prod 無此缺口——base 層 rust-api 無 `ports:`）。驗收紀律：不得以直連
+  debug port 規避限流，驗收一律走 front-nginx 全鏈路。
 
 ## §8 橫切概念
 
