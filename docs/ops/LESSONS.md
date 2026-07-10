@@ -1,4 +1,4 @@
-<!-- next: L-121 -->
+<!-- next: L-124 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -271,3 +271,9 @@
   防：base-web 改 template 區照 pwd-login.vue 範式落標記；script 區維持 `//` 形。｜出處：007 U6（pwd-login.vue）
 - **L-120**｜`captcha` crate 1.0.0 內嵌字型僅 57 個 glyph、無 `0`／`o`；`add_char` 對無 glyph 字元**靜默跳過**——字集含 0/o 時產出的圖少字元、題不可解且無任何錯誤訊號。
   防：字集必須先驗字型涵蓋再定案（守門測試 `font_covers_full_charset` 逐字元斷言可渲染）；007 `CAPTCHA_CHARSET` 36→34（去 0/o）即此根因。｜出處：007 U5（captcha/mod.rs）
+- **L-121**｜CDP 驅動 `pwd-login.vue` 表單時，「錯誤密碼」仍須通過 client rules（6-18 位字母／數字／底線）——含連字號的 `wrong-pw` 被 `validate()` 擋下，`handleSubmit` 早退：**零 API 請求、零 toast**，症狀與「後端沒回應」「toast 壞了」無法區分，極易誤判為產品 bug。
+  防：CDP 錯密一律用 `wrongpw123` 之類合規字串；診斷 UI 自動化「沒反應」時，先斷言 `.n-form-item-feedback` 為空再看網路。｜出處：007 U13（CDP-1）
+- **L-122**｜CDP 驗 base-web 網路請求的三個坑：①dev 開 `VITE_HTTP_PROXY=Y`，API 走 vite dev proxy、實際 URL 是 `/proxy-default/auth/login`（**不含 `/api` 前綴**）；②request 層於模組載入時已捕獲 `fetch`／`XMLHttpRequest` 參考，page-context 的 runtime hook **攔不到**（軌跡恆空）；③resource timing buffer 預設 250 筆、vite dev 每模組一請求早已塞爆，新 entry 靜默丟棄使計數恆 0。
+  防：請求證據用 `performance.getEntriesByType('resource')`，先 `clearResourceTimings()`＋`setResourceTimingBufferSize()`，比對字串用 `/auth/login` 不綁前綴。｜出處：007 U13（CDP-1）
+- **L-123**｜`showErrorMsg` 以 `request.state.errMsgStack` 去重——同一訊息在前一則 toast 關閉（duration ~3s）前不會二度顯示；移除 `.n-message` DOM 元素**不會**清 stack。
+  防：CDP 連續兩擊要驗「同碼異訊息」（如 `2222` 的 locked vs captchaRequired）時，兩擊之間需等 duration 過期，否則第二則 toast 恆空。｜出處：007 U13（CDP-2）

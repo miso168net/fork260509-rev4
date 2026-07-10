@@ -139,6 +139,9 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 - **dev 曝露**：dev 層把 rust-api debug port 直曝 loopback，直連該 port 繞過 front-nginx 的
   `limit_req` 速率限制（prod 無此缺口——base 層 rust-api 無 `ports:`）。驗收紀律：不得以直連
   debug port 規避限流，驗收一律走 front-nginx 全鏈路。
+- **dev 限流分桶語意**：dev 的 base-web 開 vite dev proxy，瀏覽器 API 流量以 `/proxy-default/*`
+  發出、由 vite 轉發回 front-nginx 的 `/api/`，故 `limit_req` 見到的來源位址是 base-web 容器位址、
+  非瀏覽器位址（全 dev 瀏覽器流量共用一桶）。prod 為靜態前端直連 `/api/`、per-IP 分桶如宣告。
 
 ## §8 橫切概念
 
