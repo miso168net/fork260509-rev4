@@ -126,6 +126,9 @@ PER_TABLE_SEED_EXCLUDE = {
 # 白名單外任何實庫多列＝FAIL（防意外多出 seed）。key＝(table, natural_key tuple)。
 SEED_ADDITIVE_ALLOWLIST = {
     ("system_settings", ("session_idle_timeout",)),  # 005-auth-login m003（ADR 0030 閒置逾時設定）
+    ("system_settings", ("login_throttle_max_fails",)),       # 007-login-throttle m005
+    ("system_settings", ("login_throttle_window_minutes",)),  # 007-login-throttle m005
+    ("system_settings", ("login_throttle_captcha_after",)),   # 007-login-throttle m005
 }
 
 # ---- audit 變體矩陣（contracts §4）----
