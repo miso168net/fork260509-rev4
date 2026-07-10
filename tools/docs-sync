@@ -1031,7 +1031,7 @@ def gen_reference_ports(rows):
 
 ROUTER_SOURCE = "rust-api/server/src/router.rs"
 # router.rs 全部合法 variant（掌握全集才能讓 fail-loud 準確、新增即紅逼同步）：
-ROUTE_METHODS = {"Get": "GET", "Post": "POST"}       # HttpMethod variant → casbin act 字面
+ROUTE_METHODS = {"Get": "GET", "Post": "POST", "Delete": "DELETE"}  # HttpMethod variant → casbin act 字面
 ROUTE_PROTECTIONS = ("Public", "Authed", "Policy")   # Protection 三態
 ROUTE_REQUIRED_FIELDS = ("path", "method", "case_key", "envelope_exception", "protection")
 
@@ -2391,10 +2391,10 @@ class TestRouterRoutes(unittest.TestCase):
         self.assertTrue(health[0][4], "/health 應標 envelope 例外")
 
     def test_unknown_method_variant_fails_loud(self):
-        bad = ROUTER_CLEAN_FIELDS.replace("HttpMethod::Get", "HttpMethod::Delete")
+        bad = ROUTER_CLEAN_FIELDS.replace("HttpMethod::Get", "HttpMethod::Patch")
         with self.assertRaises(RouterRoutesError) as cm:
             parse_router_routes(_router_one(bad), "f.rs")
-        self.assertIn("Delete", str(cm.exception))
+        self.assertIn("Patch", str(cm.exception))
         self.assertIn("行 4", str(cm.exception))
 
     def test_unknown_protection_variant_fails_loud(self):
