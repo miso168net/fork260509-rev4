@@ -204,6 +204,15 @@
 - 新 typing／service wrapper 走既有預設軌道（ADAPT 新 `.d.ts` declaration merging、WRAPPER `rev4-*.ts` 新檔），**不動凍結的 `typings/api/auth.d.ts`**。
 - 每改一處在 spec／plan 內紀錄（位置＋改動＋upstream 衝突風險）。
 
+#### BASE-WEB-DEVPROXY-WIRING ★ — 本檔授權三處 (i)~(iii)（IP 閘刀 S0 dev 反代拓樸修正；ADR 0042）
+
+**邊界**（base-web，嚴格限以下三處，皆走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制）：
+- **(i)** 同源前綴：`src/utils/service.ts` `createProxyPattern` 預設值 `/proxy-default`→`/api`（修改型帶 `原行:`）——dev 的 API 請求與 prod 同形（同源相對前綴、單跳）。
+- **(ii)** proxy target 推導：`build/config/proxy.ts` target 由 `item.baseURL` 改讀新 env key `VITE_PROXY_TARGET`（值＝`http://rust-api:8080`；修改型帶 `原行:`）——vite dev proxy 直指 rust-api、消除雙穿 front-nginx 迴圈（L-125）。
+- **(iii)** env key 宣告：`src/typings/vite-env.d.ts` 新增 `VITE_PROXY_TARGET` 宣告（新增型圈界）——upstream 既有檔、不落 ADAPT，須本軌道顯式授權（ADR 0042＝env key 案）。
+
+**紀律**：嚴格限此三處、嚴限「dev 反代拓樸」用途；第四處／其他用途 → §V.2 Amendment；`.env`／`.env.test`／`.env.prod` 值變更走既有 ADAPT、不屬本軌道射程；每改一處在 spec／plan 內紀錄（位置＋改動＋upstream 衝突風險）。
+
 ---
 
 ## IV. Compliance Check（spec-kit `/speckit-plan` 用）
@@ -251,9 +260,10 @@
 
 ---
 
-**Version**: 1.4.1 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-10
+**Version**: 1.5.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-11
 
 **Amendment log**:
+- 1.5.0（2026-07-11）：新增 ★BASE-WEB-DEVPROXY-WIRING 軌道三處〔(i) `service.ts` `createProxyPattern` 同源前綴 `/proxy-default`→`/api`／(ii) `proxy.ts` target 改讀新 env key `VITE_PROXY_TARGET`／(iii) `vite-env.d.ts` 宣告 `VITE_PROXY_TARGET`〕（ADR 0042）；MINOR（§V.3「新增 ★ 軌道」）——觸發＝008-ip-gate plan Constitution Check Q2/Q7（B-079 dev 反代拓樸修正、analyze C1 拍板 env key 案）。
 - 1.4.1（2026-07-10）：§III.2「補完 vs 新能力判準」加「零新 key」釋義——指新 i18n 命名空間／新元件／新路由等「面」級新增，不含既有授權頁既有子命名空間下的資料級 label key（ADR 0041）；PATCH（§V.3「文字校正、釐清」）——觸發＝007-login-throttle `/speckit-analyze` 的 C1 finding（CRITICAL）＋user 親決。★非授權擴展：判準其餘三條件與其他軌道邊界不受影響。
 - 1.4.0（2026-07-10）：§I.7 行為島進場——島 E 登入失敗節流（E1 真相分層與 fail 方向〔含唯一 fail-closed 例外〕／E2 防枚舉延伸／E3 審計邊界／E4 captcha gate 與硬鎖優先；ADR 0037，負快取層 ADR 0038 supersede 0016）＋新增 ★BASE-WEB-LOGIN-CAPTCHA-WIRING 軌道一用途〔(i) 密碼登入表單圖形驗證碼接线，含其資料取得所需之最小 store/service 接线〕（ADR 0040）；MINOR（§V.3「行為島隨刀進場」＋「新增 ★ 軌道」）——觸發＝007-login-throttle plan Constitution Check Q2/Q7/Q9。
 - 1.3.0（2026-07-06）：§I.7 行為島首度填充——島 A single-session／B token rotation／C denylist／D 閒置sliding refresh（ADR 0033、supersede 0030）＋新增 ★BASE-WEB-LOGOUT-UX-WIRING 軌道兩用途〔(i) logout server-call 接线／(ii) logoutCodes 靜默分支 toast〕（ADR 0034）；MINOR（§V.3「行為島隨刀進場」＋「新增 ★ 軌道」）——觸發＝006-session-lifecycle plan Constitution Check Q2/Q7/Q9。
