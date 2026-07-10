@@ -227,8 +227,8 @@ plan Constitution Check **全通過**。
 
 ### 實作（前端設定頁）
 
-- [ ] T072 [US6] 於 `base-web/src/views/manage/system-settings/index.vue` 的 `labelKeyMap` 加三鍵映射、`numberRanges` 加三鍵 UX 界；★**先確認落在 `MODAL-WIRING (e)` 的「用途補完」判準內**（單頁、純加、復用既有 wrapper、零新元件/路由）——若判定為新能力則須 §V.2 Amendment、**停工回報**
-- [ ] T073 [P] [US6] 於 `base-web/src/typings/app.d.ts` 的 `page.manage.systemSettings.items` 型加三欄，並於 `src/locales/langs/{zh-tw,zh-cn,en-us}.ts` 三語各加三個 label 譯文（★四處逐鍵鏡像，漏一處即撞 locale 對等閘或 typecheck）
+- [ ] T072 [US6] 於 `base-web/src/views/manage/system-settings/index.vue` 的 `labelKeyMap` 加三鍵映射、`numberRanges` 加三鍵 UX 界。★**授權依據已釐清**（analyze C1 → **ADR 0041**、憲法 **v1.4.1**）：本改動屬 `MODAL-WIRING (e)` 的**用途補完**——判準四條件「單頁、純加、復用既有 wrapper、零新 key/元件/路由」中的「零新 key」經釋義**不含**既有授權頁既有子命名空間下的資料級 label key（`page.manage.systemSettings.items.*`）；其餘三條件全中。★仍須依 §III.2 紀律於 spec/plan 紀錄改動位置＋upstream 衝突風險（本子樹為 004 新建之我方領土、風險近乎零）
+- [ ] T073 [P] [US6] 於 `base-web/src/typings/app.d.ts` 的 `page.manage.systemSettings.items` 型加三欄，並於 `src/locales/langs/{zh-tw,zh-cn,en-us}.ts` 三語各加三個 label 譯文（★四處逐鍵鏡像，漏一處即撞 locale 對等閘或 typecheck）；★授權依據同 T072（ADR 0041）
 
 **Checkpoint**: 設定頁三鍵可見可調；三語 locale 對等閘綠。
 
@@ -238,8 +238,8 @@ plan Constitution Check **全通過**。
 
 ### 網路層
 
-- [ ] T074 於 `deploy/nginx/nginx.conf` 的 `http` context 取代裁剪聲明（`limit_req_zone 速率限制 → auth 功能刀` 那兩行），宣告 `limit_req_zone $binary_remote_addr zone=<名>:10m rate=<N>r/s;` ＋ `limit_req_status 429;`（★`429` 為本刀新增、rev3 用預設 503）
-- [ ] T075 於 `deploy/nginx/conf.d/_locations.inc` 依 **(B) dedicated exact-match** 為登入端點與取題端點各建 `location =` 塊（照既有 `location = /api/metrics` 範式），塊內套 `limit_req zone=<名> burst=<M> nodelay;` 並**複製** `location /api/` 的 `proxy_pass` strip-prefix 與 5 個 `proxy_set_header`；★burst MUST 足以容納正常使用者操作與 CDP 驗收（依賴 T074）
+- [ ] T074 於 `deploy/nginx/nginx.conf` 的 `http` context 取代裁剪聲明（`limit_req_zone 速率限制 → auth 功能刀` 那兩行），宣告 `limit_req_zone $binary_remote_addr zone=auth_limit:10m rate=5r/s;` ＋ `limit_req_status 429;`（★三值 user 拍板 2026-07-10：沿用 rev3 已實戰驗證之 zone 名／size／rate；★`429` 為本刀新增、rev3 用預設 503）
+- [ ] T075 於 `deploy/nginx/conf.d/_locations.inc` 依 **(B) dedicated exact-match** 為登入端點與取題端點各建 `location =` 塊（照既有 `location = /api/metrics` 範式），塊內套 `limit_req zone=auth_limit burst=40 nodelay;` 並**複製** `location /api/` 的 `proxy_pass` strip-prefix 與 5 個 `proxy_set_header`；★**burst 可測準則**：`burst` ≥ CDP-1（約 8 請求）與 CDP-2（約 10 請求）單次驗收流程請求數上限 × 2 ⇒ `40` 滿足且留大量餘裕（★沿用 rev3 值；rev3 之所以取 40 是為共享 `/api/` 桶妥協，本刀專用桶下屬保守選擇、優先確保 CDP 驗收不 flaky〔L-100〕；應用層 per-account 節流才是主防線）（依賴 T074）
 - [ ] T076 於 `specs/007-login-throttle/quickstart.md` 與 `docs/arc42/ARCHITECTURE.md` 記載 dev 曝露：直連 rust-api debug port 繞過 nginx `limit_req`（**prod 無此缺口**）；驗收紀律「不得以直連 debug port 規避限流」
 
 ### CDP 實機

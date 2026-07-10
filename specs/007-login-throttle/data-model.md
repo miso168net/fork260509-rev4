@@ -101,7 +101,11 @@ DEFAULT_WINDOW_MINUTES   = 15
 DEFAULT_CAPTCHA_AFTER    = 2
 LOGIN_USER_NAME_MAX      = 64     // FR-022 輸入形制上限
 LOGIN_PASSWORD_MAX_BYTES = 512    // FR-022（≥ password_max_length 上界 256 的兩倍餘裕）
-nginx: rate / burst              // R8 拍板後定
+
+// nginx（deploy/nginx/；★user 拍板 2026-07-10、沿用 rev3 實戰值）
+zone   = auth_limit:10m           // key = $binary_remote_addr
+rate   = 5r/s
+burst  = 40  (nodelay)            // 準則：≥ CDP-1(~8) 與 CDP-2(~10) 單次驗收請求數上限 × 2
 ```
 
 ---
@@ -287,7 +291,7 @@ admin 解鎖」的帳號、admin 可重解。理由入 ADR 0037。
 | 宣告位置 | `nginx.conf` 的 `http` context（取代 :41-42 裁剪聲明） |
 | 觸發回應 | `limit_req_status 429;`（★rev3 無此指令、用預設 503 ⇒ 本刀新增） |
 | 套用落點 | **(B) dedicated exact-match**（登入端點與取題端點各一塊、照 `location = /api/metrics` 範式）——★user 拍板 2026-07-10、ADR 0037 §F.17 |
-| rate／burst | ★**待定**（analyze A1）：依全域 §6 釘版紀律攤案拍板後填入本檔 §3 常數表；burst MUST 足以容納正常使用者操作與 CDP-1/CDP-2 驗收流程 |
+| zone／rate／burst | `auth_limit:10m`／`5r/s`／`40 nodelay`——★user 拍板 2026-07-10（沿用 rev3 實戰值；見 §3 常數表）。準則：`burst` ≥ CDP-1(~8) 與 CDP-2(~10) 單次驗收請求數上限 × 2 |
 
 ★**`429` 為基建層拒絕**：請求根本不進 rust-api、不走信封（與 `502`／`504` 同類），不受 §I.3「信封普遍性」約束。
 前端 `$t` 分支僅在「後端回 HTTP 200＋非成功碼」時觸發 ⇒ 顯示通用錯誤訊息（clarify 2026-07-10 已知並接受）。

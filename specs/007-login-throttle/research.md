@@ -229,7 +229,11 @@ front-nginx、不受任何 `limit_req` 約束**。
   CDP 走全鏈路 ⇒ 會經過 `limit_req`（故 burst 須足以容納驗收流程）。
 - ⇒ **須在 data-model／quickstart 明文註記此為 dev-only 曝露**，且實作期不得以「直連 42079」規避限流做驗收。
 
-**Open**：rate／burst 具體值（沿 rev3 `5r/s`／`burst=40`，或因採 (B) 只限登入端點而可調緊）——隨落點拍板一併定，入活書常數。
+✅ **已定案**（★user 拍板 2026-07-10、analyze A1）：`zone=auth_limit:10m`／`rate=5r/s`／`burst=40 nodelay`
+——**沿用 rev3 實戰值**。理由：rev3 的 `40` 雖是為共享 `/api/` 桶妥協而來，但屬已實戰驗證之數字；
+本刀專用桶下屬保守選擇，優先確保 CDP 驗收不 flaky（L-100：CDP 登入自動化本就 flaky）。
+應用層的 per-account 節流（5 次/窗）＋captcha 軟區才是主防線，nginx 這層治的是單一來源 IP 的總資源消耗。
+可測準則：`burst` ≥ CDP-1(~8) 與 CDP-2(~10) 單次驗收請求數上限 × 2。已入 data-model §3 活書常數表。
 
 ---
 

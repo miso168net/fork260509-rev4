@@ -164,7 +164,7 @@ GET /auth/loginCaptcha?userName=<帳號名>
 | body | **不作信封**（基建層拒絕，與 `502`／`504` 同類） |
 | 前端行為 | `error.code !== BACKEND_ERROR_CODE` ⇒ 走 `error.message`（axios 原生英文）、通用 error toast |
 | 套用落點 | **(B) dedicated exact-match**（登入端點與取題端點各一塊、照 `location = /api/metrics` 範式）——★user 拍板 2026-07-10、ADR 0037 §F.17 |
-| rate／burst | ★**待定**（A1；依全域 §6 釘版紀律攤案拍板後入活書常數） |
+| zone／rate／burst | `auth_limit:10m`／`5r/s`／`40 nodelay`（★user 拍板 2026-07-10、沿用 rev3 實戰值；見 data-model §3） |
 
 ★**dev 曝露**：直連 `127.0.0.1:42079`（rust-api debug port）**繞過 nginx、不受限流**。prod 無此缺口。
 驗收紀律：**不得以直連 42079 規避限流**。
