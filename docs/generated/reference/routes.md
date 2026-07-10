@@ -19,4 +19,5 @@
 | /route/getUserRoutes | GET | Authed | route-get-user-routes | 否 |
 | /route/isRouteExist | GET | Authed | route-is-route-exist | 否 |
 | /systemManage/getSystemSettings | GET | Policy | get-system-settings | 否 |
+| /systemManage/unlockLogin | POST | Policy | unlock-login | 否 |
 | /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |
