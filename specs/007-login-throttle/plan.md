@@ -21,7 +21,8 @@ fork-delta `rev4-inline`）；nginx conf（deploy/）
 
 **Primary Dependencies**: sea-orm／jsonwebtoken 10.4.0（`rust_crypto`）／argon2 0.5.3／sha2 0.10.9／hex 0.4.3／
 redis 1.3.0／tracing 0.1.44＋tracing-subscriber 0.3.23／metrics 0.24.6（**以上全為 `server` 直接依賴、皆既有**）
-＋**唯一新 crate＝圖形驗證碼產圖（`captcha` 1.0.0 vs `captcha-rs` 0.5.0，★兩案待 user 拍板、見 research R2）**
+＋**唯一新 crate＝`captcha` 1.0.0**（圖形驗證碼產圖；★user 拍板 2026-07-10、ADR 0037 §G.22；rev3 無先例、
+雙源查核見 research R2。輸出 PNG；其 `stateless`／簽章能力一律不用）
 
 **Storage**: PostgreSQL（`sys_login_attempt`＝**節流計數權威源**、`system_settings`＝三門檻鍵、`sys_operation_log`
 ＝解鎖稽核）＋Redis（鎖定負快取／解鎖標記／captcha 單次標記／壓制麵包屑，**皆可重建、非權威**）
@@ -157,16 +158,17 @@ docs/ops/reference-src/archetype-map.json       # 補登記 session_event（audi
 
 ## Post-Design Constitution Re-Check
 
-★**GATE 仍開**——Amendment 尚未落地（憲法 §V.2 步驟 2「user 親決」未完成）。逐題：
+✅ **GATE 已解除**——Amendment 落地於 commit `1ffc1f8`（憲法 **v1.4.0**；user 親決 2026-07-10、§V.2）。逐題：
 
-- **Q2/Q7**（base-web inline）：**⛔ 待 A1**。設計已把邊界收斂為單一用途（pwd-login 驗證碼 UI），未溢出到攔截器
-  控制流（`2222` 走既有一般錯誤通道、`.env` 碼分組不動）。★`authStore.login` 回傳形若需微調（research R12），
-  已納入 A1 軌道文字「含其資料取得所需之最小 store/service 接线」。
-- **Q9**（§I.7 行為島）：**⛔ 待 A2**。data-model.md 已以 state-machine 鏡頭坐實島 E 四條不變式（含 L1 唯一寫入者、
-  提交即消耗、fail 方向七源表與唯一例外）。
-- **Q4**（wire §I.3）：**PASS**（Phase 1 contracts 坐實：零新碼、信封不加欄、`429` 為基建層拒絕已於 ADR 0037 記錄）。
-- **Q8**（§I.6）：**PASS**（data-model 坐實零結構變更；m005 純 seed）。
+- **Q2/Q7**（base-web inline）：**PASS**。★軌道 `BASE-WEB-LOGIN-CAPTCHA-WIRING` 已授權（§III.2 一用途，ADR 0040）；
+  邊界收斂為單一用途（pwd-login 驗證碼 UI），未溢出到攔截器控制流（`2222` 走既有一般錯誤通道、`.env` 碼分組不動）。
+  ★`authStore.login` 回傳形的最小擴充（research R12）已由軌道文字「含其資料取得所需之最小 store/service 接线」涵蓋。
+- **Q9**（§I.7 行為島）：**PASS**。島 **E** 已入憲（E1~E4，ADR 0037）；data-model.md 以 state-machine 鏡頭
+  （非 CRUD 格子）坐實四條不變式（L1 唯一寫入者、提交即消耗、fail 方向七源表與唯一例外）。
+- **Q4**（wire §I.3）：**PASS**（contracts 坐實：零新碼、信封不加欄、`429` 為基建層拒絕已於 ADR 0037 §F.18 記錄）。
+- **Q8**（§I.6）：**PASS**（data-model 坐實零結構變更；m005 純 seed；archetype 不觸）。
 - 其餘題維持 PASS。
 
-**結論**：Post-Design 設計面無新違規；Complexity Tracking 六項皆 justified。**Amendment（A1＋A2）落地後 GATE 解除**，
-方可進 `/speckit-tasks`。另有**兩項 user 拍板**未決（見 research R2 產圖 crate、R8 nginx 限流落點）。
+**結論**：**Post-Design Constitution Check 全通過**；Complexity Tracking 六項皆 justified、無未解違規。
+兩項 user 拍板亦已定案：**產圖 crate＝`captcha` 1.0.0**（ADR 0037 §G.22）、**nginx 限流落點＝(B) dedicated
+exact-match**（ADR 0037 §F.17）。**可進 `/speckit-tasks`。**

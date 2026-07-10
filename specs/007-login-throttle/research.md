@@ -325,10 +325,10 @@ handler 不碰。★若誤加新 seed 會同時撞 gate2 additive-seed 白名單
 
 | # | 事項 | 性質 | 去處 |
 |---|---|---|---|
-| 1 | **憲法 Amendment A1＋A2**（新★軌道＋島 E、v1.3.0→1.4.0） | **user 親決**（§V.2 明訂 Claude 不主動 amend） | 批准後執行 → GATE 解除 → `/speckit-tasks` |
-| 2 | **產圖 crate 兩案**（`captcha` 1.0.0 PNG vs `captcha-rs` 0.5.0 JPEG） | **user 拍板**（全域 §6 釘版紀律） | 定案後入 Cargo.toml；若選 `captcha-rs` 須勘誤 brainstorm §3 的「PNG」一句 |
-| 3 | **nginx `limit_req` 落點**（(A) 共享 `/api/` vs (B) dedicated exact-match） | **user 拍板**（影響限流粒度與 `_locations.inc` 改動面） | 定案後入 `deploy/nginx/`；rate/burst 隨之定 |
-| 4 | dev 直連 `42079` 繞過限流 | 已知、明文接受 | 記入 data-model／quickstart；prod 無此缺口 |
+| 1 | ✅ **憲法 Amendment A1＋A2** | user 親決 **2026-07-10** | **已落地**（commit `1ffc1f8`、憲法 v1.4.0、ADR 0037/0038/0039/0040 accepted）⇒ GATE 解除 |
+| 2 | ✅ **產圖 crate** | user 拍板 **2026-07-10** | **`captcha` 1.0.0**（PNG、1.0 穩定；ADR 0037 §G.22）。其 `stateless` feature **不開** |
+| 3 | ✅ **nginx `limit_req` 落點** | user 拍板 **2026-07-10** | **(B) dedicated exact-match**（登入端點與取題端點各一塊、照 `/api/metrics` 範式；ADR 0037 §F.17）。rate/burst 入活書常數 |
+| 4 | dev 直連 `42079` 繞過限流 | 已知、明文接受 | 記入 data-model／quickstart／ADR 0037 後果；prod 無此缺口 |
 | 5 | `captcha` 1.0.0 預設字元集是否涵蓋 36 英數 | 實作期驗證 | 以 `set_chars` 明列後驗字型 glyph |
 | 6 | `.vue` `<template>` 區 fork-delta 標記語法 | 實作期先驗 | 首次改動後即跑 `tools/fork-delta-lint` |
 | 7 | `authStore.login` 取 `msg` 的三形 (a)/(b)/(c) | 實作期先驗後定 | 已由軌道邊界文字涵蓋 |
