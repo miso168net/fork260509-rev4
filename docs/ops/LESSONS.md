@@ -1,4 +1,4 @@
-<!-- next: L-124 -->
+<!-- next: L-125 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -277,3 +277,5 @@
   防：請求證據用 `performance.getEntriesByType('resource')`，先 `clearResourceTimings()`＋`setResourceTimingBufferSize()`，比對字串用 `/auth/login` 不綁前綴。｜出處：007 U13（CDP-1）
 - **L-123**｜`showErrorMsg` 以 `request.state.errMsgStack` 去重——同一訊息在前一則 toast 關閉（duration ~3s）前不會二度顯示；移除 `.n-message` DOM 元素**不會**清 stack。
   防：CDP 連續兩擊要驗「同碼異訊息」（如 `2222` 的 locked vs captchaRequired）時，兩擊之間需等 duration 過期，否則第二則 toast 恆空。｜出處：007 U13（CDP-2）
+- **L-124**｜活書（`docs/arc42/ARCHITECTURE.md`）的 as-built 變動**必須落在收刀簿記 commit**、不可由 feature branch 帶進 merge——`docs-sync` 的 L6(b) 閘把 events `arch_impact` 定義為「merge 版活書 → 簿記版活書之間實際變動的節集」，若活書在 feature branch 內改完，merge 版與簿記版相同、`changed` 為空集合，簿記 commit 會被四個 L6 ERROR 硬擋（007 實測；006 先例 merge 209d9a0 的 merge commit 確實零活書變動、as-built 全在簿記 commit 45d0132）。
+  防：`/speckit-tasks` 產出的「更新 ARCHITECTURE」任務**不得**排進 feature branch 的 Phase（007 的 T079 即此瑕疵、analyze 未攔），應移入收尾簿記步驟；已誤排時的修復＝重做 merge（`merge --no-ff --no-commit` 後 `git checkout HEAD -- docs/arc42/ARCHITECTURE.md` 剔除活書變動，再於簿記 commit 回填）。★CLAUDE.md §2「架構影響→活書對應節【就在 feature branch 內改】」與此機器閘措辭相衝突，待 user 拍板修訂。｜出處：007 T086（收刀）
