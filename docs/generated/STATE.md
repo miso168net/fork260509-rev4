@@ -6,10 +6,10 @@
 - pins：base-web=338e8ba｜rust-api=33183f1
 
 ## constitution
-- 版本：1.4.0
+- 版本：1.4.1
 
 ## 帳面統計
-- ADR：40（accepted 37、superseded 3）
+- ADR：41（accepted 38、superseded 3）
 - BACKLOG 待辦：50（next：B-072）
 - LESSONS：115 筆（next：L-116）
 - events：7 筆（feature_close 6、misc 1）

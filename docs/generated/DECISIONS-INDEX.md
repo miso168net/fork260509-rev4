@@ -43,3 +43,4 @@
 | 0038 | accepted | 2026-07-10 | 節流負快取層（DB 真相、fail-OPEN、TTL 不長於時窗、僅由 L2 再判路徑寫入） | — | 0016 | — |
 | 0039 | accepted | 2026-07-10 | schema 閘批次修復（gate1 結構 additive 容差＋B-055 varchar 長度 sidecar＋archetype-map 補登記＋快照重擷取） | — | — | — |
 | 0040 | accepted | 2026-07-10 | 新增 ★BASE-WEB-LOGIN-CAPTCHA-WIRING 軌道（密碼登入表單圖形驗證碼接线，嚴限一用途） | — | — | — |
+| 0041 | accepted | 2026-07-10 | §III.2「補完 vs 新能力判準」之「零新 key」釋義（不含既有授權頁既有子命名空間下的資料級 label key） | — | — | — |

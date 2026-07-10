@@ -161,6 +161,7 @@
 **紀律**：
 - 嚴格限七用途，絕不擴張到其他 inline 邏輯；第 (h) 種用途 → §V.2 Amendment
 - **補完 vs 新能力判準**：既有授權頁內「單頁、純加、復用既有 wrapper、零新 key/元件/路由」四條件全中的 dispatcher 補完（如同頁補一種值型別的 render 控件分支）＝**用途補完、不 bump 本檔**；跨多頁新能力＝**須 Amendment**
+  - **「零新 key」釋義**（ADR 0041）：指**新 i18n 命名空間／新元件／新路由等「面」級新增**；**不含**既有授權頁、既有子命名空間之下的**資料級 label key**（如 `page.manage.systemSettings.items.<newKey>` 三語譯文與型別鏡像）。★仍受約束：新增 top-level i18n 命名空間走 I18N-WIRING (ii)；route locale key 須隨建頁走；新元件／路由／跨頁能力仍須 Amendment；動 upstream 既有命名空間之下的 key 不在此釋義範圍。判準其餘三條件仍須全中。
 - 每改一處在 spec 內紀錄（位置＋改動內容＋upstream 衝突風險評估）
 - 共用元件改動 MUST 用附加 prop＋安全預設（不變既有呼叫端行為）
 
@@ -250,9 +251,10 @@
 
 ---
 
-**Version**: 1.4.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-10
+**Version**: 1.4.1 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-10
 
 **Amendment log**:
+- 1.4.1（2026-07-10）：§III.2「補完 vs 新能力判準」加「零新 key」釋義——指新 i18n 命名空間／新元件／新路由等「面」級新增，不含既有授權頁既有子命名空間下的資料級 label key（ADR 0041）；PATCH（§V.3「文字校正、釐清」）——觸發＝007-login-throttle `/speckit-analyze` 的 C1 finding（CRITICAL）＋user 親決。★非授權擴展：判準其餘三條件與其他軌道邊界不受影響。
 - 1.4.0（2026-07-10）：§I.7 行為島進場——島 E 登入失敗節流（E1 真相分層與 fail 方向〔含唯一 fail-closed 例外〕／E2 防枚舉延伸／E3 審計邊界／E4 captcha gate 與硬鎖優先；ADR 0037，負快取層 ADR 0038 supersede 0016）＋新增 ★BASE-WEB-LOGIN-CAPTCHA-WIRING 軌道一用途〔(i) 密碼登入表單圖形驗證碼接线，含其資料取得所需之最小 store/service 接线〕（ADR 0040）；MINOR（§V.3「行為島隨刀進場」＋「新增 ★ 軌道」）——觸發＝007-login-throttle plan Constitution Check Q2/Q7/Q9。
 - 1.3.0（2026-07-06）：§I.7 行為島首度填充——島 A single-session／B token rotation／C denylist／D 閒置sliding refresh（ADR 0033、supersede 0030）＋新增 ★BASE-WEB-LOGOUT-UX-WIRING 軌道兩用途〔(i) logout server-call 接线／(ii) logoutCodes 靜默分支 toast〕（ADR 0034）；MINOR（§V.3「行為島隨刀進場」＋「新增 ★ 軌道」）——觸發＝006-session-lifecycle plan Constitution Check Q2/Q7/Q9。
 - 1.2.0（2026-07-05）：新增 ★BASE-WEB-AUTH-WIRING 軌道（ADR 0031；授權 auth 刀三處 base-web inline 接线 (a) route store 常數合併修／(b) alt-login 三表單 stub／(c) captcha stub；MINOR 新增 ★ 軌道、§V.3）——觸發＝005-auth-login plan Constitution Check Q2/Q7。
