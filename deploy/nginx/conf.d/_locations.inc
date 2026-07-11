@@ -47,6 +47,34 @@ location = /api/auth/loginCaptcha {
     proxy_set_header CF-Connecting-IP $cf_connecting_ip;
 }
 
+# ★ 008 憑證換發/登出納限流（FR-039、B-072）：掛既有 auth_limit zone、burst 沿 40；
+#   exact-match 不繼承外層 proxy ⇒ 照 /api/auth/login 塊完整複製 7 支 proxy_set_header。
+location = /api/auth/refreshToken {
+    limit_req zone=auth_limit burst=40 nodelay;
+    proxy_pass http://rust-api:8080/auth/refreshToken;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-Id $request_id;
+    # 008 CF 權威驗證閘（FR-008）：以 map 值無條件覆寫（同 /api/auth/login 塊註解）。
+    proxy_set_header X-CF-Verified $cf_verified;
+    proxy_set_header CF-Connecting-IP $cf_connecting_ip;
+}
+
+location = /api/auth/logout {
+    limit_req zone=auth_limit burst=40 nodelay;
+    proxy_pass http://rust-api:8080/auth/logout;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-Id $request_id;
+    # 008 CF 權威驗證閘（FR-008）：以 map 值無條件覆寫（同 /api/auth/login 塊註解）。
+    proxy_set_header X-CF-Verified $cf_verified;
+    proxy_set_header CF-Connecting-IP $cf_connecting_ip;
+}
+
 location /api/ {
     proxy_pass http://rust-api:8080/;   # ★ 末尾 / 必要：strip /api 前綴（路由契約：後端 route 不帶 /api）
     proxy_set_header Host $host;
