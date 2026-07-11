@@ -16,13 +16,13 @@
 - 下一步：**auth family 已收官、無既定下一刀**——下一個方向待 brainstorm 拍板。候選線索（見 BACKLOG）：
   ①prod 部署硬化〔信任模型 prod 設定落地＋B-037 TLS／信任拓樸 checklist＋B-080 CDN 錨碼層硬化＋
   B-081 prod Dockerfile xdb 資料檔 COPY〕；②admin 管理面〔B-064 停用帳號／改密／admin 踢除端點，消費
-  006 revoke primitive〕；③殘餘清理〔B-074~B-078、B-060/061、B-063/069〕。★信任模型的 prod DNAT 爭點
+  006 revoke primitive〕；③殘餘清理〔B-074~B-077、B-060/061、B-063/069〕。★信任模型的 prod DNAT 爭點
   （對外 publish 是否保留外部來源 IP）未實測、屬 prod 部署刀 scope。
 - 008 遺留：B-080（CDN 錨碼層硬化：Tier-1 只檢查最右 CDN 段、不檢查該 CDN 由傳輸層背書）／
   B-081（prod Dockerfile xdb 資料檔 COPY）。B-018 進一步消化（US5 白名單＝IP 信任豁免，第三方觸鎖
   殘餘再減；徹底緩解仍需信任裝置維度）。
 - 007 遺留：B-074（軟區決策負快取）／B-075（captcha 強化＋兩則 UX 觀察）／B-076（schema-gate 白名單
-  整批重凍退路）／B-077（unlock op-log 持久化）／B-078（refresh ±5s 容差測試全量並行偶發 flaky）。
+  整批重凍退路）／B-077（unlock op-log 持久化）。
   〔B-072 refreshToken／logout 端點限流、B-073 region 地理解析＝008 已消化。〕
 - 006 遺留 primitive／再議：停用帳號／改密／admin 踢除端點（B-064、消費 revoke_others_of_user primitive
   ＋發 session_event(revoked)；併 B-029 改密撤 session）；alova 棧接入真實 auth 時補 idle toast＋onError
