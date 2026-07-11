@@ -65,6 +65,12 @@ services:
     build:
       target: dev
     image: rev4-admin-rust-api:dev
+    environment:
+      # B-081 dev 尾巴：xdb 資料檔經 ./rust-api bind-mount 已在容器內 /app/xdb/resources/；
+      # 指 XDB_FILEPATH 過去使 boot Path::exists 命中→xdb_ready=true（否則預設相對路徑
+      # resources/ip2region.xdb 對不上實際位置、dev region 解析恆降級、稽核 region 恆空）。
+      # prod 映像 COPY＋路徑設定仍屬部署刀（B-081 主體、L-084 四處 COPY）。
+      XDB_FILEPATH: /app/xdb/resources/ip2region.xdb
     # watcher 不宜當 PID 1：tini 接管訊號轉發
     init: true
     volumes:
