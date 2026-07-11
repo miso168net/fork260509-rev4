@@ -145,6 +145,9 @@ SEED_ADDITIVE_ALLOWLIST = {
     ("system_settings", ("login_throttle_max_fails",)),       # 007-login-throttle m005
     ("system_settings", ("login_throttle_window_minutes",)),  # 007-login-throttle m005
     ("system_settings", ("login_throttle_captcha_after",)),   # 007-login-throttle m005
+    ("system_settings", ("ip_max_fails",)),        # 008-ip-gate m006
+    ("system_settings", ("ip_window_minutes",)),   # 008-ip-gate m006
+    ("system_settings", ("ip_captcha_after",)),    # 008-ip-gate m006
 }
 
 # ---- audit 變體矩陣（contracts §4）----
