@@ -2,9 +2,9 @@
 id: "0017"
 title: IP 存取控制閘——白＞黑＞default-allow、DB 真相＋記憶體微秒判定、fail-OPEN
 date: 2026-07-03
-status: accepted
+status: superseded
 supersedes: []
-superseded_by: []
+superseded_by: [0043]
 provenance: "rev3:DECISIONS§1-⚠️ae（K1-41、022 刀；三位獨立冷讀 reviewer 通過）"
 tags: [security, ingress]
 ---

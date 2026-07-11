@@ -1,4 +1,4 @@
-<!-- next: L-127 -->
+<!-- next: L-135 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -284,3 +284,19 @@
   防：反代拓樸 review 必追完整 hop 鏈到 upstream 落點（nginx 存取日誌同一 API 雙倍出現＝紅旗）；動 `VITE_SERVICE_BASE_URL` 類 env 前分別推演 serve 與 build 兩形消費者各拿它當什麼用。｜出處：2026-07-10 反代拓樸偵察（007 U13 CDP 除錯衍生）
 - **L-126**｜docker **loopback publish**（`127.0.0.1:PORT:80`、`userland-proxy` 預設 true）下 host 進來的流量走 docker-proxy **另開連線**，nginx 的 `remote_addr` 恆為 docker gateway——與單跳/雙跳無關（實測：瀏覽器直打與雙穿第一跳的 `remote_addr` 皆 gateway）。故 dev 下 `$binary_remote_addr` 的 per-IP `limit_req` 本質是**常數桶**、全部瀏覽器流量共用一桶；消掉代理迴圈也只是把常數換一個值。容器 IP 與 gateway 均為動態指派、絕不可硬寫進斷言或設定。對外 `0.0.0.0` publish 時外部 client 來源 IP 是否經 iptables DNAT 保留**未實測**——勿把 dev 觀察直接外推到 prod。
   防：評估任何 per-IP 機制前先查 publish 形式（`docker inspect` 看 HostIp）與 `userland-proxy` 設定；per-IP 分桶正確性需外部機器或非 loopback publish 才驗得到，dev 內只能驗「機制會觸發」不能驗「分桶正確」。｜出處：2026-07-10 反代拓樸偵察（實測 nginx 存取日誌）
+
+- **L-127**｜rev4 `SessionCache` 是純 `ConnectionManager`（multiplexed）、**不可共用於 Redis pub/sub**——SUBSCRIBE 端須另開專用 `redis::Client`（由 `config.redis_url` re-open）；`on_message()` stream 消費需 `futures_util::StreamExt`。rev4 首個 pub/sub（008 ipgate 門鈴）踩此；rev3 有完整樣板可參照機理。
+
+- **L-128**｜IPv6 節流計數鍵聚合到 /64 **必須 `Ipv6Network::new(v6,64)?.network()` 截斷 host bits**——不截斷則同一 /64 內不同主機位址值不相等、聚合失效（同 /64 各落新桶、硬門檻永不觸發）。IPv4-mapped IPv6（`::ffff:a.b.c.d`）另須先 `to_canonical()` 折 v4，否則雙棧下全部 v4 流量塌縮進 `::ffff:0:0/64` 單桶（一人觸鎖鎖全體）。
+
+- **L-129**｜`tools/docs-sync`／`tools/schema-gate`／`tools/fork-delta-lint` 皆 **python3 shebang**——`bash tools/<x>` 會把 python 原始碼當 shell 解譯、噴 `import: command not found`＋syntax error 假失敗；一律直接執行（`tools/<x>`）或 `python3 tools/<x>`。★`schema-gate` 另需子命令 `gate1`／`gate2`／`audit`（無參回 exit 64 EX_USAGE、只印 usage）。
+
+- **L-130**｜`tools/docs-sync generate` 的 submodule pin（STATE.md `pins:`）**取自 git index 的 gitlink**、非 worktree HEAD——故 submodule pin bump 的兩段式 commit 中，須先 `git add rust-api`（或 base-web）再跑 generate，否則 STATE pin 不更新、check 報不一致（008 U1 起每單元收單實測）。
+
+- **L-131**｜CDP 驅動 base-web 時 Edge **背景分頁會被凍結**（`document.visibilityState==='hidden'`、任務佇列停擺）→ 頁面發出的 `fetch` 在 `requestWillBeSent` 後**永不 settle**、連 `AbortSignal.timeout` 都不觸發，點擊（如 quick-login）看似完全無反應、症狀與「後端沒回應」無法區分。★驅動前必先 `Page.bringToFront`（visible 後同請求立即完成）；凍結期在途請求會隨 `Page.reload` 一併作廢。
+
+- **L-132**｜Workflow 看門狗 `RUNAWAY=25`（journal 行數保險絲）對 **fan-out 型 review/偵察 workflow 會誤觸**——每 agent journal 約 2 行，多鏡頭並行（如 6 鏡頭＝12 行＋log、或 21 agent＝42 行）易超 25。★掛錶前估 journal 理論行數（agent 數×2＋log），逼近或超過就改 stall-only 監控、勿反射性 TaskStop 健康 workflow。
+
+- **L-133**｜WSL2 drvfs 可**整批 clobber worktree 檔案回舊狀態、但 git index（staged）內容倖存**——008 U15 收尾實測：憲法 amendment／五 ADR／spec 承重前提全被 worktree 回退，但 `git add` 過的版本全在 index。★復原＝`git restore --worktree <files>`（worktree ← index，含還原被刪的 `AD` 狀態檔）；中斷/交接後**一律先核 `git status` 的 staged(index) vs worktree 分歧方向**再判斷內容是否遺失——多半沒遺失、只是 worktree 被回退。與 [[drvfs-commit-phantom-success]] 同源（drvfs 對 git 狀態的干擾）。
+
+- **L-134**｜IPv4-mapped IPv6 家族不符：`::ffff:a.b.c.d` 形的 client_ip 與 v4 規則網段（gate `decide`／`would_self_lock`）、v4 計數桶 inet（`real_ip <<=` 比對）**家族不符恆 false**＝閘門漏判＋per-IP 計數恆 0。★修法＝**單點** canonical：兩 overlay 產出真實來源後、注入 RequestContext 前 `client_ip.to_canonical()` 折 v4（對純 v4/v6 恆等、無副作用），使下游全拿 canonical 形；`peer_ip` 保持原形（不參與桶比對）。008 final review #1 修正 A。
