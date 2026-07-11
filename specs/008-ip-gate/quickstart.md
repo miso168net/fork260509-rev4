@@ -46,7 +46,7 @@ tools/schema-gate（gate1/gate2/audit）
 
 ## 3. 信任錨 E2E（crafted-XFF、經 :42080）
 
-★dev 拓樸下全流量還原 IP 收斂為同一常數、confidence 恆 fallback（L-126）；三態區辨在「resolver 完全壞掉」時同樣會過⇒**唯一具區辨力手段＝構造 XFF**。dev real_ip∈172.16/12→結構豁免先放行、建 deny 又被自鎖拒⇒黑名單 403 在 dev 只能靠模擬來源打出。
+★dev 拓樸下全流量還原 IP 收斂為同一常數、confidence 恆 fallback（L-126）；三態區辨在「resolver 完全壞掉」時同樣會過⇒**唯一具區辨力手段＝構造 XFF**。dev real_ip∈172.16/12→結構豁免使 decide 恆 Allow（判定序③豁免先於⑤deny）⇒對含 dev real_ip 的範圍建 deny 會寫入成功但恆無效（decide 判 Allow），且 `would_self_lock=false` **不觸自鎖**（自鎖＝decide(rs_after).Deny、豁免使其恆 false）⇒黑名單 403 在 dev 只能靠模擬公網來源打出。
 
 ```
 經 :42080 帶 crafted X-Forwarded-For 模擬公網 client（如 203.0.113.x／203.0.113.y）：

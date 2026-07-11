@@ -36,7 +36,7 @@
 RuleSet { allow: Vec<IpNetwork>, deny: Vec<IpNetwork> }
 ```
 - 由 `load_active()` 建、`Arc<ArcSwap<RuleSet>>` 存 AppState、`.load()` lock-free 每請求零 DB/Redis（FR-016）。
-- `decide(ruleset, ip) -> Decision{ verdict: Allow|Deny|Default, matched_cidr: Option<IpNetwork>, matched_type }` 純函式（FR-001/B-046 單一來源）。
+- `decide(ruleset, ip) -> Decision{ verdict: Allow|Deny|Default, matched_cidr: Option<IpNetwork> }` 純函式（FR-012/013 判定＋FR-020 觀測依據、B-046 單一來源；★as-built 無 `matched_type` 欄——verdict 三值已編碼命中類型〔Allow=豁免或白、Deny=黑、Default=無命中〕）。
 - 判定序（FR-012、middleware 短路）：①/health|/metrics 放行 → ②無 ctx 放行 → ③STRUCTURAL_EXEMPT（127/8·::1/128·10/8·172.16/12·192.168/16·fc00::/7）放行 → ④allow any-match 放行 → ⑤deny any-match → 5003 → ⑥default-allow。集合 any-match、無 first-match（FR-013）。
 - **降級**：boot 載入失敗→空 RuleSet（全放行）；執行中 reload 失敗→保留現值（keep-last-good、FR-018 ③b）。
 
@@ -67,7 +67,7 @@ RequestContext {
   peer_ip: Option<IpAddr>,  // 傳輸層對端（ConnectInfo；缺席 None）
   ip_confidence: Confidence,// 七態
   x_forwarded_for: Option<String>, // 原文
-  region: Option<String>,   // xdb best-effort、pipe 5 段 raw
+  region: Option<String>,   // xdb best-effort、pipe 5 段 raw；★as-built：此欄於 RequestContext 恆 None，region 解析收斂在登入稽核組裝點（handler/auth.rs resolve_region、U12）、非 middleware；本欄保留供未來每請求消費刀
   trace_id: ...,
 }
 ```
