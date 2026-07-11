@@ -1039,7 +1039,7 @@ ROUTE_REQUIRED_FIELDS = ("path", "method", "case_key", "envelope_exception", "pr
 RE_ROUTES_CONST_OPEN = re.compile(r"^pub const ROUTES:\s*&\[RouteDef\]\s*=\s*&\[$")
 RE_ROUTE_FIELD_PATH = re.compile(r'^path:\s*"([^"]*)",$')
 RE_ROUTE_FIELD_METHOD = re.compile(r"^method:\s*HttpMethod::(\w+),$")
-RE_ROUTE_FIELD_HANDLER = re.compile(r"^handler:\s*\|\|\s*(?:get|post)\(.+\),$")
+RE_ROUTE_FIELD_HANDLER = re.compile(r"^handler:\s*\|\|\s*(?:get|post|delete)\(.+\),$")
 RE_ROUTE_FIELD_CASE_KEY = re.compile(r'^case_key:\s*"([^"]*)",$')
 RE_ROUTE_FIELD_ENVELOPE = re.compile(r"^envelope_exception:\s*(true|false),$")
 RE_ROUTE_FIELD_PROTECTION = re.compile(r"^protection:\s*Protection::(\w+),$")
@@ -2416,9 +2416,10 @@ class TestRouterRoutes(unittest.TestCase):
             parse_router_routes(_router_one(bad), "f.rs")
 
     def test_handler_shape_change_fails_loud(self):
-        # handler 非 get()／post() 閉包＝不認得的形（不盲跳過）
+        # handler 非 get()／post()／delete() 閉包＝不認得的形（不盲跳過；探針改 patch——
+        # delete 已為合法形、008 U7 寫端五端點）
         bad = ROUTER_CLEAN_FIELDS.replace(
-            "handler: || get(health_ok),", "handler: || delete(health_ok),")
+            "handler: || get(health_ok),", "handler: || patch(health_ok),")
         with self.assertRaises(RouterRoutesError):
             parse_router_routes(_router_one(bad), "f.rs")
 
