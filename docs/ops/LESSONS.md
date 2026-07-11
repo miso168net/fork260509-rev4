@@ -1,4 +1,4 @@
-<!-- next: L-135 -->
+<!-- next: L-136 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -300,3 +300,5 @@
 - **L-133**｜WSL2 drvfs 可**整批 clobber worktree 檔案回舊狀態、但 git index（staged）內容倖存**——008 U15 收尾實測：憲法 amendment／五 ADR／spec 承重前提全被 worktree 回退，但 `git add` 過的版本全在 index。★復原＝`git restore --worktree <files>`（worktree ← index，含還原被刪的 `AD` 狀態檔）；中斷/交接後**一律先核 `git status` 的 staged(index) vs worktree 分歧方向**再判斷內容是否遺失——多半沒遺失、只是 worktree 被回退。與 [[drvfs-commit-phantom-success]] 同源（drvfs 對 git 狀態的干擾）。
 
 - **L-134**｜IPv4-mapped IPv6 家族不符：`::ffff:a.b.c.d` 形的 client_ip 與 v4 規則網段（gate `decide`／`would_self_lock`）、v4 計數桶 inet（`real_ip <<=` 比對）**家族不符恆 false**＝閘門漏判＋per-IP 計數恆 0。★修法＝**單點** canonical：兩 overlay 產出真實來源後、注入 RequestContext 前 `client_ip.to_canonical()` 折 v4（對純 v4/v6 恆等、無副作用），使下游全拿 canonical 形；`peer_ip` 保持原形（不參與桶比對）。008 final review #1 修正 A。
+
+- **L-135**｜以 CDP 驗「debounce／`watch` 觸發次數」有兩個陷阱：①**Vue `watch` 對同步多次改值只 flush 一次**——在 `Runtime.evaluate` 內同步連改被觀察值 N 次，watcher 僅作動一次、下游（含被測 debounce）只發 1 次請求，**有無 debounce 皆得 1**＝假綠；須以真實延遲分散（各改動間 `await setTimeout`、如 50ms×5＝250ms＜300ms 窗），令每次改動各觸發一次 flush，debounce 的 coalesce 才可觀測（B-075① 實測：軟區開、連改 userName → `/auth/loginCaptcha` 恰 1 發；無 debounce 應 5 發）。②**計數走 CDP `Network.requestWillBeSent`**（瀏覽器側、含 vite proxy 請求）、**非** page-context 的 `fetch`／XHR hook（request 層載入時已捕獲參考、page-context hook 攔不到＝L-122 ②）。狀態注入沿 captcha-inspect 範式（`el.__vueParentComponent` 上溯 `setupState` 設 `captchaVisible`／驅動 `model`）＋驅動前 `Page.bringToFront`（L-131）。
