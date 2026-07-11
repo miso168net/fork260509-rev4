@@ -109,9 +109,15 @@
   - **D3 降級方向**：last_activity 熱快取不可用→退 refresh token TTL 為界（偏晚登出、絕不提前誤踢活躍者）；此為 idle-liveness fail 方向、與島 C 撤銷 fail-closed 各司其職不衝突。
 - **島 E — 登入失敗節流**（007、ADR 0037、負快取層 ADR 0038 supersede 0016）
   - **E1 真相分層與 fail 方向**：鎖定真相＝PG `sys_login_attempt` 滑動窗（L2）；Redis 負快取（L1）為快路徑、其職僅短路已鎖判定、absence 非權威，且 **L1 僅由 L2 再判路徑寫入**（保證恆衍生自新鮮 L2 讀、杜絕假鎖）；L1 TTL 不長於時窗、命中不續期。全鏈 fail-OPEN（＝不因基建故障而拒絕本應放行的登入）：L1 讀故障→退 L2 並停用 captcha 要求；L2 count 故障→視 0 放行、若快取可用則無條件要求 captcha；稽核寫故障→不改登入回應；settings 缺值→退預設常數。★**唯一例外**：解鎖標記讀故障→視為無標記（可能 re-lock 剛解鎖之帳號、admin 可重解）。每一次降級 MUST 發結構化告警訊號。
-  - **E2 防枚舉延伸**：判定鍵＝所送出帳號名原文（不存在帳號同計、同鎖、同要 captcha），其正規化 MUST 與帳號身分解析的正規化嚴格一致；鎖定與 captcha 要求皆回 `2222` ＋靜態一般化訊息，MUST NOT 洩觸發維度、剩餘時間、帳號存在性。
+  - **E2 防枚舉延伸**：判定鍵＝所送出帳號名原文（不存在帳號同計、同鎖、同要 captcha），其正規化 MUST 與帳號身分解析的正規化嚴格一致；鎖定與 captcha 要求皆回 `2222` ＋靜態一般化訊息，MUST NOT 洩觸發維度、剩餘時間、帳號存在性。★**射程釐清（008、ADR 0044）**：此「判定鍵＝帳號名原文、不依賴來源 IP」之射程為**帳號維度的判定鍵**；來源維度（島 F）為獨立並列維度、兩者不衝突（FR-030）。
   - **E3 審計邊界**：**僅**被密碼雜湊實際驗證的登入終局落恰一列；L1 命中短路、L2 再判鎖、captcha-gate 拒絕、輸入形制超限 MUST NOT 落稽核列，量級訊號走觀測層麵包屑（非稽核表、best-effort）。鎖的最長存續＝一個時窗（非 L1 TTL）。
   - **E4 captcha gate 與硬鎖優先**：軟區要求 captcha；challenge MUST 綁定帳號名、**提交即消耗**（單次標記寫入先於答案比對）、且其答案 MUST NOT 可自 challenge 本身還原。缺／錯／過期／重放之 captcha 嘗試 MUST NOT 計入失敗數（落列規範見 E3）。硬鎖優先於 captcha——鎖中附有效 captcha 亦不受理、且該 captcha 不被消耗。
+- **島 F — IP 存取控制閘＋信任錨＋來源維節流**（008、ADR 0043 真實 IP 還原／0044 本島／0045 來源維節流／0046 region）
+  - **F1 判定序與集合語意**：閘門判定 MUST 依固定序——①健康/觀測放行 ②請求上下文缺席放行 ③結構性豁免網段放行 ④命中放行規則放行 ⑤命中阻擋規則拒絕（reuse `5003`→403）⑥其餘放行；規則集為 any-match 集合語意、**白＞黑＞default-allow、無順序化規則鏈或優先權欄**。
+  - **F2 真相分層**：DB 規則表為真相、記憶體 ArcSwap 判定面（每請求零 DB/Redis）；真相暫不可讀時判定面**沿用上一份已知良好規則集**（keep-last-good、不清空）。
+  - **F3 fail-OPEN 與唯一例外**：全鏈 fail-OPEN（信任模型壞損→全空 all-direct、規則載入失敗→空集、快取/門鈴/GeoIP 故障→放行或降級）；**唯一 fail-closed 例外＝寫端自鎖拒寫**。每次降級 MUST 發結構化告警。★**入憲後 fail-OPEN 方向反轉＝MAJOR。**（來源維節流的解鎖標記讀故障 fail-closed 屬島 E1 降級⑤的既有例外、對稱擴充至來源維、非島 F 新例外。）
+  - **F4 信任錨為唯一輸入、同源對稱**：來源維度一切機制（閘門、來源維節流、稽核來源）的位址輸入 MUST 為信任錨還原結果；信任集與跳過集 MUST **同源對稱**導出（含通道來源集與驗證閘出口集）。CDN 位置錨的傳輸層背書為承重部署前提（ADR 0043、與 DNAT 同級）。
+  - **F5 放行跳節流只認顯式規則**：命中**顯式**放行規則的來源跳過來源維節流（含快取層）；**結構性豁免網段 MUST NOT 跳節流**（結構豁免只豁免阻擋、不豁免節流）。來源維節流計數下界只取兩源（時窗起點＋解鎖標記、**拔 reset-on-success**、ADR 0045）。
 
 ---
 
@@ -260,9 +266,10 @@
 
 ---
 
-**Version**: 1.5.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-11
+**Version**: 1.6.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-11
 
 **Amendment log**:
+- 1.6.0（2026-07-11）：§I.7 行為島進場——島 F IP 存取控制閘＋信任錨＋來源維節流（F1 判定序白＞黑＞default-allow／F2 真相分層 keep-last-good／F3 全鏈 fail-OPEN 唯一例外＝寫端自鎖、反轉＝MAJOR／F4 信任錨唯一輸入且信任集與跳過集同源對稱、CDN 錨傳輸層背書為承重部署前提／F5 放行跳節流只認顯式規則；ADR 0043 真實 IP 還原 supersede 0017 還原節、0044 本島、0045 來源維節流 supersede 0038 調整項二、0046 region GeoIP、0047 鎖定審計欄 won't-fix）＋島 E2 射程釐清（帳號維判定鍵射程與來源維並列不衝突、FR-030）；MINOR（§V.3「行為島隨刀進場」＋「已入憲 invariant 細項調整」）——觸發＝008-ip-gate plan Constitution Check Q9＋final review #1 CDN 錨承重前提（user 親決 2026-07-11）。
 - 1.5.0（2026-07-11）：新增 ★BASE-WEB-DEVPROXY-WIRING 軌道三處〔(i) `service.ts` `createProxyPattern` 同源前綴 `/proxy-default`→`/api`／(ii) `proxy.ts` target 改讀新 env key `VITE_PROXY_TARGET`／(iii) `vite-env.d.ts` 宣告 `VITE_PROXY_TARGET`〕（ADR 0042）；MINOR（§V.3「新增 ★ 軌道」）——觸發＝008-ip-gate plan Constitution Check Q2/Q7（B-079 dev 反代拓樸修正、analyze C1 拍板 env key 案）。
 - 1.4.1（2026-07-10）：§III.2「補完 vs 新能力判準」加「零新 key」釋義——指新 i18n 命名空間／新元件／新路由等「面」級新增，不含既有授權頁既有子命名空間下的資料級 label key（ADR 0041）；PATCH（§V.3「文字校正、釐清」）——觸發＝007-login-throttle `/speckit-analyze` 的 C1 finding（CRITICAL）＋user 親決。★非授權擴展：判準其餘三條件與其他軌道邊界不受影響。
 - 1.4.0（2026-07-10）：§I.7 行為島進場——島 E 登入失敗節流（E1 真相分層與 fail 方向〔含唯一 fail-closed 例外〕／E2 防枚舉延伸／E3 審計邊界／E4 captcha gate 與硬鎖優先；ADR 0037，負快取層 ADR 0038 supersede 0016）＋新增 ★BASE-WEB-LOGIN-CAPTCHA-WIRING 軌道一用途〔(i) 密碼登入表單圖形驗證碼接线，含其資料取得所需之最小 store/service 接线〕（ADR 0040）；MINOR（§V.3「行為島隨刀進場」＋「新增 ★ 軌道」）——觸發＝007-login-throttle plan Constitution Check Q2/Q7/Q9。

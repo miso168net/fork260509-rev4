@@ -2,9 +2,9 @@
 id: "0038"
 title: 節流負快取層（DB 真相、fail-OPEN、TTL 不長於時窗、僅由 L2 再判路徑寫入）
 date: 2026-07-10
-status: accepted
+status: superseded
 supersedes: ["0016"]
-superseded_by: []
+superseded_by: [0045]
 provenance: "rev4:2026-07-10 007-login-throttle brainstorm 拍板 3/4＋對抗式健全性審查 blocker B2/B4＋plan（user 親決 2026-07-10）；上游＝ADR 0016（rev3:DECISIONS§1-⚠️ad、K1-40、021 刀）"
 tags: [auth, throttle, redis, cache, security]
 ---

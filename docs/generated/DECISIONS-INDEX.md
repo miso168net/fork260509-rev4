@@ -19,7 +19,7 @@
 | 0014 | superseded | 2026-07-03 | schema 基線＝rev3 終態語意 squash＋欄序重設計、兩道閘驗證 | — | — | 0021 |
 | 0015 | accepted | 2026-07-03 | casbin 規則表採委派式建表（adapter 建基底＋同檔 ALTER 補治理欄） | — | — | — |
 | 0016 | superseded | 2026-07-03 | 已生效鎖定加 Redis 負快取層（DB 真相、fail-OPEN） | — | — | 0038 |
-| 0017 | accepted | 2026-07-03 | IP 存取控制閘——白＞黑＞default-allow、DB 真相＋記憶體微秒判定、fail-OPEN | — | — | — |
+| 0017 | superseded | 2026-07-03 | IP 存取控制閘——白＞黑＞default-allow、DB 真相＋記憶體微秒判定、fail-OPEN | — | — | 0043 |
 | 0018 | accepted | 2026-07-03 | B8 處置流水總帳——K1 27 筆去向＋K2 全量轉 BACKLOG | — | — | — |
 | 0019 | accepted | 2026-07-03 | rev4 port 配號——host 4xxxx、容器內回歸預設值 | — | — | — |
 | 0020 | accepted | 2026-07-03 | 波 0 規劃定案——三刀組成串行、compose 五服務、部署資產裁剪帶入、wire 後端縱深 | — | — | — |
@@ -40,8 +40,13 @@
 | 0035 | accepted | 2026-07-06 | T034 前端跨棧共用 refresh 在途承諾 won't-fix（by-design：alova 對真實 auth dormant＋後端 grace 冪等為並發正確性防線） | — | — | — |
 | 0036 | accepted | 2026-07-06 | FR-017(ii) service-alova 閒置 toast 副本 by-design 省略（alova 對真實 auth dormant＋既有 showErrorMsg 雙彈＋乾淨做須動 showErrorMsg 出軌道） | — | — | — |
 | 0037 | accepted | 2026-07-10 | 登入失敗節流合成終態（per-user 滑動窗＋負快取＋CAPTCHA 軟區＋手動解鎖；§I.7 島 E 進場） | — | — | — |
-| 0038 | accepted | 2026-07-10 | 節流負快取層（DB 真相、fail-OPEN、TTL 不長於時窗、僅由 L2 再判路徑寫入） | — | 0016 | — |
+| 0038 | superseded | 2026-07-10 | 節流負快取層（DB 真相、fail-OPEN、TTL 不長於時窗、僅由 L2 再判路徑寫入） | — | 0016 | 0045 |
 | 0039 | accepted | 2026-07-10 | schema 閘批次修復（gate1 結構 additive 容差＋B-055 varchar 長度 sidecar＋archetype-map 補登記＋快照重擷取） | — | — | — |
 | 0040 | accepted | 2026-07-10 | 新增 ★BASE-WEB-LOGIN-CAPTCHA-WIRING 軌道（密碼登入表單圖形驗證碼接线，嚴限一用途） | — | — | — |
 | 0041 | accepted | 2026-07-10 | §III.2「補完 vs 新能力判準」之「零新 key」釋義（不含既有授權頁既有子命名空間下的資料級 label key） | — | — | — |
 | 0042 | accepted | 2026-07-11 | 新增 ★BASE-WEB-DEVPROXY-WIRING 軌道（dev 反代拓樸修正，嚴限三處） | — | — | — |
+| 0043 | accepted | 2026-07-11 | 真實來源位址還原——三層信任錨＋兩 overlay＋七態信心（supersede ADR 0017 還原節、四項改善） | — | 0017 | — |
+| 0044 | accepted | 2026-07-11 | 憲法 §I.7 行為島進場——島 F（IP 存取控制閘＋信任錨＋來源維節流）＋島 E2 射程釐清 | — | — | — |
+| 0045 | accepted | 2026-07-11 | 來源維度節流啟用——GREATEST 兩源（拔 reset-on-success）＋負快取沿 0038（supersede 0038 調整項二） | — | 0038 | — |
+| 0046 | accepted | 2026-07-11 | 稽核 region 欄 GeoIP 填值——xdb §I.5 例外整檔拷貝、best-effort、boot 守門 | — | — | — |
+| 0047 | accepted | 2026-07-11 | 鎖定專屬審計欄——won't-fix（島 E3 鎖定零稽核列⇒該審計區分無標的） | — | — | — |
