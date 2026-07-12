@@ -139,14 +139,14 @@ description: "Task list for 009-role-admin implementation"
 
 ## Phase 9: Polish＋治理＋實機驗收
 
-- [ ] T036 全量閘：容器內 `cargo test --workspace` 全綠（含 20 契約 case 對帳、coverage gate）＋`pnpm typecheck`＋`tools/fork-delta-lint` 綠＋六負向自證 report 齊（quickstart 負向清單）
+- [x] T036 全量閘：容器內 `cargo test --workspace` 全綠（含 20 契約 case 對帳、coverage gate）＋`pnpm typecheck`＋`tools/fork-delta-lint` 綠＋六負向自證 report 齊（quickstart 負向清單）
 - [x] T037 [P] ADR draft 落檔：ADR①治理狀態機總綱 `docs/arc42/decisions/00NN-role-governance-state-machine.md`（G1~G5＋停用斷權 D6＋roleHome 兜底＋★兩 blocker 修正：restore 鎖序、reload 重建-swap）＋ADR③B-047 明細通道 `00NN-biz-error-detail-channel.md`（data 欄讀法＋洩漏面評估＋下放重評觸發）；draft 狀態
 - [x] T038 新島 G Amendment：憲法 §I.7 條文 draft（G1 真相唯一＋同交易稽核＋判定面同步失敗契約；G2 protected-reject；G3 撤銷必歸檔；G4 刪除守門＋batch no-partial；G5 復原同實例＋現役寫入全端點 lock-then-redecide；★sys_user_role 指派寫端未來納鎖序鉤子——R7 風險）＋★**MODAL-WIRING (a) 枚舉澄清（必辦、A1 甲案 2026-07-12）**——擴句：「及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit）同屬本用途」；★**user 親決**後：三 ADR 轉 accepted＋憲法 MINOR bump＋`docs(constitution): amend` commit＋`docs-sync generate`。★親決時點＝**U12（前端接線單元）之前**（(a) 澄清為 T015(reset)/T022/T035 的授權前置；後端單元不受影響）
-- [ ] T039 [P] 005 spec as-built 勘誤：`specs/005-auth-login/spec.md` 補註記（getUserRoutes home 落點語意由 009 FR-039 讀端兜底變更——原＝無條件下發角色設定值）
-- [ ] T040 [P] MODAL-WIRING per-change 紀錄表（憲法 §III.2 紀律：位置＋改動內容＋upstream 衝突風險評估）——彙整 T015/T022/T030/T031/T035 逐處，★落 `specs/009-role-admin/spec.md` 附錄（MODAL-WIRING 紀律字面＝「在 spec 內紀錄」、憲法 :171 比他軌道嚴；T031 之 I18N (i) 一處可同表註明）
-- [ ] T041 CDP 實機全場景（quickstart S1~S6；★新 i18n key 後 restart base-web 再 CDP；經 `:42080`；換角色登入驗選單/按鈕收縮、停用斷權即時、回收桶三態、home 兜底不落 404、B-047 插值三語）
-- [ ] T042 BACKLOG/LESSONS 簿記：`docs/ops/BACKLOG.md` 消化 B-034/B-047/B-049/B-050 刪列＋B-061 amend（去 policy-archive 項）＋★新增「M-6 no-escalation＋seeded 護欄複評＋明細通道受眾邊界重評（FR-035／ADR 0050）——寫端或 role CRUD 下放非 super 前必建」條目＋★新增「sys_user_role 指派寫端落地時必納 sys_role 鎖序」條目（R7 跨刀鉤子）；踩坑 LESSONS append
-- [ ] T043 收刀前文件閘：`tools/docs-sync refresh`＋`generate` 綠、三 lint 閘綠（★活書 §6 as-built＋生效延遲語意更新**不在此做**——收刀簿記 commit 承載）
+- [x] T039 [P] 005 spec as-built 勘誤：`specs/005-auth-login/spec.md` 補註記（getUserRoutes home 落點語意由 009 FR-039 讀端兜底變更——原＝無條件下發角色設定值）
+- [x] T040 [P] MODAL-WIRING per-change 紀錄表（憲法 §III.2 紀律：位置＋改動內容＋upstream 衝突風險評估）——彙整 T015/T022/T030/T031/T035 逐處，★落 `specs/009-role-admin/spec.md` 附錄（MODAL-WIRING 紀律字面＝「在 spec 內紀錄」、憲法 :171 比他軌道嚴；T031 之 I18N (i) 一處可同表註明）
+- [x] T041 CDP 實機全場景（quickstart S1~S6；★新 i18n key 後 restart base-web 再 CDP；經 `:42080`；換角色登入驗選單/按鈕收縮、停用斷權即時、回收桶三態、home 兜底不落 404、B-047 插值三語）
+- [x] T042 BACKLOG/LESSONS 簿記：`docs/ops/BACKLOG.md` 消化 B-034/B-047/B-049/B-050 刪列＋B-061 amend（去 policy-archive 項）＋★新增「M-6 no-escalation＋seeded 護欄複評＋明細通道受眾邊界重評（FR-035／ADR 0050）——寫端或 role CRUD 下放非 super 前必建」條目＋★新增「sys_user_role 指派寫端落地時必納 sys_role 鎖序」條目（R7 跨刀鉤子）；踩坑 LESSONS append
+- [x] T043 收刀前文件閘：`tools/docs-sync refresh`＋`generate` 綠、三 lint 閘綠（★活書 §6 as-built＋生效延遲語意更新**不在此做**——收刀簿記 commit 承載）
 
 ---
 
