@@ -28,10 +28,11 @@ docker compose exec rust-api sh -c 'ls migration/src/m007*'  # m007 存在
 ### S1 role CRUD 全鏈（US1）
 1. 進 `/manage/role`；列表載入（fetchGetRoleList 200、非現況必敗）。
 2. 新增角色（合法 code）→ 成功；再以同 code 新增 → `2222 codeExists` 具體訊息。
-3. 編輯 roleName/roleDesc → 成功；試改 roleCode（若 UI 允許）→ `codeImmutable`。
+3. 編輯 roleName/roleDesc → 成功；試改 roleCode：UI 有輸入欄→提交必拒 `codeImmutable`；UI 無該欄→以契約 case 為準、於驗收 report 註記（明確二擇、不得靜默跳過）。
 4. 刪除掛有使用者的角色 → 拒、訊息**含實際人數**（B-047 明細）。
 5. 批刪含一違規項 → 整批拒、列表零變更。
 6. 刪自己所屬角色 → `cannotDeleteSelfRole`（自傷面：用測試角色/帳號、非操作者自身）。
+7. 刪除任一種子角色（R_SUPER/R_ADMIN/R_USER_COMMON）→ 拒、`seededProtected` 訊息（SC-001 守門矩陣種子路的實機半邊）。
 
 ### S2 三維授權面板（US2）
 1. 開 menu-auth-modal → 樹候選（getMenuTree）＋現況勾選（getRoleMenu）；改勾選提交 → 成功；重開回讀一致。

@@ -36,7 +36,7 @@
 
 **Rationale**：讀端政策差異＝getRoleList 雙角色〔seed 12,13〕、getAllRoles 三角色全授〔14,15,16〕、其餘 18 條 R_SUPER-only。getUserList 雖同雙角色形但屬 user 頁域、**不入本 20**（防 scope 蔓延）。現況 routes.md 零 role 域端點 → 20 條全 net-new 註冊。
 
-**confidence**: high（spot-check：fixture role 相關政策列動詞分布含 DELETE×2、GET/POST 齊）。**風險**：seed 凍結不可改，任一 router 註冊打錯 path 大小寫或動詞即該端點全域 5003 → §7「每條新 route 契約 case」（coverage gate 20 條）兜底，contracts 逐條把 method 寫死。
+**confidence**: high（spot-check：fixture role 相關政策列動詞分布含 DELETE×2、GET/POST 齊）。**風險**：seed 凍結不可改，任一 router 註冊打錯 path 大小寫或動詞即該端點全域 5003 → 憲法 §I.3 coverage gate「每條新 route 契約 case」（20 條）兜底，contracts 逐條把 method 寫死。
 
 ---
 
@@ -52,7 +52,7 @@
 
 ## R5 — 停用斷權測試連動（FR-013）
 
-**Decision**：FR-013 實作＝`sys_user_role.rs` 第 (2) 段查詢（現 38-46 行）於 `DeletedAt.is_null()` 旁加 `.filter(sys_role::Column::Status.eq(1))`（鏡像 `sys_role.rs:22` home_of_roles 前例；NULL status 視同未啟用、fail-closed 排除）。**既有測試零轉紅**——全部 DB-backed 測試僅用 m002 seed 三角色（皆 status=1），全 repo 無測試 INSERT/UPDATE sys_role 或播種停用角色。連動範圍＝(a) facade 註解口徑更新（「活性＝deleted_at IS NULL」→「未軟刪**且啟用 status=1**」）；(b) US3 各加對偶「停用角色」新紅測，**用專屬測試角色＋測試帳號**（絕不翻 seed 角色 status——平行執行緒共用同一 seed DB）。
+**Decision**：FR-013 實作＝`sys_user_role.rs` 第 (2) 段查詢（現 38-46 行）於 `DeletedAt.is_null()` 旁加 `.filter(sys_role::Column::Status.eq(1))`（鏡像 `sys_role.rs:22` home_of_roles 前例；NULL status 視同未啟用、fail-closed 排除）。**既有測試零轉紅**——全部 DB-backed 測試僅用 m002 seed 三角色（皆 status=1），全 repo 無測試 INSERT/UPDATE sys_role 或播種停用角色。連動範圍＝(a) facade 註解口徑更新（「roles_of_user **解出口徑**＝未軟刪且啟用 status=1」；★「活性」一詞保留專指 `deleted_at IS NULL`——與 data-model／R7 一致，防 `find_active_*` 誤解）；(b) US3 各加對偶「停用角色」新紅測，**用專屬測試角色＋測試帳號**（絕不翻 seed 角色 status——平行執行緒共用同一 seed DB）。
 
 **confidence**: high。**風險（烤進 tasks 防呆）**：實作者抄捷徑翻 seed 角色 status → 平行下既有測試間歇紅；status 可空欄 NULL 在 eq(1) 下靜默斷權（seed 無 NULL、addRole 必填，曝險趨零但須落 facade 註解）。**impl 留定**：新紅測名/落點、測試角色建置手法（raw SQL helper vs addRole facade）與 role_code 唯一化。
 
@@ -88,7 +88,7 @@
 
 ## R9 — 前端新形/新檔軌道
 
-**Decision**：新檔恰一對——① ADAPT 新 `typings/api/rev4-role-admin.d.ts`（declaration merging 併 `Api.SystemManage`）② WRAPPER 新 `service/api/rev4-role-admin.ts`（**16 支新 fetcher**、直接路徑 import、不經 barrel）。凍結檔 `system-manage.d.ts`／`system-manage.ts`／barrel `index.ts` 一律不動。**16＋4＝20 對帳**：4 支已在凍結 system-manage.ts（fetchGetRoleList/fetchGetAllRoles/fetchGetMenuTree/fetchGetAllPages）沿 barrel 复用、絕不重建（防雙源）。ADAPT 內容＝endpoint (path,method) 項、button registry 項（引用凍結 `MenuButton` 合法——只禁改不禁讀）、`ArchivedPolicy`＋SearchParams＋List、寫端請求形、（可選）B-047 明細 data 形。檔頭紀律：`.d.ts`＝`// BASE-WEB-ADAPT (009-role-admin)`；wrapper＝`// BASE-WEB-WRAPPER (009-role-admin)`＋「不經 barrel 避 vite stale-export」＋「新檔零原行」。
+**Decision**：新檔恰一對——① ADAPT 新 `typings/api/rev4-role-admin.d.ts`（declaration merging 併 `Api.SystemManage`）② WRAPPER 新 `service/api/rev4-role-admin.ts`（**16 支新 fetcher**、直接路徑 import、不經 barrel）。凍結檔 `system-manage.d.ts`／`system-manage.ts`／barrel `index.ts` 一律不動。**16＋4＝20 對帳**：4 支已在凍結 system-manage.ts（fetchGetRoleList/fetchGetAllRoles/fetchGetMenuTree/fetchGetAllPages）沿 barrel 復用、絕不重建（防雙源）。ADAPT 內容＝endpoint (path,method) 項、button registry 項（引用凍結 `MenuButton` 合法——只禁改不禁讀）、`ArchivedPolicy`＋SearchParams＋List、寫端請求形、（可選）B-047 明細 data 形。檔頭紀律：`.d.ts`＝`// BASE-WEB-ADAPT (009-role-admin)`；wrapper＝`// BASE-WEB-WRAPPER (009-role-admin)`＋「不經 barrel 避 vite stale-export」＋「新檔零原行」。
 
 **confidence**: high。**風險**：declaration merging 撞名（避開既有名、pnpm typecheck 必抓）；upstream 未來加同名型於 rebase 撞（新檔零行衝突、typecheck 可見）。**impl 留定**：各型精確 camelCase 欄名（隨 contracts 定稿）；getAllButtons 項是否直引 MenuButton 或自訂；單檔 vs 拆 policy-archive 子檔。
 

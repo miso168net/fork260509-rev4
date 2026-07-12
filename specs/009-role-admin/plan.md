@@ -6,7 +6,7 @@
 
 ## Summary
 
-一台授權治理狀態機、20 端點、五施工分段。★**施工分段（P0~P4）與 user story 優先級（US1~US6）是兩套獨立編號**——對照：P0＝地基（m007＋停用斷權）｜P1＝US1（role CRUD）｜P2＝US2＋US6（三維治理＋roleHome）｜P3＝US4（回收桶）｜P4＝US3/US5 前端接線＋CDP。
+一台授權治理狀態機、20 端點、五施工分段。★**施工分段（P0~P4）與 user story 優先級（US1~US6）是兩套獨立編號**——對照：P0＝地基（m007＋停用斷權）｜P1＝US1（role CRUD）｜P2＝US2＋US6（三維治理＋roleHome）｜P3＝US4（回收桶）｜P4＝前端接線＋CDP（US5 明細通道；US3 的 UI 面由 US1 drawer status 欄承載、驗收走 CDP S5）。
 
 **P0** 地基＝m007 加 `archive.role_id`（gate1 結構白名單）＋停用斷權（`roles_of_user` 加 `status=1` 濾、單點改動、既有測試零轉紅）；**P1** role CRUD＝`sys_role` facade（鎖讀 helper＋mutate_in_txn）＋六端點（三層守門、batchDelete 自管 txn no-partial、role_code 形制守門）；**P2** casbin 治理核心＝`set_role_dimension`/`set_role_endpoints`（全量替換 diff、protected-reject、archive-move 帶 role_id、**reload 重建-swap**）＋三維讀寫＋支撐讀＋roleHome（含讀端兜底 FR-039）；**P3** 回收桶＝getArchivedPolicies 雙濾＋**restorePolicy 七步鎖序**（同實例判定、封繼承旁路）；**P4** 前端＝一 ADAPT `.d.ts`＋一 WRAPPER（16 fetcher）＋endpoint-auth-modal net-new＋policy-archive 新頁＋B-047 明細＋i18n 三語＋CDP 實機。
 
@@ -32,7 +32,7 @@
 
 **Performance Goals**: require_policy 每請求 DB-fresh roles＋in-memory enforce（微秒級）；reload 屬罕發管理事件（重建全表讀、casbin_rule 量級小可忽略）；前端顯隱等下次 app 載入（不推播）
 
-**Constraints**: 授權面 fail-closed（reload 失敗保留已知良好、不空窗）；zero 新錯誤碼；零建表；base-web inline 走 fork-delta 紀律；前端全落既有 ★ 軌道（無新★軌道）
+**Constraints**: 判定面同步失敗＝keep-last-good（保留已知良好、絕不空窗半載——以機制語敘述、不裸用 fail-closed/OPEN 標籤）；zero 新錯誤碼；零建表；base-web inline 走 fork-delta 紀律；前端全落既有 ★ 軌道（無新★軌道）
 
 **Scale/Scope**: 12~16 執行單元（近 007/008 先例）；20 端點＋1 migration＋1 新頁＋1 新 modal；前端一 ADAPT `.d.ts`＋一 WRAPPER（16 fetcher）
 
@@ -43,12 +43,12 @@
 | # | 題 | 判定 |
 |---|---|---|
 | Q1 | 違反 §I.1 base-web 為權威？rust-api 未提供 base-web 用到的端點？ | **否（正補權威缺口）**。base-web role 頁模板全套已在、讀側已呼叫不存在的端點（現況必敗）；本刀出 20 端點正是補齊 base-web 已呼叫的權威缺口。20 端點政策已於 002 seed（getRoleList〔12,13〕…restorePolicy〔71〕）。 |
-| Q2 | 動 base-web inline？屬 §III.2 哪個用途？授權邊界內？依 fork-delta 紀律？ | **是、全落既有已授權軌道（零新★軌道）**（研究 R6 裁定）：MODAL-WIRING **(a)** menu/button-auth-modal 既有 placeholder 接線（getChecks/handleSubmit/getHome/updateHome＋button 三 stub）＝用途補完〔判準四條件全中、§III.2:169〕＋index delete/batchDelete＋role-operate-drawer submit；**(b)** hasAuth('role:add/edit/delete') gating；**(c)** endpoint-auth-modal net-new〔明文授權「角色×權限維度新 auth-modal」〕；**(e)** policy-archive 新頁〔明文授權「同 manage 範式新頁」〕。B-047 明細共用層＝I18N-WIRING (i) 單點插值擴充〔R4〕。皆走 fork-delta `rev4-inline` 修改型帶原行／新增型圈界。 |
+| Q2 | 動 base-web inline？屬 §III.2 哪個用途？授權邊界內？依 fork-delta 紀律？ | **是、全落既有已授權軌道（零新★軌道）**（研究 R6 裁定）：MODAL-WIRING **(a)** menu/button-auth-modal 既有 placeholder 接線（getChecks/handleSubmit/getHome/updateHome＋button 三 stub）＝(a) 用途文字命中（stub 即 upstream 自標 `// request` placeholder；檔名枚舉未列 auth-modal＝文字縫隙）——★**(a) 枚舉澄清升必辦**、隨新島 G MINOR Amendment 於 **U12（前端單元）前** user 親決落地（2026-07-12 analyze A1 拍板甲案；澄清句納「同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修〔如 search reset 補 emit〕同屬本用途」）＋index delete/batchDelete＋role-operate-drawer submit；**(b)** hasAuth('role:add/edit/delete') gating；**(c)** endpoint-auth-modal net-new〔明文授權「角色×權限維度新 auth-modal」〕；**(e)** policy-archive 新頁〔明文授權「同 manage 範式新頁」〕。B-047 明細共用層＝I18N-WIRING (i) 單點插值擴充〔R4〕。皆走 fork-delta `rev4-inline` 修改型帶原行／新增型圈界。 |
 | Q3 | menu 顯示走 Casbin enforce？demo menu 進 seed 而非隱藏？ | **符合、正兌現 §I.2**。本刀 updateRoleMenu 正是 §I.2「demo menu 可見性由勾選層治理下放」的勾選層；無新 demo menu（B-060 不進）；`manage_policy-archive` 選單項 002 已 seed、缺三語譯文（B-061 三清一、隨頁補）。 |
 | Q4 | wire 設計對齊 §I.3？（envelope／id 型／13 碼／msg=key） | **是**。envelope `{data,code,msg}` 凍結；reuse `2222/0000/5003` **零新碼**；`msg`＝distinct i18n key；**B-047 明細走信封既有 `data` 欄**（型別逐端點自由、信封三欄結構不增不減——本 Check 正式確認不觸 §I.3 Amendment）；`Role`／`PageRes`／`AllRole` 凍結形；新形（button registry／(path,method)／ArchivedPolicy）走 ADAPT 新 `.d.ts`、新 fetcher 走 WRAPPER `rev4-role-admin.ts`〔R9〕，凍結 `system-manage.{ts,d.ts}` 不動。 |
 | Q5 | 從前代 source 拷貝 code？屬 §I.5 例外？觸發防回歸？ | **否（全新寫、零 vendored crate）**。rust-api 全新寫、rev3 實碼僅機理參照（不像 008 有 xdb）。防回歸＝rev3 已被本刀改善的五項（B-034 role_id 去牆鐘／B-047 明細／B-049 自管 txn／B-050 no-op／getAllEndpoints ROUTES 真源）不得帶回 rev3 舊行為。 |
 | Q6 | 抵觸 §II 拍板？ | **否**。role 域為新面；不改 prod 路徑前綴 strip、不改既有 wire 慣例。 |
-| Q7 | 觸及 §III ★ 軌道？授權邊界內？補完還是新能力？ | **是、授權邊界內**（同 Q2）。(c)/(e) 屬明文授權範疇；(a) auth-modal placeholder 屬**補完**（不 bump 憲法）——可零成本順載 (a) 檔名枚舉澄清進 G-island MINOR Amendment（可選）。**無新能力需 Amendment**。★role-search reset 補 emit('search') 措辭必為「**沿 rev3 拍板**」（非「對齊全站慣例」——現樹 grep 反證）。 |
+| Q7 | 觸及 §III ★ 軌道？授權邊界內？補完還是新能力？ | **是、授權邊界內**（同 Q2）。(c)/(e) 屬明文授權範疇；(a) auth-modal placeholder＝用途文字命中、**檔名枚舉澄清必辦**（隨 G Amendment、U12 前 user 親決——A1 甲案；含 role-search reset 類「附屬模板行為小修」明文涵蓋）。★reset 措辭必為「**沿 rev3 拍板**」（非「對齊全站慣例」——現樹 grep 反證）。 |
 | Q8 | 新建業務表？含 §I.6 六審計欄？ | **否**。schema 全於 002 凍結基線。唯一結構變更＝m007 `ALTER TABLE sys_casbin_policy_archive ADD COLUMN role_id bigint NULL`〔R2〕＝gate1 結構 additive 白名單（非建表、非審計欄 retrofit）。archive 缺 `protected` 欄對 restore 完整性影響＝零（不變式保證，見 data-model）。 |
 | Q9 | 觸及 §I.7 行為島？invariants 保持？state-machine 鏡頭？新島進場？ | **是**。①**新島 G（授權治理）進場**＝MINOR Amendment、G1~G5 入 §I.7（含**判定面同步失敗契約**〔Blocker 2〕與**現役寫入全端點 lock-then-redecide**〔Blocker 1〕）；②**§B2 兌現**＝restorePolicy 納入 FOR UPDATE 鎖序、鎖內重判〔§B2「永不信 pre-read」L-075〕；③既有島交互＝島 C（denylist）不涉但停用斷權與其 fail-closed 範式一致、島 E（節流）不涉。全走 state-machine 鏡頭（全量替換 diff／protected-reject／archive-move／reload-on-Applied 重建-swap／restore 七步序）。 |
 
@@ -117,11 +117,11 @@ base-web/                         # P4（全落既有 ★ 軌道、零新★軌�
 
 | 項目 | 為何需要 | 治理路徑 |
 |---|---|---|
-| 新島 G 進場（Q9） | 授權治理為新行為島 | MINOR Amendment、G1~G5 入 §I.7（G1 真相唯一＋同交易稽核＋**判定面同步失敗契約**；G2 protected-reject；G3 撤銷必歸檔；G4 刪除守門＋batch no-partial；G5 復原同實例判定＋**現役寫入全端點 lock-then-redecide**）；plan 期定稿條文、user 親決；入憲後 fail-closed 方向反轉＝MAJOR |
+| 新島 G 進場（Q9） | 授權治理為新行為島 | MINOR Amendment、G1~G5 入 §I.7（G1 真相唯一＋同交易稽核＋**判定面同步失敗契約**；G2 protected-reject；G3 撤銷必歸檔；G4 刪除守門＋batch no-partial；G5 復原同實例判定＋**現役寫入全端點 lock-then-redecide**）；plan 期定稿條文、user 親決；G 條文以機制語凍方向（「同步失敗→保留已知良好、絕不空窗半載」）、入憲後方向反轉（失敗即清空／全 deny）＝MAJOR |
 | §B2 兌現（Q9） | restorePolicy 納鎖序 lock-then-redecide | 非新 Amendment（憲法 §B2 既有、L-075）；本刀把 restorePolicy 併入既有鎖序集、鎖內重判——對抗式審查 Blocker 1 修正 |
 | ADR draft ①治理狀態機總綱 | G1~G5＋停用斷權 D6＋roleHome 語意＋**兩 blocker**（restore 鎖序、reload 重建-swap） | 隨 SDD 落檔、user 親決 |
 | ADR draft ②archive role_id 欄（m007） | B-034 兌現；含 **archive 缺 protected 欄 won't-add 分析**（R2 不變式佐證） | 隨 SDD 落檔、user 親決 |
 | ADR draft ③B-047 data 欄明細通道 | 洩漏面評估＋§I.3 信封讀法確認（Q4 已初判不觸 Amendment） | 隨 SDD 落檔、user 親決 |
 | m007 gate1 結構白名單（Q8） | archive.role_id 加欄 | schema-gate STRUCTURAL_ADDITIVE_ALLOWLIST 一條、白名單同 commit（L-109）；非建表、零審計欄 retrofit |
 | 收刀活書 §6 as-built 更新（對抗式審查 CONTESTED） | FR-039 讀端兜底使 ARCHITECTURE §6「home＝角色首個非空 role_home」失真 | 走收刀 arch-impact 通道更新活書＋005 spec 勘誤；**不入 tasks**（撞 livedoc L6(b) 閘）——synthesis 判「已緩解-澄清」 |
-| 可選：(a) 檔名枚舉澄清 | MODAL-WIRING (a) 未列 `*-auth-modal.vue`（文字縫隙、非授權缺口，R6 裁定補完） | 可零成本順載 G-island MINOR Amendment（可選、不影響裁定成立） |
+| ★(a) 檔名枚舉澄清（必辦、A1 甲案） | MODAL-WIRING (a) 未列 `*-auth-modal.vue`；analyze 打掉「判準四條件全中」兩條（stub 接線＝修改型非純加；wrapper＝本刀新建非既有）——T022/T035/T015(reset) 的授權前提須先收口 | 隨 G-island MINOR Amendment 落擴句（「及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修〔如 search reset 補 emit〕同屬本用途」）、★於 U12 前 user 親決（2026-07-12 拍板） |

@@ -6,13 +6,14 @@ description: "Task list for 009-role-admin implementation"
 
 **Input**: `specs/009-role-admin/`（plan.md／spec.md／research.md／data-model.md／contracts/role-admin-endpoints.md／quickstart.md）
 
-**Tests**: 本刀走 TDD test-first（憲法 §I.4；spec §7 六負向自證＋20 契約 case 強制）——測試先寫、應為紅，再實作轉綠。
+**Tests**: 本刀走 TDD test-first（憲法 §I.4；負向自證六條＝spec SC-007 五項＋SC-013、詳 quickstart 負向清單；契約 case 20 條＝憲法 §I.3 coverage gate）——測試先寫、應為紅，再實作轉綠。
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**：可分派給**不同執行單元**（不同檔、無未完成依賴）。★**同檔任務一律不標 `[P]`**（並發 Edit 互蓋）。
   ★**rust build/test 一律容器內、全程 serial**——`[P]` 指邏輯獨立、**不是**平行跑 cargo。
 - **[Story]**：US1~US6 對映 spec user story；Setup/Foundational/Polish 無 story 標籤。
+- ★編號消歧：Phase 標題括號（P1）~（P6）＝**spec user story 優先級**；plan 的 P0~P4＝施工分段（另一套）；本檔依賴節一律用「Phase N」全名、不用 P 縮寫。
 
 ## ★不可違反（烤進每個執行單元的 agent prompt）
 
@@ -47,8 +48,8 @@ description: "Task list for 009-role-admin implementation"
 **Purpose**：鎖讀 helper（Blocker 1 範式）＋reload 重建-swap（Blocker 2）＋停用斷權口徑（US3 語意地基）＋B-047 攜參錯誤變體。
 
 - [ ] T005 `rust-api/server/src/model/facade/sys_role.rs` 加兩把鎖讀 helper：`find_active_by_id_for_update`／`find_active_by_code_for_update`（sea-orm `.lock_exclusive()`、doc 註明「須於 caller txn 內呼叫、autocommit 下鎖隨語句即釋」——R7 範式；partial-uniq 保證 by_code 至多一列）＋單元測試
-- [ ] T006 停用斷權（US3 語意地基、FR-013）：`rust-api/server/src/model/facade/sys_user_role.rs` `roles_of_user` 第 2 段查詢加 `.filter(sys_role::Column::Status.eq(1))`（鏡像 home_of_roles 前例；NULL status fail-closed 排除）＋★facade 註解口徑更新（「活性＝未軟刪**且啟用 status=1**」、含 NULL 語意）＋新紅測（專屬測試角色：停用角色不解出、多角色停一剩聯集；R5 盤點＝既有測試零轉紅、如有轉紅即回報異常）
-- [ ] T007 reload 重建-swap（Blocker 2、FR-021）：`rust-api/server/src/auth/enforce.rs` 加 `rebuild_enforcer(db) -> Result<Enforcer>`（重建全新 Enforcer；成功才由呼叫端 `*state.enforcer.write().await = new`）＋有界重試常數（寫死 ≤3、退避；★絕不取自輸入）＋失敗結構化告警（`tracing::error!` 帶 cause）＋★「絕不對 live enforcer 裸呼 load_policy」硬禁令註解＋casbin 2.20.0 clear-then-load 特性鎖定註記（升版警示、R1）＋**SC-013 負向測試**：注入壞 DB conn 使重建失敗→斷言舊面續 allow R_SUPER＋告警留痕（不鎖死）
+- [ ] T006 停用斷權（US3 語意地基、FR-013）：`rust-api/server/src/model/facade/sys_user_role.rs` `roles_of_user` 第 2 段查詢加 `.filter(sys_role::Column::Status.eq(1))`（鏡像 home_of_roles 前例；NULL status fail-closed 排除）＋★facade 註解口徑更新（「roles_of_user **解出口徑**＝未軟刪且啟用 status=1、NULL 視同未啟用」；★「活性」一詞保留專指 `deleted_at IS NULL`——與 data-model／R7 一致、防 `find_active_*` 系 helper 被誤解為含 status）＋新紅測（專屬測試角色：停用角色不解出、多角色停一剩聯集；R5 盤點＝既有測試零轉紅、如有轉紅即回報異常）
+- [ ] T007 reload 重建-swap（Blocker 2、FR-021）：`rust-api/server/src/auth/enforce.rs` 加 `rebuild_enforcer(db) -> Result<Enforcer>`（重建全新 Enforcer；成功才由呼叫端 `*state.enforcer.write().await = new`）＋有界重試常數（寫死 ≤3、退避；★絕不取自輸入）＋失敗結構化告警（`tracing::error!` 帶 cause）＋★「絕不對 live enforcer 裸呼 load_policy」硬禁令註解＋casbin 2.20.0 clear-then-load 特性鎖定註記（升版警示、R1）＋**SC-013 負向測試**：注入壞 DB conn 使重建失敗→斷言舊面續 allow R_SUPER＋告警留痕（不鎖死）＋**負向自證⑥**：暫改 reload 為對 live enforcer 裸呼 `load_policy`→SC-013 測試轉紅；還原全綠（結果寫入執行單元 report）
 - [ ] T008 B-047 後端通道（FR-034）：`rust-api/server/src` AppError 加攜參變體（`Biz(key, Option<serde_json::Value>)` 形、既有無參 `2222` 路徑**零改動**）＋envelope `data` 欄下發接線＋單元測試（有參／無參／既有路徑不變三案）
 
 **Checkpoint**：`cargo test --workspace` 綠（地基就緒：鎖 helper＋斷權濾＋swap helper＋攜參錯誤）。
@@ -59,7 +60,7 @@ description: "Task list for 009-role-admin implementation"
 
 **Goal**：CRUD 六端點＋三層守門＋批次 no-partial＋刪除連動歸檔。**Independent Test**：quickstart S1＋負向自證 2/4。**依賴**：Setup＋Foundational。
 
-- [ ] T009 [US1] 測試先紅：`sys_role.rs`＋`sys_casbin_archive.rs` facade 單元測試（同檔系列、不標 [P]）——list 分頁三濾（roleName/roleCode 模糊、status 等值、id asc）／all_enabled（活性＋啟用、停用不出現）／create（合法、codeExists 23505、codeInvalid 形制）／update（codeImmutable、全 None 提前 no-op 不 bump 時戳不落稽核 B-050、roleDesc 空字串清空）／delete 三層守門序（seeded→in-use{userCount}→self-role）／批次 no-partial（一項違規整批零變更）／★刪除連動歸檔（全三維含 protected 列、reason=`role_soft_delete`、帶 role_id、同交易）
+- [ ] T009 [US1] 測試先紅：`sys_role.rs`＋`sys_casbin_archive.rs` facade 單元測試（同檔系列、不標 [P]）——list 分頁三濾（roleName/roleCode 模糊、status 等值、id asc）／all_enabled（活性＋啟用、停用不出現）／create（合法、codeExists 23505、codeInvalid 形制）／update（codeImmutable、全 None 提前 no-op 不 bump 時戳不落稽核 B-050、roleDesc 空字串清空）／delete 三層守門序（seeded→in-use{userCount}→self-role）／批次 no-partial（一項違規整批零變更）／★刪除連動歸檔（全三維含 protected 列、reason=`role_soft_delete`、帶 role_id、同交易）／★create 後 `casbin_rule` 中 `v0=code` 零列（FR-005 顯式斷言）／★soft_delete→同 code 重建→成功、新 id 不同、三維讀全空（SC-004 前半、零繼承鏈）
 - [ ] T010 [P] [US1] `rust-api/server/tests/contract.rs` 契約案 6 條（getRoleList/getAllRoles/addRole/updateRole/deleteRole〔DELETE〕/batchDeleteRole〔DELETE〕——method 寫死對齊 contracts 表）＋registry 計數斷言連動
 - [ ] T011 [US1] `sys_role.rs` facade CRUD 實作：list／all_enabled／create（`mutate_in_txn`＋op-log；23505 `SqlErr::UniqueConstraintViolation` 收斂）／update（鎖內 self-guard 掛點留 US3、全 None 提前 no-op 於 begin 前）／soft_delete（`find_active_by_id_for_update` 鎖內重判三守門→軟刪＋同交易 archive_all→op-log）／batch_soft_delete（★自管 txn、B-049 不借 sentinel DbErr；id 升冪取鎖、逐項驗證整批拒、`sys_operation_log::write_in_txn` 逐筆）
 - [ ] T012 [US1] `sys_casbin_archive.rs`：`insert_archived`（快照 ptype/v0..v5/created_at/created_by＋★role_id 必填＋reason；R2）＋`archive_all_role_policies(txn, role_code, role_id)`（掃 `v0=code` 全維含 protected）——deleteRole 連動＋US2 revoke 共用
@@ -76,12 +77,12 @@ description: "Task list for 009-role-admin implementation"
 **Goal**：治理狀態機（全量替換／protected-reject／archive-move／reload 重建-swap）＋三維讀寫＋支撐讀。**Independent Test**：quickstart S2＋負向自證 1。**依賴**：US1（archive facade）＋Foundational。
 
 - [ ] T016 [US2] 測試先紅：`sys_casbin_policy.rs` 治理狀態機 table-driven（同檔系列）——diff 正確性（撤/授/重複/空集/順序無關）／protected-reject 整批拒零變更＋★「整批拒後 archive 零新列」斷言（R2 不變式錨定）／archive-move 快照完整（帶 role_id、reason 撤銷類）／grant 治理欄（protected=false＋created_at/by）／空 diff 仍 Applied＋reload／endpoint 維 method 白名單辨識（不反推）／menu id↔route_name 映射 orphan skip＋讀端反向／★grant-during-delete 併發（FOR UPDATE 鎖序：授權提交×deleteRole 交錯→無殘留、SC-012 半邊）
-- [ ] T017 [P] [US2] `tests/contract.rs` 契約案 10 條（三維讀寫 6＋支撐讀 4；method 對齊 contracts 表）
+- [ ] T017 [P] [US2] `tests/contract.rs` 契約案 10 條（三維讀寫 6＋支撐讀 4；method 對齊 contracts 表）＋兩條集合等值斷言（getAllEndpoints 回應集合==ROUTES `Protection::Policy` 全集；getAllButtons==`sys_menu.buttons` 聯集去重）——SC-002「同源不多列不漏列」由結構保證升為測試保證
 - [ ] T018 [US2] `sys_casbin_policy.rs` facade：`set_role_dimension(txn, role_code, dim, desired, meta, role_id)`＋`set_role_endpoints(txn, …, desired:&[(path,method)], …)`（★收 caller txn、不 pre-read 角色——R7；diff→protected-reject 任何寫前→archive-move〔T012 insert_archived〕＋grant INSERT）＋current 讀（method 白名單）
 - [ ] T019 [US2] menu 維映射：wire menu id `number[]` ↔ `sys_menu` 活性 route_name（orphan skip、讀端反向）——facade 內或獨立 helper
 - [ ] T020 [US2] `handler/role.rs` 三維讀寫 6 端點（caller 先 `find_active_by_id_for_update` 鎖 sys_role→facade→op-log→commit→**Applied 才呼 T007 rebuild-swap**；`protectedRevoke`＋data{blocked[]}）＋支撐讀 4 端點（getMenuTree／getAllPages／getAllButtons＝`sys_menu.buttons` jsonb 聯集去重／getAllEndpoints＝ROUTES const 濾 `Protection::Policy` 含 path＋method——registry 真源 FR-025）＋`router.rs` 註冊 10 條 → T016/T017 轉綠
 - [ ] T021 [US2] 負向自證：拆 protected-reject→整批拒測試轉紅（含 archive 零新列斷言）；還原全綠（report）
-- [ ] T022 [US2] 前端：`modules/menu-auth-modal.vue` getChecks/handleSubmit 接線 (a)（★getHome/updateHome 留 T035、同檔序列）＋`modules/button-auth-modal.vue` 三 stub 接線 (a)＋★`modules/endpoint-auth-modal.vue` net-new (c)（嚴格鏡像 menu/button modal；path 群組樹 `NTree check-strategy=child`＋synthKey 加固——rev3 坑帶防；觸發鈕＋i18n key）＋wrapper/d.ts 追加本 US 8 fetcher 與型別（getMenuTree/getAllPages 复用凍結、絕不重建）；fork-delta＋typecheck＋fork-delta-lint 綠
+- [ ] T022 [US2] 前端：`modules/menu-auth-modal.vue` getChecks/handleSubmit 接線 (a)（★getHome/updateHome 留 T035、同檔序列）＋`modules/button-auth-modal.vue` 三 stub 接線 (a)＋★`modules/endpoint-auth-modal.vue` net-new (c)（嚴格鏡像 menu/button modal；path 群組樹 `NTree check-strategy=child`＋synthKey 加固——rev3 坑帶防；觸發鈕＋i18n key）＋wrapper/d.ts 追加本 US 8 fetcher 與型別（getMenuTree/getAllPages 復用凍結、絕不重建）；fork-delta＋typecheck＋fork-delta-lint 綠
 
 **Checkpoint**：三面板勾選→提交→回讀一致；protected-reject 明細可見；API 授權即時收縮。
 
@@ -92,7 +93,7 @@ description: "Task list for 009-role-admin implementation"
 **Goal**：停用守門雙護欄＋API 即時生效（濾已在 T006）。**Independent Test**：quickstart S5＋負向自證 2 停用路。**依賴**：US1（updateRole handler）＋T006。
 
 - [ ] T023 [US3] `handler/role.rs`＋`sys_role.rs` updateRole 停用守門：鎖內 self-guard（操作者所屬→`biz.role.cannotDisableSelfRole`）＋★R_SUPER 恆禁停用（`biz.role.superCannotDisable`、不因操作者身分而異 FR-015）＋整合測試（停用→該角色成員下一請求受管制端點 5003〔API 即時、專屬測試角色〕；重新啟用恢復；停用不動指派資料）
-- [ ] T024 [US3] 負向自證：拆 disable self-guard（兩路各拆）→對應測試轉紅；還原全綠（report）
+- [ ] T024 [US3] 負向自證：各拆 FR-014 self-guard（cannotDisableSelfRole）與 FR-015 R_SUPER 恆禁（superCannotDisable）兩道守門→對應測試各轉紅；還原全綠（report）
 
 **Checkpoint**：停用斷權 API 即時；雙護欄＋負向自證綠。
 
@@ -129,7 +130,7 @@ description: "Task list for 009-role-admin implementation"
 **Goal**：roleHome 讀寫＋讀端兜底（FR-039）。**Independent Test**：quickstart S3。**依賴**：US2 前端（同 modal）。
 
 - [ ] T033 [US6] 後端 roleHome：`handler/role.rs` getRoleHome/updateRoleHome 2 端點（entity 讀寫 `sys_role.role_home`、op-log 同交易；★寫端不驗與選單授權一致性 FR-037）＋`tests/contract.rs` 契約 2 條＋`router.rs` 註冊 → 轉綠
-- [ ] T034 [US6] 讀端兜底（FR-039、005 as-built 連動）：`handler/route.rs` getUserRoutes 下發 home 前驗其∈可見樹——不在→可見樹第一個可導航（葉）路由；全空→維持預設值＋單元/整合測試（兜底案／全空案／正常案；既有 `home＝"home"` 斷言連動核對）
+- [ ] T034 [US6] 讀端兜底（FR-039、005 as-built 連動）：`handler/route.rs` getUserRoutes 下發 home 前驗其∈可見樹——不在→★可見樹**先序走訪的第一個可導航（葉）路由**（與側欄呈現序一致——FR-039 落點唯一定義、測試有確定預期值）；全空→維持預設值＋單元/整合測試（兜底案／全空案／正常案；既有 `home＝"home"` 斷言連動核對）
 - [ ] T035 [US6] 前端：`modules/menu-auth-modal.vue` getHome/updateHome 接線 (a)（★與 T022 同檔、序列執行）＋wrapper/d.ts 追加 2 fetcher；typecheck＋fork-delta-lint 綠
 
 **Checkpoint**：首頁變更下次登入生效；「首頁指向不可見頁」不落 404（兜底實測）。
@@ -140,9 +141,9 @@ description: "Task list for 009-role-admin implementation"
 
 - [ ] T036 全量閘：容器內 `cargo test --workspace` 全綠（含 20 契約 case 對帳、coverage gate）＋`pnpm typecheck`＋`tools/fork-delta-lint` 綠＋六負向自證 report 齊（quickstart 負向清單）
 - [ ] T037 [P] ADR draft 落檔：ADR①治理狀態機總綱 `docs/arc42/decisions/00NN-role-governance-state-machine.md`（G1~G5＋停用斷權 D6＋roleHome 兜底＋★兩 blocker 修正：restore 鎖序、reload 重建-swap）＋ADR③B-047 明細通道 `00NN-biz-error-detail-channel.md`（data 欄讀法＋洩漏面評估＋下放重評觸發）；draft 狀態
-- [ ] T038 新島 G Amendment：憲法 §I.7 條文 draft（G1 真相唯一＋同交易稽核＋判定面同步失敗契約；G2 protected-reject；G3 撤銷必歸檔；G4 刪除守門＋batch no-partial；G5 復原同實例＋現役寫入全端點 lock-then-redecide；★sys_user_role 指派寫端未來納鎖序鉤子——R7 風險）＋可選順載 MODAL-WIRING (a) 枚舉澄清；★**user 親決**後：三 ADR 轉 accepted＋憲法 MINOR bump＋`docs(constitution): amend` commit＋`docs-sync generate`
+- [ ] T038 新島 G Amendment：憲法 §I.7 條文 draft（G1 真相唯一＋同交易稽核＋判定面同步失敗契約；G2 protected-reject；G3 撤銷必歸檔；G4 刪除守門＋batch no-partial；G5 復原同實例＋現役寫入全端點 lock-then-redecide；★sys_user_role 指派寫端未來納鎖序鉤子——R7 風險）＋★**MODAL-WIRING (a) 枚舉澄清（必辦、A1 甲案 2026-07-12）**——擴句：「及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit）同屬本用途」；★**user 親決**後：三 ADR 轉 accepted＋憲法 MINOR bump＋`docs(constitution): amend` commit＋`docs-sync generate`。★親決時點＝**U12（前端接線單元）之前**（(a) 澄清為 T015(reset)/T022/T035 的授權前置；後端單元不受影響）
 - [ ] T039 [P] 005 spec as-built 勘誤：`specs/005-auth-login/spec.md` 補註記（getUserRoutes home 落點語意由 009 FR-039 讀端兜底變更——原＝無條件下發角色設定值）
-- [ ] T040 [P] MODAL-WIRING per-change 紀錄表（憲法 §III.2 紀律：位置＋改動內容＋upstream 衝突風險評估）——彙整 T015/T022/T030/T031/T035 逐處，落 `specs/009-role-admin/spec.md` 附錄或 plan.md 附表
+- [ ] T040 [P] MODAL-WIRING per-change 紀錄表（憲法 §III.2 紀律：位置＋改動內容＋upstream 衝突風險評估）——彙整 T015/T022/T030/T031/T035 逐處，★落 `specs/009-role-admin/spec.md` 附錄（MODAL-WIRING 紀律字面＝「在 spec 內紀錄」、憲法 :171 比他軌道嚴；T031 之 I18N (i) 一處可同表註明）
 - [ ] T041 CDP 實機全場景（quickstart S1~S6；★新 i18n key 後 restart base-web 再 CDP；經 `:42080`；換角色登入驗選單/按鈕收縮、停用斷權即時、回收桶三態、home 兜底不落 404、B-047 插值三語）
 - [ ] T042 BACKLOG/LESSONS 簿記：`docs/ops/BACKLOG.md` 消化 B-034/B-047/B-049/B-050 刪列＋B-061 amend（去 policy-archive 項）＋★新增「M-6 no-escalation＋seeded 護欄複評——寫端或 role CRUD 下放非 super 前必建」條目＋★新增「sys_user_role 指派寫端落地時必納 sys_role 鎖序」條目（R7 跨刀鉤子）；踩坑 LESSONS append
 - [ ] T043 收刀前文件閘：`tools/docs-sync refresh`＋`generate` 綠、三 lint 閘綠（★活書 §6 as-built＋生效延遲語意更新**不在此做**——收刀簿記 commit 承載）
@@ -153,24 +154,24 @@ description: "Task list for 009-role-admin implementation"
 
 ### Phase 依賴
 
-- **Setup（P1）**：無依賴、最先。
-- **Foundational（P2）**：依 Setup；阻塞全部 US（鎖 helper＋斷權濾＋swap＋攜參錯誤）。
-- **US1（P3）🎯 MVP**：依 Foundational。archive facade（T012）為 US2 revoke 前提。
-- **US2（P4）**：依 US1（T012 insert_archived＋handler/role.rs 檔）。
-- **US3（P5）**：依 US1（updateRole handler）＋T006。
-- **US4（P6）**：依 US2（歸檔資料）＋T005（鎖 helper）。
-- **US5（P7）**：依 US1/US2（拒因場景）＋T008。
-- **US6（P8）**：後端獨立（依 Foundational）；前端 T035 依 T022（同檔）。
-- **Polish（P9）**：依全部 US；T038 Amendment ★user 親決。
+- **Setup（Phase 1）**：無依賴、最先。
+- **Foundational（Phase 2）**：依 Setup；阻塞全部 US（鎖 helper＋斷權濾＋swap＋攜參錯誤）。
+- **US1（Phase 3）🎯 MVP**：依 Foundational。archive facade（T012）為 US2 revoke 前提。
+- **US2（Phase 4）**：依 US1（T012 insert_archived＋handler/role.rs 檔）。
+- **US3（Phase 5）**：依 US1（updateRole handler）＋T006。
+- **US4（Phase 6）**：依 US2（歸檔資料）＋T005（鎖 helper）。
+- **US5（Phase 7）**：依 US1/US2（拒因場景）＋T008。
+- **US6（Phase 8）**：語意獨立（僅依 Foundational）；★檔案序列依同檔系列排 US1~US4 的 handler/router/contract 任務之後（U10 位序已符）；前端 T035 依 T022（同檔）。
+- **Polish（Phase 9）**：依全部 US；T038 Amendment ★user 親決（其中 (a) 枚舉澄清部分＝U11/U12 前置、時點提前——見 T038）。
 
 ### 執行單元切分（Workflow 編排：每單元一支）
 
-U1＝T001-T004（Setup＋m007）｜U2＝T005-T008（Foundational 四地基）｜U3＝T009,T011,T012（US1 facade TDD）｜U4＝T010,T013,T014（US1 handler＋契約＋負向）｜U5＝T016,T018,T019（US2 治理狀態機 facade）｜U6＝T017,T020,T021（US2 handler＋支撐讀＋負向）｜U7＝T023,T024（US3 停用守門）｜U8＝T025,T027（US4 restore 七步 facade）｜U9＝T026,T028,T029（US4 handler＋負向）｜U10＝T033,T034（US6 後端＋兜底）｜U11＝T015（US1 前端＋建檔一對）｜U12＝T022＋T035（US2/US6 前端、menu-auth-modal 同檔序列）｜U13＝T030（US4 回收桶新頁）｜U14＝T031,T032（US5 明細通道）｜U15＝T036,T041（全量閘＋CDP）｜U16＝T037-T040,T042,T043（治理＋簿記；含 user 親決）。**約 16 執行單元**（spec 預估 12~16 上緣）。
+U1＝T001-T004（Setup＋m007）｜U2＝T005-T008（Foundational 四地基）｜U3＝T009,T011,T012（US1 facade TDD）｜U4＝T010,T013,T014（US1 handler＋契約＋負向）｜U5＝T016,T018,T019（US2 治理狀態機 facade）｜U6＝T017,T020,T021（US2 handler＋支撐讀＋負向）｜U7＝T023,T024（US3 停用守門）｜U8＝T025,T027（US4 restore 七步 facade）｜U9＝T026,T028,T029（US4 handler＋負向）｜U10＝T033,T034（US6 後端＋兜底）｜U11＝T015（US1 前端＋建檔一對）｜U12＝T022＋T035（US2/US6 前端、menu-auth-modal 同檔序列）——★U11/U12 前置＝T038 之 (a) 枚舉澄清 Amendment 已 user 親決落地（A1 甲案）｜U13＝T030（US4 回收桶新頁）｜U14＝T031,T032（US5 明細通道）｜U15＝T036,T041（全量閘＋CDP）｜U16＝T037-T040,T042,T043（治理＋簿記；含 user 親決）。**約 16 執行單元**（spec 預估 12~16 上緣）。
 
 ### Within Each Story
 
 - 測試先寫、應為紅 → facade → handler/router → 轉綠 → 負向自證 → 前端接線。
-- ★同檔系列一律不標 `[P]`、單元內／相鄰單元**序列**：`sys_role.rs`（T005/T009/T011/T023）、`sys_casbin_archive.rs`（T009/T012/T025/T027）、`handler/role.rs`（T013/T020/T023/T033）、`tests/contract.rs`（T010/T017/T026/T033、分屬不同單元天然序列）、`router.rs`（T013/T020/T028/T033）、`menu-auth-modal.vue`（T022/T035）、`rev4-role-admin.{d.ts,ts}`（T015/T022/T030/T035 逐次追加）。
+- ★同檔系列一律不標 `[P]`、單元內／相鄰單元**序列**：`sys_role.rs`（T005/T009/T011/T023）、`sys_casbin_archive.rs`（T009/T012/T025/T027）、`handler/role.rs`（T013/T020/T023/T033）、`tests/contract.rs`（T010/T017/T026/T033、分屬不同單元天然序列）、`router.rs`（T013/T020/T028/T033）、`menu-auth-modal.vue`（T022/T035）、`rev4-role-admin.{d.ts,ts}`（T015→T022→T035→T030 依 U11→U12→U13 序追加）。
 - ★三維寫端＋restore＋delete 全數走 T005 鎖 helper——facade 收 caller txn、絕不 pre-read（R7）。
 
 ### Parallel Opportunities

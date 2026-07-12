@@ -4,7 +4,7 @@
 
 20 端點封閉全集，全數 `Protection::Policy`（require_policy 軌）、**動詞逐條對齊 casbin seed act**（GET×11／POST×7／DELETE×2、對應 seed 政策 23 列）。現況 routes.md 零 role 域端點 → 20 條全 net-new。envelope `{data,code,msg}` 凍結；成功 `0000`、業務錯誤 `2222`（HTTP 200）、權限不足 `5003`。**零新錯誤碼**。
 
-★契約紀律：每條 method 寫死、router 註冊動詞打錯即該端點全域 5003 → §7 coverage gate 20 條契約 case 兜底。`〔n〕`＝seed 政策列 id。
+★契約紀律：每條 method 寫死、router 註冊動詞打錯即該端點全域 5003 → 憲法 §I.3 coverage gate（每條 route 必有 contract case）20 條兜底。`〔n〕`＝seed 政策列 id。
 
 ## 型別（凍結形 vs 新形）
 
@@ -14,7 +14,7 @@
 - `Endpoint = { path: string; method: string }`（getAllEndpoints 回應項＝updateRoleEndpoints desired 項、同形共用）
 - `ArchivedPolicy = { id; ptype; v0..v5; archiveReason; archivedAt; archivedBy; roleId; restorable: boolean; dimension: 'menu'|'button'|'endpoint' }`（restorable/dimension 後端下發）
 - `ArchivedPolicySearchParams = RecordNullable<{ roleCode?; dimension?; current; size }>`；`ArchivedPolicyList = PageRes<ArchivedPolicy>`
-- 寫端請求形：`AddRoleReq`／`UpdateRoleReq`（Pick 凍結 Role）／`UpdateRoleMenuReq{roleId, menuIds:number[]}`／`UpdateRoleButtonReq{roleId, buttons:string[]}`／`UpdateRoleEndpointsReq{roleId, endpoints:Endpoint[]}`／`UpdateRoleHomeReq{roleId, home}`／`RestorePolicyReq{id}`
+- 寫端請求形：`AddRoleReq`／`UpdateRoleReq = {id} & Partial<Pick<Role,'roleCode'|'roleName'|'roleDesc'|'status'>>`（★roleCode **收但不可變**——後端比對現值、不同→`codeImmutable` 拒；FR-006 拒絕路徑的 wire 載體）／`UpdateRoleMenuReq{roleId, menuIds:number[]}`／`UpdateRoleButtonReq{roleId, buttons:string[]}`／`UpdateRoleEndpointsReq{roleId, endpoints:Endpoint[]}`／`UpdateRoleHomeReq{roleId, home}`／`RestorePolicyReq{id}`
 - （可選）B-047 明細 data 形：`{userCount:number}`／`{blocked:{target,dimension}[]}`
 
 ## P1 role CRUD（6）
@@ -24,7 +24,7 @@
 | 1 | `/systemManage/getRoleList` | GET | R_SUPER＋R_ADMIN〔12,13〕 | `RoleSearchParams`（roleName 模糊／roleCode 模糊／status 等值＋current/size） | `PageRes<Role>` |
 | 2 | `/systemManage/getAllRoles` | GET | 三角色〔14,15,16〕 | — | `AllRole[]`（僅活性＋啟用；FR-002） |
 | 3 | `/systemManage/addRole` | POST | R_SUPER〔21〕 | `{roleName, roleCode, roleDesc, status}` | `null`（成功 0000）｜`2222 biz.role.codeExists`／`codeInvalid` |
-| 4 | `/systemManage/updateRole` | POST | R_SUPER〔22〕 | `{id, roleName?, roleDesc?, status?}`（roleCode 變更→`codeImmutable`；全 None→no-op 不 bump 時戳/不落稽核 B-050） | `null`｜`2222 codeImmutable`／`cannotDisableSelfRole`／`biz.role.superCannotDisable` |
+| 4 | `/systemManage/updateRole` | POST | R_SUPER〔22〕 | `{id, roleCode?, roleName?, roleDesc?, status?}`（roleCode 有值且≠現值→`codeImmutable`；全 None→no-op 不 bump 時戳/不落稽核 B-050） | `null`｜`2222 codeImmutable`／`cannotDisableSelfRole`／`biz.role.superCannotDisable` |
 | 5 | `/systemManage/deleteRole` | **DELETE** | R_SUPER〔23〕 | `{id}` | `null`｜`2222 seededProtected`／`inUse`〔data{userCount}〕／`cannotDeleteSelfRole` |
 | 6 | `/systemManage/batchDeleteRole` | **DELETE** | R_SUPER〔24〕 | `{ids:number[]}`（逐項驗證整批拒 no-partial、自管 txn） | `null`｜`2222`（同守門、整批零變更） |
 
@@ -68,4 +68,4 @@ restorePolicy 七步鎖序見 [research.md R7](../research.md)。
 
 ## 前端 fetcher 對帳（R9）
 
-16 支新 fetcher（WRAPPER `rev4-role-admin.ts`）＋4 支复用凍結 `system-manage.ts`（fetchGetRoleList／fetchGetAllRoles／fetchGetMenuTree／fetchGetAllPages、沿 barrel、絕不重建）＝**16＋4＝20 對帳吻合**。新 fetcher 動詞逐條對齊上表（FR-003）。
+16 支新 fetcher（WRAPPER `rev4-role-admin.ts`）＋4 支復用凍結 `system-manage.ts`（fetchGetRoleList／fetchGetAllRoles／fetchGetMenuTree／fetchGetAllPages、沿 barrel、絕不重建）＝**16＋4＝20 對帳吻合**。新 fetcher 動詞逐條對齊上表（FR-003）。

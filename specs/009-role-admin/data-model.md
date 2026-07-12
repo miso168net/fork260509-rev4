@@ -30,6 +30,9 @@ PK`(user_id, role_id)`、雙向 FK **RESTRICT**。本刀**唯讀消費**（delet
 ### sys_menu（選單登記，唯讀消費）
 含 `buttons jsonb`／`i18n_key`／route_name partial-uniq。menu 維候選（樹）＋button 維候選（buttons jsonb 聯集去重）＋menu id↔route_name 映射的真源。
 
+### 端點登記表（非 DB 實體）
+router 的 ROUTES const——程式內單一登記面、非持久化；端點維候選（受管制端點全集）真源、與判定面同源（contracts #16）。spec Key Entities 六實體中唯一不落 DB 者，於此註記使實體對帳封閉。
+
 ## m007 migration（唯一結構變更）
 
 ```
@@ -70,7 +73,7 @@ desired 全集 ─▶ 讀 current（鎖內）─▶ diff{to_revoke, to_grant}
 - **停用斷權**（FR-013）：`roles_of_user` 加 `.filter(Status.eq(1))`（單行、NULL status fail-closed 排除）；下游 RBAC 判定／getUserRoutes／getUserInfo buttons 全生效。self-guard＋R_SUPER 恆禁停用。
 - **restorePolicy 三態＋七步鎖序**（Blocker 1、FR-029/030）：見 [research.md R7](./research.md)；核心＝鎖 archive 列→鎖標的活角色列→鎖內重驗同實例（`locked_role.id == archived.role_id`，不等/NULL→notRestorable，**封繼承旁路**）→menu 維驗活性→三態（已 live NoOp／INSERT live／假 id・不可復原 2222）。
 - **restorable「角色活性」**＝`deleted_at IS NULL`（＝鎖查詢謂詞＝partial-uniq 索引域）；`status=2` 停用**不阻復原**（停用只作用 roles_of_user、casbin 列本就在 live 表、治理授權不受阻）。
-- **roleHome 讀端兜底**（FR-039）：getUserRoutes 下發 home 前驗其在可見樹內；不在→可見樹第一可導航頁；全空→維持預設值（不落 404）。
+- **roleHome 讀端兜底**（FR-039）：getUserRoutes 下發 home 前驗其在可見樹內；不在→可見樹**先序走訪第一個可導航（葉）頁**（與側欄呈現序一致、落點唯一）；全空→維持預設值（不落 404）。
 
 ## 載重不變式
 
