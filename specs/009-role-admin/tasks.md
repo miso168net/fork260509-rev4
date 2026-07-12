@@ -82,7 +82,7 @@ description: "Task list for 009-role-admin implementation"
 - [x] T019 [US2] menu 維映射：wire menu id `number[]` ↔ `sys_menu` 活性 route_name（orphan skip、讀端反向）——facade 內或獨立 helper
 - [x] T020 [US2] `handler/role.rs` 三維讀寫 6 端點（caller 先 `find_active_by_id_for_update` 鎖 sys_role→facade→op-log→commit→**Applied 才呼 T007 rebuild-swap**；`protectedRevoke`＋data{blocked[]}）＋支撐讀 4 端點（getMenuTree／getAllPages／getAllButtons＝`sys_menu.buttons` jsonb 聯集去重／getAllEndpoints＝ROUTES const 濾 `Protection::Policy` 含 path＋method——registry 真源 FR-025）＋`router.rs` 註冊 10 條 → T016/T017 轉綠
 - [x] T021 [US2] 負向自證：拆 protected-reject→整批拒測試轉紅（含 archive 零新列斷言）；還原全綠（report）
-- [ ] T022 [US2] 前端：`modules/menu-auth-modal.vue` getChecks/handleSubmit 接線 (a)（★getHome/updateHome 留 T035、同檔序列）＋`modules/button-auth-modal.vue` 三 stub 接線 (a)＋★`modules/endpoint-auth-modal.vue` net-new (c)（嚴格鏡像 menu/button modal；path 群組樹 `NTree check-strategy=child`＋synthKey 加固——rev3 坑帶防；觸發鈕＋i18n key）＋wrapper/d.ts 追加本 US 8 fetcher 與型別（getMenuTree/getAllPages 復用凍結、絕不重建）；fork-delta＋typecheck＋fork-delta-lint 綠
+- [x] T022 [US2] 前端：`modules/menu-auth-modal.vue` getChecks/handleSubmit 接線 (a)（★getHome/updateHome 留 T035、同檔序列）＋`modules/button-auth-modal.vue` 三 stub 接線 (a)＋★`modules/endpoint-auth-modal.vue` net-new (c)（嚴格鏡像 menu/button modal；path 群組樹 `NTree check-strategy=child`＋synthKey 加固——rev3 坑帶防；觸發鈕＋i18n key）＋wrapper/d.ts 追加本 US 8 fetcher 與型別（getMenuTree/getAllPages 復用凍結、絕不重建）；fork-delta＋typecheck＋fork-delta-lint 綠
 
 **Checkpoint**：三面板勾選→提交→回讀一致；protected-reject 明細可見；API 授權即時收縮。
 
@@ -131,7 +131,7 @@ description: "Task list for 009-role-admin implementation"
 
 - [x] T033 [US6] 後端 roleHome：`handler/role.rs` getRoleHome/updateRoleHome 2 端點（entity 讀寫 `sys_role.role_home`、op-log 同交易；★寫端不驗與選單授權一致性 FR-037）＋`tests/contract.rs` 契約 2 條＋`router.rs` 註冊 → 轉綠
 - [x] T034 [US6] 讀端兜底（FR-039、005 as-built 連動）：`handler/route.rs` getUserRoutes 下發 home 前驗其∈可見樹——不在→★可見樹**先序走訪的第一個可導航（葉）路由**（與側欄呈現序一致——FR-039 落點唯一定義、測試有確定預期值）；全空→維持預設值＋單元/整合測試（兜底案／全空案／正常案；既有 `home＝"home"` 斷言連動核對）
-- [ ] T035 [US6] 前端：`modules/menu-auth-modal.vue` getHome/updateHome 接線 (a)（★與 T022 同檔、序列執行）＋wrapper/d.ts 追加 2 fetcher；typecheck＋fork-delta-lint 綠
+- [x] T035 [US6] 前端：`modules/menu-auth-modal.vue` getHome/updateHome 接線 (a)（★與 T022 同檔、序列執行）＋wrapper/d.ts 追加 2 fetcher；typecheck＋fork-delta-lint 綠
 
 **Checkpoint**：首頁變更下次登入生效；「首頁指向不可見頁」不落 404（兜底實測）。
 
