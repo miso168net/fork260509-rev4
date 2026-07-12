@@ -118,7 +118,7 @@ description: "Task list for 009-role-admin implementation"
 
 **Goal**：明細通道前端半邊（後端 T008 已備）。**Independent Test**：quickstart S6。**依賴**：US1/US2 產生拒因場景。
 
-- [ ] T031 [US5] 共用層＋字典：`base-web/src/service/request/index.ts` onError 插值擴充 I18N-WIRING (i)（`data` 為 plain object→`$t(key, detail, msg)` 三參、否則維持現行 fallback；★同 004 修改型塊追加 009 provenance、`原行:` 不變——R4；零控制流變更、`.env` 碼分組不動）＋`backend.*` 新 key 三語字典（I18N-WIRING (ii)：seededProtected/inUse{userCount}/cannotDeleteSelfRole/cannotDisableSelfRole/superCannotDisable/codeImmutable/codeExists/codeInvalid/protectedRevoke/notRestorable，含插值位）＋`App.I18n.Schema` 擴充 (iii)；typecheck＋fork-delta-lint 綠
+- [ ] T031 [US5] 共用層＋字典：`base-web/src/service/request/index.ts` onError 插值擴充 I18N-WIRING (i)（`data` 為 plain object→`$t(key, detail, msg)` 三參、否則維持現行 fallback；★同 004 修改型塊追加 009 provenance、`原行:` 不變——R4；零控制流變更、`.env` 碼分組不動）＋`backend.*` 新 key 三語字典（I18N-WIRING (ii)：seededProtected/inUse{userCount}/cannotDeleteSelfRole/cannotDisableSelfRole/superCannotDisable/codeImmutable/codeExists/codeInvalid/protectedRevoke/notRestorable，含插值位；★key 形紀律逐鍵核：message 僅 scalar 佔位、物件/陣列類 data 走呼叫端結構化渲染不進 `$t`——ADR 0050）＋`App.I18n.Schema` 擴充 (iii)；typecheck＋fork-delta-lint 綠
 - [ ] T032 [US5] 呼叫端結構化渲染：protectedRevoke 的 blocked[] 明細於三 auth-modal 呼叫端局部讀 `error.response.data.data` 渲染（(a) 呼叫端邏輯、R4 第 2 層；具體形式 dialog/展開訊息 impl 自定）；驗證既有無明細錯誤路徑零改動
 
 **Checkpoint**：拒因訊息帶具體插值（人數、被擋清單）、三語齊、無 raw key。
@@ -145,7 +145,7 @@ description: "Task list for 009-role-admin implementation"
 - [ ] T039 [P] 005 spec as-built 勘誤：`specs/005-auth-login/spec.md` 補註記（getUserRoutes home 落點語意由 009 FR-039 讀端兜底變更——原＝無條件下發角色設定值）
 - [ ] T040 [P] MODAL-WIRING per-change 紀錄表（憲法 §III.2 紀律：位置＋改動內容＋upstream 衝突風險評估）——彙整 T015/T022/T030/T031/T035 逐處，★落 `specs/009-role-admin/spec.md` 附錄（MODAL-WIRING 紀律字面＝「在 spec 內紀錄」、憲法 :171 比他軌道嚴；T031 之 I18N (i) 一處可同表註明）
 - [ ] T041 CDP 實機全場景（quickstart S1~S6；★新 i18n key 後 restart base-web 再 CDP；經 `:42080`；換角色登入驗選單/按鈕收縮、停用斷權即時、回收桶三態、home 兜底不落 404、B-047 插值三語）
-- [ ] T042 BACKLOG/LESSONS 簿記：`docs/ops/BACKLOG.md` 消化 B-034/B-047/B-049/B-050 刪列＋B-061 amend（去 policy-archive 項）＋★新增「M-6 no-escalation＋seeded 護欄複評——寫端或 role CRUD 下放非 super 前必建」條目＋★新增「sys_user_role 指派寫端落地時必納 sys_role 鎖序」條目（R7 跨刀鉤子）；踩坑 LESSONS append
+- [ ] T042 BACKLOG/LESSONS 簿記：`docs/ops/BACKLOG.md` 消化 B-034/B-047/B-049/B-050 刪列＋B-061 amend（去 policy-archive 項）＋★新增「M-6 no-escalation＋seeded 護欄複評＋明細通道受眾邊界重評（FR-035／ADR 0050）——寫端或 role CRUD 下放非 super 前必建」條目＋★新增「sys_user_role 指派寫端落地時必納 sys_role 鎖序」條目（R7 跨刀鉤子）；踩坑 LESSONS append
 - [ ] T043 收刀前文件閘：`tools/docs-sync refresh`＋`generate` 綠、三 lint 閘綠（★活書 §6 as-built＋生效延遲語意更新**不在此做**——收刀簿記 commit 承載）
 
 ---
