@@ -34,9 +34,9 @@ description: "Task list for 009-role-admin implementation"
 
 **Purpose**：模組骨架、唯一結構變更 m007、role_code 守門——所有 US 的地基。
 
-- [ ] T001 [P] 建模組骨架空殼＋宣告：`rust-api/server/src/model/facade/sys_casbin_policy.rs`＋`sys_casbin_archive.rs`、`rust-api/server/src/handler/role.rs`＋`policy_archive.rs`（僅型別骨架＋`pub mod` 宣告於對應 mod.rs；實作留各 US）
-- [ ] T002 m007 migration：`rust-api/migration/src/m007_archive_role_id.rs`（up＝`ALTER TABLE sys_casbin_policy_archive ADD COLUMN role_id bigint NULL`、down＝DROP；不設 FK、無 DEFAULT、無索引——R2 精確形）＋`lib.rs` 註冊＋entity 對應 model 加 `role_id` 欄＋★`tools/schema-gate` gate1 STRUCTURAL_ADDITIVE_ALLOWLIST 加一條（**同 commit**、L-109）；容器內 migrate＋`cargo build` 驗證
-- [ ] T003 [P] `rust-api/server/src/validation.rs` 加 role_code 形制守門 `^[A-Za-z0-9_]{1,64}$`（R8：雙端錨定、對 wire 原始字串、不預 trim；`chars().all()` 形免 regex 依賴可）＋單元測試（合法／空／越 64／metacharacter／unicode 案）
+- [x] T001 [P] 建模組骨架空殼＋宣告：`rust-api/server/src/model/facade/sys_casbin_policy.rs`＋`sys_casbin_archive.rs`、`rust-api/server/src/handler/role.rs`＋`policy_archive.rs`（僅型別骨架＋`pub mod` 宣告於對應 mod.rs；實作留各 US）
+- [x] T002 m007 migration：`rust-api/migration/src/m007_archive_role_id.rs`（up＝`ALTER TABLE sys_casbin_policy_archive ADD COLUMN role_id bigint NULL`、down＝DROP；不設 FK、無 DEFAULT、無索引——R2 精確形）＋`lib.rs` 註冊＋entity 對應 model 加 `role_id` 欄＋★`tools/schema-gate` gate1 STRUCTURAL_ADDITIVE_ALLOWLIST 加一條（**同 commit**、L-109）；容器內 migrate＋`cargo build` 驗證
+- [x] T003 [P] `rust-api/server/src/validation.rs` 加 role_code 形制守門 `^[A-Za-z0-9_]{1,64}$`（R8：雙端錨定、對 wire 原始字串、不預 trim；`chars().all()` 形免 regex 依賴可）＋單元測試（合法／空／越 64／metacharacter／unicode 案）
 - [x] T004 [P] ADR② draft 落檔：`docs/arc42/decisions/00NN-archive-role-id-column.md`（B-034 兌現、m007 形、★含 archive 缺 `protected` 欄 won't-add 分析與三不變式佐證＋未來翻案觸發條款——R2）；draft 狀態、Polish 期 user 親決
 
 **Checkpoint**：`cargo build --workspace` 綠；m007 落庫、gate1 白名單同 commit。
