@@ -48,8 +48,8 @@ description: "Task list for 010-menu-admin implementation"
 **Purpose**：序列化域基建＋治理域讀端＋009 寫端入域＋reason gate 擴充。
 
 - [x] T004 序列化域基建：`domain_lock.rs` advisory 取鎖實作（sea-orm raw `SELECT pg_advisory_xact_lock($key)`）＋互斥可觀察整合測試（兩 txn 併發取鎖→pg_locks `locktype='advisory'` 斷言後到者等待、先到 commit 後接續——SC-003 機器證的觀測底座）
-- [ ] T005 `rust-api/server/src/model/facade/sys_menu.rs` 讀端地基：`list_governed`（`deleted_at IS NULL`、含停用——治理域 R2）＋鎖讀 helper（`find_by_id_for_update`〔不濾刪、restore 用〕／`find_governed_by_id_for_update`）＋單元測試（治理域含停用不含已刪／鎖讀謂詞）＋★facade 註解正名兩域（治理域＝未刪 governed／顯示域＝啟用∧未刪 active、「活性」一詞專指 deleted_at IS NULL）
-- [ ] T006 009 寫端入域＋reason gate 擴充：`rust-api/server/src/model/facade/sys_casbin_policy.rs` `set_role_dimension`（menu/button 維、fn 內一律）＋`rust-api/server/src/handler/policy_archive.rs` `restorePolicy`（一律）各加 advisory 首動作（R1、鎖內重驗沿既有）；`rust-api/server/src/model/facade/sys_casbin_archive.rs` restorable 判定 fn 擴充不可手動復原集合 `{role_soft_delete, menu_soft_delete, menu_button_removed}`（★list 旗標＋restore 權威判定**單點共用**、FR-014）＋`insert_archived` 支援新二 reason 來源；既有測試零轉紅盤點＋新紅測（直接 INSERT `menu_soft_delete`／`menu_button_removed` archive 列→restorable=false＋restorePolicy 強打拒 `biz.policy.notRestorable`）
+- [x] T005 `rust-api/server/src/model/facade/sys_menu.rs` 讀端地基：`list_governed`（`deleted_at IS NULL`、含停用——治理域 R2）＋鎖讀 helper（`find_by_id_for_update`〔不濾刪、restore 用〕／`find_governed_by_id_for_update`）＋單元測試（治理域含停用不含已刪／鎖讀謂詞）＋★facade 註解正名兩域（治理域＝未刪 governed／顯示域＝啟用∧未刪 active、「活性」一詞專指 deleted_at IS NULL）
+- [x] T006 009 寫端入域＋reason gate 擴充：`rust-api/server/src/model/facade/sys_casbin_policy.rs` `set_role_dimension`（menu/button 維、fn 內一律）＋`rust-api/server/src/handler/policy_archive.rs` `restorePolicy`（一律）各加 advisory 首動作（R1、鎖內重驗沿既有）；`rust-api/server/src/model/facade/sys_casbin_archive.rs` restorable 判定 fn 擴充不可手動復原集合 `{role_soft_delete, menu_soft_delete, menu_button_removed}`（★list 旗標＋restore 權威判定**單點共用**、FR-014）＋`insert_archived` 支援新二 reason 來源；既有測試零轉紅盤點＋新紅測（直接 INSERT `menu_soft_delete`／`menu_button_removed` archive 列→restorable=false＋restorePolicy 強打拒 `biz.policy.notRestorable`）
 
 **Checkpoint**：`cargo test --workspace` 綠（advisory 底座＋治理域讀＋009 入域＋gate 擴充就緒）。
 
