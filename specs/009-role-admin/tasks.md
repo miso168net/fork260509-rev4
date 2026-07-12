@@ -118,8 +118,8 @@ description: "Task list for 009-role-admin implementation"
 
 **Goal**：明細通道前端半邊（後端 T008 已備）。**Independent Test**：quickstart S6。**依賴**：US1/US2 產生拒因場景。
 
-- [ ] T031 [US5] 共用層＋字典：`base-web/src/service/request/index.ts` onError 插值擴充 I18N-WIRING (i)（`data` 為 plain object→`$t(key, detail, msg)` 三參、否則維持現行 fallback；★同 004 修改型塊追加 009 provenance、`原行:` 不變——R4；零控制流變更、`.env` 碼分組不動）＋`backend.*` 新 key 三語字典（I18N-WIRING (ii)：seededProtected/inUse{userCount}/cannotDeleteSelfRole/cannotDisableSelfRole/superCannotDisable/codeImmutable/codeExists/codeInvalid/protectedRevoke/notRestorable，含插值位；★key 形紀律逐鍵核：message 僅 scalar 佔位、物件/陣列類 data 走呼叫端結構化渲染不進 `$t`——ADR 0050）＋`App.I18n.Schema` 擴充 (iii)；typecheck＋fork-delta-lint 綠
-- [ ] T032 [US5] 呼叫端結構化渲染：protectedRevoke 的 blocked[] 明細於三 auth-modal 呼叫端局部讀 `error.response.data.data` 渲染（(a) 呼叫端邏輯、R4 第 2 層；具體形式 dialog/展開訊息 impl 自定）；驗證既有無明細錯誤路徑零改動
+- [x] T031 [US5] 共用層＋字典：`base-web/src/service/request/index.ts` onError 插值擴充 I18N-WIRING (i)（`data` 為 plain object→`$t(key, detail, msg)` 三參、否則維持現行 fallback；★同 004 修改型塊追加 009 provenance、`原行:` 不變——R4；零控制流變更、`.env` 碼分組不動）＋`backend.*` 新 key 三語字典（I18N-WIRING (ii)：seededProtected/inUse{userCount}/cannotDeleteSelfRole/cannotDisableSelfRole/superCannotDisable/codeImmutable/codeExists/codeInvalid/protectedRevoke/notRestorable，含插值位；★key 形紀律逐鍵核：message 僅 scalar 佔位、物件/陣列類 data 走呼叫端結構化渲染不進 `$t`——ADR 0050）＋`App.I18n.Schema` 擴充 (iii)；typecheck＋fork-delta-lint 綠
+- [x] T032 [US5] 呼叫端結構化渲染：protectedRevoke 的 blocked[] 明細於三 auth-modal 呼叫端局部讀 `error.response.data.data` 渲染（(a) 呼叫端邏輯、R4 第 2 層；具體形式 dialog/展開訊息 impl 自定）；驗證既有無明細錯誤路徑零改動
 
 **Checkpoint**：拒因訊息帶具體插值（人數、被擋清單）、三語齊、無 raw key。
 
