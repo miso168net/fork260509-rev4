@@ -1,4 +1,4 @@
-<!-- next: B-083 -->
+<!-- next: B-086 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -19,7 +19,6 @@
 - B-030｜新帳號初始密碼政策化（隨機生成＋首登強制改密）｜建用戶功能刀｜出處：rev3:CHECKLIST§4.2＋REVIEW§3.3-F-7（K2-14）
 - B-031｜obs 告警通知投遞 channel 最小一條納首發｜觀測層刀｜出處：rev3:CHECKLIST§4.2（K2-15）
 - B-033｜節流快取遞延組（壓制告警/廣度估計/TTL 拆分）＋誤鎖緩解優先級提前（★部分消化 2026-07-10：007 已落壓制麵包屑結構化告警＋unlockLogin 誤鎖緩解；殘餘＝grafana 告警規則＋HLL 廣度估計＋IP 維 TTL 拆分）｜obs 刀（grafana/HLL）＋IP 閘刀（TTL 拆分）｜出處：rev3:CHECKLIST§4.2＋§3.H（K2-17）
-- B-034｜policy 回收桶來源過濾器＋復原判定去牆鐘化（archive 入來源角色 id 欄）｜角色刪除/archive 刀 schema 期｜出處：rev3:CHECKLIST§4.2（K2-18）
 - B-036｜列表排序 per-column 索引評估＋三端白名單單一來源或 parity 檢查｜列表排序刀｜出處：rev3:CHECKLIST§4.2（K2-20）
 - B-037｜prod TLS/信任拓樸落地組做成部署 checklist＋自動化驗收（★2026-07-11 008 final review #1 加：CDN origin 防火牆鎖定〔僅受 CDN 邊緣連線／Authenticated Origin Pulls〕＝Tier-1 位置錨承重前提、與 DNAT 同級）｜prod 部署刀｜出處：rev3:CHECKLIST§4.2＋§3.E（K2-21）
 - B-038｜prod 多副本橫向擴展拓樸留位（LB＋共用 DB/Redis）｜含水平擴展目標時｜出處：rev3:CHECKLIST§4.2（K2-22）
@@ -29,14 +28,11 @@
 - B-042｜prod nginx 完整資源 CSP 收緊內建部署驗收｜prod 部署刀｜出處：rev3:CHECKLIST§3.J（K2-27）
 - B-044｜op-log payload PII 遮蔽策略先拍再落庫｜審計 payload 設計期｜出處：rev3:CHECKLIST§3.J（K2-29）
 - B-045｜低位殘項 checklist（trace_id 控制字元/XFF 空 token/計數 race/migration down 非對稱/CDN 錨）｜重寫對應模組時逐項內建｜出處：rev3:CHECKLIST§3.J（K2-30）
-- B-047｜protected-reject 錯誤訊息具體化（detail 插值通道＋洩漏評估；信封加欄＝憲法 §I.3 Amendment 級、payload 形等治理刀 brainstorm 定）｜治理刀（casbin 寫端設計期；003 錯誤信封刀已收且明拒本項、rev4 現零發射點）｜出處：rev3:CHECKLIST§3.H（K2-32）
-- B-049｜批次軟刪自管 transaction（去 sentinel DbErr 控制流）｜首個批次寫端刀｜出處：rev3:CHECKLIST§3.H（K2-34）
-- B-050｜部分更新全 None 提前 no-op 入 handler/facade 慣例｜部分更新語意設計時｜出處：rev3:CHECKLIST§3.H（K2-35）
 - B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（偵察 2026-07-10 薦案 a＝tooltip 改 $t help 鍵、seed description 留 DB 作 fallback、零 migration；005 遺漏 session_idle_timeout 的 label 鍵〔三語 UI 直顯 seed 繁體〕宜同刀補；★007 已落 login_throttle_* 三鍵、同檔 index.vue labelKeyMap＋三語 locale 已動——先後次序顧慮已解、enrich 屆時直接改）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）
 - B-060｜demo 選單清理：002 casbin menu seed 給 R_SUPER 全 soybean template demo（about/document/plugin/alova/pro-naive/multi-menu/function）menu policy，rev4 真選單應只 home/manage/user-center｜動 002 casbin/sys_menu seed（新 migration；偵察 2026-07-10：demo＝67 menu＋77 casbin 列、keep＝11〔含 B-061 三未建頁項不動〕；casbin_rule 無 deleted_at→policy 硬刪不可避、gate2 缺列紅需 SEED_REMOVAL_ALLOWLIST＋新 ADR〔0032 只放寬新增〕；拍板點＝sys_menu hard vs 軟刪／exception 樹入否；受影響測試＝sys_menu facade list_active 計數＋route handler R_USER_COMMON 正向斷言）｜出處：005 CDP item#2 拍板 2026-07-06
-- B-061｜3 manage 子項 i18n：manage_audit/ip-rule/policy-archive 已 002 seed 選單項但 locale 三語無 route.manage_* 譯文→dynamic 選單顯 raw key（未建頁、前端無 route/view→點擊 404）｜各子系統刀建時補譯文（★route locale 鍵無「獨立新增」授權、須隨建頁走 MODAL-WIRING(e)＝憲法 §III.2；004 manage_system-settings 即此範式；2026-07-06 定案延後、非 quick win；註 2026-07-10：007 /systemManage/unlockLogin 純 API、零選單項零譯文需求、不擴本清單——前端解鎖 UI 屆時隨使用者管理刀建頁同軌道補）｜出處：005 CDP item#2 拍板 2026-07-06
+- B-061｜2 manage 子項 i18n：manage_audit/ip-rule 已 002 seed 選單項但 locale 三語無 route.manage_* 譯文→dynamic 選單顯 raw key（未建頁、前端無 route/view→點擊 404）｜各子系統刀建時補譯文（★route locale 鍵無「獨立新增」授權、須隨建頁走 MODAL-WIRING(e)＝憲法 §III.2；004 manage_system-settings 即此範式；2026-07-06 定案延後、非 quick win；註 2026-07-10：007 /systemManage/unlockLogin 純 API、零選單項零譯文需求、不擴本清單——前端解鎖 UI 屆時隨使用者管理刀建頁同軌道補；★2026-07-12 009 已清 policy-archive 一項＝隨回收桶建頁補三語 route locale〔MODAL-WIRING(e)〕、殘餘 audit/ip-rule 兩項待各子系統刀建頁時補）｜出處：005 CDP item#2 拍板 2026-07-06
 - B-063｜孤兒/背景 reaper：sys_token 跨 session 孤兒＋rotated 過期列完整回收（006 refresh-time prune_expired_rotated 已止血同 chain；跨 session/背景批次遞延）｜obs/維運刀｜出處：006 R6/SC-009
 - B-064｜停用帳號/管理員踢除 端點接线：消費 revoke_others_of_user primitive＋發 session_event(revoked)＋denylist(kicked/revoked)；006 只出 primitive、觸發端點遞延（併 B-029 改密撤 session）｜使用者管理刀｜出處：006 FR-008
 - B-065｜denylist 逐出/命中監控＋enforce PG-fallback 負載觀測（每受保護請求一次 ttl_from_settings SELECT、admin 規模可接受）｜obs 刀｜出處：006 U4/final review minor
@@ -49,3 +45,6 @@
 - B-080｜CDN 錨碼層硬化：Tier-1 CDN 位置錨僅檢查「最右 CDN 段」、不檢查該 CDN 由傳輸層背書，origin 對外裸露時可偽造 XFF 注入公開 CDN 邊緣 IP 當錨繞過閘（final review #1、ADR 0043）；候選＝Tier-1 錨要求「錨右鄰起全受信基建」；★留獨立後續刀（避免誤傷合法多層 CDN/LB 拓樸）｜ingress 硬化刀｜出處：008 final holistic review #1
 - B-081｜prod Dockerfile xdb 資料檔 COPY：xdb/resources/ip2region.xdb 已 git-tracked，但現僅 dev stage、prod 多階段建置需 COPY 進映像＋設 XDB_FILEPATH（否則 prod xdb_ready=false、region 恆空）｜prod 多階段建置刀｜出處：008 U12 as-built（L-083/L-084）
 - B-082｜committed-row 測試 panic-safe teardown：auth 節流 flaky 併發測（throttle_no_false_lock…、seed_temp_user us2_ 前綴）測尾 cleanup 排在測末、panic 即漏跑→留 committed sys_user 孤兒污染 gate2 seed 面、連累後續刀 gate2 假紅（009 U6/U7 各清一次）；候選＝RAII Drop guard／scope-guard 使 panic 亦清 committed 列（可推廣至所有 committed-row 測試）｜test 衛生刀或 flaky 再現頻繁時｜出處：009 U7 gate2（近 B-078 flaky 區）
+- B-083｜寫端授權下放前置複合條目（M-6 no-escalation 授權上限檢查＋seeded 護欄複評＋明細通道受眾邊界重評）——任何「寫端授權下放非 super」或「role CRUD 政策列下放非 super」之前 MUST 先建：①非超管寫端「不得授出超過自身所有」上限檢查（FR-045、本刀結構上不可達故未建）；②seeded 受保護護欄與「超管恆禁停用」結構護欄複評（FR-015／FR-018）；③明細通道受眾邊界重評（FR-035／ADR 0050——明細「自查等價」前提隨受眾改變即失效）｜寫端授權下放刀｜出處：009 FR-035/FR-045／ADR 0050
+- B-084｜sys_user_role 指派寫端落地時 MUST 納 sys_role 鎖序（R7 跨刀鉤子）——009 三維寫端／restore／delete 已走 `find_active_by_*_for_update` 鎖 sys_role 列（lock-then-redecide、FR-022）；未來使用者管理刀提供「指派/解除角色」寫端時，其對 sys_user_role 的寫入 MUST 同納該角色列鎖序（否則指派×刪除/停用併發可繞過守門）｜使用者管理刀（角色指派寫端）｜出處：009 FR-022／島 G G5（憲法 §I.7）
+- B-085｜ADR 0050 protectedRevoke 命名 as-built 漂移：ADR 0050 line 20 字面列命名空間為 `biz.policy.protectedRevoke`，as-built（rust-api handler role.rs／契約表／base-web 三語 locale）一律用 `biz.role.protectedRevoke`（distinct key 一因一鍵、與其餘 biz.role.* 拒因同命名空間）——★文檔漂移、實作正確（ADR accepted body 不可變、不回灌）；翻案／再動明細通道 key 命名時 MUST 立新 ADR 校正字面｜明細通道再設計或 ADR 0050 翻案觸發時｜出處：009 U16 收刀 as-built 核對
