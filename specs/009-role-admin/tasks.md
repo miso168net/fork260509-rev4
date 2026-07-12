@@ -47,10 +47,10 @@ description: "Task list for 009-role-admin implementation"
 
 **Purpose**：鎖讀 helper（Blocker 1 範式）＋reload 重建-swap（Blocker 2）＋停用斷權口徑（US3 語意地基）＋B-047 攜參錯誤變體。
 
-- [ ] T005 `rust-api/server/src/model/facade/sys_role.rs` 加兩把鎖讀 helper：`find_active_by_id_for_update`／`find_active_by_code_for_update`（sea-orm `.lock_exclusive()`、doc 註明「須於 caller txn 內呼叫、autocommit 下鎖隨語句即釋」——R7 範式；partial-uniq 保證 by_code 至多一列）＋單元測試
-- [ ] T006 停用斷權（US3 語意地基、FR-013）：`rust-api/server/src/model/facade/sys_user_role.rs` `roles_of_user` 第 2 段查詢加 `.filter(sys_role::Column::Status.eq(1))`（鏡像 home_of_roles 前例；NULL status fail-closed 排除）＋★facade 註解口徑更新（「roles_of_user **解出口徑**＝未軟刪且啟用 status=1、NULL 視同未啟用」；★「活性」一詞保留專指 `deleted_at IS NULL`——與 data-model／R7 一致、防 `find_active_*` 系 helper 被誤解為含 status）＋新紅測（專屬測試角色：停用角色不解出、多角色停一剩聯集；R5 盤點＝既有測試零轉紅、如有轉紅即回報異常）
-- [ ] T007 reload 重建-swap（Blocker 2、FR-021）：`rust-api/server/src/auth/enforce.rs` 加 `rebuild_enforcer(db) -> Result<Enforcer>`（重建全新 Enforcer；成功才由呼叫端 `*state.enforcer.write().await = new`）＋有界重試常數（寫死 ≤3、退避；★絕不取自輸入）＋失敗結構化告警（`tracing::error!` 帶 cause）＋★「絕不對 live enforcer 裸呼 load_policy」硬禁令註解＋casbin 2.20.0 clear-then-load 特性鎖定註記（升版警示、R1）＋**SC-013 負向測試**：注入壞 DB conn 使重建失敗→斷言舊面續 allow R_SUPER＋告警留痕（不鎖死）＋**負向自證⑥**：暫改 reload 為對 live enforcer 裸呼 `load_policy`→SC-013 測試轉紅；還原全綠（結果寫入執行單元 report）
-- [ ] T008 B-047 後端通道（FR-034）：`rust-api/server/src` AppError 加攜參變體（`Biz(key, Option<serde_json::Value>)` 形、既有無參 `2222` 路徑**零改動**）＋envelope `data` 欄下發接線＋單元測試（有參／無參／既有路徑不變三案）
+- [x] T005 `rust-api/server/src/model/facade/sys_role.rs` 加兩把鎖讀 helper：`find_active_by_id_for_update`／`find_active_by_code_for_update`（sea-orm `.lock_exclusive()`、doc 註明「須於 caller txn 內呼叫、autocommit 下鎖隨語句即釋」——R7 範式；partial-uniq 保證 by_code 至多一列）＋單元測試
+- [x] T006 停用斷權（US3 語意地基、FR-013）：`rust-api/server/src/model/facade/sys_user_role.rs` `roles_of_user` 第 2 段查詢加 `.filter(sys_role::Column::Status.eq(1))`（鏡像 home_of_roles 前例；NULL status fail-closed 排除）＋★facade 註解口徑更新（「roles_of_user **解出口徑**＝未軟刪且啟用 status=1、NULL 視同未啟用」；★「活性」一詞保留專指 `deleted_at IS NULL`——與 data-model／R7 一致、防 `find_active_*` 系 helper 被誤解為含 status）＋新紅測（專屬測試角色：停用角色不解出、多角色停一剩聯集；R5 盤點＝既有測試零轉紅、如有轉紅即回報異常）
+- [x] T007 reload 重建-swap（Blocker 2、FR-021）：`rust-api/server/src/auth/enforce.rs` 加 `rebuild_enforcer(db) -> Result<Enforcer>`（重建全新 Enforcer；成功才由呼叫端 `*state.enforcer.write().await = new`）＋有界重試常數（寫死 ≤3、退避；★絕不取自輸入）＋失敗結構化告警（`tracing::error!` 帶 cause）＋★「絕不對 live enforcer 裸呼 load_policy」硬禁令註解＋casbin 2.20.0 clear-then-load 特性鎖定註記（升版警示、R1）＋**SC-013 負向測試**：注入壞 DB conn 使重建失敗→斷言舊面續 allow R_SUPER＋告警留痕（不鎖死）＋**負向自證⑥**：暫改 reload 為對 live enforcer 裸呼 `load_policy`→SC-013 測試轉紅；還原全綠（結果寫入執行單元 report）
+- [x] T008 B-047 後端通道（FR-034）：`rust-api/server/src` AppError 加攜參變體（`Biz(key, Option<serde_json::Value>)` 形、既有無參 `2222` 路徑**零改動**）＋envelope `data` 欄下發接線＋單元測試（有參／無參／既有路徑不變三案）
 
 **Checkpoint**：`cargo test --workspace` 綠（地基就緒：鎖 helper＋斷權濾＋swap helper＋攜參錯誤）。
 
