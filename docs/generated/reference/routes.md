@@ -19,9 +19,12 @@
 | /route/getUserRoutes | GET | Authed | route-get-user-routes | 否 |
 | /route/isRouteExist | GET | Authed | route-is-route-exist | 否 |
 | /systemManage/addIpRule | POST | Policy | add-ip-rule | 否 |
+| /systemManage/addMenu | POST | Policy | add-menu | 否 |
 | /systemManage/addRole | POST | Policy | add-role | 否 |
+| /systemManage/batchDeleteMenu | DELETE | Policy | batch-delete-menu | 否 |
 | /systemManage/batchDeleteRole | DELETE | Policy | batch-delete-role | 否 |
 | /systemManage/deleteIpRule | DELETE | Policy | delete-ip-rule | 否 |
+| /systemManage/deleteMenu | DELETE | Policy | delete-menu | 否 |
 | /systemManage/deleteRole | DELETE | Policy | delete-role | 否 |
 | /systemManage/getAllButtons | GET | Policy | get-all-buttons | 否 |
 | /systemManage/getAllEndpoints | GET | Policy | get-all-endpoints | 否 |
@@ -29,6 +32,7 @@
 | /systemManage/getAllRoles | GET | Policy | get-all-roles | 否 |
 | /systemManage/getArchivedPolicies | GET | Policy | get-archived-policies | 否 |
 | /systemManage/getIpRuleList | GET | Policy | get-ip-rule-list | 否 |
+| /systemManage/getMenuList/v2 | GET | Policy | get-menu-list-v2 | 否 |
 | /systemManage/getMenuTree | GET | Policy | get-menu-tree | 否 |
 | /systemManage/getRoleButton | GET | Policy | get-role-button | 否 |
 | /systemManage/getRoleEndpoints | GET | Policy | get-role-endpoints | 否 |
@@ -40,6 +44,7 @@
 | /systemManage/restorePolicy | POST | Policy | restore-policy | 否 |
 | /systemManage/unlockLogin | POST | Policy | unlock-login | 否 |
 | /systemManage/updateIpRule | POST | Policy | update-ip-rule | 否 |
+| /systemManage/updateMenu | POST | Policy | update-menu | 否 |
 | /systemManage/updateRole | POST | Policy | update-role | 否 |
 | /systemManage/updateRoleButton | POST | Policy | update-role-button | 否 |
 | /systemManage/updateRoleEndpoints | POST | Policy | update-role-endpoints | 否 |
