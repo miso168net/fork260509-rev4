@@ -37,7 +37,7 @@ description: "Task list for 009-role-admin implementation"
 - [ ] T001 [P] 建模組骨架空殼＋宣告：`rust-api/server/src/model/facade/sys_casbin_policy.rs`＋`sys_casbin_archive.rs`、`rust-api/server/src/handler/role.rs`＋`policy_archive.rs`（僅型別骨架＋`pub mod` 宣告於對應 mod.rs；實作留各 US）
 - [ ] T002 m007 migration：`rust-api/migration/src/m007_archive_role_id.rs`（up＝`ALTER TABLE sys_casbin_policy_archive ADD COLUMN role_id bigint NULL`、down＝DROP；不設 FK、無 DEFAULT、無索引——R2 精確形）＋`lib.rs` 註冊＋entity 對應 model 加 `role_id` 欄＋★`tools/schema-gate` gate1 STRUCTURAL_ADDITIVE_ALLOWLIST 加一條（**同 commit**、L-109）；容器內 migrate＋`cargo build` 驗證
 - [ ] T003 [P] `rust-api/server/src/validation.rs` 加 role_code 形制守門 `^[A-Za-z0-9_]{1,64}$`（R8：雙端錨定、對 wire 原始字串、不預 trim；`chars().all()` 形免 regex 依賴可）＋單元測試（合法／空／越 64／metacharacter／unicode 案）
-- [ ] T004 [P] ADR② draft 落檔：`docs/arc42/decisions/00NN-archive-role-id-column.md`（B-034 兌現、m007 形、★含 archive 缺 `protected` 欄 won't-add 分析與三不變式佐證＋未來翻案觸發條款——R2）；draft 狀態、Polish 期 user 親決
+- [x] T004 [P] ADR② draft 落檔：`docs/arc42/decisions/00NN-archive-role-id-column.md`（B-034 兌現、m007 形、★含 archive 缺 `protected` 欄 won't-add 分析與三不變式佐證＋未來翻案觸發條款——R2）；draft 狀態、Polish 期 user 親決
 
 **Checkpoint**：`cargo build --workspace` 綠；m007 落庫、gate1 白名單同 commit。
 
@@ -140,8 +140,8 @@ description: "Task list for 009-role-admin implementation"
 ## Phase 9: Polish＋治理＋實機驗收
 
 - [ ] T036 全量閘：容器內 `cargo test --workspace` 全綠（含 20 契約 case 對帳、coverage gate）＋`pnpm typecheck`＋`tools/fork-delta-lint` 綠＋六負向自證 report 齊（quickstart 負向清單）
-- [ ] T037 [P] ADR draft 落檔：ADR①治理狀態機總綱 `docs/arc42/decisions/00NN-role-governance-state-machine.md`（G1~G5＋停用斷權 D6＋roleHome 兜底＋★兩 blocker 修正：restore 鎖序、reload 重建-swap）＋ADR③B-047 明細通道 `00NN-biz-error-detail-channel.md`（data 欄讀法＋洩漏面評估＋下放重評觸發）；draft 狀態
-- [ ] T038 新島 G Amendment：憲法 §I.7 條文 draft（G1 真相唯一＋同交易稽核＋判定面同步失敗契約；G2 protected-reject；G3 撤銷必歸檔；G4 刪除守門＋batch no-partial；G5 復原同實例＋現役寫入全端點 lock-then-redecide；★sys_user_role 指派寫端未來納鎖序鉤子——R7 風險）＋★**MODAL-WIRING (a) 枚舉澄清（必辦、A1 甲案 2026-07-12）**——擴句：「及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit）同屬本用途」；★**user 親決**後：三 ADR 轉 accepted＋憲法 MINOR bump＋`docs(constitution): amend` commit＋`docs-sync generate`。★親決時點＝**U12（前端接線單元）之前**（(a) 澄清為 T015(reset)/T022/T035 的授權前置；後端單元不受影響）
+- [x] T037 [P] ADR draft 落檔：ADR①治理狀態機總綱 `docs/arc42/decisions/00NN-role-governance-state-machine.md`（G1~G5＋停用斷權 D6＋roleHome 兜底＋★兩 blocker 修正：restore 鎖序、reload 重建-swap）＋ADR③B-047 明細通道 `00NN-biz-error-detail-channel.md`（data 欄讀法＋洩漏面評估＋下放重評觸發）；draft 狀態
+- [x] T038 新島 G Amendment：憲法 §I.7 條文 draft（G1 真相唯一＋同交易稽核＋判定面同步失敗契約；G2 protected-reject；G3 撤銷必歸檔；G4 刪除守門＋batch no-partial；G5 復原同實例＋現役寫入全端點 lock-then-redecide；★sys_user_role 指派寫端未來納鎖序鉤子——R7 風險）＋★**MODAL-WIRING (a) 枚舉澄清（必辦、A1 甲案 2026-07-12）**——擴句：「及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit）同屬本用途」；★**user 親決**後：三 ADR 轉 accepted＋憲法 MINOR bump＋`docs(constitution): amend` commit＋`docs-sync generate`。★親決時點＝**U12（前端接線單元）之前**（(a) 澄清為 T015(reset)/T022/T035 的授權前置；後端單元不受影響）
 - [ ] T039 [P] 005 spec as-built 勘誤：`specs/005-auth-login/spec.md` 補註記（getUserRoutes home 落點語意由 009 FR-039 讀端兜底變更——原＝無條件下發角色設定值）
 - [ ] T040 [P] MODAL-WIRING per-change 紀錄表（憲法 §III.2 紀律：位置＋改動內容＋upstream 衝突風險評估）——彙整 T015/T022/T030/T031/T035 逐處，★落 `specs/009-role-admin/spec.md` 附錄（MODAL-WIRING 紀律字面＝「在 spec 內紀錄」、憲法 :171 比他軌道嚴；T031 之 I18N (i) 一處可同表註明）
 - [ ] T041 CDP 實機全場景（quickstart S1~S6；★新 i18n key 後 restart base-web 再 CDP；經 `:42080`；換角色登入驗選單/按鈕收縮、停用斷權即時、回收桶三態、home 兜底不落 404、B-047 插值三語）
