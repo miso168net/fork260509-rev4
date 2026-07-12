@@ -124,6 +124,12 @@
   - **G3 撤銷必歸檔**：revoke＝archive-move（完整快照＋來源角色識別 role_id＋reason 區分）、grant＝INSERT 補齊治理欄（protected=false＋created_at/by）；刪角色 MUST 同交易全維連動歸檔（含 protected 列、reason=`role_soft_delete`）；`role_soft_delete` 列 MUST NOT 可手動復原；角色刪除單向、無 role restore。
   - **G4 刪除守門與批次原子**：刪除依固定序三層守門（①seeded ②in-use ③self-role）；批次逐項驗證、任一違規**整批拒**（no-partial）、單一交易。
   - **G5 復原同實例與全端點鎖序**：一切向現役授權寫入、或改動角色活性／啟用狀態的寫端（三維寫入、授權復原、刪除、停用）MUST 同交易 `FOR UPDATE` 鎖標的角色列、**鎖內重判前提**後才落寫（lock-then-redecide——與島 B2 同範式的授權面對應〔類比引用、L-075；B2 射程仍限 token 面〕、永不信 pre-read）；復原判定＝reason≠`role_soft_delete` **且** 現存同 code 活角色 `id == 歸檔列 role_id`（同實例；NULL→不可復原、誠實退化）。★未來 `sys_user_role` 指派寫端落地時 MUST 同納本鎖序。
+- **島 H — 選單域生命週期與授權連動**（010、ADR 0051 總綱／0052 Amendment）
+  - **H1 選單域寫入序列化域**：選單樹五寫端（新增／編輯／刪除／批次刪除／復原）與選單維、按鈕維授權寫端（含授權回收桶復原之選單／按鈕維分支）MUST 於單一序列化域內互斥執行（DB 交易級 advisory 域鎖為載體、key 值留活書）；每一寫端 MUST 於域內鎖定標的並**重驗全部守門前提後才落寫**（lock-then-redecide、永不信 pre-read；與島 G5／B2 同範式）。端點維授權寫入不涉選單域、不屬本域。★方向反轉（拆散序列化域、改回無域逐列鎖或無鎖 pre-read）＝MAJOR。
+  - **H2 同鍵重建零繼承**：選單軟刪 MUST 同交易將其選單維授權（跨全角色）連動歸檔（reason=`menu_soft_delete`）；該選單「獨有」按鈕代碼（刪除後不再屬任何未刪選單）之按鈕維授權亦同交易歸檔；編輯移除按鈕代碼致其全域絕版時同理（reason=`menu_button_removed`）。此三類 reason 之歸檔列 MUST NOT 可手動復原（gate enforce 於復原權威判定）。同路由鍵重建之新選單 MUST NOT 經任何路徑（現役殘留、回收桶復原）繼承舊實例授權（單向不變式，與島 G3 撤銷必歸檔同源、選單實體側對偶）。
+  - **H3 樹結構不變式**：選單樹恆無環（改父層 MUST 過防環檢查）；活性子項 MUST NOT 掛於已軟刪父層之下；受保護種子選單 MUST NOT 可刪；存在未刪子項（不論啟用停用）之目錄 MUST NOT 可刪；批次刪除逐項驗證、任一違規**整批拒**（no-partial、單一交易、child-first 拓撲序）。此對偶島 G4 之選單實體側。
+  - **H4 不可變錨欄與治理域／顯示域分層**：`route_name`（授權列 v1 錨／i18n 錨）與 `menu_type` 建後不可變（寫端 MUST 顯式拒變更、MUST NOT 靜默忽略）；選單讀端分兩域——**治理域**（授權候選與映射）以「未軟刪」全集為準（含停用）、**顯示域**（使用者可見性）以「啟用且未軟刪」為準；停用 MUST NOT 使全量替換語意誤撤停用選單的授權（停用＝暫時下架、非撤銷）。
+  - **H5 復原不回灌**：選單復原 MUST 於序列化域內鎖定並重驗守門（同路由鍵活性衝突／父層未刪）；復原 MUST NOT 回灌任何授權——復原後選單零授權，可見性一律經授權面板重新勾選下放（與新增選單之兩步流一致）。
 
 ---
 
@@ -165,7 +171,7 @@
 - **(a)** `// request` placeholder 接線：`modules/*-operate-{modal,drawer}.vue`（create/update）與 `index.vue` 的 delete/batchDelete handler，及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit('search')）同屬本用途（ADR 0048）
 - **(b)** 業務頁操作按鈕 `hasAuth(<button_code>)` 可見性 gating：`index.vue` 操作鈕 `v-if` 與共用元件 `table-header-operation.vue` 的附加顯隱 prop
 - **(c)** 同模式新權限 modal＋trigger：角色編輯區新增 `*-auth-modal.vue`（鏡像 menu/button-auth-modal）＋觸發鈕＋對應 i18n key——嚴格限「角色 × 某權限維度」runtime 編輯介面
-- **(d)** 選單復原／re-parent 維運控制：`menu-operate-modal.vue` edit 模式 parentId selector＋「顯示已刪除」toggle＋restore 鈕＋對應 i18n key——嚴格限「選單樹復原／父層級調整」
+- **(d)** 選單復原／re-parent 維運控制：`menu-operate-modal.vue` edit 模式 parentId selector＋`views/manage/menu/index.vue` 的「顯示已刪除」列表切換（toggle）＋逐列 restore 鈕＋對應 i18n key——嚴格限「選單樹復原／父層級調整」
 - **(e)** 同 manage 範式新管理頁：`views/manage/<page>/index.vue`＋可選 `modules/*`（嚴格鏡像既有 user/role/menu 結構）、消費 rust-api 端點、含對應 route 與 i18n key——不擴張到任意新 UI／非 manage 頁／自訂佈局；可見性走 §I.2
 - **(f)** 列表欄位排序掛載：column 定義加 naive-ui `sorter` props＋受控 `sortOrder`＋`@update:sorter` 綁定＋查詢參數 sort；於列表 view 工具列掛「清除排序」控制（有 `TableHeaderOperation` 的頁用其 `#suffix` slot、自有工具列的頁 inline）——嚴格限「列表排序」、**不改 `table-header-operation.vue` 元件本體**；配套新檔循 ADAPT/WRAPPER
 - **(g)** 非-manage 頂層自助頁：`views/user-center/index.vue`＋可選 `modules/*`——登入者本人 profile 自助檢視／編輯＋改密碼＋驗證 UI 佔位，消費 auth-only 自助端點（operator＝本人）；`hideInMenu:true`、經頭像下拉入口、非 Casbin menu——**嚴格限「登入者本人自助」、不擴張到管理他人資料／任意新 UI**
@@ -272,9 +278,11 @@
 
 ---
 
-**Version**: 1.7.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-12
+**Version**: 1.8.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-13
 
 **Amendment log**:
+- 1.8.0（2026-07-13）：§I.7 行為島進場——島 H 選單域生命週期與授權連動（H1 選單域寫入序列化域＋鎖內重驗〔反轉＝MAJOR〕／H2 同鍵重建零繼承〔連動歸檔 menu_soft_delete／menu_button_removed、reason gate 不可手動復原〕／H3 樹結構不變式〔無環／未刪子掛未刪父／protected 與非空目錄不可刪／批刪 no-partial child-first 拓撲序〕／H4 不可變錨欄 route_name·menu_type＋治理域／顯示域分層／H5 復原不回灌；ADR 0051 選單域狀態機總綱／0052 本 Amendment）＋§III.2(d) 軌道錨點擴充〔「顯示已刪除」toggle＋逐列 restore 鈕錨點自 menu-operate-modal.vue 擴至 views/manage/menu/index.vue、用途字串不動〕；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝010-menu-admin plan Constitution Check Q9/Q2/Q7（user 親決 2026-07-13）。
+- 1.7.0（2026-07-12）：§I.7 行為島進場——島 G casbin 授權治理（G1 真相唯一與同步失敗契約〔重建成功才 swap、失敗保留已知良好、反轉＝MAJOR〕／G2 受保護拒絕／G3 撤銷必歸檔〔role_id＋reason〕／G4 刪除守門＋批次 no-partial／G5 復原同實例＋現役寫入全端點 lock-then-redecide；ADR 0048 本島／0049 歸檔 role_id／0050 明細通道）＋MODAL-WIRING (a) 檔名枚舉澄清〔擴句涵蓋同頁 *-auth-modal.vue 既有 placeholder 接線與附屬模板行為小修〕；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝009-role-admin plan Constitution Check Q9＋analyze A1 甲案（user 親決 2026-07-12）。★本 log 行為 010 plan 期補記（009 收刀遺漏、PATCH 級勘誤、隨 v1.8.0 一併）。
 - 1.6.0（2026-07-11）：§I.7 行為島進場——島 F IP 存取控制閘＋信任錨＋來源維節流（F1 判定序白＞黑＞default-allow／F2 真相分層 keep-last-good／F3 全鏈 fail-OPEN 唯一例外＝寫端自鎖、反轉＝MAJOR／F4 信任錨唯一輸入且信任集與跳過集同源對稱、CDN 錨傳輸層背書為承重部署前提／F5 放行跳節流只認顯式規則；ADR 0043 真實 IP 還原 supersede 0017 還原節、0044 本島、0045 來源維節流 supersede 0038 調整項二、0046 region GeoIP、0047 鎖定審計欄 won't-fix）＋島 E2 射程釐清（帳號維判定鍵射程與來源維並列不衝突、FR-030）；MINOR（§V.3「行為島隨刀進場」＋「已入憲 invariant 細項調整」）——觸發＝008-ip-gate plan Constitution Check Q9＋final review #1 CDN 錨承重前提（user 親決 2026-07-11）。
 - 1.5.0（2026-07-11）：新增 ★BASE-WEB-DEVPROXY-WIRING 軌道三處〔(i) `service.ts` `createProxyPattern` 同源前綴 `/proxy-default`→`/api`／(ii) `proxy.ts` target 改讀新 env key `VITE_PROXY_TARGET`／(iii) `vite-env.d.ts` 宣告 `VITE_PROXY_TARGET`〕（ADR 0042）；MINOR（§V.3「新增 ★ 軌道」）——觸發＝008-ip-gate plan Constitution Check Q2/Q7（B-079 dev 反代拓樸修正、analyze C1 拍板 env key 案）。
 - 1.4.1（2026-07-10）：§III.2「補完 vs 新能力判準」加「零新 key」釋義——指新 i18n 命名空間／新元件／新路由等「面」級新增，不含既有授權頁既有子命名空間下的資料級 label key（ADR 0041）；PATCH（§V.3「文字校正、釐清」）——觸發＝007-login-throttle `/speckit-analyze` 的 C1 finding（CRITICAL）＋user 親決。★非授權擴展：判準其餘三條件與其他軌道邊界不受影響。
