@@ -92,8 +92,8 @@ description: "Task list for 009-role-admin implementation"
 
 **Goal**：停用守門雙護欄＋API 即時生效（濾已在 T006）。**Independent Test**：quickstart S5＋負向自證 2 停用路。**依賴**：US1（updateRole handler）＋T006。
 
-- [ ] T023 [US3] `handler/role.rs`＋`sys_role.rs` updateRole 停用守門：鎖內 self-guard（操作者所屬→`biz.role.cannotDisableSelfRole`）＋★R_SUPER 恆禁停用（`biz.role.superCannotDisable`、不因操作者身分而異 FR-015）＋整合測試（停用→該角色成員下一請求受管制端點 5003〔API 即時、專屬測試角色〕；重新啟用恢復；停用不動指派資料）
-- [ ] T024 [US3] 負向自證：各拆 FR-014 self-guard（cannotDisableSelfRole）與 FR-015 R_SUPER 恆禁（superCannotDisable）兩道守門→對應測試各轉紅；還原全綠（report）
+- [x] T023 [US3] `handler/role.rs`＋`sys_role.rs` updateRole 停用守門：鎖內 self-guard（操作者所屬→`biz.role.cannotDisableSelfRole`）＋★R_SUPER 恆禁停用（`biz.role.superCannotDisable`、不因操作者身分而異 FR-015）＋整合測試（停用→該角色成員下一請求受管制端點 5003〔API 即時、專屬測試角色〕；重新啟用恢復；停用不動指派資料）
+- [x] T024 [US3] 負向自證：各拆 FR-014 self-guard（cannotDisableSelfRole）與 FR-015 R_SUPER 恆禁（superCannotDisable）兩道守門→對應測試各轉紅；還原全綠（report）
 
 **Checkpoint**：停用斷權 API 即時；雙護欄＋負向自證綠。
 

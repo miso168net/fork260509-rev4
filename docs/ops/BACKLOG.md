@@ -1,4 +1,4 @@
-<!-- next: B-082 -->
+<!-- next: B-083 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -48,3 +48,4 @@
 - B-077｜unlock op-log 持久化強化：unlockLogin 動作序＝SET marker→DEL lock→op-log insert（Redis 兩步成功後 best-effort、失敗僅告警不回滾）⇒ 管理動作可能零審計列；候選＝失敗重試/事後補記/回報 caller｜審計功能刀｜出處：007 U7／data-model §5.4
 - B-080｜CDN 錨碼層硬化：Tier-1 CDN 位置錨僅檢查「最右 CDN 段」、不檢查該 CDN 由傳輸層背書，origin 對外裸露時可偽造 XFF 注入公開 CDN 邊緣 IP 當錨繞過閘（final review #1、ADR 0043）；候選＝Tier-1 錨要求「錨右鄰起全受信基建」；★留獨立後續刀（避免誤傷合法多層 CDN/LB 拓樸）｜ingress 硬化刀｜出處：008 final holistic review #1
 - B-081｜prod Dockerfile xdb 資料檔 COPY：xdb/resources/ip2region.xdb 已 git-tracked，但現僅 dev stage、prod 多階段建置需 COPY 進映像＋設 XDB_FILEPATH（否則 prod xdb_ready=false、region 恆空）｜prod 多階段建置刀｜出處：008 U12 as-built（L-083/L-084）
+- B-082｜committed-row 測試 panic-safe teardown：auth 節流 flaky 併發測（throttle_no_false_lock…、seed_temp_user us2_ 前綴）測尾 cleanup 排在測末、panic 即漏跑→留 committed sys_user 孤兒污染 gate2 seed 面、連累後續刀 gate2 假紅（009 U6/U7 各清一次）；候選＝RAII Drop guard／scope-guard 使 panic 亦清 committed 列（可推廣至所有 committed-row 測試）｜test 衛生刀或 flaky 再現頻繁時｜出處：009 U7 gate2（近 B-078 flaky 區）
