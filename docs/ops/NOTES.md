@@ -8,11 +8,14 @@
   cargo test 408 綠、三 schema 閘＋typecheck＋fork-delta-lint＋六負向自證＋CDP S1/S2/S4/S6 綠。pins/summary/ADR
   見 events/STATE。消化 B-034/047/049/050；新增 B-082/083/084/085。
 - 下一步（★方向覆蓋 2026-07-12：**menu 刀先行**、使用者管理刀順延；家族序其餘不變＝role→menu→user→
-  audit→ip-rule）：**010-menu-admin brainstorm 已定案**（2026-07-13、docs/brainstorms/010-menu-admin.md；
-  D1~D5 五拍板＋對抗式審查〔7 鏡頭×3 異質核驗、confirmed 23 全折入〕；核心＝menu 域 7 端點接活＋
-  ★選單域序列化域〔advisory lock、封跨實體 grant 競態繼承旁路〕＋治理域/顯示域分層〔改 009 讀端〕；
-  **零 seed 變更**——★B-060 拍板不折入、續留原觸發、收刀時註記）。下一步＝SDD 5 步：/speckit-specify
-  （input＝brainstorm 檔、★手動起手）→clarify→plan→tasks→analyze、每步後 commit。
+  audit→ip-rule）：**010-menu-admin 進行中＝TDD 實作階段 U2~U13**（feature branch `010-menu-admin`
+  @ 0d3f53d、未 push/merge）。SDD 5 步全數完成〔spec/plan/tasks/analyze、covered 100%、0 CRITICAL〕；
+  **U1（T001）已收＝憲法 v1.8.0 落地**〔新島 H 五條入 §I.7＋§III.2(d) 錨點擴至 index.vue＋1.7.0 log
+  補記；ADR 0051 總綱/0052 Amendment；commit 0d3f53d〕。★下一步＝依 `specs/010-menu-admin/tasks.md`
+  跑 U2~U13〔12 支 Workflow 執行單元、CLAUDE.md §2 編排範本〕——交接檔 `tmp/handoff-next-session.md`
+  ＋開工提示詞見該檔。核心設計＝選單域序列化域〔advisory lock、H1〕＋治理域/顯示域分層〔H4、改 009
+  讀端四處〕＋同鍵重建零繼承〔H2〕；**零 migration/零新表/零 seed 變更/零新錯誤碼**（★B-060 不折入、
+  收刀時 BACKLOG 註記）。pins 未動（base-web=22e6c3a/rust-api=585df85、U1 純 docs）。
   ★BACKLOG 處置紀律（user 拍板）照舊：觸發命中折入該刀（使用者管理刀＝B-064 核心＋★B-084 MUST
   鎖序鉤子＋B-025/B-029/B-030、視 wire 設計 B-026、前端 unlock UI〔B-061 note〕；audit 刀＝B-061 audit
   項＋B-077/B-044/B-039；ip-rule 頁刀＝B-061 ip-rule 項）；未命中者（prod 組 B-037/080/081、obs 組、
