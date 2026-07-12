@@ -118,6 +118,12 @@
   - **F3 fail-OPEN 與唯一例外**：全鏈 fail-OPEN（信任模型壞損→全空 all-direct、規則載入失敗→空集、快取/門鈴/GeoIP 故障→放行或降級）；**唯一 fail-closed 例外＝寫端自鎖拒寫**。每次降級 MUST 發結構化告警。★**入憲後 fail-OPEN 方向反轉＝MAJOR。**（來源維節流的解鎖標記讀故障 fail-closed 屬島 E1 降級⑤的既有例外、對稱擴充至來源維、非島 F 新例外。）
   - **F4 信任錨為唯一輸入、同源對稱**：來源維度一切機制（閘門、來源維節流、稽核來源）的位址輸入 MUST 為信任錨還原結果；信任集與跳過集 MUST **同源對稱**導出（含通道來源集與驗證閘出口集）。CDN 位置錨的傳輸層背書為承重部署前提（ADR 0043、與 DNAT 同級）。
   - **F5 放行跳節流只認顯式規則**：命中**顯式**放行規則的來源跳過來源維節流（含快取層）；**結構性豁免網段 MUST NOT 跳節流**（結構豁免只豁免阻擋、不豁免節流）。來源維節流計數下界只取兩源（時窗起點＋解鎖標記、**拔 reset-on-success**、ADR 0045）。
+- **島 G — casbin 授權治理**（009、ADR 0048 本島／0049 歸檔 role_id／0050 明細通道）
+  - **G1 真相唯一與同步失敗契約**：授權真相＝DB 政策表；授權變更與其操作稽核 MUST 同一交易落地、絕不走判定引擎管理 API 寫面（DB-first）；判定面由真相全量重載導出（Applied 含空 diff 才觸發、Rejected/NoOp/NotFound 不觸發）。★同步失敗契約：重載 MUST 以「**重建成功才 swap**」實現、絕不對 live 判定面就地 clear-then-load；失敗→**保留上一份已知良好判定面**（絕不空窗或半載）＋結構化告警＋有界重試，耗盡仍失敗→維持舊面持續告警。★方向反轉（同步失敗改為清空／全 deny）＝MAJOR。
+  - **G2 受保護拒絕**：撤銷集觸及 protected 政策→整批拒絕、零變更（任何寫之前判定）＋結構化明細；un-protect／re-protect 經一般管理介面永不提供（防鎖死 by-design；保護集變更屬 seed 基線層級決策）。
+  - **G3 撤銷必歸檔**：revoke＝archive-move（完整快照＋來源角色識別 role_id＋reason 區分）、grant＝INSERT 補齊治理欄（protected=false＋created_at/by）；刪角色 MUST 同交易全維連動歸檔（含 protected 列、reason=`role_soft_delete`）；`role_soft_delete` 列 MUST NOT 可手動復原；角色刪除單向、無 role restore。
+  - **G4 刪除守門與批次原子**：刪除依固定序三層守門（①seeded ②in-use ③self-role）；批次逐項驗證、任一違規**整批拒**（no-partial）、單一交易。
+  - **G5 復原同實例與全端點鎖序**：一切向現役授權寫入、或改動角色活性／啟用狀態的寫端（三維寫入、授權復原、刪除、停用）MUST 同交易 `FOR UPDATE` 鎖標的角色列、**鎖內重判前提**後才落寫（lock-then-redecide——與島 B2 同範式的授權面對應〔類比引用、L-075；B2 射程仍限 token 面〕、永不信 pre-read）；復原判定＝reason≠`role_soft_delete` **且** 現存同 code 活角色 `id == 歸檔列 role_id`（同實例；NULL→不可復原、誠實退化）。★未來 `sys_user_role` 指派寫端落地時 MUST 同納本鎖序。
 
 ---
 
@@ -156,7 +162,7 @@
 #### MODAL-WIRING ★ — 本檔授權七用途 (a)~(g)（皆 rev3 已落地驗證邊界、一次全授；**新用途 (h) 起走 Amendment**）
 
 **邊界**：`base-web/src/views/manage/**` 內〔(a)~(f)；(g) 為樹外例外〕——
-- **(a)** `// request` placeholder 接線：`modules/*-operate-{modal,drawer}.vue`（create/update）與 `index.vue` 的 delete/batchDelete handler
+- **(a)** `// request` placeholder 接線：`modules/*-operate-{modal,drawer}.vue`（create/update）與 `index.vue` 的 delete/batchDelete handler，及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit('search')）同屬本用途（ADR 0048）
 - **(b)** 業務頁操作按鈕 `hasAuth(<button_code>)` 可見性 gating：`index.vue` 操作鈕 `v-if` 與共用元件 `table-header-operation.vue` 的附加顯隱 prop
 - **(c)** 同模式新權限 modal＋trigger：角色編輯區新增 `*-auth-modal.vue`（鏡像 menu/button-auth-modal）＋觸發鈕＋對應 i18n key——嚴格限「角色 × 某權限維度」runtime 編輯介面
 - **(d)** 選單復原／re-parent 維運控制：`menu-operate-modal.vue` edit 模式 parentId selector＋「顯示已刪除」toggle＋restore 鈕＋對應 i18n key——嚴格限「選單樹復原／父層級調整」
@@ -266,7 +272,7 @@
 
 ---
 
-**Version**: 1.6.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-11
+**Version**: 1.7.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-12
 
 **Amendment log**:
 - 1.6.0（2026-07-11）：§I.7 行為島進場——島 F IP 存取控制閘＋信任錨＋來源維節流（F1 判定序白＞黑＞default-allow／F2 真相分層 keep-last-good／F3 全鏈 fail-OPEN 唯一例外＝寫端自鎖、反轉＝MAJOR／F4 信任錨唯一輸入且信任集與跳過集同源對稱、CDN 錨傳輸層背書為承重部署前提／F5 放行跳節流只認顯式規則；ADR 0043 真實 IP 還原 supersede 0017 還原節、0044 本島、0045 來源維節流 supersede 0038 調整項二、0046 region GeoIP、0047 鎖定審計欄 won't-fix）＋島 E2 射程釐清（帳號維判定鍵射程與來源維並列不衝突、FR-030）；MINOR（§V.3「行為島隨刀進場」＋「已入憲 invariant 細項調整」）——觸發＝008-ip-gate plan Constitution Check Q9＋final review #1 CDN 錨承重前提（user 親決 2026-07-11）。

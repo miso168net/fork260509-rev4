@@ -1,4 +1,4 @@
-<!-- next: L-136 -->
+<!-- next: L-139 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -302,3 +302,10 @@
 - **L-134**｜IPv4-mapped IPv6 家族不符：`::ffff:a.b.c.d` 形的 client_ip 與 v4 規則網段（gate `decide`／`would_self_lock`）、v4 計數桶 inet（`real_ip <<=` 比對）**家族不符恆 false**＝閘門漏判＋per-IP 計數恆 0。★修法＝**單點** canonical：兩 overlay 產出真實來源後、注入 RequestContext 前 `client_ip.to_canonical()` 折 v4（對純 v4/v6 恆等、無副作用），使下游全拿 canonical 形；`peer_ip` 保持原形（不參與桶比對）。008 final review #1 修正 A。
 
 - **L-135**｜以 CDP 驗「debounce／`watch` 觸發次數」有兩個陷阱：①**Vue `watch` 對同步多次改值只 flush 一次**——在 `Runtime.evaluate` 內同步連改被觀察值 N 次，watcher 僅作動一次、下游（含被測 debounce）只發 1 次請求，**有無 debounce 皆得 1**＝假綠；須以真實延遲分散（各改動間 `await setTimeout`、如 50ms×5＝250ms＜300ms 窗），令每次改動各觸發一次 flush，debounce 的 coalesce 才可觀測（B-075① 實測：軟區開、連改 userName → `/auth/loginCaptcha` 恰 1 發；無 debounce 應 5 發）。②**計數走 CDP `Network.requestWillBeSent`**（瀏覽器側、含 vite proxy 請求）、**非** page-context 的 `fetch`／XHR hook（request 層載入時已捕獲參考、page-context hook 攔不到＝L-122 ②）。狀態注入沿 captcha-inspect 範式（`el.__vueParentComponent` 上溯 `setupState` 設 `captchaVisible`／驅動 `model`）＋驅動前 `Page.bringToFront`（L-131）。
+
+- **L-136**｜對**凍結基線表加尾欄**（gate2 欄序面覆蓋、data-model §3 十二張欄序表凍結）會破 gate2——既有 ADR 0039 結構 additive 容差**只放寬 gate1**（post-baseline 新表／新索引），**不含 gate2「既有表加欄」**；而 gate2 欄序面對每表 `information_schema.ordinal_position` 逐位比對 §3 欄序表，尾端多一欄即整段位移假紅（且 gate2 非 pre-commit 閘、只波段出口回歸才紅）。009 m007＝`sys_casbin_policy_archive` 加 `role_id`（唯一結構變更）即撞。
+  防：加欄隨其 migration 同 commit 於 `tools/schema-gate` **欄序面 additive 容差白名單**登記（`WHITELIST_TYPE[(table,col)]=期望型別`，如 `("sys_casbin_policy_archive","role_id"):"bigint"`）——gate2 把「實庫尾端多出且登記之欄」剝除後再逐位比對（只放寬尾端新增、不放寬改動/重排）＋gate1 欄面白名單同步登記；§3 定稿與 psql 快照凍結不改（比照 STRUCT_ADDITIVE_ALLOWLIST／SEED_ADDITIVE_ALLOWLIST 範式、逐項註來源刀零萬用字元）。此為欄序面容差首例＝009 m007 archive.role_id。｜出處：009 U1（m007）／schema-gate 欄序面容差擴充
+- **L-137**｜Workflow 編排的機器兜底全走**相對路徑**：`.claude/settings.json` 註冊的 hooks（`sh .claude/hooks/session-start.sh`、`python3 .claude/hooks/pre-workflow-gate.py`、`python3 .claude/hooks/post-workflow-reminder.py`）與 Monitor 看門狗 command（`bash tools/wf-watchdog`）皆相對 repo 根解析；且 pre-workflow-gate 以 `os.path.isfile(scriptPath)` 讀 script 內容、scriptPath 相對而 CWD 非 repo 根時解不到即 **fail-open**（不擋、zh-TW 書面強制令漏驗＝L-113 機器閘靜默失效）。agent thread 的 CWD 於各 bash call 間會 reset，發射時 CWD 若非 repo 根，hooks／watchdog／zh-TW 閘全部靜默落空。
+  防：Workflow launch 前確認 CWD＝repo 根（`/mnt/d/AnewSpaces/x_Project/fork260509-rev4`）；防呆②（渲染後 prompt 必含 "zh-TW" 字面、否則零派發 throw）為 **script 本體自檢**、不依賴 hook 兜底（hook fail-open、只當第二防線）；Monitor 沿 `bash tools/wf-watchdog <冒煙token>`（B-070 已改 realpath 自尋最新 wf 目錄、免 cd 前綴）。｜出處：009 編排（hook/watchdog 相對路徑結構核對）
+- **L-138**｜gate2 seed 面「多列」假紅的**首疑對象＝flaky committed-row 測試的孤兒列**、非真 seed 漂移：auth 節流 flaky 併發測（`throttle_no_false_lock…`、`seed_temp_user` `us2_` 前綴）若把 committed 列 cleanup 排在測末、panic 即漏跑→留 committed `sys_user` 孤兒污染 gate2 seed 面；009 U6/U7 各撞一次、各手清一次。症狀與真 seed 漂移難分（皆＝gate2 seed 面比 fixtures 多列）。
+  防：gate2 seed 面出現非預期多列時，**先查測試專屬前綴**（`us2_`／`us_` 等）判 flaky 孤兒、手清後重跑，再判真漂移；根治＝committed-row 測試以 RAII Drop guard／scope-guard 使 panic 亦清 committed 列（B-082、可推廣至所有 committed-row 測試）。｜出處：009 U6/U7 gate2（近 B-078 flaky 區）

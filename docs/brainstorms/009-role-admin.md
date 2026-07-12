@@ -96,8 +96,8 @@ P4  前端接線（MODAL-WIRING (a)(b)(c)(e)＋ADAPT/WRAPPER）＋i18n 三語＋
 2. **DB-first**：同一交易內直寫 `casbin_rule`（DELETE＋INSERT）＋op-log；絕不走 enforcer MgmtApi 寫面。
 3. **protected-reject**：to_revoke 含 `protected=true` 列→整批 Rejected、零變更（在任何寫之前）、`2222 biz.policy.protectedRevoke`＋data 明細（§5）。
 4. **revoke＝archive-move**：快照→INSERT `sys_casbin_policy_archive`（**帶 role_id**、reason=撤銷類 distinct 值）→DELETE live——誤撤可經回收桶自助復原；**grant＝INSERT**（`protected=false`＋`created_at/created_by` 治理欄補寫）。
-5. **競態防護**：casbin 寫端（updateRoleMenu／updateRoleButton／updateRoleEndpoints）與 deleteRole 同交易 `SELECT … FOR UPDATE` 鎖該 `sys_role` 列（grant-during-delete 鎖序）。
-6. **reload-on-Applied**：txn commit 後 Applied（含空 diff）→ `enforcer.write().await.load_policy()` 同步全量重載；Rejected/NoOp/NotFound→skip。**跨副本門鈴不做**（enforcer＝行程內狀態、單副本部署下 pub/sub 是死路徑；隨 B-038 多副本刀）。
+5. **競態防護**：casbin 寫端（updateRoleMenu／updateRoleButton／updateRoleEndpoints）**＋restorePolicy**與 deleteRole／updateRole 改 status 同交易 `SELECT … FOR UPDATE` 鎖該 `sys_role` 列（grant-during-delete 鎖序）。★**對抗式審查 Blocker 1（2026-07-12）修正**：restorePolicy 原漏出鎖序集——它同屬「向 casbin_rule 寫 live 列」的 grant 型寫端，其 `restorable`（角色活性＋同實例）若為無鎖預讀、與 deleteRole 交錯即 TOCTOU：restore 讀到刪除前的活性快照判 restorable→INSERT，delete 的 archive-all 快照早於該 INSERT→漏掃→軟刪後殘留一列 live `v0=role_code`，被同 code 重建角色靜默繼承（違憲法 §B2 lock-then-redecide、FR-011／FR-012）。修法：restorePolicy 同交易 `SELECT sys_role WHERE role_code=archived.v0 AND deleted_at IS NULL FOR UPDATE`，**鎖內重驗** restorable（角色不在→拒 `notRestorable`）後才 INSERT，23505 比照 addRole 收斂 `2222`，與其餘 casbin 寫端共用同一鎖序。
+6. **reload-on-Applied**：txn commit 後 Applied（含空 diff）→ `enforcer.write().await.load_policy()` 同步全量重載；Rejected/NoOp/NotFound→skip。**跨副本門鈴不做**（enforcer＝行程內狀態、單副本部署下 pub/sub 是死路徑；隨 B-038 多副本刀）。★**對抗式審查 Blocker 2（2026-07-12）修正——reload 失敗契約**：原設計 commit 後 `load_policy()` 無任何失敗處置。casbin `load_policy` 疑為 clear-then-load（先清 in-memory model 再由 adapter 載入，`?` 於載入前早退即留空 model；此機制 plan 期須對 crate 實碼核實）——一次暫時性 DB 失敗即清空 in-memory 政策→其後每個 `require_policy` 對含 R_SUPER 的全體角色一律 `5003`、救援端點（getArchivedPolicies／restorePolicy 皆 Protection::Policy）亦被封死→**全域授權鎖死、唯重啟可恢復**（違 FR-018 防鎖死 by-design、Assumptions「超管永遠改不掉自己的修復入口」、ADR 0044 降級必告警）。修法：**保留上一份已知良好 in-memory 快照**（載到暫存成功才 swap、不裸 clear-then-load）＋結構化告警＋有界重試；沿既有「保留已知良好」降級範式（008 FR-018）與授權面 fail-closed 紀律（`auth/enforce.rs` denylist Err→PG fallback）；補一條 reload-failure 負向測試與留痕。
 7. **facade 形**：`set_role_dimension(txn, role_code, dim∈{menu,button}, desired, meta, role_id)`（v2 固定值）＋`set_role_endpoints(txn, role_code, desired:&[(path,method)], meta, role_id)`（current 辨識＝HTTP method 白名單）。
 8. **menu 維映射**：wire 收 menu id `number[]`→`sys_menu` 活性表轉 route_name（orphan skip）→casbin v1；讀端反向。
 9. **registry 真源**：getAllEndpoints＝ROUTES const 過濾 `Protection::Policy`（含 path＋method）；getAllButtons＝`sys_menu.buttons` jsonb 聯集（活性選單、去重）。
@@ -107,7 +107,7 @@ P4  前端接線（MODAL-WIRING (a)(b)(c)(e)＋ADAPT/WRAPPER）＋i18n 三語＋
 
 - **deleteRole 守門（序固定）**：①seeded（hardcode `R_SUPER/R_ADMIN/R_USER_COMMON`，sys_role 無 protected 欄、零 migration）→`2222 biz.role.seededProtected`；②in-use（`sys_user_role` 有指派）→`2222 biz.role.inUse`＋data `{userCount}`；③self-role（操作者所屬角色）→`2222 biz.role.cannotDeleteSelfRole`。過門→軟刪＋**同交易全維歸檔**（含 protected 列、reason=`role_soft_delete`）→reload。三 seeded 角色實測皆 in-use（雙重守）。
 - **停用斷權（D6）**：`roles_of_user` 加 `status=1` 活性濾——單點改動、RBAC 判定鏈／getUserRoutes／getUserInfo buttons 全下游生效；self-guard＝不可停用自己所屬角色→`2222 biz.role.cannotDisableSelfRole`；**R_SUPER 恆禁停用**（結構護欄：v1 操作者必掛 R_SUPER、self-guard 已隱含擋下；顯式規則防「role CRUD 端點下放後、非 super 停用 R_SUPER」的複合路徑——該 policy 列非 protected、下放技術上可達）。既有消費者連動核對（getAllRoles 語意本就要求 enabled）。
-- **restorePolicy 三態＋同實例判定（B-034 兌現）**：`restorable` ＝ reason≠`role_soft_delete` **且** 現存同 code 活角色 `id == archived.role_id`（同實例；去牆鐘化、同時封死「經 restore 把舊實例授權灌進同 code 新角色」的繼承旁路）；menu 維另驗 target route_name 活性（orphan→`2222`、不灌無效列）。可復原→反向 move＋op-log；已 live→NoOp `0000`；假 id／不可復原→`2222`（`biz.policy.notRestorable`）。
+- **restorePolicy 三態＋同實例判定（B-034 兌現）**：`restorable` ＝ reason≠`role_soft_delete` **且** 現存同 code 活角色 `id == archived.role_id`（同實例；去牆鐘化、同時封死「經 restore 把舊實例授權灌進同 code 新角色」的繼承旁路）；menu 維另驗 target route_name 活性（orphan→`2222`、不灌無效列）。可復原→反向 move＋op-log；已 live→NoOp `0000`；假 id／不可復原→`2222`（`biz.policy.notRestorable`）。★**restorable 判定與 INSERT 同交易、鎖內重驗**（§3-5 鎖序、對抗式審查 Blocker 1）——`FOR UPDATE` 鎖 `role_code=archived.v0` 之活角色列後才重判＋寫入，杜絕 restore-during-delete 競態的無鎖預讀破口。
 - **回收桶列表**：`PageRes` 分頁＋來源角色濾（role_id）＋維度濾（v2 推導）；`restorable` 隨列下發、前端 false 顯停用態。
 
 ## §5 B-047 ②結構化明細通道（D7 拍板）
@@ -158,5 +158,22 @@ i18n 紀律：`App.I18n.Schema` 先擴、三語 locale 同 commit（否則 raw k
 4. **seed role_name 為簡中 demo 值**：「超级管理员」等屬 002 凍結 fixture、本刀不改 seed（撞 gate2）；admin 可經 updateRole 改 roleName（runtime 資料、非 code）。
 5. **回收桶同 policy 多列**：同一 policy 反覆撤銷會累積多列歷史——restore 的「已 live→NoOp」語意天然容納；列表以 archived_at desc 呈現。
 6. **本刀規模**：20 端點＋一 migration＋一新頁＋一新 modal，預估 12~16 執行單元、近 007/008 先例；編排照 CLAUDE.md §2（防呆五件套＋看門狗原子成對＋單元邊界 pin bump；`wf-watchdog RUNAWAY=25` 按 TDD 單元寫死、fan-out 型先估 journal 行數）。
-7. **對抗式審查未跑**：008 慣例（安全設計 brainstorm 定案後、多鏡頭對抗式審查抓 blocker——上次 2 CONFIRMED 折入）本刀屬授權治理狀態機、同屬安全關鍵；user 尚未點跑，**specify 前仍可補**；若跑，findings 依 008 範式折入本檔並留紀錄節。
+7. **對抗式審查已跑（2026-07-12、clarify 後補跑）**：7 鏡頭×3 異質核驗，抓 2 blocker（restore 未納鎖序、reload 無失敗契約）全數折入 spec＋本檔、1 CONTESTED（活書 §6 as-built）走收刀通道——紀錄詳下方§對抗式審查紀錄。
 8. **M-6 延後的射程**：v1 唯一寫端角色＝R_SUPER（effective＝全集、no-escalation 空言）；任何下放動作觸發 BACKLOG 條目回收。
+
+---
+
+## 對抗式審查紀錄（2026-07-12，clarify 後補跑；008 範式）
+
+**編排**：Workflow 7 鏡頭（權限提升／併發競態／狀態機不變式／鎖死可用性／資料完整性遷移／資訊洩漏／憲法紀律 scope）獨立掃 → 每 finding 3 異質核驗者對抗式駁斥（事實核／已緩解核／可達性核）→ barrier 去重綜合。看門狗 fan-out 型原子成對。統計：raw **32**／CONFIRMED **4**／CONTESTED **2**／REFUTED **26**（26 條經多票駁回，多屬「已被既有 FR/拍板緩解」或「結構性不可達」）；104 agent、8 核驗票 StructuredOutput 重試耗盡（分散於被駁條，未架空任一存活議題判定——2 blocker 各 6 票、CONTESTED 1:1）。
+
+**Blocker 1（CONFIRMED、六票零實質反駁、跨 3 鏡頭同指）— restorePolicy 未納入 FOR UPDATE 鎖序**：
+restore-during-delete 競態下，無鎖預讀判 restorable 後才 INSERT，使一列現役授權逃過刪除連動歸檔而殘留、被同代碼重建角色靜默繼承。**違已入憲 §B2「lock-then-redecide、永不信 pre-read」（L-075）＋FR-011／FR-012／SC-004**。→ 折入 §3-5 鎖序＋§4 restorePolicy＋spec FR-022／FR-030／SC-007／SC-012。**處置＝修入 spec（工程正確性＋憲法兌現，非新拍板）**。
+
+**Blocker 2（CONFIRMED、4:2、跨 2 鏡頭同指）— reload-on-Applied 無 load_policy 失敗契約**：
+commit 後 `load_policy()` 失敗無處置；casbin 疑 clear-then-load，一次暫時性 DB 失敗即清空 in-memory 政策→含 R_SUPER 全域 fail-closed 鎖死、救援端點亦封死、唯重啟可救。**違 FR-018 防鎖死 by-design＋ADR 0044 降級告警**。方向歧見（stale-allow vs 鎖死）經核驗票收斂為「clear-then-load 鎖死」（機制 plan 期須核 crate 實碼）；修法「保留上一份已知良好快照＋不 clear-then-load＋告警＋有界重試」對兩方向皆正確、且沿 008 FR-018 與 `enforce.rs` 既有 fail-closed 範式。→ 折入 §3-6＋spec FR-021／SC-013。**處置＝修入 spec**。
+
+**CONTESTED（1:1）— 活書 ARCHITECTURE §6「home＝角色首個非空 role_home」as-built 失真**：
+事實成立（FR-039 讀端兜底後 §6:139 逐字敘述變不完整、活書權威高於 spec）；但 refuter 有力——提議「入 tasks」撞 rev4 `livedoc-asbuilt 歸收刀、不排進 feature branch`紀律（撞 docs-sync L6(b) 閘）。synthesis 判「已緩解-澄清」：**走收刀 arch-impact 通道**更新活書 §6（＋補生效延遲語意落點）、不入 tasks，與 005 spec 勘誤並列。已記入 spec 治理節「前刀 as-built 勘誤＋活書更新」。此收刀分工提請 user 知悉。
+
+**未升級為 finding 的健壯度確認**（26 駁回中的代表）：deleteRole 三層守門＋FOR UPDATE、protected-reject 零變更、in-use 疊種子雙重守、endpoint method 白名單辨識、B-047 明細受眾邊界、行為島 G 進場——經核驗確認已被既有 FR/拍板覆蓋或結構性不可達。

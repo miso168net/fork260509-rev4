@@ -31,7 +31,9 @@ seaql_migrations 框架表除外。
 （唯讀）；該容器不在機＝exit 2（無法驗證）而非誤報差異。
 
 gate2 比對規則：欄序面＝每表實庫 information_schema.ordinal_position 逐欄
-＝data-model.md §3 十二張欄序表（機器解析 markdown；欄名去引號正規化）。seed 面
+＝data-model.md §3 十二張欄序表（機器解析 markdown；欄名去引號正規化）；★post-baseline
+additive 容差（ADR 0039）＝實庫尾端多出且登記 WHITELIST_ADD 之欄剝除後再逐位比對（只放寬
+尾端新增、不放寬改動/重排；§3 定稿與 psql 快照凍結不改；首例＝009 m007 archive.role_id）。seed 面
 ＝實庫 6 表列集合＝fixtures 六支 json-<表名>.json（natural key 配對：user_name／
 role_code／route_name／setting_key／casbin ptype+v0..v5／sys_user_role 複合鍵；
 多列 0、缺列 0）；內容欄逐列比對、fixtures 欄名先經 rename map。內容比對排除面：
@@ -96,11 +98,16 @@ RENAME_MAP = {
     ("sys_ip_rule", "description"): "wbip_memo",
 }
 
-# 白名單恰 4 項（data-model §2 節 3）：新增 3 欄（皆 text NULL 無預設）＋型別變更 1 處
+# 新增欄白名單（ADR 0021）：dict {(表,欄): 期望型別}——泛化支援非 text 型加欄。
+# 002 基線 3 memo text 欄（data-model §2 節 3）＋post-baseline 隨刀登記加欄（各帶期望型別、
+# 來源刀註記）；is_whitelisted_extra 比對登記型別＋可空／無預設三條件。搭配型別變更 1 處
+# （WHITELIST_TYPE）＝原「白名單恰 4 項」之新增面；新增機制不與 STRUCT_ADDITIVE_ALLOWLIST
+# 混用（後者 kind∈table/index、非欄位）。
 WHITELIST_ADD = {
-    ("sys_user", "user_memo"),
-    ("sys_role", "role_memo"),
-    ("sys_menu", "menu_memo"),
+    ("sys_user", "user_memo"): "text",
+    ("sys_role", "role_memo"): "text",
+    ("sys_menu", "menu_memo"): "text",
+    ("sys_casbin_policy_archive", "role_id"): "bigint",  # 009-role-admin m007
 }
 WHITELIST_TYPE = {
     ("sys_ip_rule", "wbip_memo"): ("character varying", "text"),
@@ -212,9 +219,10 @@ def rewrite_def(table, defstr):
 
 
 def is_whitelisted_extra(table, col, attrs):
-    """白名單「新增欄」判定：表×欄在白名單且屬性＝text／可空／無預設。"""
+    """白名單「新增欄」判定：表×欄在白名單且屬性＝登記期望型別／可空／無預設。"""
     dtype, nullable, default, _maxlen = attrs
-    return ((table, col) in WHITELIST_ADD and dtype == "text"
+    want = WHITELIST_ADD.get((table, col))
+    return (want is not None and dtype == want
             and nullable == "YES" and norm_default(default) is None)
 
 
@@ -261,8 +269,9 @@ def compare_columns(table, left, right):
             hits.append(f"{table}.{col}（白名單新增欄）")
         elif (table, col) in WHITELIST_ADD:
             lt, ln, ld, _lm = left[col]
+            want = WHITELIST_ADD[(table, col)]
             issues.append(f"{table}.{col}：白名單新增欄屬性不符"
-                          f"（期 text／可空／無預設，實 {lt}／{ln}／{norm_default(ld)}）")
+                          f"（期 {want}／可空／無預設，實 {lt}／{ln}／{norm_default(ld)}）")
         else:
             issues.append(f"{table}.{col}：實庫多欄（白名單外）")
     for col in sorted(set(mapped) - set(left)):
@@ -360,12 +369,22 @@ def parse_datamodel_ordinals(md_text):
 
 
 def compare_ordinals(table, live_cols, dm_cols):
-    """單表欄序逐欄比對（位置嚴格）；回 issues 逐位指名。"""
-    if live_cols == dm_cols:
+    """單表欄序逐欄比對（位置嚴格）；回 issues 逐位指名。
+
+    ADR 0039 additive 容差（gate2 欄序面）：實庫尾端多出且登記於 gate1 欄面白名單
+    WHITELIST_ADD 的欄——post-baseline `ALTER TABLE ADD COLUMN` 恆落物理尾序——視為
+    容差、非欄序漂移，據以剝除後再與 §3 定稿逐位比對。§3 欄序定稿與 psql 凍結快照
+    一律不改（比照 gate1「只放寬新增、不放寬改動/重排」）。首個實例＝009 m007
+    sys_casbin_policy_archive.role_id（gate1 已白名單放行、type 面由 gate1 把關）。"""
+    # 尾端連續段：逐一剝除「超出定稿欄數且登記 WHITELIST_ADD」的實庫尾欄（不觸基準區）
+    effective = list(live_cols)
+    while len(effective) > len(dm_cols) and (table, effective[-1]) in WHITELIST_ADD:
+        effective.pop()
+    if effective == dm_cols:
         return []
     issues = []
-    for i in range(max(len(live_cols), len(dm_cols))):
-        lc = live_cols[i] if i < len(live_cols) else "（無）"
+    for i in range(max(len(effective), len(dm_cols))):
+        lc = effective[i] if i < len(effective) else "（無）"
         dc = dm_cols[i] if i < len(dm_cols) else "（無）"
         if lc != dc:
             issues.append(f"{table}：欄序位 {i + 1} 不符（定稿 {dc}、實庫 {lc}）")
@@ -800,7 +819,8 @@ def cmd_gate1(args):
         print(f"[gate1][FAIL] {msg}", file=sys.stderr)
     n_tables = len(ltables | rtables)
     verdict = "PASS" if not all_issues else "FAIL"
-    print(f"[gate1] {verdict}｜表 {n_ok}/{n_tables} 過｜白名單命中 {len(all_hits)}/4"
+    n_whitelist = len(WHITELIST_ADD) + len(WHITELIST_TYPE)
+    print(f"[gate1] {verdict}｜表 {n_ok}/{n_tables} 過｜白名單命中 {len(all_hits)}/{n_whitelist}"
           f"｜結構容差 delta {len(all_deltas)}｜白名單外差異 {len(all_issues)}")
     return 0 if not all_issues else 1
 
@@ -1048,11 +1068,15 @@ class TestRewriteDef(unittest.TestCase):
 
 
 class TestWhitelist(unittest.TestCase):
-    def test_whitelist_exactly_four(self):
-        self.assertEqual(len(WHITELIST_ADD) + len(WHITELIST_TYPE), 4)
-        self.assertEqual(WHITELIST_ADD,
-                         {("sys_user", "user_memo"), ("sys_role", "role_memo"),
-                          ("sys_menu", "menu_memo")})
+    def test_whitelist_entries(self):
+        # WHITELIST_ADD＝dict {(表,欄): 期望型別}——002 基線 3 memo text 欄＋009 m007
+        # role_id bigint＝4 add 項；型別變更 1 處（WHITELIST_TYPE）。
+        self.assertEqual(WHITELIST_ADD, {
+            ("sys_user", "user_memo"): "text",
+            ("sys_role", "role_memo"): "text",
+            ("sys_menu", "menu_memo"): "text",
+            ("sys_casbin_policy_archive", "role_id"): "bigint",
+        })
         self.assertEqual(WHITELIST_TYPE,
                          {("sys_ip_rule", "wbip_memo"): ("character varying", "text")})
 
@@ -1061,6 +1085,19 @@ class TestWhitelist(unittest.TestCase):
                                              ("text", "YES", None, None)))
         self.assertTrue(is_whitelisted_extra("sys_menu", "menu_memo",
                                              ("text", "YES", "-", None)))
+
+    def test_extra_bigint_allowed(self):
+        # 009 m007 role_id bigint NULL——泛化後非 text 型加欄放行（型別比對登記值）
+        self.assertTrue(is_whitelisted_extra(
+            "sys_casbin_policy_archive", "role_id", ("bigint", "YES", None, None)))
+        # 型別不符（text 冒充登記之 bigint）不放行
+        self.assertFalse(is_whitelisted_extra(
+            "sys_casbin_policy_archive", "role_id", ("text", "YES", None, None)))
+        # 可空性／預設不符不放行
+        self.assertFalse(is_whitelisted_extra(
+            "sys_casbin_policy_archive", "role_id", ("bigint", "NO", None, None)))
+        self.assertFalse(is_whitelisted_extra(
+            "sys_casbin_policy_archive", "role_id", ("bigint", "YES", "0", None)))
 
     def test_extra_wrong_attrs_rejected(self):
         self.assertFalse(is_whitelisted_extra("sys_user", "user_memo",
@@ -1156,6 +1193,22 @@ class TestCompareColumns(unittest.TestCase):
         self.assertEqual(len(hits), 1)
         self.assertIn("wbip_memo", hits[0])
 
+    def test_whitelisted_bigint_add_hits(self):
+        # 009 m007：非 text 型加欄（bigint NULL）經泛化白名單放行（實庫多欄容差）
+        left = {"role_id": ("bigint", "YES", None, None)}
+        issues, hits = compare_columns("sys_casbin_policy_archive", left, {})
+        self.assertEqual(issues, [])
+        self.assertEqual(len(hits), 1)
+        self.assertIn("role_id", hits[0])
+
+    def test_whitelisted_add_wrong_type_precise_msg(self):
+        # 屬性不符錯誤訊息帶登記期望型別（bigint）、非硬編 text
+        left = {"role_id": ("text", "YES", None, None)}
+        issues, hits = compare_columns("sys_casbin_policy_archive", left, {})
+        self.assertEqual(len(issues), 1)
+        self.assertIn("bigint", issues[0])
+        self.assertEqual(hits, [])
+
     def test_default_normalized_equiv(self):
         left = {"created_at": ("timestamp with time zone", "NO", "CURRENT_TIMESTAMP", None)}
         right = {"created_at": ("timestamp with time zone", "NO", "now()", None)}
@@ -1168,6 +1221,40 @@ class TestCompareColumns(unittest.TestCase):
         issues, _ = compare_columns("sys_user", left, right)
         self.assertEqual(len(issues), 1)
         self.assertIn("sys_user.password", issues[0])
+
+
+class TestCompareOrdinals(unittest.TestCase):
+    # sys_casbin_policy_archive §3.11 定稿 13 欄（時間欄群前置、止於 v5）。
+    ARCHIVE_DM = ["id", "created_at", "created_by", "archived_at", "archived_by",
+                  "archive_reason", "ptype", "v0", "v1", "v2", "v3", "v4", "v5"]
+
+    def test_identical_ok(self):
+        cols = ["id", "ptype", "v0"]
+        self.assertEqual(compare_ordinals("casbin_rule", list(cols), list(cols)), [])
+
+    def test_trailing_additive_tolerated(self):
+        # 實庫尾端多出白名單登記欄（009 m007 archive.role_id）→ ADR 0039 容差、零 issue
+        live = self.ARCHIVE_DM + ["role_id"]
+        self.assertEqual(
+            compare_ordinals("sys_casbin_policy_archive", live, self.ARCHIVE_DM), [])
+
+    def test_trailing_extra_unlisted_rejected(self):
+        # 尾端多出但未登記白名單 → 欄序不符（不容忍）
+        issues = compare_ordinals("casbin_rule", ["id", "ptype", "rogue_col"], ["id", "ptype"])
+        self.assertEqual(len(issues), 1)
+        self.assertIn("欄序位 3", issues[0])
+
+    def test_additive_does_not_mask_baseline_drift(self):
+        # 剝除尾端 additive 欄後仍逐位比對、基準區漂移（v4/v5 對調）照樣抓
+        live = ["id", "created_at", "created_by", "archived_at", "archived_by",
+                "archive_reason", "ptype", "v0", "v1", "v2", "v3", "v5", "v4", "role_id"]
+        issues = compare_ordinals("sys_casbin_policy_archive", live, self.ARCHIVE_DM)
+        self.assertTrue(any("欄序位 12" in i for i in issues))
+
+    def test_additive_scoped_to_table(self):
+        # role_id 白名單綁 archive 表；同名尾欄掛到別表不容忍
+        issues = compare_ordinals("casbin_rule", ["id", "ptype", "role_id"], ["id", "ptype"])
+        self.assertEqual(len(issues), 1)
 
 
 class TestCompareNamedDefs(unittest.TestCase):

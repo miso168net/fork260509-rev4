@@ -353,6 +353,14 @@
       "default": "''::character varying"
     },
     {
+      "table": "sys_casbin_policy_archive",
+      "column": "role_id",
+      "ordinal": 14,
+      "type": "bigint",
+      "nullable": true,
+      "default": null
+    },
+    {
       "table": "sys_ip_rule",
       "column": "id",
       "ordinal": 1,

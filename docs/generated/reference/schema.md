@@ -111,6 +111,7 @@
 | v3 | character varying(125) | 否 | ''::character varying |
 | v4 | character varying(125) | 否 | ''::character varying |
 | v5 | character varying(125) | 否 | ''::character varying |
+| role_id | bigint | 是 | — |
 
 索引：
 - idx_casbin_archive_archived_at｜CREATE INDEX idx_casbin_archive_archived_at ON public.sys_casbin_policy_archive USING btree (archived_at)

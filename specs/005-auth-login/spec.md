@@ -181,6 +181,12 @@ CDP 實機：三表單提交＋取驗證碼各得「暫未開放」toast、表�
 - **FR-008**: 系統 MUST 提供使用者路由端點：依即時角色枚舉選單政策（casbin `act='menu'`、
   已 seed 85 列）過濾啟用選單，**祖先包含**組樹（命中葉之所有祖先自動保留），回
   `{routes, home}`（`Api.Route.UserRoute` 凍結形；home＝角色首個非空首頁鍵、預設 home）。
+  〔★**as-built 勘誤（009-role-admin、2026-07-12）**：`getUserRoutes` 回傳的 `home` 落點語意由
+  009 FR-039「讀端兜底」變更——原＝無條件下發角色設定值（角色首個非空 `role_home`、否則預設
+  home）；現＝下發前先驗 `home` ∈ 該使用者可見路由樹，不在樹內→落點改為可見樹**先序走訪的第一個
+  可導航（葉）頁**（與側欄呈現序一致、落點唯一可測）、可見樹全空→維持預設值。此兜底覆蓋不一致的
+  一切成因（改首頁、撤選單、刪角色重建、歷史壞資料），使「登入落 404」結構性不可達。兜底層由 009
+  T034 於 `getUserRoutes` handler 補接；此為後刀讀端變更、**非 005 內設計字變更**。〕
 - **FR-009**: 系統 MUST 提供常數路由端點（回 `constant=true` 選單、seed 現況空集）與
   路由存在性查詢端點（routeName→bool）；isRouteExist 保護層＝**Authed**（R4 核定：rev3
   as-built auth-only、enforce_mw 無 require_policy）、getConstantRoutes＝Public。

@@ -27,6 +27,7 @@
 | login | /login/:module(pwd-login\|code-login\|register\|reset-pwd\|bind-wechat)? | layout.blank$view.login | route.login |
 | manage | /manage | layout.base | route.manage |
 | manage_menu | /manage/menu | view.manage_menu | route.manage_menu |
+| manage_policy-archive | /manage/policy-archive | view.manage_policy-archive | route.manage_policy-archive |
 | manage_role | /manage/role | view.manage_role | route.manage_role |
 | manage_system-settings | /manage/system-settings | view.manage_system-settings | route.manage_system-settings |
 | manage_user | /manage/user | view.manage_user | route.manage_user |
