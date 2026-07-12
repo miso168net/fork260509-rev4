@@ -35,7 +35,7 @@ description: "Task list for 010-menu-admin implementation"
 
 **Purpose**：v1.8.0 Amendment 落地（(d) 相依前端與島 H 的前置）、模組骨架、形制守門。
 
-- [ ] T001 ★憲法 v1.8.0 Amendment 落地（**主線親做、不派 agent；user 已親決 2026-07-13、機械落地**）：`docs/arc42/decisions/0051-menu-domain-state-machine.md`（選單域狀態機總綱：H1~H5 理據＋序列化域機制 R1＋治理域分層 R2＋button 絕版一致性 R6＋兩步流＋reason gate 擴充＋審查缺陷群溯源）＋`docs/arc42/decisions/0052-constitution-v1.8.0-amendment.md`（Amendment 案：島 H 進場＋§III.2(d) 錨點擴充＋1.7.0 log 補記）兩檔 accepted＋`.specify/memory/constitution.md` 編輯（§I.7 加島 H 五條／§III.2(d) 錨點列舉加 `views/manage/menu/index.vue`「顯示已刪除」列表切換＋逐列 restore 鈕、用途字串不動／Amendment log 補 1.7.0 行〔照 commit 821997a 內容回填〕＋新增 1.8.0 行／version 行 bump〕＋獨立 commit `docs(constitution): amend 島 H＋(d) 錨點擴充——v1.8.0`＋`tools/docs-sync generate` 同 commit
+- [ ] T001 ★憲法 v1.8.0 Amendment 落地（**主線親做、不派 agent；user 已親決 2026-07-13、機械落地**）：`docs/arc42/decisions/0051-menu-domain-state-machine.md`（選單域狀態機總綱：H1~H5 理據＋序列化域機制 R1＋治理域分層 R2＋button 絕版一致性 R6＋兩步流＋reason gate 擴充＋審查缺陷群溯源）＋`docs/arc42/decisions/0052-constitution-v1.8.0-amendment.md`（Amendment 案：島 H 進場＋§III.2(d) 錨點擴充＋1.7.0 log 補記）兩檔 accepted＋`.specify/memory/constitution.md` 編輯（§I.7 加島 H 五條／§III.2(d) 錨點列舉加 `views/manage/menu/index.vue`「顯示已刪除」列表切換＋逐列 restore 鈕、用途字串不動／Amendment log 補 1.7.0 行〔照 commit 821997a 內容回填〕＋新增 1.8.0 行／version 行 bump〕＋★**commit 前 user 過目 ADR 全文與憲法 diff**（親決的是方向與草案要點、最終字面屬人寫材質最高權威）＋獨立 commit `docs(constitution): amend 島 H＋(d) 錨點擴充——v1.8.0`＋`tools/docs-sync generate` 同 commit
 - [ ] T002 [P] 模組骨架：`rust-api/server/src/handler/menu.rs` 空殼＋mod 宣告；`rust-api/server/src/model/facade/domain_lock.rs`（或併 sys_menu.rs 頂部）——`MENU_DOMAIN_LOCK_KEY: i64 = 0x7265_7634_6D65_6E75` 常數＋`acquire_menu_domain_lock(txn)` helper 骨架（R1；doc 註明「txn 內首動作、先於一切列鎖」）
 - [ ] T003 [P] `rust-api/server/src/validation.rs` 加 route_name 形制守門 `^[A-Za-z0-9_-]{1,100}$`（R9：`chars().all()` 形免 regex、雙端語意、對 wire 原始字串）＋單元測試（合法含連字號／空／越 100／metacharacter／unicode 案）
 
@@ -62,7 +62,7 @@ description: "Task list for 010-menu-admin implementation"
 - [ ] T007 [US1] 測試先紅：`sys_menu.rs` facade 單元 table-driven（同檔系列、不標 [P]）——list 組樹（頂層分頁＋children 巢狀＋同層 order 排序＋含停用不含已刪、R4）／create（形制守門、23505 收斂 `routeNameExists`、parent 驗三態〔`parentNotFound`／`parentDeleted`／停用 parent 允許〕、`parentId=0`↔NULL root 豁免、★建後 `casbin_rule` 零新列斷言〔FR-004 兩步流〕）／update（不可變欄雙鍵 `routeNameImmutable`／`menuTypeImmutable`〔收但比對現值〕、無變更提前 no-op 不 bump 時戳不落稽核、re-parent 環檢測〔自指／掛自身子孫／深鏈 ≤64 上限〕＋parent 驗）／delete 守門固定序（①protected〔無子項 protected 標的＋斷言 `protectedMenu`〕→②`hasChildren`〔含**停用**子項案〕）＋★同交易連動歸檔（menu 維跨全角色 reason=`menu_soft_delete` 帶 role_id＋獨有 button code 維、共用 code 不誤傷）／batch（ids 去重、空清單拒、含不存在整批拒、★同批父子拓撲序 child-first 成功、含違規整批零變更）
 - [ ] T008 [P] [US1] `rust-api/server/tests/contract.rs` 契約案 5 條（getMenuList/v2〔GET〕／addMenu〔POST〕／updateMenu〔POST〕／deleteMenu〔**DELETE**〕／batchDeleteMenu〔**DELETE**〕——method 寫死對齊 contracts 表 seed act）＋registry 計數斷言連動
 - [ ] T009 [US1] `sys_menu.rs` facade 寫端＋組樹讀實作：create／update（不可變欄比對、no-op 於 begin 前、環檢測 R8、buttons 編輯之絕版連動掛點留 US2）／soft_delete（域內固定序：advisory→FOR UPDATE→鎖內重驗守門序→軟刪 deleted_at/by 成對＋同交易連動歸檔〔menu 維 `archive_all_menu_policies(txn, route_name)` 跨全角色＋獨有 button code 判定 R6〕→op-log）／batch_soft_delete（★自管 txn＋advisory、去重、拓撲序 child-first、逐列鎖內守門、no-partial）／list 組樹（頂層分頁、R4 欄位映射含 MenuPropsOfRoute 十欄＋parentId 0↔NULL）
-- [ ] T010 [US1] `rust-api/server/src/handler/menu.rs` 5 端點（拒因 distinct key 照 R9 鍵表；批刪明細 data 形 impl 自定〔ADR 0050 範式〕；觸及授權變更成功→009 rebuild-swap reload）＋`rust-api/server/src/router.rs` 註冊 5 條（GET×1／POST×2／**DELETE×2**）→ T007/T008 轉綠
+- [ ] T010 [US1] `rust-api/server/src/handler/menu.rs` 5 端點（拒因 distinct key 照 R9 鍵表；批刪明細 data 形 impl 自定〔ADR 0050 範式〕；觸及授權變更成功→009 rebuild-swap reload；★負向斷言：被拒／無作用／標的不存在路徑**零 reload**〔FR-016〕）＋`rust-api/server/src/router.rs` 註冊 5 條（GET×1／POST×2／**DELETE×2**）→ T007/T008 轉綠
 - [ ] T011 [US1] 負向自證①②④：①拆 protected 守門→「protected 拒刪」測試轉紅（防恆綠前置＝無子項標的＋斷言拒因鍵）；②拆環檢測→成環測試轉紅；④batch 改逐項提交→「整批零變更」測試轉紅；還原全綠（結果寫入執行單元 report）
 - [ ] T012 [US1] 前端：★建檔一對（R10）——ADAPT `base-web/src/typings/api/rev4-menu-admin.d.ts`（declaration merging `Api.SystemManage`：AddMenuReq／UpdateMenuReq／BatchDeleteMenuReq／GetDeletedMenusParams／RestoreMenuReq）＋WRAPPER `base-web/src/service/api/rev4-menu-admin.ts`（6 fetcher；★檔頭紀律：不經 barrel、避 vite stale-export、新檔零原行；fetchGetMenuList 復用凍結、絕不重建）；`views/manage/menu/modules/menu-operate-modal.vue` handleSubmit 接真 add/update (a)＋★edit 模式 routeName 欄鎖定 (a) 附屬小修（menuType 欄 upstream 已鎖、對稱）＋edit 模式 parentId selector (d) 原錨；`views/manage/menu/index.vue` handleDelete/handleBatchDelete 接線 (a)＋操作鈕 `hasAuth('menu:add'/'menu:edit'/'menu:delete')` (b)；fork-delta 紀律＋容器內 `pnpm typecheck`＋`tools/fork-delta-lint` 綠；★逐處補記 spec 附錄 A as-built 欄
 
@@ -87,7 +87,7 @@ description: "Task list for 010-menu-admin implementation"
 **Goal**：getDeletedMenus＋restoreMenu 鎖序＋回收桶 UI。**Independent Test**：quickstart S3＋併發組 2。**依賴**：US1（軟刪資料）＋T001（(d) 錨點 Amendment——T019 前置）。
 
 - [ ] T016 [US3] 測試先紅：`sys_menu.rs` restore table-driven（同檔系列）——成功（deleted_at/by 成對清空、原 status 保留、欄位不變）／同鍵活性衝突拒 `routeNameExists`（★含併發 23505 兜底收斂案）／`parentDeleted` 拒（停用 parent 允許）／`notFound`（假 id／未刪列）／★restore 後 `casbin_rule` 零新列斷言（不回灌 FR-023）；getDeletedMenus 讀（僅已刪、平面 children=null、deleted_at DESC、分頁）；★併發組 2：`deleteMenu(P)`×`restoreMenu(C)` 交錯→終態二序列之一、無「未刪子掛已刪父」（SC-003）
-- [ ] T017 [P] [US3] `rust-api/server/tests/contract.rs` 契約案 2 條（getDeletedMenus〔GET〕／restoreMenu〔POST〕；此二政策列 protected=true）
+- [ ] T017 [US3] `rust-api/server/tests/contract.rs` 契約案 2 條（★與 T008 同檔、U5→U8 序列故不標 [P]）（getDeletedMenus〔GET〕／restoreMenu〔POST〕；此二政策列 protected=true）
 - [ ] T018 [US3] `sys_menu.rs` facade：`list_deleted`（分頁＋排序）＋`restore`（域內固定序：advisory→`find_by_id_for_update` 鎖已刪列→鎖內重驗〔同鍵活性／parent 未刪〕→成對清空→op-log；23505 收斂）；`handler/menu.rs` 2 端點＋`router.rs` 註冊 → T016/T017 轉綠
 - [ ] T019 [US3] 前端 (d) 擴錨接線（★前置＝T001 v1.8.0 已落地、「未過不施工」已解除）：`views/manage/menu/index.vue`「顯示已刪除」toggle（切換資料源 fetchGetMenuList⇄fetchGetDeletedMenus、已刪模式操作欄換逐列 restore 鈕、隱 edit/delete）＋restore 接線；`page.manage.menu.*` 資料級 label 鍵三語；fork-delta＋typecheck＋fork-delta-lint 綠；★逐處補記 spec 附錄 A
 
@@ -100,7 +100,7 @@ description: "Task list for 010-menu-admin implementation"
 **Goal**：治理域換源四處＋顯示域語意鎖定。**Independent Test**：quickstart S4。**依賴**：Foundational（T005 list_governed）；與 US2/US3 邏輯獨立（同檔序列由單元順序承載）。
 
 - [ ] T020 [US4] 治理域換源四處（R2）＋測試先紅：`rust-api/server/src/handler/role.rs` get_menu_tree／getRoleMenu 反查（route_names_to_menu_ids）／getAllButtons（all_button_codes）＋`rust-api/server/src/model/facade/sys_casbin_policy.rs` menu_ids_to_route_names——四處由 `list_active` 換 `list_governed`；新紅測（停用選單仍在 getMenuTree 候選／getRoleMenu 回讀保留／getAllButtons 聯集含停用選單 code／★全量替換提交不誤撤停用選單授權整合測試）；既有斷言連動改寫（盤點零轉紅、有轉紅即回報）→實作→綠
-- [ ] T021 [US4] 顯示域語意鎖定測試：getUserRoutes／getAllPages 停用即隱（下次讀即消失）／重新啟用恢復（授權未動、無需重勾）／停用目錄子項升根既有組樹語意鎖定（明文既有行為、防未來誤改）
+- [ ] T021 [US4] 顯示域語意鎖定測試：getUserRoutes／getAllPages 停用即隱（下次讀即消失）／重新啟用恢復（授權未動、無需重勾）／停用目錄子項升根既有組樹語意鎖定（明文既有行為、防未來誤改）／★已刪選單頁面暫離 getAllPages 候選、restore 後回歸（FR-032 顯式斷言）
 
 **Checkpoint**：停用＝暫時下架（顯示域）而非撤銷（治理域）——雙域語意測試鎖定。
 
@@ -151,7 +151,7 @@ U1＝T001（**主線親做**：憲法＋ADR、user 已親決、機械落地）�
 ### Parallel Opportunities
 
 - Setup T002/T003 [P]（不同檔；T001 主線同期親做）。
-- 契約案 T008/T017 [P] 相對同 phase facade 任務（不同檔）。
+- 契約案 T008 [P] 相對同 phase facade 任務（不同檔；T017 與 T008 同檔、U5→U8 序列不標 [P]）。
 - Polish T025 [P] 相對 T023/T024（docs vs 碼）。
 - ★rust cargo 全程 serial 跑；[P] 僅指可分派不同執行單元。
 
