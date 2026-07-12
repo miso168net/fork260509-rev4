@@ -103,9 +103,9 @@ description: "Task list for 009-role-admin implementation"
 
 **Goal**：歸檔列表雙濾＋restore 七步鎖序（Blocker 1 落地）＋回收桶新頁。**Independent Test**：quickstart S4＋負向自證 3/5。**依賴**：US2（歸檔資料來源）。
 
-- [ ] T025 [US4] 測試先紅：`sys_casbin_archive.rs` restore table-driven（同檔系列）——三態（可復原→反向 move＋列刪；已 live→NoOp 0000＋列仍消費；假 id→2222）／`role_soft_delete` 不可復原／★同實例判定（同 code 重建新 id→舊列 restorable=false＋強打拒）／NULL role_id 不可復原（歷史列誠實退化）／menu 維 target 失效拒／list 雙濾（roleCode×dimension v2 推導）＋archived_at desc 分頁＋restorable 隨列下發／★**restore-during-delete 併發紅測**（SC-012、Blocker 1 守門：無鎖版本必殘留 live 列）
+- [x] T025 [US4] 測試先紅：`sys_casbin_archive.rs` restore table-driven（同檔系列）——三態（可復原→反向 move＋列刪；已 live→NoOp 0000＋列仍消費；假 id→2222）／`role_soft_delete` 不可復原／★同實例判定（同 code 重建新 id→舊列 restorable=false＋強打拒）／NULL role_id 不可復原（歷史列誠實退化）／menu 維 target 失效拒／list 雙濾（roleCode×dimension v2 推導）＋archived_at desc 分頁＋restorable 隨列下發／★**restore-during-delete 併發紅測**（SC-012、Blocker 1 守門：無鎖版本必殘留 live 列）
 - [ ] T026 [P] [US4] `tests/contract.rs` 契約案 2 條（getArchivedPolicies／restorePolicy）
-- [ ] T027 [US4] `sys_casbin_archive.rs`：`list`（雙濾＋restorable 判定下發——reason≠role_soft_delete 且同 code 活角色 id==role_id）＋★`restore` 七步鎖序（R7 全文：①txn ②鎖 archive 列〔`find_by_id().lock_exclusive()`、EPQ 使已消費列現形查無〕③reason gate ④`find_active_by_code_for_update(archived.v0)` 鎖活角色 ⑤鎖內同實例重驗 `locked_role.id == archived.role_id` ⑥menu 維活性 ⑦三態落地＋23505 收斂 2222；restore INSERT ★顯式 protected=false）
+- [x] T027 [US4] `sys_casbin_archive.rs`：`list`（雙濾＋restorable 判定下發——reason≠role_soft_delete 且同 code 活角色 id==role_id）＋★`restore` 七步鎖序（R7 全文：①txn ②鎖 archive 列〔`find_by_id().lock_exclusive()`、EPQ 使已消費列現形查無〕③reason gate ④`find_active_by_code_for_update(archived.v0)` 鎖活角色 ⑤鎖內同實例重驗 `locked_role.id == archived.role_id` ⑥menu 維活性 ⑦三態落地＋23505 收斂 2222；restore INSERT ★顯式 protected=false）
 - [ ] T028 [US4] `handler/policy_archive.rs` 2 端點（restorePolicy Applied→rebuild-swap；`biz.policy.notRestorable`）＋`router.rs` 註冊 → T025/T026 轉綠
 - [ ] T029 [US4] 負向自證：③restore 判定去掉 `id==role_id` 同實例比對→「同 code 重建舊列不可復原」轉紅；⑤★拔 restore FOR UPDATE 鎖序→restore-during-delete 併發測試轉紅（Blocker 1）；還原全綠（report）
 - [ ] T030 [US4] 前端：★`views/manage/policy-archive/index.vue` net-new (e)（嚴格鏡像 manage 範式：search＋table＋分頁；restore 操作欄、restorable=false 停用態；來源角色×維度雙濾）＋route＋★`route.manage_policy-archive` 三語譯文（B-061 三清一）＋wrapper/d.ts 追加 2 fetcher＋`ArchivedPolicy` 形；fork-delta＋typecheck＋fork-delta-lint 綠
