@@ -35,9 +35,9 @@ description: "Task list for 010-menu-admin implementation"
 
 **Purpose**：v1.8.0 Amendment 落地（(d) 相依前端與島 H 的前置）、模組骨架、形制守門。
 
-- [ ] T001 ★憲法 v1.8.0 Amendment 落地（**主線親做、不派 agent；user 已親決 2026-07-13、機械落地**）：`docs/arc42/decisions/0051-menu-domain-state-machine.md`（選單域狀態機總綱：H1~H5 理據＋序列化域機制 R1＋治理域分層 R2＋button 絕版一致性 R6＋兩步流＋reason gate 擴充＋審查缺陷群溯源）＋`docs/arc42/decisions/0052-constitution-v1.8.0-amendment.md`（Amendment 案：島 H 進場＋§III.2(d) 錨點擴充＋1.7.0 log 補記）兩檔 accepted＋`.specify/memory/constitution.md` 編輯（§I.7 加島 H 五條／§III.2(d) 錨點列舉加 `views/manage/menu/index.vue`「顯示已刪除」列表切換＋逐列 restore 鈕、用途字串不動／Amendment log 補 1.7.0 行〔照 commit 821997a 內容回填〕＋新增 1.8.0 行／version 行 bump〕＋★**commit 前 user 過目 ADR 全文與憲法 diff**（親決的是方向與草案要點、最終字面屬人寫材質最高權威）＋獨立 commit `docs(constitution): amend 島 H＋(d) 錨點擴充——v1.8.0`＋`tools/docs-sync generate` 同 commit
-- [ ] T002 [P] 模組骨架：`rust-api/server/src/handler/menu.rs` 空殼＋mod 宣告；`rust-api/server/src/model/facade/domain_lock.rs`（或併 sys_menu.rs 頂部）——`MENU_DOMAIN_LOCK_KEY: i64 = 0x7265_7634_6D65_6E75` 常數＋`acquire_menu_domain_lock(txn)` helper 骨架（R1；doc 註明「txn 內首動作、先於一切列鎖」）
-- [ ] T003 [P] `rust-api/server/src/validation.rs` 加 route_name 形制守門 `^[A-Za-z0-9_-]{1,100}$`（R9：`chars().all()` 形免 regex、雙端語意、對 wire 原始字串）＋單元測試（合法含連字號／空／越 100／metacharacter／unicode 案）
+- [x] T001 ★憲法 v1.8.0 Amendment 落地（**主線親做、不派 agent；user 已親決 2026-07-13、機械落地**）：`docs/arc42/decisions/0051-menu-domain-state-machine.md`（選單域狀態機總綱：H1~H5 理據＋序列化域機制 R1＋治理域分層 R2＋button 絕版一致性 R6＋兩步流＋reason gate 擴充＋審查缺陷群溯源）＋`docs/arc42/decisions/0052-constitution-v1.8.0-amendment.md`（Amendment 案：島 H 進場＋§III.2(d) 錨點擴充＋1.7.0 log 補記）兩檔 accepted＋`.specify/memory/constitution.md` 編輯（§I.7 加島 H 五條／§III.2(d) 錨點列舉加 `views/manage/menu/index.vue`「顯示已刪除」列表切換＋逐列 restore 鈕、用途字串不動／Amendment log 補 1.7.0 行〔照 commit 821997a 內容回填〕＋新增 1.8.0 行／version 行 bump〕＋★**commit 前 user 過目 ADR 全文與憲法 diff**（親決的是方向與草案要點、最終字面屬人寫材質最高權威）＋獨立 commit `docs(constitution): amend 島 H＋(d) 錨點擴充——v1.8.0`＋`tools/docs-sync generate` 同 commit
+- [x] T002 [P] 模組骨架：`rust-api/server/src/handler/menu.rs` 空殼＋mod 宣告；`rust-api/server/src/model/facade/domain_lock.rs`（或併 sys_menu.rs 頂部）——`MENU_DOMAIN_LOCK_KEY: i64 = 0x7265_7634_6D65_6E75` 常數＋`acquire_menu_domain_lock(txn)` helper 骨架（R1；doc 註明「txn 內首動作、先於一切列鎖」）
+- [x] T003 [P] `rust-api/server/src/validation.rs` 加 route_name 形制守門 `^[A-Za-z0-9_-]{1,100}$`（R9：`chars().all()` 形免 regex、雙端語意、對 wire 原始字串）＋單元測試（合法含連字號／空／越 100／metacharacter／unicode 案）
 
 **Checkpoint**：憲法 v1.8.0＋ADR 0051/0052 accepted（獨立 commit）；`cargo build --workspace` 綠。
 
@@ -47,7 +47,7 @@ description: "Task list for 010-menu-admin implementation"
 
 **Purpose**：序列化域基建＋治理域讀端＋009 寫端入域＋reason gate 擴充。
 
-- [ ] T004 序列化域基建：`domain_lock.rs` advisory 取鎖實作（sea-orm raw `SELECT pg_advisory_xact_lock($key)`）＋互斥可觀察整合測試（兩 txn 併發取鎖→pg_locks `locktype='advisory'` 斷言後到者等待、先到 commit 後接續——SC-003 機器證的觀測底座）
+- [x] T004 序列化域基建：`domain_lock.rs` advisory 取鎖實作（sea-orm raw `SELECT pg_advisory_xact_lock($key)`）＋互斥可觀察整合測試（兩 txn 併發取鎖→pg_locks `locktype='advisory'` 斷言後到者等待、先到 commit 後接續——SC-003 機器證的觀測底座）
 - [ ] T005 `rust-api/server/src/model/facade/sys_menu.rs` 讀端地基：`list_governed`（`deleted_at IS NULL`、含停用——治理域 R2）＋鎖讀 helper（`find_by_id_for_update`〔不濾刪、restore 用〕／`find_governed_by_id_for_update`）＋單元測試（治理域含停用不含已刪／鎖讀謂詞）＋★facade 註解正名兩域（治理域＝未刪 governed／顯示域＝啟用∧未刪 active、「活性」一詞專指 deleted_at IS NULL）
 - [ ] T006 009 寫端入域＋reason gate 擴充：`rust-api/server/src/model/facade/sys_casbin_policy.rs` `set_role_dimension`（menu/button 維、fn 內一律）＋`rust-api/server/src/handler/policy_archive.rs` `restorePolicy`（一律）各加 advisory 首動作（R1、鎖內重驗沿既有）；`rust-api/server/src/model/facade/sys_casbin_archive.rs` restorable 判定 fn 擴充不可手動復原集合 `{role_soft_delete, menu_soft_delete, menu_button_removed}`（★list 旗標＋restore 權威判定**單點共用**、FR-014）＋`insert_archived` 支援新二 reason 來源；既有測試零轉紅盤點＋新紅測（直接 INSERT `menu_soft_delete`／`menu_button_removed` archive 列→restorable=false＋restorePolicy 強打拒 `biz.policy.notRestorable`）
 
