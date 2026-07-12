@@ -52,3 +52,11 @@
 - **消除的歧義**：「首頁指向不可見頁→登入落 404」原為 spec 未言明的斷鏈（寫端候選＝頁面全集、讀端無驗證、前端無 fallback——三處實查證實）。現由新 FR-039 定讀端兜底語意、FR-037 明文寫端不設限、US6 場景 4＋Edge Cases＋SC-011 綁可測結果；005 as-built 勘誤註記入治理節。
 - **連動重編號**：原 FR-039（資料結構）→FR-040、原邊界 FR-040~045→FR-041~046；交叉引用（假設節兩處）同步修正。FR 總數 45→46、SC 總數 10→11。
 - 全 16 項維持通過（16/16 → 16/16）。殘餘懸空點不變（明細呈現並存方式、行為島條文定稿＝plan 期拍板，非規格歧義）。
+
+### 對抗式審查折入後重驗（2026-07-12）
+
+7 鏡頭×3 異質核驗（raw 32／CONFIRMED 4／CONTESTED 2／REFUTED 26）折入後重驗：
+
+- **強化的項**：「Edge cases are identified」與「Requirements are testable and unambiguous」——原 spec 對「授權寫端併發鎖序」只覆蓋三維寫入×刪除（FR-022），漏了 restorePolicy 這條 grant 路徑（Blocker 1）；對「判定面重載失敗」全無契約（Blocker 2）。兩者現由 FR-021（重載失敗契約）／FR-022（restore 納鎖序＋lock-then-redecide）／FR-030／Edge Cases 兩新條／SC-007／SC-012／SC-013 補齊，皆為可測不變式。
+- **無新增 [NEEDS CLARIFICATION]**：兩 blocker 皆屬工程正確性補強（憲法 §B2 兌現＋既有 fail-closed／「保留已知良好」範式），非新拍板；CONTESTED 活書議題屬收刀分工（走 arch-impact，非規格歧義）。casbin `load_policy` clear-then-load 具體語意標為 plan 期核 crate 實碼——屬下游驗證、不阻規格。
+- 全 16 項維持通過（16/16 → 16/16）。
