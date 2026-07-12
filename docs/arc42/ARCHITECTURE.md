@@ -136,7 +136,11 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   session_event(logout, operator=本人)→`Res::ok`（verify 失敗冪等 no-op）；access 過期亦可登出。
 - **動態選單鏈**（GET /auth/getUserRoutes，Authed）：DB-fresh roles → casbin 枚舉 `act='menu'` 可見 route_name
   → `sys_menu` `list_active` → 祖先包含組樹（命中葉之 parent 鏈全保留）→ `{routes:MenuRoute[], home}`
-  （home＝角色首個非空 role_home）。前端 dynamic 模式以此為選單唯一過濾源。
+  （home＝★讀端兜底〔009 FR-039、as-built〕：下發前驗角色 role_home ∈ 可見樹可導航頁、不在→可見樹先序
+  第一個可導航〔葉、`children.is_none()`〕頁、可見樹全空→維持預設；「登入落 404」結構性不可達。原 005
+  as-built「角色首個非空 role_home」由 009 兜底層在其上覆蓋、005 spec 已補勘誤註記）。前端 dynamic 模式以此為
+  選單唯一過濾源。★授權變更生效語意（009 FR-021／§I.7 島 G）：API 判定即時〔require_policy 每請求 DB-fresh
+  roles〕、前端選單/按鈕顯隱於下次載入更新〔不推播〕。
 - **替代登入 stub**（sendCaptcha/codeLogin/register/resetPwd，Public、ADR 0029）：一律 `2222`
   （`biz.auth.notSupported`）、零 DB；前端表單改真呼叫、經攔截器顯譯文、captcha 成功才啟動倒數。
 
