@@ -2,7 +2,7 @@
 id: "0050"
 title: 業務錯誤結構化明細通道——信封 data 欄載 i18n 插值參數（含洩漏面評估與 §I.3 讀法確認）
 date: 2026-07-12
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-12 009-role-admin brainstorm D7（user 拍②結構化明細案、2026-07-11~12）＋specify 期通道實查＋plan Constitution Check Q4＋plan research R4；消化 B-047（rev3 015 遺留）"

@@ -2,7 +2,7 @@
 id: "0049"
 title: 授權歸檔表加「來源角色識別」欄（m007 role_id）——restorability 去牆鐘化＋protected 欄 won't-add 分析
 date: 2026-07-12
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-12 009-role-admin brainstorm D5（user 拍板 2026-07-11~12）＋plan research R2；消化 B-034（rev3 015/020 遺留）"

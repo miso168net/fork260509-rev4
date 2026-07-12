@@ -50,6 +50,6 @@
 | 0045 | accepted | 2026-07-11 | 來源維度節流啟用——GREATEST 兩源（拔 reset-on-success）＋負快取沿 0038（supersede 0038 調整項二） | — | 0038 | — |
 | 0046 | accepted | 2026-07-11 | 稽核 region 欄 GeoIP 填值——xdb §I.5 例外整檔拷貝、best-effort、boot 守門 | — | — | — |
 | 0047 | accepted | 2026-07-11 | 鎖定專屬審計欄——won't-fix（島 E3 鎖定零稽核列⇒該審計區分無標的） | — | — | — |
-| 0048 | draft | 2026-07-12 | 憲法 §I.7 行為島進場——島 G（casbin 授權治理）＋MODAL-WIRING (a) 檔名枚舉澄清 | — | — | — |
-| 0049 | draft | 2026-07-12 | 授權歸檔表加「來源角色識別」欄（m007 role_id）——restorability 去牆鐘化＋protected 欄 won't-add 分析 | — | — | — |
-| 0050 | draft | 2026-07-12 | 業務錯誤結構化明細通道——信封 data 欄載 i18n 插值參數（含洩漏面評估與 §I.3 讀法確認） | — | — | — |
+| 0048 | accepted | 2026-07-12 | 憲法 §I.7 行為島進場——島 G（casbin 授權治理）＋MODAL-WIRING (a) 檔名枚舉澄清 | — | — | — |
+| 0049 | accepted | 2026-07-12 | 授權歸檔表加「來源角色識別」欄（m007 role_id）——restorability 去牆鐘化＋protected 欄 won't-add 分析 | — | — | — |
+| 0050 | accepted | 2026-07-12 | 業務錯誤結構化明細通道——信封 data 欄載 i18n 插值參數（含洩漏面評估與 §I.3 讀法確認） | — | — | — |

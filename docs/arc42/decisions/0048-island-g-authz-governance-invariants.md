@@ -2,7 +2,7 @@
 id: "0048"
 title: 憲法 §I.7 行為島進場——島 G（casbin 授權治理）＋MODAL-WIRING (a) 檔名枚舉澄清
 date: 2026-07-12
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-12 009-role-admin plan Constitution Check Q9（新島 G 進場＝MINOR Amendment）＋analyze A1 拍板甲案（(a) 枚舉澄清升必辦、user 親決 2026-07-12）；拍板鏈＝brainstorm D1~D7＋對抗式審查兩 blocker 折入"
