@@ -129,8 +129,8 @@ description: "Task list for 009-role-admin implementation"
 
 **Goal**：roleHome 讀寫＋讀端兜底（FR-039）。**Independent Test**：quickstart S3。**依賴**：US2 前端（同 modal）。
 
-- [ ] T033 [US6] 後端 roleHome：`handler/role.rs` getRoleHome/updateRoleHome 2 端點（entity 讀寫 `sys_role.role_home`、op-log 同交易；★寫端不驗與選單授權一致性 FR-037）＋`tests/contract.rs` 契約 2 條＋`router.rs` 註冊 → 轉綠
-- [ ] T034 [US6] 讀端兜底（FR-039、005 as-built 連動）：`handler/route.rs` getUserRoutes 下發 home 前驗其∈可見樹——不在→★可見樹**先序走訪的第一個可導航（葉）路由**（與側欄呈現序一致——FR-039 落點唯一定義、測試有確定預期值）；全空→維持預設值＋單元/整合測試（兜底案／全空案／正常案；既有 `home＝"home"` 斷言連動核對）
+- [x] T033 [US6] 後端 roleHome：`handler/role.rs` getRoleHome/updateRoleHome 2 端點（entity 讀寫 `sys_role.role_home`、op-log 同交易；★寫端不驗與選單授權一致性 FR-037）＋`tests/contract.rs` 契約 2 條＋`router.rs` 註冊 → 轉綠
+- [x] T034 [US6] 讀端兜底（FR-039、005 as-built 連動）：`handler/route.rs` getUserRoutes 下發 home 前驗其∈可見樹——不在→★可見樹**先序走訪的第一個可導航（葉）路由**（與側欄呈現序一致——FR-039 落點唯一定義、測試有確定預期值）；全空→維持預設值＋單元/整合測試（兜底案／全空案／正常案；既有 `home＝"home"` 斷言連動核對）
 - [ ] T035 [US6] 前端：`modules/menu-auth-modal.vue` getHome/updateHome 接線 (a)（★與 T022 同檔、序列執行）＋wrapper/d.ts 追加 2 fetcher；typecheck＋fork-delta-lint 綠
 
 **Checkpoint**：首頁變更下次登入生效；「首頁指向不可見頁」不落 404（兜底實測）。
