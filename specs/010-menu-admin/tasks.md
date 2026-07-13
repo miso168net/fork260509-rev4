@@ -74,9 +74,9 @@ description: "Task list for 010-menu-admin implementation"
 
 **Goal**：零繼承鏈端到端＋buttons 絕版連動＋併發機器證組 1/3。**Independent Test**：quickstart S2＋負向自證 3/5。**依賴**：US1（delete 實作）＋Foundational（T006 gate）。
 
-- [ ] T013 [US2] 測試先紅：零繼承鏈整合測試（同檔 `sys_menu.rs`／整合測試檔）——★先授權（測試角色×測試選單 menu 維＋button 維）→刪→歸檔列斷言（reason／role_id／protected 列 G3 對偶容納）→同鍵重建→零授權（menu＋button 兩維）＋回收桶灌入嘗試拒；共用 button code 兩選單案（刪一、他頁授權存活）；buttons 編輯移除 code 絕版判定 table-driven（獨有→歸檔 `menu_button_removed`／仍屬他頁→不動／新增 code 零授權）
-- [ ] T014 [US2] `sys_menu.rs` update 路徑 buttons 絕版連動實作（R6 jsonb containment `EXISTS` 排除自身、域內判定；同交易 archive-move＋op-log→Applied 才 reload）→ T013 轉綠
-- [ ] T015 [US2] 併發機器證組 1＋組 3（SC-003）：`deleteMenu(M)`×`updateRoleMenu(R,含 M)` 併發（終態＝無「M 已刪而 (R,M,menu) 殘留 live」、同鍵重建零授權）＋`updateMenu(A→B)`×`updateMenu(B→A)` 對向 re-parent 併發（至多一筆成功、樹無環）——pg_locks advisory 等待觀察（T004 底座）；＋負向自證③⑤：③拆刪除連動歸檔→「同鍵重建零繼承」轉紅（★前置＝先授權再刪再重建、防空集恆綠）；⑤拆 button 維連動→「code 重現零繼承」轉紅；還原全綠（report）
+- [x] T013 [US2] 測試先紅：零繼承鏈整合測試（同檔 `sys_menu.rs`／整合測試檔）——★先授權（測試角色×測試選單 menu 維＋button 維）→刪→歸檔列斷言（reason／role_id／protected 列 G3 對偶容納）→同鍵重建→零授權（menu＋button 兩維）＋回收桶灌入嘗試拒；共用 button code 兩選單案（刪一、他頁授權存活）；buttons 編輯移除 code 絕版判定 table-driven（獨有→歸檔 `menu_button_removed`／仍屬他頁→不動／新增 code 零授權）
+- [x] T014 [US2] `sys_menu.rs` update 路徑 buttons 絕版連動實作（R6 jsonb containment `EXISTS` 排除自身、域內判定；同交易 archive-move＋op-log→Applied 才 reload）→ T013 轉綠
+- [x] T015 [US2] 併發機器證組 1＋組 3（SC-003）：`deleteMenu(M)`×`updateRoleMenu(R,含 M)` 併發（終態＝無「M 已刪而 (R,M,menu) 殘留 live」、同鍵重建零授權）＋`updateMenu(A→B)`×`updateMenu(B→A)` 對向 re-parent 併發（至多一筆成功、樹無環）——pg_locks advisory 等待觀察（T004 底座）；＋負向自證③⑤：③拆刪除連動歸檔→「同鍵重建零繼承」轉紅（★前置＝先授權再刪再重建、防空集恆綠）；⑤拆 button 維連動→「code 重現零繼承」轉紅；還原全綠（report）
 
 **Checkpoint**：幽靈授權三路（現役殘留／回收桶回灌／button 重現）全封死、併發下亦然。
 
