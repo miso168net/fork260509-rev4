@@ -18,7 +18,7 @@
 
 ## R3（B1）並發登入漏撤修法＝login/refresh 鎖內重驗活性＋密碼 hash（島 I2）
 
-- **Decision**：`run_login` 取 advisory lock 後、insert token **前**，於 txn 內**重讀** sys_user 列並重驗 `status==1 && deleted_at IS NULL && password == authenticate 時所讀 hash`（純字串比對、不重跑 argon2）；任一不符→中止 login（回 1000）、不 insert token。`run_refresh` 為 `revoked` reason 增「合法撤銷、靜默 8888、不落 reuse 事件」分支（對稱 kicked 的 7777 窄化）。
+- **Decision**：`run_login` 取 advisory lock 後、insert token **前**，於 txn 內**重讀** sys_user 列並重驗 `status==1 && deleted_at IS NULL && password == authenticate 時所讀 hash`（純字串比對、不重跑 argon2）；任一不符→中止 login（回 1000）、不 insert token。`run_refresh` 為 `revoked` reason 增「合法撤銷、靜默 8888、不落 reuse 事件」分支（對稱 kicked 的 7777 窄化）。★**換發側不重驗密碼雜湊**（FR-023 已收窄至 login 側）：login 側鎖內密碼重驗已堵「舊密碼 session 產生入口」，換發只延續已合法簽發的 chain；換發側漏撤保障＝既有換發憑證列鎖（`find_by_hash_for_update` FOR UPDATE）鎖鏈序列化＋活性 gate（status/deleted_at→8888），與 login 側互補、不重複驗密碼。★login 鎖內重驗中止路徑的 `sys_login_attempt` 稽核語意（島 E3 恰一列/節流計數）實作期明定。
 - **Rationale**：審查 B1 blocker（跨併發鎖序/session撤銷/資料完整 3 鏡頭指認）：login 的密碼驗證＋活性讀在 advisory lock **之前**於外層 autocommit 連線跑，且無條件 insert active token；011 撤 session 用列鎖——正交鎖命名空間、互不阻擋。攻擊序：login 讀到活性→011 停用/刪除/改密 commit（revoke_all 掃不到未 commit 的新 token）→login commit 插入 active session＝**撤銷漏網**。改密尤毒：新 session 用舊密碼登入、refresh gate 只查 status/deleted_at（改密不動這兩者）→**可無限續命、改密除權完全失效**。統一 advisory lock 序列化 login 與撤 session 後：011 先 commit→login 鎖內見 status=2/deleted/新 hash→中止；login 先 commit→revoke_all 見新 token→撤掉。密碼 hash 字串比對成本極低（authenticate 已讀一次 hash、鎖內重讀比對），無需重跑 argon2。
 - **Alternatives**：加 per-request user 活性 gate（enforce_mw 每請求查 sys_user status/deleted_at）——能根治停用/刪除，但對改密無效（status 不變）、且每請求多一次 DB 查、推翻 006「user 活性只在 login/refresh gate 查」分層。D13 user 親決不加、接受 denylist 失敗時 ≤access_secs 殘留窗（sensitive 面靠鎖序修法根治並發窗）。駁回加 gate。
 
@@ -48,13 +48,13 @@
 
 ## R8 登入頁前端規則放寬 required-only（審查 serious）
 
-- **Decision**：`pwd-login.vue` 的 `REG_PWD`（`^\w{6,18}$`）／`REG_USER_NAME`（`^[一-龥a-zA-Z0-9_-]{4,16}$`）降為 required-only（後端政策為唯一權威守門）；走 fork-delta 修改型帶原行（登入頁 007 已是修改型檔）。addUser user_name 形制＝`^[A-Za-z0-9_-]{1,64}$`（非空、≤登入上限 64、零正規化＝島 E2）。
+- **Decision**：`pwd-login.vue` 的 `REG_PWD`（`^\w{6,18}$`）／`REG_USER_NAME`（`^[一-龥a-zA-Z0-9_-]{4,16}$`）降為 required-only（後端政策為唯一權威守門）；走 fork-delta 修改型帶原行（登入頁 007 已是修改型檔）。addUser user_name 形制＝`^[A-Za-z0-9_-]{1,64}$`（非空、≤登入上限 64、零正規化＝島 E2）。★**§III.2 授權（analyze 補全）**：`pwd-login.vue` 在 `views/_builtin/login/`、非 `views/manage/**`——落在所有既有軌道射程外（MODAL-WIRING 限 manage／AUTH-WIRING 明文「不改 pwd-login」／LOGIN-CAPTCHA-WIRING 限 captcha 渲染）；此放寬 MUST 隨島 I MINOR Amendment **立新登入用途**（或擴既有登入軌道）、T029 於前端執行單元前 user 親決。
 - **Rationale**：審查 serious：政策開 require_special 後，addUser 建的含特殊符號密碼（如 `NewOps-2026!`）在登入頁被 REG_PWD 前端擋死（`!` 非 `\w`、且政策長度可達 64 遠超 18）→帳號永遠登不進；REG_USER_NAME 4-16 也擋 addUser 的 3 字或 17+ 字帳號。「REG_PWD 不動」把矛盾凍進系統。後端才是唯一權威守門（登入端 throttle 形制上限＋密碼 verify）。
 - **Alternatives**：addUser 收緊到 4-16 對齊登入頁——把 soybean demo 遺留的前端硬正則當設計約束，駁回；放寬前端＝正解。
 
 ## R9 前端接線軌道對號＋§III.2 Amendment（Q2/Q7）
 
-- **Decision**：接真 API（index delete/batchDelete、drawer submit）＝MODAL-WIRING (a)；hasAuth gating＝(b)；onError 明細＋backend.biz 三語＝I18N-WIRING (i)(ii)(iii)。★超既有授權者隨島 I MINOR Amendment 擴 §III.2：①回收桶「顯示已刪除」toggle＋逐列 restore＝擴 (d) 至 user 頁（(d) 現文「嚴格限選單樹」）；②頁首解鎖 modal（net-new）＋operate 欄 kick/reset-pwd 維運動作＝立新維運用途。fetcher＝WRAPPER `rev4-user-admin.ts`（10 fetcher、直接 import request 不經 barrel）＋ADAPT `rev4-user-admin.d.ts`（declaration merging、session_policy 併入 User）。
+- **Decision**：接真 API（index delete/batchDelete、drawer submit）＝MODAL-WIRING (a)；hasAuth gating＝(b)；onError 明細＋backend.biz 三語＝I18N-WIRING (i)(ii)(iii)。★超既有授權者（**四處**、analyze 補全）隨島 I MINOR Amendment 擴 §III.2：①回收桶「顯示已刪除」toggle＋逐列 restore＝擴 (d) 至 user 頁（(d) 現文「嚴格限選單樹」）；②頁首解鎖 modal（net-new）＋operate 欄 kick/reset-pwd 維運動作＝立新維運用途；③drawer 新表單控件（add 密碼欄＋004 政策 hint、edit session_policy select）＝超 (a)「placeholder 接線＋附屬小修」字面（upstream drawer 無此二控件）、須明確分類；④★pwd-login 放寬（`_builtin/login/`、既有軌道外、立新登入用途、見 R8）。fetcher＝WRAPPER `rev4-user-admin.ts`（**9 fetcher**、getUserList 複用凍結 fetchGetUserList、直接 import request 不經 barrel）＋ADAPT `rev4-user-admin.d.ts`（declaration merging、session_policy 併入 User）。
 - **Rationale**：§III.2 七用途逐一比對：(a) 限既有 placeholder（user 頁模板有 edit/delete placeholder、無 kick/reset）；(c) 限「角色×權限維度」（解鎖非此）；(d) 明文「嚴格限選單樹復原/父層級調整」（射程不含 user 頁回收桶）。故回收桶 toggle、解鎖 modal、kick/reset 動作皆超界→須 Amendment（審查 serious「§III.2 Amendment 漏排」）。session_policy 併入 User 型為必要（審查 serious：drawer select 無來源讀現值→diff 誤判→靜默弱化他人 session_policy）。
 - **Alternatives**：硬塞既有用途——(d) 文字「選單樹」明擋、(a) 無 kick/reset placeholder，牽強且違紀律，駁回。
 

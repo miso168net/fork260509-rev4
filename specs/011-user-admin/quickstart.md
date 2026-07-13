@@ -2,7 +2,7 @@
 
 **Branch**: `011-user-admin` | **Date**: 2026-07-13 | **Plan**: [plan.md](./plan.md)
 
-端到端驗收指南（非實作碼）。rust 單元／整合＝容器內 `cargo test --workspace`（serial、host 無 toolchain）；前端互動＝CDP 實機（curl≠modal，rev3 定論）。端點 wire 契約（10 新 fetcher／DTO 形、DELETE 動詞、body `{id}`/`{ids}`）見 [contracts/user-admin-endpoints.md](./contracts/user-admin-endpoints.md)；實體、統一鎖序與守門矩陣見 [data-model.md](./data-model.md)——本檔不重複契約與模型內容，只列**驗收動作與預期**。前置＝rev4 stack 起（前端 `:42080`、乾淨 DB）＋**m008 seed-only migration 已 migrate**＋**憲法島 I（使用者域治理）五條已入憲**（首個實作單元前）。
+端到端驗收指南（非實作碼）。rust 單元／整合＝容器內 `cargo test --workspace`（serial、host 無 toolchain）；前端互動＝CDP 實機（curl≠modal，rev3 定論）。端點 wire 契約（9 新 fetcher〔getUserList 複用凍結〕／DTO 形、DELETE 動詞、body `{id}`/`{ids}`）見 [contracts/user-admin-endpoints.md](./contracts/user-admin-endpoints.md)；實體、統一鎖序與守門矩陣見 [data-model.md](./data-model.md)——本檔不重複契約與模型內容，只列**驗收動作與預期**。前置＝rev4 stack 起（前端 `:42080`、乾淨 DB）＋**m008 seed-only migration 已 migrate**＋**憲法島 I（使用者域治理）五條**：draft 先行、後端執行單元按 draft 施工、**accepted 於前端執行單元前**（T029 user 親決；驗收時 v1.9.0 已入憲）。
 
 本刀觸及既有 auth 流程（`run_login`/`run_refresh`，005/006 碼）——並發機器證第 4 組為 load-bearing，實作與測試須格外謹慎。
 

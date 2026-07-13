@@ -30,7 +30,7 @@ schema 全於 002 凍結基線（出處＝`docs/generated/reference/schema.md` �
 
 - **索引**：`sys_user_pkey (id)`｜`sys_user_user_name_active_uniq (user_name) WHERE deleted_at IS NULL`。
 - **活性**＝`deleted_at IS NULL`；**啟用**＝`status = 1`。partial-uniq 使「活性 user_name 唯一、軟刪後 user_name 可重用」——**復原守門的顯式前提**（島 I1、FR-031 兜底約束）。
-- **user_name 形制守門**（addUser 單點把關；DB 欄本身無長度／字元約束）：非空、`^[A-Za-z0-9_-]{1,N}$`、長度 ≤ 登入端上限 `LOGIN_USER_NAME_MAX`（64 字元，引 `throttle` 常數、不硬編）；★**零正規化**（大小寫敏感、不 trim），與登入身分解析／節流判定鍵嚴格一致（島 E2、007 FR-001）。正則細節（是否收 CJK）plan／實作期定，下限＝required-only。
+- **user_name 形制守門**（addUser 單點把關；DB 欄本身無長度／字元約束）：非空、`^[A-Za-z0-9_-]{1,N}$`、長度 ≤ 登入端上限 `LOGIN_USER_NAME_MAX`（64 字元，引 `throttle` 常數、不硬編）；★**零正規化**（大小寫敏感、不 trim），與登入身分解析／節流判定鍵嚴格一致（島 E2、007 FR-001）。正則採 `^[A-Za-z0-9_-]{1,64}$`（**不收 CJK**；FR-005／T003 已定、下限 required-only）——與 upstream 登入頁 `REG_USER_NAME`〔收 CJK、4-16〕不同，配套 pwd-login 放寬（見 plan §III.2 Amendment 第④處）。
 - **★無鎖定欄**：登入鎖定＝Redis／sys_login_attempt 導出態、非 sys_user 欄（列表不顯鎖定態、FR-036）。
 - **★無 protected 欄**：seed 帳號守門靠 hardcode id∈{1,2,3}（對稱角色側 `SEEDED_ROLE_IDS=[1,2,3]`），非資料欄。
 - **凍結基線、本刀零變更**（FR-041、ADR 0021 欄序凍結）；B-030 首登強制改密所需加欄留後刀，不在本刀。
@@ -92,8 +92,8 @@ schema 全於 002 凍結基線（出處＝`docs/generated/reference/schema.md` �
 
 ### 八端點守門固定序（鎖內重驗、lock-then-redecide；照 brainstorm §2.3）
 
-- **addUser**：user_name 形制守門 → 密碼政策驗證（§6）→ txn｛插入（23505→`userNameExists`）→ 指派路鎖 role 列升序＋鎖內重驗活性（未知／已刪 code→**整批拒** `roleNotFound`、不靜默丟棄）→ 寫 sys_user_role → op-log｝。指派 R_SUPER 予任意 user 合法。
-- **updateUser**：鎖 user 列 → ①userName 收但不可變（≠現值→`userNameImmutable`）→ ②停用路：標的 Super(id=1)→`superCannotDisable`、標的＝operator→`cannotDisableSelf` → ③指派路：Super 解 R_SUPER→`superRoleProtected`、operator 改自己指派→`cannotChangeSelfRoles` → 鎖 role 列升序 → 重驗新指派角色活性（→`roleNotFound`）→ diff 寫入。**全 None 提前 no-op**（不 bump 時戳、不落稽核）；字串欄 `Some("")`＝清空、user_gender 不可清。停用（1→2）連動撤 session（§4）。
+- **addUser**（★**豁免每使用者 advisory lock**——新列無既有 uid、insert 前無從取 `advisory_lock(uid)`、且不涉既有 session 撤銷；並發同名保護靠 partial-uniq 23505、FR-022 明文豁免）：user_name 形制守門 → 密碼政策驗證（§6）→ txn｛插入（23505→`userNameExists`）→ 指派路鎖 role 列升序＋鎖內重驗活性（未知／已刪 code→**整批拒** `roleNotFound`、不靜默丟棄）→ 寫 sys_user_role → op-log｝。指派 R_SUPER 予任意 user 合法。
+- **updateUser**：鎖 user 列 → ①userName 收但不可變（≠現值→`userNameImmutable`）→ ②停用路：標的 Super(id=1)→`superCannotDisable`、標的＝operator→`cannotDisableSelf` → ③指派路：Super 解 R_SUPER→`superRoleProtected`、operator 改自己指派→`cannotChangeSelfRoles` → 鎖 role 列升序 → 重驗新指派角色活性（→`roleNotFound`）→ diff 寫入。**diff 全等 no-op**（提交值與現值全等即提前無作用、不 bump 時戳、不落稽核；★以「值 vs 現值 diff」為基準、非「欄位缺席」——前端全量提交下欄位恆帶值、FR-007）；字串欄 `Some("")`＝清空、user_gender 不可清；operator 改自己指派→`cannotChangeSelfRoles`（FR-016/008 self 守門）。停用（1→2）連動撤 session（§4）。
 - **deleteUser**：①seeded（id∈{1,2,3}→`seededProtected`）→ ②self→`cannotDeleteSelf` → 鎖列 → 軟刪 deleted_at/by 成對＋**硬刪 sys_user_role 指派列**＋撤 token → session_event(revoked) → op-log｛payload 含指派快照、**不含 password**｝。
 - **batchDeleteUser**：自管單一 txn、ids **去重升序取鎖**、逐 id 同 deleteUser 守門、★**fail-fast**（首個違規即整批 rollback＋回該違規結構化拒因、**不 collect-all**）；清單含已軟刪 id＝鎖列回 None→`userNotFound`→**整批拒**（違規、非冪等跳過）；資料零變更。
 - **resetUserPassword**：鎖列 → 政策驗新密 →★**hash 在取鎖前算好**（避 argon2 夾鎖內拉長持有期）→ UPDATE password → 撤 token：**標的＝operator 時 keep 當前 sid**（super 改自己密碼不自斷）、否則全撤 → session_event(revoked) → op-log｛**payload 僅 {id, userName}、絕不含任何 hash**｝。★不解除節流鎖定、結果提示「若該帳號登入鎖定中需另行解鎖」。
@@ -114,7 +114,7 @@ schema 全於 002 凍結基線（出處＝`docs/generated/reference/schema.md` �
 ### login／refresh 修改（島 I2、B1；動 005/006 碼）
 
 - **run_login**：`authenticate`（密碼驗證＋活性讀）現於 advisory lock **之前**於外層連線跑。修法＝取 advisory lock 後、insert token **前**，於 txn 內**重讀** sys_user 列並重驗 `status==1 && deleted_at IS NULL && password == authenticate 時所讀 hash`〔★**純字串比對、不重跑 argon2**〕；任一不符→**中止 login 回 1000、不 insert token**。
-- **run_refresh**：為 `revoked` reason 增分支「**合法撤銷、靜默 8888、不落 reuse 事件**」（對稱 kicked 的 7777 窄化）——消滅「revoked 換發被誤標 reuse＋denylist TTL 縮短」（FR-020）。
+- **run_refresh**：為 `revoked` reason 增分支「**合法撤銷、靜默 8888、不落 reuse 事件**」（對稱 kicked 的 7777 窄化）——消滅「revoked 換發被誤標 reuse＋denylist TTL 縮短」（FR-020）。★**換發側不重驗密碼雜湊**（FR-023 換發側措辭已收窄）：login 側鎖內密碼重驗已堵「舊密碼 session 產生入口」，換發只能延續已合法簽發的 chain；換發側漏撤保障＝既有換發憑證列鎖（`find_by_hash_for_update` FOR UPDATE）鎖鏈序列化＋活性 gate（status==2/deleted→8888）承載，非重驗密碼——與 login 側修法互補、不重複。
 
 ### 撤 session 連動動作序（島 I2、C1 PG-first）
 
@@ -141,6 +141,7 @@ schema 全於 002 凍結基線（出處＝`docs/generated/reference/schema.md` �
 | `backend.biz.user.cannotChangeSelfRoles` | 2222 | updateUser 指派路：operator 改自己指派 |
 | `backend.biz.user.userNameExists` | 2222 | addUser／restoreUser：活性同名衝突（23505 兜底） |
 | `backend.biz.user.userNameImmutable` | 2222 | updateUser：userName ≠ 現值 |
+| `backend.biz.user.userNameInvalid`（plan 期定稿、鏡像 009 codeInvalid） | 2222 | addUser：user_name 形制違規（非空／字元集／長度） |
 | `backend.biz.user.passwordPolicy` | 2222 | addUser／resetUserPassword：密碼未過政策（**BizData 帶違規清單**、§6） |
 | `backend.biz.user.roleNotFound` | 2222 | addUser／updateUser：指派 code 未知／已刪（整批拒） |
 | `backend.biz.user.userNotFound` | 2222 | updateUser／delete／reset／kick／restore：facade no-op（含 batch 遇已刪 id） |
@@ -148,7 +149,7 @@ schema 全於 002 凍結基線（出處＝`docs/generated/reference/schema.md` �
 | `backend.biz.user.sessionPolicyInvalid` | 2222 | updateUserSessionPolicy：值不屬 inherit／single／multi |
 | `backend.biz.unlock.*`（2 鍵，007 欠帳補建） | 2222 | unlockLogin：IP 維目標非法／缺目標（帳號維缺帳號名） |
 
-- 訊息鍵最終定稿以 spec／實作期 i18n Schema 為準（約 14 `backend.biz.user.*` 鍵＋2 `backend.biz.unlock.*` 鍵；上表列本刀已定名者，個別鍵名 plan／實作期收斂）。
+- 訊息鍵最終定稿以 spec／實作期 i18n Schema 為準（**15** `backend.biz.user.*` 鍵〔上表逐列〕＋2 `backend.biz.unlock.*` 鍵；個別鍵名 plan／實作期收斂、與 contracts 拒因鍵表一致）。
 - R_ADMIN 於 user 頁點 user:edit 但無寫端權→casbin 層 `5003`〔誠實權限拒因、非 biz.user.* 鍵〕（D2、B-060 加註不對稱）。既有無明細業務錯誤路徑行為 100% 不變（FR-039）。
 
 ## §6 密碼政策驗證資料流（島 I5、004 政策 7 鍵首消費者）

@@ -34,12 +34,12 @@
 |---|---|---|---|---|---|
 | 1 | `/systemManage/getUserList` | GET | R_SUPER＋R_ADMIN〔m002 已埋〕 | `UserSearchParams`（userName／nickName／userPhone／userEmail 模糊；userGender／status 等值；current/size） | `PageRes<User>`（逐欄構造、含 `userRoles`(code[])＋`session_policy`；**MUST NOT 含 password／session_id**；FR-002） |
 | 2 | `/systemManage/addUser` | POST | R_SUPER〔m002 已埋〕 | `AddUserReq` | `null`（0000）｜`2222 userNameInvalid`（形制）／`passwordPolicy`〔data 帶違規清單〕／`userNameExists`（23505）／`roleNotFound`（角色 code 未知/已刪→整批拒） |
-| 3 | `/systemManage/updateUser` | POST | R_SUPER〔m002 已埋〕 | `UpdateUserReq` | `null`（全 None→提前 no-op、不 bump 時戳/不落稽核）｜`2222 userNameImmutable`／`superCannotDisable`／`cannotDisableSelf`／`superRoleProtected`／`cannotChangeSelfRoles`／`roleNotFound`／`userNotFound` |
+| 3 | `/systemManage/updateUser` | POST | R_SUPER〔m002 已埋〕 | `UpdateUserReq` | `null`（**diff 全等→提前 no-op**、以值 vs 現值為基準〔非欄位缺席〕、不 bump 時戳/不落稽核、FR-007）｜`2222 userNameImmutable`／`superCannotDisable`／`cannotDisableSelf`／`superRoleProtected`／`cannotChangeSelfRoles`／`roleNotFound`／`userNotFound` |
 | 4 | `/systemManage/deleteUser` | **DELETE** | R_SUPER〔m002 已埋〕 | `{id}` | `null`（軟刪）｜`2222 seededProtected`（id∈{1,2,3}）／`cannotDeleteSelf`／`userNotFound` |
 | 5 | `/systemManage/batchDeleteUser` | **DELETE** | R_SUPER〔m002 已埋〕 | `{ids:number[]}`（去重、識別升序取鎖） | `null`｜`2222`（同守門鍵＋整批零變更） |
 
 **守門固定序**（鎖內重驗、lock-then-redecide、島 I1）：
-- **addUser**：userName 形制守門（非空／`[A-Za-z0-9_-]`／≤007 帳號上限、零正規化＝大小寫敏感不 trim、FR-005）→ 密碼政策驗證（§ 密碼政策）→ txn｛`pg_advisory_xact_lock(uid)`〔新列 uid〕→ insert（23505→`userNameExists`）→ 指派路鎖 sys_role 列升序＋鎖內重驗活性（未知/已刪 code→**整批拒** `roleNotFound`；指派 R_SUPER 合法）→ 寫 sys_user_role → op-log｝。**零 casbin 寫**（指派即時生效＝require_policy DB-fresh、零 reload）。密碼 hash 於**取鎖前**算（避 argon2 夾鎖內拉長持有期、審查 minor）。
+- **addUser**（★**豁免每使用者 advisory lock**——新列無既有 uid、insert 前無從取 `advisory_lock(uid)`、且不涉既有 session 撤銷；並發同名保護靠 partial-uniq 23505、FR-022 明文豁免）：userName 形制守門（非空／`[A-Za-z0-9_-]{1,64}`／≤007 帳號上限、零正規化＝大小寫敏感不 trim、FR-005）→ 密碼政策驗證（§ 密碼政策）→ txn｛insert（23505→`userNameExists`）→ 指派路鎖 sys_role 列升序＋鎖內重驗活性（未知/已刪 code→**整批拒** `roleNotFound`；指派 R_SUPER 合法）→ 寫 sys_user_role → op-log｝。**零 casbin 寫**（指派即時生效＝require_policy DB-fresh、零 reload）。密碼 hash 於**取鎖前**算（避 argon2 夾鎖內拉長持有期、審查 minor）。
 - **updateUser**：`advisory_lock(uid)`→鎖 sys_user 列（`find_active_by_id_for_update`）→ ①`userName` 收但不可變（≠現值→`userNameImmutable`＝B-025 後端半）→ ②停用路（1→2）：標的 Super(id=1)→`superCannotDisable`、標的=operator→`cannotDisableSelf`→ ③指派路：Super 解 R_SUPER→`superRoleProtected`、operator 改自己指派→`cannotChangeSelfRoles`→ 鎖 sys_role 列升序→鎖內重驗新指派活性→ diff 寫入。字串欄 `Some("")`＝清空（nickName／userPhone／userEmail）；`user_gender` **不可清**（本刀不引入非字串欄清空、B-026 部分兌現）。停用（1→2）連動撤 session（§ 撤 session／revoked 靜默）。
 - **deleteUser**：`advisory_lock(uid)`→ ①seeded（id∈{1,2,3}→`seededProtected`）→ ②self→`cannotDeleteSelf`→鎖列→軟刪（`deleted_at`/`deleted_by` 成對）＋**硬刪 sys_user_role 指派列**（D11、零幽靈掛載使 009 刪角色守門誠實）＋撤 token（§ 撤 session／revoked）→ session_event(revoked)→ op-log｛payload 含指派快照、**不含 password**｝。
 - **batchDeleteUser**：自管單一 txn、ids 去重升序、逐 id 同守門、**fail-fast**（首個違規即整批 rollback＋回該違規結構化拒因；沿 009 batch_soft_delete、**不 collect-all**）；清單含已軟刪 id＝鎖列回 None→`userNotFound`→**整批拒**（視為違規、非冪等跳過；FR-011）。逐 uid 撤 session（revoked）。
@@ -122,6 +122,6 @@
 
 ## 前端 fetcher 對帳
 
-**WRAPPER**（新檔 `service/api/rev4-user-admin.ts`、★零原行、★直接 import request 不經 barrel）：**10 支新 fetcher** 對號上表 10 端點（delete 類★DELETE 動詞、body `{id}`/`{ids}`；動詞逐條對齊 FR-003）。**複用凍結** `system-manage.ts`：`fetchGetUserList`（凍結檔、接真後由 404 空轉轉真）＋`fetchGetAllRoles`（009 已真通、drawer 角色候選）＋解鎖沿 007 既有 fetcher——沿 barrel、絕不重建。**ADAPT**（新檔 `rev4-user-admin.d.ts`、declaration merging `Api.SystemManage`）承載上列全部新形＋`session_policy` 併入 `User` 型。
+**WRAPPER**（新檔 `service/api/rev4-user-admin.ts`、★零原行、★直接 import request 不經 barrel）：**9 支新 fetcher**〔addUser／updateUser／deleteUser／batchDeleteUser／resetUserPassword／kickUser／getDeletedUsers／restoreUser／updateUserSessionPolicy〕（delete 類★DELETE 動詞、body `{id}`/`{ids}`；動詞逐條對齊 FR-003）。★**getUserList 複用凍結 `fetchGetUserList`**（不新建 wrapper——凍結檔已有、接真後由 404 空轉轉真）。**複用凍結** `system-manage.ts`：`fetchGetUserList`＋`fetchGetAllRoles`（009 已真通、drawer 角色候選）＋解鎖沿 007 既有 fetcher——沿 barrel、絕不重建。**ADAPT**（新檔 `rev4-user-admin.d.ts`、declaration merging `Api.SystemManage`）承載上列全部新形＋`session_policy` 併入 `User` 型。
 
-**對帳吻合**：10 新 WRAPPER fetcher＝10 新端點；`getUserList`／`getAllRoles`／`unlockLogin` 走既有 fetcher 復用＝2 複用端點（＋007 解鎖）零重建。
+**對帳吻合**：9 新 WRAPPER fetcher＝10 新端點中扣除 getUserList（複用凍結 `fetchGetUserList`）＝9；`getUserList`／`getAllRoles`／`unlockLogin` 走既有 fetcher 復用零重建（getUserList 複用凍結、getAllRoles＝009、unlockLogin＝007）。
