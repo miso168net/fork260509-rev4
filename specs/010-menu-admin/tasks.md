@@ -99,8 +99,8 @@ description: "Task list for 010-menu-admin implementation"
 
 **Goal**：治理域換源四處＋顯示域語意鎖定。**Independent Test**：quickstart S4。**依賴**：Foundational（T005 list_governed）；與 US2/US3 邏輯獨立（同檔序列由單元順序承載）。
 
-- [ ] T020 [US4] 治理域換源四處（R2）＋測試先紅：`rust-api/server/src/handler/role.rs` get_menu_tree／getRoleMenu 反查（route_names_to_menu_ids）／getAllButtons（all_button_codes）＋`rust-api/server/src/model/facade/sys_casbin_policy.rs` menu_ids_to_route_names——四處由 `list_active` 換 `list_governed`；新紅測（停用選單仍在 getMenuTree 候選／getRoleMenu 回讀保留／getAllButtons 聯集含停用選單 code／★全量替換提交不誤撤停用選單授權整合測試）；既有斷言連動改寫（盤點零轉紅、有轉紅即回報）→實作→綠
-- [ ] T021 [US4] 顯示域語意鎖定測試：getUserRoutes／getAllPages 停用即隱（下次讀即消失）／重新啟用恢復（授權未動、無需重勾）／停用目錄子項升根既有組樹語意鎖定（明文既有行為、防未來誤改）／★已刪選單頁面暫離 getAllPages 候選、restore 後回歸（FR-032 顯式斷言）
+- [x] T020 [US4] 治理域換源四處（R2）＋測試先紅：`rust-api/server/src/handler/role.rs` get_menu_tree／getRoleMenu 反查（route_names_to_menu_ids）／getAllButtons（all_button_codes）＋`rust-api/server/src/model/facade/sys_casbin_policy.rs` menu_ids_to_route_names——四處由 `list_active` 換 `list_governed`；新紅測（停用選單仍在 getMenuTree 候選／getRoleMenu 回讀保留／getAllButtons 聯集含停用選單 code／★全量替換提交不誤撤停用選單授權整合測試）；既有斷言連動改寫（盤點零轉紅、有轉紅即回報）→實作→綠
+- [x] T021 [US4] 顯示域語意鎖定測試：getUserRoutes／getAllPages 停用即隱（下次讀即消失）／重新啟用恢復（授權未動、無需重勾）／停用目錄子項升根既有組樹語意鎖定（明文既有行為、防未來誤改）／★已刪選單頁面暫離 getAllPages 候選、restore 後回歸（FR-032 顯式斷言）
 
 **Checkpoint**：停用＝暫時下架（顯示域）而非撤銷（治理域）——雙域語意測試鎖定。
 
