@@ -1,4 +1,4 @@
-<!-- next: L-139 -->
+<!-- next: L-140 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -309,3 +309,6 @@
   防：Workflow launch 前確認 CWD＝repo 根（`/mnt/d/AnewSpaces/x_Project/fork260509-rev4`）；防呆②（渲染後 prompt 必含 "zh-TW" 字面、否則零派發 throw）為 **script 本體自檢**、不依賴 hook 兜底（hook fail-open、只當第二防線）；Monitor 沿 `bash tools/wf-watchdog <冒煙token>`（B-070 已改 realpath 自尋最新 wf 目錄、免 cd 前綴）。｜出處：009 編排（hook/watchdog 相對路徑結構核對）
 - **L-138**｜gate2 seed 面「多列」假紅的**首疑對象＝flaky committed-row 測試的孤兒列**、非真 seed 漂移：auth 節流 flaky 併發測（`throttle_no_false_lock…`、`seed_temp_user` `us2_` 前綴）若把 committed 列 cleanup 排在測末、panic 即漏跑→留 committed `sys_user` 孤兒污染 gate2 seed 面；009 U6/U7 各撞一次、各手清一次。症狀與真 seed 漂移難分（皆＝gate2 seed 面比 fixtures 多列）。
   防：gate2 seed 面出現非預期多列時，**先查測試專屬前綴**（`us2_`／`us_` 等）判 flaky 孤兒、手清後重跑，再判真漂移；根治＝committed-row 測試以 RAII Drop guard／scope-guard 使 panic 亦清 committed 列（B-082、可推廣至所有 committed-row 測試）。｜出處：009 U6/U7 gate2（近 B-078 flaky 區）
+
+- **L-139**｜workspace bash 工具的 GNU/BSD 可攜性坑（macOS 首跑）：`wf-watchdog` 迴圈用 GNU find `-printf '%T@\n'` 取最新 mtime——**macOS `/usr/bin/find`（BSD）無 `-printf`**、stderr 被 `2>/dev/null` 吞掉後輸出恆空→首輪 60s 即誤判「目錄不可讀」退出（011 U1 mac2 實測：wf 目錄完好、transcript 持續增長中、看門狗卻已死＝監看真空）。兩個次生陷阱：①互動 Bash shell 的 `find` 可能是 GNU（PATH/wrapper 注入）而 Monitor 的 shell 走 `/usr/bin/find`＝BSD——**可攜性驗證必須用 `/usr/bin/*` 原生二進位重現**、不可信互動 shell 的結果；②GNU/BSD `stat` 旗標語意相反（BSD `stat -f '%m'`＝mtime；GNU `stat -f`＝檔案系統狀態、`%m`＝掛載點字串）——兜底順序不可反、反了 Linux 上會拿掛載點字串進算術。
+  防：跨平台 mtime 取法＝GNU `find -printf` 先試、落空再 BSD `find -exec stat -f '%m' {} +` 兜底（tools/wf-watchdog 已修）；新增/修 workspace bash 工具時逐一盤點 GNU-only 旗標（`-printf`／`date -d`／`sed -i` 無後綴／`readlink -f`…）；本機中文 bash 工具另須 LC_ALL=C（既有教訓）。｜出處：011 U1 編排（mac2 首跑看門狗誤報）
