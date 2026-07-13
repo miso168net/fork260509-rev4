@@ -118,10 +118,10 @@ description: "Task list for 010-menu-admin implementation"
 
 ## Phase 8: Polish＋實機驗收＋簿記
 
-- [ ] T023 全量閘：容器內 `cargo test --workspace` 全綠（含 7 契約 case 對帳、coverage gate、五負向自證 report 齊、三併發機器證綠）＋`pnpm typecheck`＋`tools/fork-delta-lint` 綠
-- [ ] T024 CDP 實機全場景（quickstart S1~S6：CRUD 全鏈／兩步流全鏈／零繼承與共用 code 存活／回收桶 toggle-restore-衝突／停用分層〔候選保留＋不誤撤〕／拒因三語／role_home 兜底承接；★新 i18n key 後 restart base-web；★residue 紀律＝測試前綴列精確清理＋順跑 gate2〔零 seed 變更應全綠〕）
-- [ ] T025 [P] BACKLOG/LESSONS 簿記：`docs/ops/BACKLOG.md` B-060 註記「010 拍板不折入（零 seed 變更、demo 選單全留）、續留原觸發條件」＋B-061 確認不動；踩坑 `docs/ops/LESSONS.md` append（如有）
-- [ ] T026 收刀前文件閘：`tools/docs-sync generate` 綠、三 lint 閘綠（★活書 as-built〔選單域狀態機／兩域分層〕**不在此做**——收刀簿記 commit 承載 L-124）
+- [x] T023 全量閘：容器內 `cargo test --workspace` 全綠（含 7 契約 case 對帳、coverage gate、五負向自證 report 齊、三併發機器證綠）＋`pnpm typecheck`＋`tools/fork-delta-lint` 綠
+- [x] T024 CDP 實機全場景（quickstart S1~S6：CRUD 全鏈／兩步流全鏈／零繼承與共用 code 存活／回收桶 toggle-restore-衝突／停用分層〔候選保留＋不誤撤〕／拒因三語／role_home 兜底承接；★新 i18n key 後 restart base-web；★residue 紀律＝測試前綴列精確清理＋順跑 gate2〔零 seed 變更應全綠〕）
+- [x] T025 [P] BACKLOG/LESSONS 簿記：`docs/ops/BACKLOG.md` B-060 註記「010 拍板不折入（零 seed 變更、demo 選單全留）、續留原觸發條件」＋B-061 確認不動；踩坑 `docs/ops/LESSONS.md` append（如有）
+- [x] T026 收刀前文件閘：`tools/docs-sync generate` 綠、三 lint 閘綠（★活書 as-built〔選單域狀態機／兩域分層〕**不在此做**——收刀簿記 commit 承載 L-124）
 
 ---
 
