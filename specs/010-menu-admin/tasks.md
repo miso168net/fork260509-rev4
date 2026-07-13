@@ -89,7 +89,7 @@ description: "Task list for 010-menu-admin implementation"
 - [x] T016 [US3] 測試先紅：`sys_menu.rs` restore table-driven（同檔系列）——成功（deleted_at/by 成對清空、原 status 保留、欄位不變）／同鍵活性衝突拒 `routeNameExists`（★含併發 23505 兜底收斂案）／`parentDeleted` 拒（停用 parent 允許）／`notFound`（假 id／未刪列）／★restore 後 `casbin_rule` 零新列斷言（不回灌 FR-023）；getDeletedMenus 讀（僅已刪、平面 children=null、deleted_at DESC、分頁）；★併發組 2：`deleteMenu(P)`×`restoreMenu(C)` 交錯→終態二序列之一、無「未刪子掛已刪父」（SC-003）
 - [x] T017 [US3] `rust-api/server/tests/contract.rs` 契約案 2 條（★與 T008 同檔、U5→U8 序列故不標 [P]）（getDeletedMenus〔GET〕／restoreMenu〔POST〕；此二政策列 protected=true）
 - [x] T018 [US3] `sys_menu.rs` facade：`list_deleted`（分頁＋排序）＋`restore`（域內固定序：advisory→`find_by_id_for_update` 鎖已刪列→鎖內重驗〔同鍵活性／parent 未刪〕→成對清空→op-log；23505 收斂）；`handler/menu.rs` 2 端點＋`router.rs` 註冊 → T016/T017 轉綠
-- [ ] T019 [US3] 前端 (d) 擴錨接線（★前置＝T001 v1.8.0 已落地、「未過不施工」已解除）：`views/manage/menu/index.vue`「顯示已刪除」toggle（切換資料源 fetchGetMenuList⇄fetchGetDeletedMenus、已刪模式操作欄換逐列 restore 鈕、隱 edit/delete）＋restore 接線；`page.manage.menu.*` 資料級 label 鍵三語；fork-delta＋typecheck＋fork-delta-lint 綠；★逐處補記 spec 附錄 A
+- [x] T019 [US3] 前端 (d) 擴錨接線（★前置＝T001 v1.8.0 已落地、「未過不施工」已解除）：`views/manage/menu/index.vue`「顯示已刪除」toggle（切換資料源 fetchGetMenuList⇄fetchGetDeletedMenus、已刪模式操作欄換逐列 restore 鈕、隱 edit/delete）＋restore 接線；`page.manage.menu.*` 資料級 label 鍵三語；fork-delta＋typecheck＋fork-delta-lint 綠；★逐處補記 spec 附錄 A
 
 **Checkpoint**：回收桶 toggle→restore→衝突拒實機可驗；復原零授權（重勾才現）。
 
