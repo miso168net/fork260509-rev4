@@ -31,6 +31,7 @@
 | /systemManage/getAllPages | GET | Policy | get-all-pages | 否 |
 | /systemManage/getAllRoles | GET | Policy | get-all-roles | 否 |
 | /systemManage/getArchivedPolicies | GET | Policy | get-archived-policies | 否 |
+| /systemManage/getDeletedMenus | GET | Policy | get-deleted-menus | 否 |
 | /systemManage/getIpRuleList | GET | Policy | get-ip-rule-list | 否 |
 | /systemManage/getMenuList/v2 | GET | Policy | get-menu-list-v2 | 否 |
 | /systemManage/getMenuTree | GET | Policy | get-menu-tree | 否 |
@@ -41,6 +42,7 @@
 | /systemManage/getRoleMenu | GET | Policy | get-role-menu | 否 |
 | /systemManage/getSystemSettings | GET | Policy | get-system-settings | 否 |
 | /systemManage/restoreIpRule | POST | Policy | restore-ip-rule | 否 |
+| /systemManage/restoreMenu | POST | Policy | restore-menu | 否 |
 | /systemManage/restorePolicy | POST | Policy | restore-policy | 否 |
 | /systemManage/unlockLogin | POST | Policy | unlock-login | 否 |
 | /systemManage/updateIpRule | POST | Policy | update-ip-rule | 否 |
