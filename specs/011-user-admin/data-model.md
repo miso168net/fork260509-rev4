@@ -122,7 +122,7 @@ schema 全於 002 凍結基線（出處＝`docs/generated/reference/schema.md` �
 
 ### 併發等價性（FR-024、SC-013；最終態 MUST 等價於某一先後序列）
 
-- **指派 × 刪角色／停用**：同 sys_role 列鎖序列化（B-084）——指派見角色已軟刪／停用即拒 `roleNotFound`；刪角色見 in-use count>0 即拒。二者不互相繞過。
+- **指派 × 刪角色／停用**：同 sys_role 列鎖序列化（B-084）——指派見角色已軟刪即拒 `roleNotFound`（★停用角色仍可指派：FR-008 拒因原文僅「未知或已刪」、重驗複用 009 `find_active_*` 口徑不含 status〔本檔 §1〕；授權面由 roles_of_user 的 status=1 濾網停用斷權 fail-closed、與 010「停用≠撤銷」治理域哲學一致——U4 實作期釐清、專測錨定）；刪角色見 in-use count>0 即拒。二者不互相繞過。
 - **刪除 × 復原**：濾條件互補（未刪 vs 已刪）＋同 sys_user 列 advisory 序列化＋user_name partial-uniq 兜底——先提交者勝、另一方見不存在或衝突，無雙活性同名。
 - **撤銷 × 並發登入**：advisory lock 統一序列化＋login 鎖內重讀活性／密碼 hash——序列化在撤銷後的 login 見 status=2／deleted／新 hash 即中止不發 token（堵停用／刪除漏網 session＋改密無限續命破洞）。負向自證＝拆除鎖內重驗時對應併發測試 100% 轉紅（SC-005）。
 
