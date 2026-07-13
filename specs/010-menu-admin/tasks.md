@@ -110,7 +110,7 @@ description: "Task list for 010-menu-admin implementation"
 
 **Goal**：i18n 三語＋明細通道消費（後端攜參通道 009 已建）。**Independent Test**：quickstart S5。**依賴**：US1~US3 產生拒因場景。
 
-- [ ] T022 [US5] i18n 三語字典：`base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts` `backend.biz.menu.*` 十鍵（R9 鍵表、I18N-WIRING (ii)；`biz.policy.notRestorable` 復用零新增）＋`page.manage.menu.*` 資料級鍵補齊＋`src/typings/app.d.ts` `App.I18n.Schema` 擴充 (iii)；★key 形紀律：message 僅 scalar 佔位、物件/陣列 data 走呼叫端渲染不進 `$t`（ADR 0050）；驗證既有無明細錯誤路徑零改動；typecheck＋fork-delta-lint 綠
+- [x] T022 [US5] i18n 三語字典：`base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts` `backend.biz.menu.*` 十鍵（R9 鍵表、I18N-WIRING (ii)；`biz.policy.notRestorable` 復用零新增）＋`page.manage.menu.*` 資料級鍵補齊＋`src/typings/app.d.ts` `App.I18n.Schema` 擴充 (iii)；★key 形紀律：message 僅 scalar 佔位、物件/陣列 data 走呼叫端渲染不進 `$t`（ADR 0050）；驗證既有無明細錯誤路徑零改動；typecheck＋fork-delta-lint 綠
 
 **Checkpoint**：全拒因一因一鍵、三語齊、無 raw key。
 
