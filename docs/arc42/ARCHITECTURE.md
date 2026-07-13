@@ -143,6 +143,31 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   roles〕、前端選單/按鈕顯隱於下次載入更新〔不推播〕。
 - **替代登入 stub**（sendCaptcha/codeLogin/register/resetPwd，Public、ADR 0029）：一律 `2222`
   （`biz.auth.notSupported`）、零 DB；前端表單改真呼叫、經攔截器顯譯文、captcha 成功才啟動倒數。
+- **選單域寫端鏈**（010、島 H；`/systemManage/{addMenu,updateMenu,deleteMenu,batchDeleteMenu,restoreMenu}`
+  Policy super-only）：一切選單域寫入於單一序列化域互斥〔`pg_advisory_xact_lock(MENU_DOMAIN_LOCK_KEY=
+  0x7265_7634_6D65_6E75="rev4menu")`、txn 首動作先於一切列鎖、H1〕＋域內固定序〔advisory→標的列
+  `FOR UPDATE`→鎖內重驗全部守門前提〔lock-then-redecide〕→寫→連動歸檔→op-log→commit〕。addMenu：route_name
+  形制守門〔`^[A-Za-z0-9_-]{1,100}$`〕＋parent 三態驗〔未刪即可/停用不擋/parentId=0↔NULL 頂層豁免〕＋23505
+  收斂 `routeNameExists`＋★零 casbin 寫（兩步流 FR-004、授權唯一路徑仍 009 全量替換）。updateMenu：無變更提前
+  no-op〔不 bump 時戳/不落稽核〕＋不可變欄雙鍵〔route_name/menu_type 比對現值→`routeNameImmutable`/
+  `menuTypeImmutable`〕＋re-parent 環檢測〔新 parent 沿 parent_id 上溯遇 self→`cycleDetected`、上限寫死 64〕
+  ＋buttons 絕版連動〔移除 code 全域絕版〔掃 `list_governed`〕→archive-move reason=`menu_button_removed`→
+  Applied 才 reload〕。deleteMenu：守門固定序①protected→②hasChildren〔未刪含停用子〕→軟刪 deleted_at/by 成對
+  ＋同交易連動歸檔〔menu 維跨全角色＋刪選單獨有 button 維、reason=`menu_soft_delete`、role_id 由 v0 回填〕。
+  batchDeleteMenu：自管 txn＋advisory＋ids 去重＋樹深 DESC child-first 拓撲序＋逐列鎖內守門＋no-partial 整批
+  rollback。restoreMenu：`find_by_id_for_update` 鎖已刪列→鎖內重驗〔同鍵活性衝突 `routeNameExists`＋23505
+  兜底/parent 未刪驗 `parentDeleted`〕→成對清空 deleted_at/by〔原 status 保留〕＋op-log Restore＋★零回灌授權
+  （FR-023）。★同鍵重建零繼承雙封（H2）：①現役無殘留〔序列化域使 deleteMenu×updateRoleMenu 互斥、phantom
+  grant 不可達；連動歸檔掃盡 menu＋獨有 button〕②歸檔不可回灌〔`menu_soft_delete`/`menu_button_removed`
+  reason gate 落 restorePolicy 權威判定〕；併發機器證三組〔deleteMenu×updateRoleMenu／對向 re-parent／
+  deleteMenu 父×restoreMenu 子〕以 `wait_advisory_waiter` 觀測 advisory 後到者等待、終態序列化（SC-003）。
+  觸及授權變更〔deleteMenu/batch/updateMenu 絕版〕成功才 reload〔009 rebuild-swap〕、被拒/無作用/標的不存在
+  零 reload（FR-016）。
+- **選單兩域分層**（010、島 H4）：**治理域**〔未刪含停用、`list_governed`〕＝授權治理讀端源——getMenuTree
+  勾選候選樹／getRoleMenu 反查回讀／getAllButtons 候選聯集／menu_id↔route_name 映射四處（010 由 `list_active`
+  換源）——停用選單仍在候選、全量替換不誤撤停用授權〔停用≠撤銷、FR-019〕。**顯示域**〔啟用∧未刪、
+  `list_active`〕＝getUserRoutes〔上「動態選單鏈」〕／getAllPages 源——停用即隱、下次載入生效、已刪暫離候選
+  restore 即回（FR-018/032、010 不動）。「活性」一詞在選單域專指 deleted_at IS NULL、「啟用」指 status=1。
 
 ## §7 部署
 
