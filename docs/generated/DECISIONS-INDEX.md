@@ -59,3 +59,7 @@
 | 0054 | accepted | 2026-07-14 | 密碼政策 enforcement——單一驗證點＋chars/bytes 雙約束＋forbid_username 相等語意＋密碼載體三重不洩（島 I5 設計理據） | — | — | — |
 | 0055 | accepted | 2026-07-14 | B-030 初始密碼拆階段——admin 指定＋政策驗證先行；隨機生成＋首登強制改密延後、綁自助改密 | — | — | — |
 | 0056 | accepted | 2026-07-14 | REVIEW-001-010 十筆 no-action findings 定調——won't-fix／by-design／時序校準備查 | — | — | — |
+| 0057 | draft | 2026-07-14 | 稽核讀端四源＋查詢能力——兌現並增補 ADR 0011（三表→四源、pg_trgm 本刀落地） | — | — | — |
+| 0058 | draft | 2026-07-14 | 稽核 purge 執行面——時間水平線唯一形狀、下限守門、自落 op-log；保留天數政策 B-016 續留 | — | — | — |
+| 0059 | draft | 2026-07-14 | op-log payload PII 政策——落庫白名單定調＋讀端顯示面打碼（收 B-044） | — | — | — |
+| 0060 | draft | 2026-07-14 | sys_access_log 寫入端啟用——protected 全請求、fail-open、不記 body/query | — | — | — |
