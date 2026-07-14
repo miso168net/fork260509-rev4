@@ -58,3 +58,4 @@
 | 0053 | accepted | 2026-07-14 | 使用者域狀態機總綱——統一序列化鎖序＋撤 session 連動＋seed 帳號結構保護＋B1 login/refresh 鎖內重驗（島 I 設計理據） | — | — | — |
 | 0054 | accepted | 2026-07-14 | 密碼政策 enforcement——單一驗證點＋chars/bytes 雙約束＋forbid_username 相等語意＋密碼載體三重不洩（島 I5 設計理據） | — | — | — |
 | 0055 | accepted | 2026-07-14 | B-030 初始密碼拆階段——admin 指定＋政策驗證先行；隨機生成＋首登強制改密延後、綁自助改密 | — | — | — |
+| 0056 | accepted | 2026-07-14 | REVIEW-001-010 十筆 no-action findings 定調——won't-fix／by-design／時序校準備查 | — | — | — |

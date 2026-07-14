@@ -1,4 +1,4 @@
-<!-- next: B-091 -->
+<!-- next: B-095 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -49,3 +49,7 @@
 - B-088｜user 域 notRestorable 鍵 dead-key＋文件漂移 housekeeping（backend.biz.user.notRestorable 三語已建但 rust 端 user restore 路徑不發射〔U10 拍板兩案同歸 userNotFound〕；漂移橫跨四文件：data-model §3/§5、contracts 拒因兩表、★spec.md FR-038「不可復原」、quickstart S5——errata 紀律須四處一併處置勿只修兩處；治理定性一併決：as-built 勘誤對齊〔傾向、行為安全＋FR-042 零新碼 rationale〕或後端補發射該鍵）｜011 收刀後 housekeeping 或 audit 刀順帶（出處：011 U14 註4＋final review scope 補完）
 - B-089｜sys_token 歷史測試孤兒列清理（81 列 created_by 已不在 sys_user、009/010 測試帳號硬刪殘留；gate2 不檢 sys_token 故不擋閘）｜audit 刀順帶（出處：011 U14 驗收觀察＋final review）
 - B-090｜使用者自助改密（user-center、驗舊密改密；B-030 隨機生成＋首登強制改密之前置依賴）｜user-center 刀或需求觸發（出處：011 clarification user 親決＋ADR 0055）
+- B-091｜datetime offset 守門重建義務（003 §8 明文「隨首個顯示時間欄的刀重建」；009 起 createTime/updateTime/archivedAt 已上 wire、義務未兌現）｜audit 刀或下次 contract 擴充（出處：REVIEW-001-010 F003-2）
+- B-092｜update_setting 忽略 update_by_key Option＝TOCTOU 誤報成功（現不可達、加刪除端點即現形）——防禦性小修｜設定域擴充時（出處：REVIEW-001-010 F004-1）
+- B-093｜idle 稽核非冪等：背景 refresh-loop 累積 session_event(idle) 審計噪音（denylist NX 或首次 idle 才落列）｜audit 刀一併議（出處：REVIEW-001-010 F006-2）
+- B-094｜未刪選單列表分頁裝飾性、>100 頂層將靜默截斷｜選單規模成長時（出處：REVIEW-001-010 F010-1）

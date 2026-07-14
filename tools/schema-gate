@@ -145,7 +145,7 @@ PER_TABLE_SEED_EXCLUDE = {
 
 # ---- 閘 2 seed 面：post-baseline rev4 新增 seed 白名單（ADR 0032）----
 # 002 凍結基準（fixtures 凍結不改寫、byte 級原樣）之後、後續 feature 合法新增的 seed。
-# 比照 gate1 結構白名單（WHITELIST_ADD 4 項、ADR 0021）：白名單內的「實庫多列」＝容差 delta、非 FAIL；
+# 比照 gate1 結構白名單（WHITELIST_ADD＝3 memo 欄〔ADR 0021 基線〕＋post-baseline 隨刀登記項〔如 009 role_id、ADR 0049〕）：白名單內的「實庫多列」＝容差 delta、非 FAIL；
 # 白名單外任何實庫多列＝FAIL（防意外多出 seed）。key＝(table, natural_key tuple)。
 SEED_ADDITIVE_ALLOWLIST = {
     ("system_settings", ("session_idle_timeout",)),  # 005-auth-login m003（ADR 0030 閒置逾時設定）
