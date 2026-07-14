@@ -16,6 +16,7 @@ fork260509-rev4/
 │   ├── ops/NOTES.md                 當前意圖（唯一手寫進度敘事、幾行）
 │   ├── ops/BACKLOG.md               待辦 B-NNN（完成即刪列、git 即史）
 │   ├── ops/LESSONS.md               坑與防法 L-NNN（append-only、滿卷分卷）
+│   ├── ops/LESSONS-001-101.md       封存卷：rev3 教訓種子全量（errata 仍就地修）
 │   ├── ops/events.jsonl             事件源：收刀／review／里程碑（機器讀；人讀 MILESTONES）
 │   ├── brainstorms/                 各刀 Phase 0 產出（史料；000＝退役的啟動書）
 │   ├── reviews/                     review 報告史料

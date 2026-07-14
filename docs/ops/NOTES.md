@@ -13,8 +13,7 @@
   B-076、B-082/083 等觸發制項）續留原觸發、不提前做。
 - 011 遺留/追蹤：B-088（notRestorable dead-key＋四文件漂移、errata 紀律四處一併）；B-086（010 restorePolicy
   一致性）；009 B-085（protectedRevoke 命名漂移）；minor（另刀順手）＝audit helper 四支 pub→pub(crate) 收斂
-  ＋010 殘留 DEC-* 註解/U6 unused 型/U9 縮排（pnpm format/errata 一併）；★LESSONS 23.7k 逼近 25k 上限、
-  宜擇機分卷（L7 警告中）。
+  ＋010 殘留 DEC-* 註解/U6 unused 型/U9 縮排（pnpm format/errata 一併）。
 - base-web 改動走 fork-delta 原行紀律（tools/fork-delta-lint 以 example 為基線機器強制、掛 pre-commit 於
   base-web pin 變動時擋）；base-web worktree commit 一律 `--no-verify`；★`.vue` template 標記用 `<!-- -->`（L-119）。
 - ★新 i18n key 加入後 CDP 前需 restart base-web（vite 未必熱載新字典、否則顯 raw key、L-015）。
