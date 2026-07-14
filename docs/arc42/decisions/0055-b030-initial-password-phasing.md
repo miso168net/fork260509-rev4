@@ -2,7 +2,7 @@
 id: "0055"
 title: B-030 初始密碼拆階段——admin 指定＋政策驗證先行；隨機生成＋首登強制改密延後、綁自助改密
 date: 2026-07-14
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-13 011-user-admin brainstorm D4／D5（user 逐題親決：自助改密不入留 BACKLOG 新條；B-030 整包延後）；spec Clarifications（B-030 做多深）＋FR-029；BACKLOG B-030 觸發條件隨收刀簿記改「自助改密落地後」"

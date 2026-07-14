@@ -2,7 +2,7 @@
 id: "0053"
 title: 使用者域狀態機總綱——統一序列化鎖序＋撤 session 連動＋seed 帳號結構保護＋B1 login/refresh 鎖內重驗（島 I 設計理據）
 date: 2026-07-14
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-13 011-user-admin brainstorm D10~D13（user 逐題親決）＋6 鏡頭對抗式審查 25 findings 全折入（3 blocker：B1 並發登入漏撤／B2 op-log 洩 PHC／B3 seed 違 ADR 0032）＋plan Phase 0 research R2（統一序列化域）／R3（B1 鎖內重驗）／R6（硬刪指派＋復原不回灌）／R10（revoke_all 原語＋reason 映射）；憲法 v1.8.0 島 I 之設計理據檔（Amendment 本身＝T029 user 親決、條文草案見本檔附錄）"

@@ -2,7 +2,7 @@
 id: "0054"
 title: 密碼政策 enforcement——單一驗證點＋chars/bytes 雙約束＋forbid_username 相等語意＋密碼載體三重不洩（島 I5 設計理據）
 date: 2026-07-14
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-13 011-user-admin brainstorm D3／D5（user 親決）＋對抗式審查 B2（op-log 洩 PHC）與 serious 群（長度單位未定／forbid_username 三重未定／DTO Debug 洩明文／torn-read）全折入＋plan Phase 0 research R4（payload 白名單＋回應逐欄）／R5（單一驗證點＋chars/bytes）；004 密碼政策 7 鍵 seed 之第一個真實執行消費者；憲法島 I5 條文草案見 ADR 0053 附錄"

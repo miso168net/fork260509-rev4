@@ -130,6 +130,12 @@
   - **H3 樹結構不變式**：選單樹恆無環（改父層 MUST 過防環檢查）；活性子項 MUST NOT 掛於已軟刪父層之下；受保護種子選單 MUST NOT 可刪；存在未刪子項（不論啟用停用）之目錄 MUST NOT 可刪；批次刪除逐項驗證、任一違規**整批拒**（no-partial、單一交易、child-first 拓撲序）。此對偶島 G4 之選單實體側。
   - **H4 不可變錨欄與治理域／顯示域分層**：`route_name`（授權列 v1 錨／i18n 錨）與 `menu_type` 建後不可變（寫端 MUST 顯式拒變更、MUST NOT 靜默忽略）；選單讀端分兩域——**治理域**（授權候選與映射）以「未軟刪」全集為準（含停用）、**顯示域**（使用者可見性）以「啟用且未軟刪」為準；停用 MUST NOT 使全量替換語意誤撤停用選單的授權（停用＝暫時下架、非撤銷）。
   - **H5 復原不回灌**：選單復原 MUST 於序列化域內鎖定並重驗守門（同路由鍵活性衝突／父層未刪）；復原 MUST NOT 回灌任何授權——復原後選單零授權，可見性一律經授權面板重新勾選下放（與新增選單之兩步流一致）。
+- **島 I — 使用者域治理**（011、ADR 0053 總綱／0054 密碼政策）
+  - **I1 統一序列化與固定鎖序**：一切以既有使用者為標的之使用者域寫端（含撤 session 者：更新、刪除、批刪、重設密碼、踢除、復原、會話策略）MUST 於交易起手取得與登入／換發同源的每使用者序列化鎖（DB 交易級 advisory 鎖、key＝使用者識別、與 login/refresh 共鎖）；域內固定鎖序 MUST 為①標的使用者列 `FOR UPDATE`（復原用已刪列版）→②角色列（僅指派路、識別升序、複用角色域鎖讀）→③指派列寫入，禁反向；一切守門判定 MUST 鎖內重驗（lock-then-redecide、永不信 pre-read；與島 G5／B2／H1 同範式）。新增使用者豁免每使用者鎖（新識別對並發不可見；並發同名保護＝帳號名活性唯一約束）。帳號名活性 partial-uniq 索引為復原同名衝突守門之顯式前提。★方向反轉（拆散統一序列化、改回無鎖 pre-read）＝MAJOR。
+  - **I2 撤銷連動同交易＋權威優先＋登入鎖內重驗**：停用／刪除／改密 MUST 同交易撤銷標的使用者全部既有 session（撤銷類、靜默）；踢除＝踢除類（阻斷）；兩類體驗碼 MUST NOT 互換。動作序 MUST 權威優先（業務寫＋session 作廢＋稽核同交易落定→commit→失效廣播 best-effort、存活時間覆蓋換發憑證壽命）；即時性契約＝廣播成功即時、失敗殘留窗上界 access token 壽命（換發期活性守門兜底、沿島 C fail-open），MUST NOT 為此新增每請求活性判定。登入流程 MUST 於序列化鎖內、發 token 前重讀標的列並重驗活性與密碼雜湊（與驗證階段所讀一致、純比對不重跑雜湊），任一不符 MUST 中止不發 token；換發流程 MUST 於換發憑證列鎖內重驗使用者活性（不另重驗密碼雜湊）；被合法撤銷者換發 MUST 靜默拒絕、MUST NOT 誤判為憑證盜用。★方向反轉（拔登入鎖內重驗、改廣播優先）＝MAJOR。
+  - **I3 seed 帳號結構保護**：前三個種子帳號 MUST 不可刪；第一個（Super）MUST 恆禁停用、恆禁解除其超管角色指派（不因操作者身分而異）——系統恆有至少一個活躍且啟用的超級管理員（結構保證、不需動態計數）；Super MAY 被踢除、被重設密碼。操作者 MUST NOT 刪除／停用／踢除自己、MUST NOT 變更自己的角色指派。
+  - **I4 刪除清指派＋復原不回灌**：使用者軟刪 MUST 同交易硬刪其全部角色指派列（零幽靈掛載、角色域掛載計數守門保持誠實）；復原 MUST NOT 回灌任何指派（復原後零角色、須重新指派）、狀態保留刪除前原值；同帳號名重建之新使用者 MUST NOT 經任何路徑繼承舊實例角色。批次刪除逐項驗證、任一違規（含已刪識別）**整批拒**（fail-fast、單一交易、識別去重升序取鎖）。
+  - **I5 密碼政策單一驗證點＋密碼三重不洩**：密碼政策驗證 MUST 為單一驗證點（建帳與重設共用、零分叉）、政策鍵單一快照讀取；長度單位＝字元、另加固定位元組上界 ≤登入端形制上限；「禁止密碼與帳號名相同」＝大小寫不敏感相等。密碼明文與雜湊 MUST NOT 洩漏於任何面：承載密碼之 DTO 除錯輸出 MUST 遮蔽（不得預設印出）；操作稽核 payload MUST NOT 含密碼明文／雜湊／會話識別；API 回應 MUST NOT 含密碼與會話識別（列表逐欄構造、不序列化原始列）；密碼雜湊 MUST NOT 於持有列鎖期間計算。★方向反轉（拆單一驗證點、拔遮蔽）＝MAJOR。
 
 ---
 
@@ -165,19 +171,20 @@
 
 ### III.2 ★ 需 constitution 顯式授權軌道（本檔已授權）
 
-#### MODAL-WIRING ★ — 本檔授權七用途 (a)~(g)（皆 rev3 已落地驗證邊界、一次全授；**新用途 (h) 起走 Amendment**）
+#### MODAL-WIRING ★ — 本檔授權八用途 (a)~(h)（(a)~(g)＝rev3 已落地驗證邊界一次全授、(h)＝011 Amendment；**新用途 (i) 起走 Amendment**）
 
-**邊界**：`base-web/src/views/manage/**` 內〔(a)~(f)；(g) 為樹外例外〕——
-- **(a)** `// request` placeholder 接線：`modules/*-operate-{modal,drawer}.vue`（create/update）與 `index.vue` 的 delete/batchDelete handler，及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit('search')）同屬本用途（ADR 0048）
+**邊界**：`base-web/src/views/manage/**` 內〔(a)~(f)、(h)；(g) 為樹外例外〕——
+- **(a)** `// request` placeholder 接線：`modules/*-operate-{modal,drawer}.vue`（create/update）與 `index.vue` 的 delete/batchDelete handler，及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit('search')）同屬本用途（ADR 0048）；create/update 接線所必要之表單控件屬本用途（如 user drawer add 模式密碼欄＋政策提示、edit 模式 session_policy 選擇器——payload 必要欄之輸入載體），仍限既有 operate-modal/drawer 檔內、不含新 modal（ADR 0053）
 - **(b)** 業務頁操作按鈕 `hasAuth(<button_code>)` 可見性 gating：`index.vue` 操作鈕 `v-if` 與共用元件 `table-header-operation.vue` 的附加顯隱 prop
 - **(c)** 同模式新權限 modal＋trigger：角色編輯區新增 `*-auth-modal.vue`（鏡像 menu/button-auth-modal）＋觸發鈕＋對應 i18n key——嚴格限「角色 × 某權限維度」runtime 編輯介面
-- **(d)** 選單復原／re-parent 維運控制：`menu-operate-modal.vue` edit 模式 parentId selector＋`views/manage/menu/index.vue` 的「顯示已刪除」列表切換（toggle）＋逐列 restore 鈕＋對應 i18n key——嚴格限「選單樹復原／父層級調整」
+- **(d)** 選單／使用者復原、re-parent 維運控制：`menu-operate-modal.vue` edit 模式 parentId selector＋`views/manage/menu/index.vue` 與 `views/manage/user/index.vue` 的「顯示已刪除」列表切換（toggle）＋逐列 restore 鈕＋對應 i18n key——嚴格限「選單樹復原／父層級調整／使用者回收桶復原」
 - **(e)** 同 manage 範式新管理頁：`views/manage/<page>/index.vue`＋可選 `modules/*`（嚴格鏡像既有 user/role/menu 結構）、消費 rust-api 端點、含對應 route 與 i18n key——不擴張到任意新 UI／非 manage 頁／自訂佈局；可見性走 §I.2
 - **(f)** 列表欄位排序掛載：column 定義加 naive-ui `sorter` props＋受控 `sortOrder`＋`@update:sorter` 綁定＋查詢參數 sort；於列表 view 工具列掛「清除排序」控制（有 `TableHeaderOperation` 的頁用其 `#suffix` slot、自有工具列的頁 inline）——嚴格限「列表排序」、**不改 `table-header-operation.vue` 元件本體**；配套新檔循 ADAPT/WRAPPER
 - **(g)** 非-manage 頂層自助頁：`views/user-center/index.vue`＋可選 `modules/*`——登入者本人 profile 自助檢視／編輯＋改密碼＋驗證 UI 佔位，消費 auth-only 自助端點（operator＝本人）；`hideInMenu:true`、經頭像下拉入口、非 Casbin menu——**嚴格限「登入者本人自助」、不擴張到管理他人資料／任意新 UI**
+- **(h)** manage 頁維運動作：`views/manage/user/index.vue` 頁首維運 modal 觸發鈕＋net-new `modules/user-unlock-modal.vue`（登入解鎖：dimension 選擇＋目標輸入→既有 unlockLogin 端點）＋operate 欄維運動作（kick／reset-pwd、NDropdown 收納）＋對應 i18n key——嚴格限「使用者頁既有後端維運端點之觸發 UI」、不擴張到新後端能力／任意新 UI（ADR 0053）
 
 **紀律**：
-- 嚴格限七用途，絕不擴張到其他 inline 邏輯；第 (h) 種用途 → §V.2 Amendment
+- 嚴格限八用途，絕不擴張到其他 inline 邏輯；第 (i) 種用途 → §V.2 Amendment
 - **補完 vs 新能力判準**：既有授權頁內「單頁、純加、復用既有 wrapper、零新 key/元件/路由」四條件全中的 dispatcher 補完（如同頁補一種值型別的 render 控件分支）＝**用途補完、不 bump 本檔**；跨多頁新能力＝**須 Amendment**
   - **「零新 key」釋義**（ADR 0041）：指**新 i18n 命名空間／新元件／新路由等「面」級新增**；**不含**既有授權頁、既有子命名空間之下的**資料級 label key**（如 `page.manage.systemSettings.items.<newKey>` 三語譯文與型別鏡像）。★仍受約束：新增 top-level i18n 命名空間走 I18N-WIRING (ii)；route locale key 須隨建頁走；新元件／路由／跨頁能力仍須 Amendment；動 upstream 既有命名空間之下的 key 不在此釋義範圍。判準其餘三條件仍須全中。
 - 每改一處在 spec 內紀錄（位置＋改動內容＋upstream 衝突風險評估）
@@ -210,13 +217,14 @@
 
 **紀律**：嚴格限兩用途；第三用途 → §V.2 Amendment；每改一處在 spec／plan 內紀錄（位置＋改動＋upstream 衝突風險）；走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制。
 
-#### BASE-WEB-LOGIN-CAPTCHA-WIRING ★ — 本檔授權一用途 (i)（節流刀 CAPTCHA 軟區的登入表單接线；ADR 0040）
+#### BASE-WEB-LOGIN-CAPTCHA-WIRING ★ — 本檔授權二用途 (i)~(ii)（(i)＝節流刀 CAPTCHA 軟區登入表單接线、ADR 0040；(ii)＝011 密碼登入表單規則放寬、ADR 0053）
 
-**邊界**（base-web，嚴格限以下一處，走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制）：
+**邊界**（base-web，嚴格限以下二處，走 fork-delta `rev4-inline` 紀律＋fork-delta-lint 機器強制）：
 - **(i)** 密碼登入表單的圖形驗證碼接线：`src/views/_builtin/login/modules/pwd-login.vue` 於收到「需要驗證碼」回應（`2222`＋`auth.login.captchaRequired`）時條件渲染驗證碼圖與輸入欄；支援點圖換題、帳號名變更時重新取題、答錯後自動重取新題（提交即消耗、舊題已失效）。**含其資料取得所需之最小 store/service 接线**——使 pwd-login 能取得後端 `msg` 以區分 `locked` 與 `captchaRequired`（兩態同為 `2222`、僅 `msg` 相異，而 `authStore.login` 現吞掉 `msg`）。
+- **(ii)** 密碼登入表單前端規則放寬：`src/views/_builtin/login/modules/pwd-login.vue` 的 REG_PWD／REG_USER_NAME 表單規則降為 required-only（後端政策為唯一權威守門；消滅「政策合法密碼／帳號名被前端硬正則擋死＝設得進登不進」）——嚴格限「規則放寬」、不改表單結構／不改攔截器控制流／修改型帶 `原行:`（ADR 0053）
 
 **紀律**：
-- 嚴格限此一用途；第二用途 → §V.2 Amendment。
+- 嚴格限此二用途；第三用途 → §V.2 Amendment。
 - ★**不改攔截器碼分組／logout／refresh／retry 控制流語意**（`2222` 走既有一般錯誤提示通道）；**`.env` 三個碼分組清單不動**。
 - 修改型帶 `原行:`：`<script>` 區用 `//`、★`<template>` 區用 `<!-- [rev4-inline …] 原行: … -->`；新增型走圈界標記。
 - 新 typing／service wrapper 走既有預設軌道（ADAPT 新 `.d.ts` declaration merging、WRAPPER `rev4-*.ts` 新檔），**不動凍結的 `typings/api/auth.d.ts`**。
@@ -278,9 +286,10 @@
 
 ---
 
-**Version**: 1.8.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-13
+**Version**: 1.9.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-14
 
 **Amendment log**:
+- 1.9.0（2026-07-14）：§I.7 行為島進場——島 I 使用者域治理（I1 統一序列化＋固定鎖序〔與 login/refresh 共鎖、user 列→role 列→指派列禁反向、lock-then-redecide、addUser 豁免、partial-uniq 為復原守門顯式前提；反轉＝MAJOR〕／I2 撤銷連動同交易＋權威優先＋登入鎖內重驗〔revoked/kicked 體驗碼不互換、廣播 best-effort 殘留窗明文接受、login 鎖內重驗活性＋密碼雜湊、換發不另重驗雜湊、合法撤銷換發靜默；反轉＝MAJOR〕／I3 seed 帳號結構保護〔三帳號不可刪、Super 恆禁停用/解超管指派、self 刪/停/踢/改指派四不〕／I4 刪除硬刪指派＋復原不回灌＋status 保留＋批刪整批拒／I5 密碼政策單一驗證點＋密碼三重不洩〔反轉＝MAJOR〕；ADR 0053 總綱／0054 密碼政策／0055 B-030 拆階段）＋§III.2 軌道擴展四處〔MODAL-WIRING (d) 擴 user 頁回收桶／新用途 (h) manage 頁維運動作／(a) 分類釐清 drawer 接線必要控件／LOGIN-CAPTCHA-WIRING 新用途 (ii) pwd-login 表單規則放寬〕；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝011-user-admin plan Constitution Check Q9/Q2/Q7（user 親決 2026-07-14、A 案照 draft 全過）。
 - 1.8.0（2026-07-13）：§I.7 行為島進場——島 H 選單域生命週期與授權連動（H1 選單域寫入序列化域＋鎖內重驗〔反轉＝MAJOR〕／H2 同鍵重建零繼承〔連動歸檔 menu_soft_delete／menu_button_removed、reason gate 不可手動復原〕／H3 樹結構不變式〔無環／未刪子掛未刪父／protected 與非空目錄不可刪／批刪 no-partial child-first 拓撲序〕／H4 不可變錨欄 route_name·menu_type＋治理域／顯示域分層／H5 復原不回灌；ADR 0051 選單域狀態機總綱／0052 本 Amendment）＋§III.2(d) 軌道錨點擴充〔「顯示已刪除」toggle＋逐列 restore 鈕錨點自 menu-operate-modal.vue 擴至 views/manage/menu/index.vue、用途字串不動〕；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝010-menu-admin plan Constitution Check Q9/Q2/Q7（user 親決 2026-07-13）。
 - 1.7.0（2026-07-12）：§I.7 行為島進場——島 G casbin 授權治理（G1 真相唯一與同步失敗契約〔重建成功才 swap、失敗保留已知良好、反轉＝MAJOR〕／G2 受保護拒絕／G3 撤銷必歸檔〔role_id＋reason〕／G4 刪除守門＋批次 no-partial／G5 復原同實例＋現役寫入全端點 lock-then-redecide；ADR 0048 本島／0049 歸檔 role_id／0050 明細通道）＋MODAL-WIRING (a) 檔名枚舉澄清〔擴句涵蓋同頁 *-auth-modal.vue 既有 placeholder 接線與附屬模板行為小修〕；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝009-role-admin plan Constitution Check Q9＋analyze A1 甲案（user 親決 2026-07-12）。★本 log 行為 010 plan 期補記（009 收刀遺漏、PATCH 級勘誤、隨 v1.8.0 一併）。
 - 1.6.0（2026-07-11）：§I.7 行為島進場——島 F IP 存取控制閘＋信任錨＋來源維節流（F1 判定序白＞黑＞default-allow／F2 真相分層 keep-last-good／F3 全鏈 fail-OPEN 唯一例外＝寫端自鎖、反轉＝MAJOR／F4 信任錨唯一輸入且信任集與跳過集同源對稱、CDN 錨傳輸層背書為承重部署前提／F5 放行跳節流只認顯式規則；ADR 0043 真實 IP 還原 supersede 0017 還原節、0044 本島、0045 來源維節流 supersede 0038 調整項二、0046 region GeoIP、0047 鎖定審計欄 won't-fix）＋島 E2 射程釐清（帳號維判定鍵射程與來源維並列不衝突、FR-030）；MINOR（§V.3「行為島隨刀進場」＋「已入憲 invariant 細項調整」）——觸發＝008-ip-gate plan Constitution Check Q9＋final review #1 CDN 錨承重前提（user 親決 2026-07-11）。
