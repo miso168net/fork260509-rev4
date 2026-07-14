@@ -8,6 +8,9 @@
 #   首行 byte 數＋冒煙 token 命中數）→ 靜默迴圈，僅 stall／runaway 告警時輸出並退出。
 # 完成通知一到請 TaskStop 本 Monitor（否則正常完成 ~13min 後誤觸 stall）。
 set -u
+# ★L-142：本檔含中文字串——mac（實證 mac2、bash 5.3）部分 locale 下 bash 解析
+#   「$smoke（」類「變數名＋全形字」邊界會黏成未綁定變數名而炸；byte-wise 解析免疫。
+export LC_ALL=C
 TOKEN="${1:-}"
 STALL=780      # 秒；>最長合法 cargo（sub-agent Bash 單命令 600s 上限＋margin）
 RUNAWAY=25     # journal 行數；2× 單元理論上限（防呆③ AGENT_FUSE=20 之外部 backstop）
