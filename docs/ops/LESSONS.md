@@ -1,4 +1,4 @@
-<!-- next: L-140 -->
+<!-- next: L-142 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -312,3 +312,6 @@
 
 - **L-139**｜workspace bash 工具的 GNU/BSD 可攜性坑（macOS 首跑）：`wf-watchdog` 迴圈用 GNU find `-printf '%T@\n'` 取最新 mtime——**macOS `/usr/bin/find`（BSD）無 `-printf`**、stderr 被 `2>/dev/null` 吞掉後輸出恆空→首輪 60s 即誤判「目錄不可讀」退出（011 U1 mac2 實測：wf 目錄完好、transcript 持續增長中、看門狗卻已死＝監看真空）。兩個次生陷阱：①互動 Bash shell 的 `find` 可能是 GNU（PATH/wrapper 注入）而 Monitor 的 shell 走 `/usr/bin/find`＝BSD——**可攜性驗證必須用 `/usr/bin/*` 原生二進位重現**、不可信互動 shell 的結果；②GNU/BSD `stat` 旗標語意相反（BSD `stat -f '%m'`＝mtime；GNU `stat -f`＝檔案系統狀態、`%m`＝掛載點字串）——兜底順序不可反、反了 Linux 上會拿掛載點字串進算術。
   防：跨平台 mtime 取法＝GNU `find -printf` 先試、落空再 BSD `find -exec stat -f '%m' {} +` 兜底（tools/wf-watchdog 已修）；新增/修 workspace bash 工具時逐一盤點 GNU-only 旗標（`-printf`／`date -d`／`sed -i` 無後綴／`readlink -f`…）；本機中文 bash 工具另須 LC_ALL=C（既有教訓）。｜出處：011 U1 編排（mac2 首跑看門狗誤報）
+
+- **L-140**｜workflow 防呆②「渲染後 prompt 長度下限」用固定值會在**短前綴單元**誤觸零派發 throw：011 U12（base-web 單元、HARD_RULES 無 cargo 段）fix prompt＝前綴＋blockers JSON 僅 686 字元＜下限 800→整支 workflow 中止。防：下限取 400（或 max(400, 前綴長 ×0.8)）；恢復＝改門檻後 `resumeFromRunId` 續跑——已完成 agent（implementer＋review 首輪）走快取零重跑，實測零額外損耗。｜出處：011 U12 編排
+- **L-141**｜compose up 先於 dev 憑證生成＝front-nginx PEM emerg 死循環（新機必踩）：bind-mount 來源（`deploy/dev-certs/*.pem`、gitignored 實值）不存在時 **Docker 代建空目錄**佔位→nginx 讀目錄當憑證「no start line」emerg 退出、且假目錄使後續生成腳本混淆。防：新機序＝bootstrap→`deploy/generate-dev-cert.sh`→compose up；修復＝`rmdir` 兩個假目錄→生成→`up -d --force-recreate front-nginx`（bind 重解析、restart 不夠）。｜出處：011 U14 前置檢查（mac2 首跑）

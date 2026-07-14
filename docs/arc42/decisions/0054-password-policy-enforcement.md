@@ -47,7 +47,7 @@ append-only 稽核（B2 blocker：永久留存＋DBA/備份/op-log viewer 可讀
      手寫 `impl Debug`** 印 password 為 `<redacted>`（不印長度不印片段）；負向自證＝改回裸
      derive 即測試轉紅。
   2. **op-log payload 白名單**：使用者寫端稽核 payload 逐欄白名單、絕不含 password 明文／雜湊
-     ／session_id；resetUserPassword payload 僅 `{id, userName}`；deleteUser 指派快照排除
+     ／session_id；resetUserPassword payload 僅 `{id, user_name}`（snake_case、對齊 009 op-log 範式）；deleteUser 指派快照排除
      password。負向測試斷言 payload 不含 `$argon2` 子串與 password 鍵。
   3. **回應排除**：getUserList／getDeletedUsers 逐欄構造（比照 role.rs、不序列化 raw sys_user
      Model）——結構性無 password 與 session_id 欄。

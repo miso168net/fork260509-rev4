@@ -1,4 +1,4 @@
-<!-- next: B-088 -->
+<!-- next: B-090 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -50,3 +50,5 @@
 - B-085｜ADR 0050 protectedRevoke 命名 as-built 漂移：ADR 0050 line 20 字面列命名空間為 `biz.policy.protectedRevoke`，as-built（rust-api handler role.rs／契約表／base-web 三語 locale）一律用 `biz.role.protectedRevoke`（distinct key 一因一鍵、與其餘 biz.role.* 拒因同命名空間）——★文檔漂移、實作正確（ADR accepted body 不可變、不回灌）；翻案／再動明細通道 key 命名時 MUST 立新 ADR 校正字面｜明細通道再設計或 ADR 0050 翻案觸發時｜出處：009 U16 收刀 as-built 核對
 - B-086｜restorePolicy menu 維孤兒檢查用 list_active vs 治理域一致性：sys_casbin_archive.rs restore_archived 判標的選單存在以 list_active（顯示域），停用選單（status=2、未刪、屬治理域）之歸檔授權復原會誤判 NotRestorable、與 010 FR-019「治理域＝未刪含停用、停用≠撤銷」有張力；010 R2 明列且僅列四治理讀端換源點、restorePolicy 非其一、屬 U8/009 授權回收桶路徑，010 正確 surgical 未動｜授權回收桶再設計或 restore 停用選單語義釐清時｜出處：010 U10 spec/quality review minor
 - B-087｜「共享表絕對計數／兩查直比」測試家族偶發假紅（committed-row 併發測與計數型斷言預設平行互擾、L-079 精神違背；已見三例：①sys_menu list_tree_governed 兩次 list_tree total 15 vs 14〔011 U2〕②sys_menu list_active 斷言 78 轉紅〔011 U3；U7 於 HEAD a6d1a69 stash 全量 3/3 重現＝前既存實證〕③handler::user list_empty_string_params baseline 與第二查間被他測 committed sys_user 列插隊〔011 U7、culprit=u6ep_ba_*〕；修法候選＝併發測 #[ignore] 序列跑、計數斷言改容忍並行位移/同語句快照/測試前綴過濾）｜該假紅再現時（L-138 近緣）
+- B-088｜user 域 notRestorable 鍵 dead-key＋文件漂移 housekeeping（backend.biz.user.notRestorable 三語已建但 rust 端 user restore 路徑不發射〔U10 拍板兩案同歸 userNotFound〕；漂移橫跨四文件：data-model §3/§5、contracts 拒因兩表、★spec.md FR-038「不可復原」、quickstart S5——errata 紀律須四處一併處置勿只修兩處；治理定性一併決：as-built 勘誤對齊〔傾向、行為安全＋FR-042 零新碼 rationale〕或後端補發射該鍵）｜011 收刀後 housekeeping 或 audit 刀順帶（出處：011 U14 註4＋final review scope 補完）
+- B-089｜sys_token 歷史測試孤兒列清理（81 列 created_by 已不在 sys_user、009/010 測試帳號硬刪殘留；gate2 不檢 sys_token 故不擋閘）｜audit 刀順帶（出處：011 U14 驗收觀察＋final review）
