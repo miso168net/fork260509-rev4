@@ -25,17 +25,17 @@ R5＋B-093 idle 冪等 R6＋B-091 datetime 斷言重建 R10）→ **P5 前端接
 - redis `ConnectionManager`（idle 冪等 `set_nx_ex` 標記、R6；unlock 動作序後段、R5）
 - `casbin 2.20.0`（新 2 端點政策 enforce、m009 seed）；`xdb`（access-log region best-effort、沿 ADR 0046）
 
-**Storage**: PostgreSQL——四稽核表全 m001 凍結基線（皆 archetype B append-only）、**零結構變更**；
+**Storage**: PostgreSQL——四稽核表全凍結基線（sys_operation_log／sys_access_log／sys_login_attempt＝m001、session_event＝m004；皆 archetype B append-only）、**零結構變更**；
 m009＝extension＋GIN 索引×2＋casbin_rule 2 列 additive＋sys_token 孤兒一次性 DELETE（非 seed 表、
 不涉 gate2）。Redis——idle 冪等標記（`session:idle-emitted:{sid}`、TTL=refresh_secs）。
 
 **Testing**: `cargo test --workspace`（容器內、全程 serial）；facade/handler 單元＋mask fn 表驅動窮舉；
 5 條新 route 契約 case（registry 58→63、覆蓋閘雙射）；wire_schema datetime offset 斷言重建（B-091）；
 負向自證五條（①打碼拆除轉紅②purge 挑列不可達＋下限守門③access-log fail-open④idle 重複恰一列
-⑤unlock PG-first 次序——T056 測試調和為新固定序）；gate2（fixtures 244 不動＋allowlist extra 8+2）；
+⑤unlock PG-first 次序——既有次序測試 `unlock_handler_source_order_set_marker_before_del_lock`〔011 期編號 T056〕由本刀 T020 調和為新固定序）；gate2（fixtures 244 不動＋m009 之 2 列走 allowlist 容差〔casbin extra 10；另含既有 system_settings 條目、全集以 gate2 實跑為準〕）；
 CDP 實機 S1~S6（quickstart）。
 
-**Target Platform**: Linux 容器（rust-api＝axum :8080；base-web＝vite dev :42080）
+**Target Platform**: Linux 容器（rust-api＝axum :8080；base-web＝vite dev :42081、:42080＝front-nginx 入口）
 
 **Project Type**: web-service（rust-api）＋前端接線（base-web、P5）
 
@@ -62,12 +62,14 @@ CDP 實機 S1~S6（quickstart）。
 | Q5 | 從前代 source 拷貝 code？ | **否**。全新寫；rev3 僅承接結論（ADR 0011 三表讀端＋B-039/B-016 切分，provenance 載於 ADR 0057~0060）。 |
 | Q6 | 抵觸 §II 拍板？ | **否**。#1 unknown header／#2 dynamic route／#3 `/api` 前綴皆不涉、照現制消費。 |
 | Q7 | 觸及 §III ★ 軌道？「補完」還是「新能力」？ | **是**。MODAL-WIRING：新管理頁佈局＝**新能力→新用途 (i) 隨刀 Amendment**（見 Q2；四分頁＋唯讀報表＋清理 modal＋daterange 控件皆超出 (e) 鏡像字面、不硬套）；I18N-WIRING (ii)(iii)＝既有 backend 命名空間下**資料級補完**（ADR 0041 釋義射程內）；LOGOUT-UX／AUTH-／LOGIN-CAPTCHA-／DEVPROXY-WIRING 不涉。 |
-| Q8 | 新建業務表（create migration）？§I.6 六審計欄？ | **否**。四稽核表全 m001 凍結基線（皆 **archetype B append-only**：僅 created_at NN、無 update/delete 欄、不可竄改——讀端與 purge 不觸此形；purge 水平線 DELETE≠竄改之憲法解釋隨 ADR 0058 錨定、入憲 J3 收斂措辭）。**零建表、零加欄、零改型**；m009＝`CREATE EXTENSION pg_trgm`＋GIN 索引×2（結構物件、非審計欄範疇）＋casbin_rule 2 列 additive（SEED_ADDITIVE_ALLOWLIST 登記、ADR 0032、fixtures/244 不動）＋sys_token 孤兒 81 列一次性 DELETE（資料清理、sys_token 不在 SEED_TABLES、不涉 gate2）。 |
+| Q8 | 新建業務表（create migration）？§I.6 六審計欄？ | **否**。四稽核表全凍結基線（三表 m001、session_event m004；皆 **archetype B append-only**：僅 created_at NN、無 update/delete 欄、不可竄改——讀端與 purge 不觸此形；purge 水平線 DELETE≠竄改之憲法解釋隨 ADR 0058 錨定、入憲 J3 收斂措辭）。**零建表、零加欄、零改型**；m009＝`CREATE EXTENSION pg_trgm`＋GIN 索引×2（結構物件、非審計欄範疇）＋casbin_rule 2 列 additive（SEED_ADDITIVE_ALLOWLIST 登記、ADR 0032、fixtures/244 不動）＋sys_token 孤兒 81 列一次性 DELETE（資料清理、sys_token 不在 SEED_TABLES、不涉 gate2）。 |
 | Q9 | 觸及 §I.7 行為島？invariants 保持？新島進場？ | **是**。①既有島全保持：**E3**（讀端零改登入稽核寫入語意、FR-018 回歸保證＋UI 語意明示）；**G1/I2**（op-log 同交易接縫不動；PURGE 自記同交易＝同精神）；**F4**（access-log 位址取 `RequestContext` 信任錨四欄）；**E1/F3 fail-OPEN**（access-log 寫故障不擋業務請求＝同方向新面）；**I5**（打碼強化 payload 不洩方向、落庫白名單定調收 B-044）；**島 C/D**（idle 冪等不動 idle 判定與 8888 回應、僅稽核列去重）。②B-077 unlock 動作序翻轉＝「稽核先於生效」新不變式（隨島 J 入憲、非既有島反轉——unlock 原序非憲法條文、僅 doc＋測試）。③**新島 J（稽核域）進場＝MINOR Amendment v1.10.0**：J1 讀端 read-only＋僅超管／J2 access-log fail-open 絕不擋業務請求／J3 purge 水平線唯一形狀＋自落 op-log＋PURGE 固定豁免／J4 PII 顯示打碼單點（讀端後端遮蔽）／J5 unlock 稽核先於生效——ADR 0057~0060 draft 已備、**user 親決後**隨刀落憲。state-machine 鏡頭：四源皆單向流水（append→horizon-delete）、無新狀態機；unlock/idle 為既有流程的動作序/冪等修補。 |
 
-**Gate 結論**：通過。需 **user 親決**（比照 011 v1.9.0 範式、於前端執行單元前）＝①島 J 五條入憲
-（MINOR v1.10.0）②MODAL-WIRING 新用途 (i)（稽核中心唯讀報表頁：四分頁佈局＋清理 modal＋
-daterange 控件）③ADR 0057~0060 draft→accepted。
+**Gate 結論**：通過。需 **user 親決**＝①島 J 五條入憲（MINOR v1.10.0）②MODAL-WIRING 新用途
+(i)（稽核中心唯讀報表頁：四分頁佈局＋清理 modal＋daterange 控件）③ADR 0057~0060
+draft→accepted。★analyze C1 時序修正：親決時點自「前端執行單元前」提前為「最遲 purge 執行
+單元（U6／Phase 5）前」——實際＝2026-07-15 user 親決「A 案照 draft 全過、先修後親決」、
+隨 SDD 收尾落憲 v1.10.0。
 
 **Phase 1 後複查（research/data-model/contracts/quickstart 產出後）**：九題判定全維持——設計產物
 未引入新表、新錯誤碼、新軌道觸點；契約面 5 route 全數落 registry 雙射；m009 四步皆在 Q8 邊界內；

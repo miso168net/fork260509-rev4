@@ -11,12 +11,12 @@
 # 容器內、serial（host 無 toolchain；平行 cargo 互撞 target）
 docker compose exec rust-api cargo test --workspace        # 全綠（含契約 63、負向自證五條）
 docker compose exec rust-api sh -c 'ls migration/src/m009*'  # m009 存在（extension＋GIN×2＋seed 2＋清理）
-tools/schema-gate gate2                                     # 244 present＋allowlist extra（8 m008＋2 m009）
-# pg_trgm 生效驗證（repo 首例 extension）
-docker compose exec postgres psql -U postgres -d rev4 -c "\dx pg_trgm"
-docker compose exec postgres psql -U postgres -d rev4 -c "\di idx_login_attempt_user_name_trgm idx_access_log_path_trgm"
+tools/schema-gate gate2   # 244 present＋allowlist 容差（casbin extra 10＝m008 8＋m009 2；另含既有 system_settings 條目、全集以實跑為準）
+# pg_trgm 生效驗證（repo 首例 extension）；憑證＝compose 實值（POSTGRES_USER=soybean、POSTGRES_DB=soybean_admin_rust）
+docker compose exec postgres psql -U soybean -d soybean_admin_rust -c "\dx pg_trgm"
+docker compose exec postgres psql -U soybean -d soybean_admin_rust -c "\di idx_login_attempt_user_name_trgm idx_access_log_path_trgm"
 # B-089 清理驗證（孤兒歸零、活列不誤刪）
-docker compose exec postgres psql -U postgres -d rev4 -c \
+docker compose exec postgres psql -U soybean -d soybean_admin_rust -c \
   "SELECT count(*) FROM sys_token WHERE created_by NOT IN (SELECT id FROM sys_user)"   # =0
 ```
 
@@ -25,8 +25,9 @@ docker compose exec postgres psql -U postgres -d rev4 -c \
 - **cargo test --workspace**（容器內、serial）全綠：既有零轉紅（FR-018 回歸）＋本刀新測。
 - **契約 registry**：58→**63**（4 讀端＋purge）；覆蓋閘雙射（每 route 必有 case）；
   wire_schema **datetime offset 斷言重建**（B-091：本刀 createTime＋既有已上 wire 時間欄）。
-- **gate2**：凍結 244 全 present＋SEED_ADDITIVE_ALLOWLIST 容差 extra 10（m008 8＋m009 2）、
-  fixtures 零改寫；m001~m008 一字不動。
+- **gate2**：凍結 244 全 present＋SEED_ADDITIVE_ALLOWLIST 容差（casbin extra 10＝m008 8＋
+  m009 2；另含既有 system_settings 條目〔m003×1＋m005×3＋m006×3〕、容差全集以 gate2 實跑
+  為準）、fixtures 零改寫；m001~m008 一字不動。
 - **負向自證五條**（拆除守門即轉紅）：①mask 拆除→讀端回應含電話原值→紅（SC-003）
   ②purge 挑列參數構造不可達＋beforeDays<30 拒（SC-005）③access-log 寫故障（斷 DB 模擬）→
   業務請求照常成功（SC-004）④同 sid 重複 idle→恰一列（SC-006）⑤unlock 之 op-log 失敗→
@@ -73,7 +74,8 @@ docker compose exec postgres psql -U postgres -d rev4 -c \
 
 - purge × 併發寫入：purge 執行中新 op-log 寫入照常（水平線無交集；終態兩者俱在）。
 - idle 冪等：同 sid 連續兩次觸發 idle 拒發→session_event 恰一列（第二次 8888 照回）。
-- unlock PG-first 次序：既有次序測試調和為 op-log→SET→DEL 新固定序（T056 改寫、非拆除）。
+- unlock PG-first 次序：既有次序測試 `unlock_handler_source_order_set_marker_before_del_lock`
+  （011 期編號 T056）由本刀 T020 調和為 op-log→SET→DEL 新固定序（改寫、非拆除）。
 
 ## 驗收對照（10 SC → 佐證場景）
 

@@ -2,7 +2,8 @@
 
 **Branch**: `012-audit-admin` | **Date**: 2026-07-15 | **Plan**: [plan.md](plan.md)
 
-四源稽核表全於 m001 凍結基線（archetype B append-only）；本刀**零建表、零加欄、零改型**——
+四源稽核表全於凍結基線（sys_operation_log／sys_access_log／sys_login_attempt＝m001、
+session_event＝m004；皆 archetype B append-only）；本刀**零建表、零加欄、零改型**——
 m009 僅 extension＋索引＋seed＋一次性資料清理（§2）。欄形權威＝docs/generated/reference/schema.md
 （entity 逐欄一致、偵察已核）。
 
@@ -37,9 +38,9 @@ m009 僅 extension＋索引＋seed＋一次性資料清理（§2）。欄形權�
 | id | bigint | 否 | 代理主鍵 |
 | created_at | timestamptz | 否 | 落列時刻 |
 | created_by | bigint | **否** | 操作者識別（NOT NULL＝結構上僅已認證請求；m001:438） |
-| http_status | smallint 類 | 是 | 回應狀態碼 |
-| http_method | varchar 類 | 是 | 請求方法 |
-| http_path | text 類 | 是 | 請求路徑（★不含 query string、FR-010；trigram 模糊標的） |
+| http_status | integer | **否** | 回應狀態碼（m001:439 NOT NULL） |
+| http_method | text | **否** | 請求方法（NOT NULL） |
+| http_path | text | **否** | 請求路徑（NOT NULL；★不含 query string、FR-010；trigram 模糊標的） |
 | real_ip | inet | 否 | 信任錨還原位址 |
 | peer_ip | inet | 是 | 直連對端位址 |
 | x_forwarded_for | text | 是 | XFF 原文 |
@@ -85,7 +86,7 @@ m009 僅 extension＋索引＋seed＋一次性資料清理（§2）。欄形權�
 | created_by | bigint | 是 | 觸發操作者（系統事件＝NULL） |
 | source_ip | varchar(45) | 是 | 來源位址（★既有單欄字串形、非信任錨四欄組；照現形回傳、本刀不改） |
 
-- **索引**：`idx_session_event_user_time (user_id, created_at)`。
+- **索引**：`idx_session_event_user_time (user_id, created_at)`（m004；本表建於 m004、非 m001）。
 - 寫入端既有（auth.rs ×4＋record_session_events）；本刀：讀端＋purge＋**idle 冪等補強**
   （`session:idle-emitted:{sid}` SETNX 守門、同 session 恰一列 idle；research R6）。
 

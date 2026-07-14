@@ -41,14 +41,16 @@ contracts/audit-admin-endpoints.md＋quickstart.md）
       purge 的查詢參數型骨架、全 `Option<String>` 沿 user.rs:69-80 房式）＋`handler/mod.rs` 加
       `pub mod audit`＋`rust-api/server/src/model/facade/sys_access_log.rs` 新檔宣告（insert/list/purge
       空殼）＋三既有 facade（sys_operation_log/sys_login_attempt/session_event）加 list/purge fn 宣告
-      （實作留各 Phase）
+      （實作留各 Phase）＋★四支既有寫 helper（write_in_txn／insert×3）可見性 pub→pub(crate)
+      收斂（FR-026、analyze M3 補洞；呼叫方全在 crate 內、零行為變更、cargo 編譯即證）
 - [ ] T002 m009 migration 全包：`rust-api/migration/src/m009_audit_admin.rs`（①CREATE EXTENSION
       IF NOT EXISTS pg_trgm〔repo 首例〕②GIN×2：idx_login_attempt_user_name_trgm＋
       idx_access_log_path_trgm〔鏡像 m001:544-588 execute_unprepared 形〕③casbin_rule 恰 2 列
       additive INSERT〔getSessionEvent GET＋purgeAuditLog POST、R_SUPER、WHERE NOT EXISTS 冪等；
       down 對稱 DELETE〕④B-089：DELETE sys_token 孤兒列）＋`migration/src/lib.rs` 註冊＋
       ★`tools/schema-gate` SEED_ADDITIVE_ALLOWLIST +2 條七元組（同 commit、L-109）；容器內
-      migrate＋gate2 驗證（凍結 244 全 present＋allowlist extra 10〔m008 8＋m009 2〕、fixtures 零改寫）
+      migrate＋gate2 驗證（凍結 244 全 present＋m009 之 2 列走 allowlist 容差〔casbin extra 10＝
+      m008 8＋m009 2；容差全集另含既有 system_settings 條目、以 gate2 實跑為準〕、fixtures 零改寫）
       ＋psql 驗 pg_trgm/索引/孤兒歸零（quickstart 前置節）
 - [ ] T003 [P] `rust-api/server/src/model/audit.rs`：AuditOperation 加 `Purge` variant（:20-29）＋
       as_str 加 arm `"PURGE"`（:33-42、唯一 forcing point）＋更新純測 audit_operation_as_str_contract
@@ -124,6 +126,10 @@ contracts/audit-admin-endpoints.md＋quickstart.md）
 
 **Goal**: purgeAuditLog——四表白名單×天數、下限 30、單交易 DELETE＋PURGE 自記＋豁免（spec US3）。
 
+**★前置（analyze C1 時序修正：親決 gate 自 Phase 7 提前至此）**：purge 之於 §I.6 變體 B 的正當性
+繫於島 J3／ADR 0058——user 已於 2026-07-15 親決「A 案照 draft 全過」、落憲 v1.10.0 隨 SDD 收尾
+commit 完成；起本 Phase 前確認憲法版本 ≥1.10.0 即可。
+
 **Independent Test**: 新舊資料表清理後水平線語意成立；<30 拒；op-log 可查自記列；豁免保留。
 
 - [ ] T017 [US3] purge facade（TDD）：四表各加 `purge_before(days)->rows_affected`（水平線
@@ -163,12 +169,13 @@ contracts/audit-admin-endpoints.md＋quickstart.md）
 
 **Independent Test**: CDP S1~S6 全 PASS；三語零 raw key。
 
-**★前置（user 親決、plan Gate 結論三項）**：島 J 五條入憲（MINOR v1.10.0）＋MODAL-WIRING
-新用途 (i)＋ADR 0057~0060→accepted——親決未過不得起 Phase 7。
+**★前置**：親決三項（島 J v1.10.0＋MODAL-WIRING (i)＋ADR 0057~0060 accepted）已於
+2026-07-15 取得並隨 SDD 收尾落憲（詳 Phase 5 前置＋T027）——起本 Phase 前確認 T027 驗證過即可。
 
 - [ ] T022 [US5] daterange spike：`base-web` 內以草稿 view 驗 `NDatePicker type="datetimerange"`
       渲染與值型（全 repo 首例、plan §風險）；容器內 typecheck＋CDP 煙測；結論記回 tasks notes
-      （失敗→改替代控件並升級主線）
+      （失敗→改替代控件並升級主線）；★spike 產物全清理（草稿 view 刪除＋elegant codegen 四產物
+      回復、零殘留——analyze L2）
 - [ ] T023 [US5] `base-web/src/typings/api/rev4-audit.d.ts`（ADAPT、declaration merging 併
       Api.SystemManage、交叉型別不 merge alias；contracts 型別節全集）＋
       `base-web/src/service/api/rev4-audit.ts`（WRAPPER 5 fetcher、★直接 `import { request } from
@@ -190,13 +197,14 @@ contracts/audit-admin-endpoints.md＋quickstart.md）
 
 ## Phase 8: Polish＋治理＋簿記
 
-- [ ] T027 治理落地（親決已過為前提）：憲法 §I.7 島 J 五條＋§III.2 MODAL-WIRING (i)＋version
-      bump v1.10.0＋Amendment log（`.specify/memory/constitution.md`）＋ADR 0057~0060 status→
-      accepted（獨立 commit `docs(constitution): amend 島 J`＋docs-sync generate）
+- [ ] T027 治理驗證（★親決與落憲已於 2026-07-15 SDD 收尾完成：憲法 v1.10.0 島 J 五條＋
+      §III.2 MODAL-WIRING (i)＋ADR 0057~0060 accepted＋docs-sync generate、獨立 commit）：
+      本任務降為一致性確認——憲法／ADR／DECISIONS-INDEX／STATE 四面對賬、無漂移即過
 - [ ] T028 B-088 errata housekeeping：`tools/docs-sync errata notRestorable`（或對應關鍵詞）機器
       枚舉全 repo 命中、dead-key＋四文件漂移逐處處置（errata 紀律：禁只修被點名處）
 - [ ] T029 全量閘（quickstart 收刀閘清單）：容器內 cargo test --workspace 全綠＋契約 63＋gate2
-      （244＋extra 10）＋schema-gate audit＋entity_access_lint＋typecheck＋fork-delta-lint＋
+      （244＋allowlist 容差〔casbin extra 10〕）＋schema-gate audit＋entity_access_lint＋
+      FR-026 可見性收斂確認（編譯即證）＋typecheck＋fork-delta-lint＋
       負向自證五條 standing 綠
 - [ ] T030 final holistic review：雙 review（spec 合規＋code quality、只讀）→findings 三分流
       （修／轉 B-NNN／won't-fix ADR）
@@ -213,15 +221,16 @@ contracts/audit-admin-endpoints.md＋quickstart.md）
 - **Phase 6**：獨立於 Phase 3~5（throttle.rs/auth.rs 別檔）——可提前、但建議照序（回歸閘在其
   Checkpoint）。
 - **Phase 7**：依賴 Phase 3＋5（端點）＋4（S6 資料）＋★前置親決三項。
-- **Phase 8**：T027 依親決；T028 隨時可做；T029~T031 收尾串行；T031 在 merge 之後。
+- **Phase 8**：T027＝驗證（親決落憲已於 2026-07-15 SDD 收尾完成）；T028 隨時可做；
+  T029~T031 收尾串行；T031 在 merge 之後。
 - Story 獨立性：US1 獨立（MVP）；US2/US3 後端獨立可驗；US4 全獨立；US5 依 US1~US3。
 
 ## 執行單元建議（Workflow 編排、CLAUDE.md §2 範本；每單元一支）
 
 U1＝T001-T003（Setup）｜U2＝T004-T005（共用基建）｜U3＝T006-T010（mask＋四 facade list；
 [P] 僅指檔案不衝突、單元內 implementer 仍 serial）｜U4＝T011-T013（handler＋契約＋負向①）｜
-U5＝T014-T016（US2）｜U6＝T017-T019（US3）｜U7＝T020-T021（US4）｜U8＝T022（spike；
-★前置親決同窗辦理）｜U9＝T023-T025（前端同檔序列）｜U10＝T026（CDP）｜U11＝T027-T031
+U5＝T014-T016（US2）｜U6＝T017-T019（US3；★前置＝島 J 落憲、已完成）｜U7＝T020-T021（US4）｜
+U8＝T022（spike）｜U9＝T023-T025（前端同檔序列）｜U10＝T026（CDP）｜U11＝T027-T031
 （治理＋errata＋全量閘＋review＋簿記；review/簿記主線親跑、不入 Workflow）——共 **11 執行單元**
 （plan 預估 10~12 內）。
 
@@ -229,7 +238,8 @@ U5＝T014-T016（US2）｜U6＝T017-T019（US3）｜U7＝T020-T021（US4）｜U8
 
 - **MVP first**：U1~U4（Phase 1~3）交付 US1 四端點可查＝最小可示範增量；其後逐單元遞增。
 - 每單元邊界：復核＋load-bearing 自驗＋bump submodule pin→下一單元。
-- 親決三項（島 J/軌道 (i)/ADR）最遲於 U8 前辦理——U1~U7 純後端不受阻。
+- 親決三項（島 J/軌道 (i)/ADR）——★analyze C1 時序修正：正確 gate＝最遲 U6（purge）前；
+  實際已於 2026-07-15 SDD 收尾親決並落憲 v1.10.0、全單元不受阻。
 - daterange spike（T022）失敗路徑：改用兩枚 NDatePicker（from/to 分立）替代、升級主線報備。
 - 全單元完成→final holistic review→finishing-a-development-branch（push/merge 需 user 同意）→
   收刀簿記三步。

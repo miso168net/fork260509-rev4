@@ -163,7 +163,7 @@
 | D5（顯示面打碼） | R8 | mask fn 單點＋負向自證 |
 | clarify Q1（人員過濾雙收） | R7 | 解析 helper＋IN 條件 |
 | clarify Q2（PURGE 豁免） | R4 | DELETE 豁免子句＋ADR 0058 |
-| B-077 | R5 | throttle.rs unlock 翻轉＋T056 調和 |
+| B-077 | R5 | throttle.rs unlock 翻轉＋既有次序測試調和（011 期編號 T056、本刀＝T020） |
 | B-091 | R10 | wire_schema datetime 斷言 |
 | B-093 | R6 | auth.rs idle 守門＋key builder |
 | B-089 | R9 | m009 第④步 |
