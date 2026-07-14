@@ -5,7 +5,7 @@ date: 2026-07-14
 status: draft
 supersedes: []
 superseded_by: []
-provenance: "rev4:2026-07-14 012-audit-admin brainstorm（user 親決 D4；D1 access-log 全做使四表單調成長、purge 升級為本刀必答）；rev3:B-039「purge 執行面於審計功能刀 schema 期」＋B-016「retention 政策 v1 只容量監控」切分（ADR 0011 內文）"
+provenance: "rev4:2026-07-14 012-audit-admin brainstorm（user 親決 D4；D1 access-log 全做使四表單調成長、purge 升級為本刀必答）＋2026-07-15 /speckit-clarify Q2（清理紀錄豁免親決）；rev3:B-039「purge 執行面於審計功能刀 schema 期」＋B-016「retention 政策 v1 只容量監控」切分（ADR 0011 內文）"
 tags: [audit, purge, retention, append-only, backlog]
 ---
 
@@ -23,6 +23,9 @@ append-only 單調成長；D1 拍定 access-log 寫入端啟用後量級直接�
   隨本刀 migration）；參數 `{table, beforeDays}`、table 限四稽核表枚舉白名單。
 - **時間水平線唯一形狀**：`DELETE WHERE created_at < now() - beforeDays`——構造上不可能挑列刪。
   水平線 retention 刪除**不屬**變體 B 所禁之「竄改」；入憲（島 J 候選 J3）時同步收斂措辭。
+- **清理紀錄豁免**（2026-07-15 clarify 親決）：操作日誌源的水平線刪除恆排除操作類型 `PURGE`
+  之稽核列——「日誌曾被刪過哪些範圍」的後設證據永久保留，堵「清理滅證後再清理滅掉清理紀錄」；
+  豁免為封閉類型排除（單一固定條件）、不開任意挑列刪之門。
 - **下限守門**：beforeDays 下限 30 天、server 常數寫死（防手滑清近期紀錄）；保留天數政策與
   自動化排程續留 B-016（容量警示時再議）。
 - **purge 自落 op-log**：`AuditOperation` 新增 `Purge`（"PURGE"）、payload＝
