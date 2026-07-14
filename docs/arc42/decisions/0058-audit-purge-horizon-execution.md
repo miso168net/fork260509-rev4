@@ -2,7 +2,7 @@
 id: "0058"
 title: 稽核 purge 執行面——時間水平線唯一形狀、下限守門、自落 op-log；保留天數政策 B-016 續留
 date: 2026-07-14
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-14 012-audit-admin brainstorm（user 親決 D4；D1 access-log 全做使四表單調成長、purge 升級為本刀必答）＋2026-07-15 /speckit-clarify Q2（清理紀錄豁免親決）；rev3:B-039「purge 執行面於審計功能刀 schema 期」＋B-016「retention 政策 v1 只容量監控」切分（ADR 0011 內文）"

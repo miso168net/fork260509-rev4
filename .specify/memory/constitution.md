@@ -80,7 +80,7 @@
 
 **archetype 四變體**（整組凍結；各表歸屬隨 schema 刀入活書與 generated/reference/schema）：
 - **A 業務全 6 欄**（例：使用者／角色／選單／系統設定表）：如上；soft-delete 表配 partial-uniq `WHERE deleted_at IS NULL`（PK 本身總體唯一者除外）
-- **B append-only 日誌**（例：三 log 表）：只 `created_at` NN（＋operator 類 domain 欄）；**無 soft-delete、無 update、不可竄改**；MUST NOT 加 `updated_*`/`deleted_*`
+- **B append-only 日誌**（例：三 log 表）：只 `created_at` NN（＋operator 類 domain 欄）；**無 soft-delete、無 update、不可竄改**；MUST NOT 加 `updated_*`/`deleted_*`（retention 水平線刪除不屬「竄改」——權威釋義＝§I.7 島 J3）
 - **C join／狀態機**（例：user-role join＝零審計硬刪；token 表＝僅 `created_at`＋status 狀態機）
 - **D 治理變體**（例：casbin 規則表＝`protected`/`created_at`/`created_by` 對 stock adapter 隱形；archive 表＝原 grant 欄＋`archived_at/by`＋`archive_reason`、無 update/delete 欄）
 
@@ -136,6 +136,12 @@
   - **I3 seed 帳號結構保護**：前三個種子帳號 MUST 不可刪；第一個（Super）MUST 恆禁停用、恆禁解除其超管角色指派（不因操作者身分而異）——系統恆有至少一個活躍且啟用的超級管理員（結構保證、不需動態計數）；Super MAY 被踢除、被重設密碼。操作者 MUST NOT 刪除／停用／踢除自己、MUST NOT 變更自己的角色指派。
   - **I4 刪除清指派＋復原不回灌**：使用者軟刪 MUST 同交易硬刪其全部角色指派列（零幽靈掛載、角色域掛載計數守門保持誠實）；復原 MUST NOT 回灌任何指派（復原後零角色、須重新指派）、狀態保留刪除前原值；同帳號名重建之新使用者 MUST NOT 經任何路徑繼承舊實例角色。批次刪除逐項驗證、任一違規（含已刪識別）**整批拒**（fail-fast、單一交易、識別去重升序取鎖）。
   - **I5 密碼政策單一驗證點＋密碼三重不洩**：密碼政策驗證 MUST 為單一驗證點（建帳與重設共用、零分叉）、政策鍵單一快照讀取；長度單位＝字元、另加固定位元組上界 ≤登入端形制上限；「禁止密碼與帳號名相同」＝大小寫不敏感相等。密碼明文與雜湊 MUST NOT 洩漏於任何面：承載密碼之 DTO 除錯輸出 MUST 遮蔽（不得預設印出）；操作稽核 payload MUST NOT 含密碼明文／雜湊／會話識別；API 回應 MUST NOT 含密碼與會話識別（列表逐欄構造、不序列化原始列）；密碼雜湊 MUST NOT 於持有列鎖期間計算。★方向反轉（拆單一驗證點、拔遮蔽）＝MAJOR。
+- **島 J — 稽核域 reporting 與 retention**（012、ADR 0057 四源讀端／0058 purge 執行面／0059 PII 打碼／0060 access-log 寫入端）
+  - **J1 讀端 read-only＋僅超管**：稽核查詢面（操作日誌／存取軌跡／登入嘗試／會話事件四源）MUST 純唯讀（handler 零業務寫入、零狀態變更；存取軌跡由統一記錄層承載、非查詢職責）且僅授權超級管理員；回應逐欄構造、不序列化原始列；資料源增減＝新 ADR。
+  - **J2 access-log 寫入 fail-open**：存取軌跡記錄 MUST best-effort——寫入故障僅結構化告警、MUST NOT 影響業務請求成敗與延遲語意（與島 E1／F3 同向）；MUST NOT 記錄請求內文與查詢字串；未認證請求 MUST NOT 落列（構造保證＝記錄層位於認證下游＋created_by NOT NULL）；位址輸入取信任錨（島 F4）。★方向反轉（改 fail-closed／記 body・query）＝MAJOR。
+  - **J3 purge 唯一形狀＝時間水平線**：稽核資料唯一刪除路徑＝表白名單×天數（下限守門）之水平線整段刪除——構造上禁挑列／任意條件刪；每次 purge MUST 同交易自落操作稽核（含刪除筆數、0 列照落）；操作日誌源 MUST 固定豁免 PURGE 類型稽核列（後設證據永久保留）。水平線 retention 刪除不屬 §I.6 變體 B 所禁之「竄改」——本條為其權威釋義。★方向反轉（開挑列刪、拆自記／豁免）＝MAJOR。
+  - **J4 PII 顯示打碼單點**：稽核讀端 payload 個資遮蔽 MUST 於後端序列化單點完成（前端 MUST NOT 經手原值）；遮蔽鍵清單＝常數（擴充＝改常數＋補測試）；落庫面白名單（密碼雜湊／會話識別永不入列、島 I5）為政策本體、不回溯清洗。
+  - **J5 解鎖稽核先於生效**：手動解鎖動作序 MUST 為操作稽核於權威儲存落定成功後才執行生效步；稽核寫入失敗 MUST 中止生效——「生效但零稽核列」構造不可達（生效步失敗後重試多記嘗試列＝明文接受）。
 
 ---
 
@@ -171,9 +177,9 @@
 
 ### III.2 ★ 需 constitution 顯式授權軌道（本檔已授權）
 
-#### MODAL-WIRING ★ — 本檔授權八用途 (a)~(h)（(a)~(g)＝rev3 已落地驗證邊界一次全授、(h)＝011 Amendment；**新用途 (i) 起走 Amendment**）
+#### MODAL-WIRING ★ — 本檔授權九用途 (a)~(i)（(a)~(g)＝rev3 已落地驗證邊界一次全授、(h)＝011 Amendment、(i)＝012 Amendment；**新用途 (j) 起走 Amendment**）
 
-**邊界**：`base-web/src/views/manage/**` 內〔(a)~(f)、(h)；(g) 為樹外例外〕——
+**邊界**：`base-web/src/views/manage/**` 內〔(a)~(f)、(h)~(i)；(g) 為樹外例外〕——
 - **(a)** `// request` placeholder 接線：`modules/*-operate-{modal,drawer}.vue`（create/update）與 `index.vue` 的 delete/batchDelete handler，及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit('search')）同屬本用途（ADR 0048）；create/update 接線所必要之表單控件屬本用途（如 user drawer add 模式密碼欄＋政策提示、edit 模式 session_policy 選擇器——payload 必要欄之輸入載體），仍限既有 operate-modal/drawer 檔內、不含新 modal（ADR 0053）
 - **(b)** 業務頁操作按鈕 `hasAuth(<button_code>)` 可見性 gating：`index.vue` 操作鈕 `v-if` 與共用元件 `table-header-operation.vue` 的附加顯隱 prop
 - **(c)** 同模式新權限 modal＋trigger：角色編輯區新增 `*-auth-modal.vue`（鏡像 menu/button-auth-modal）＋觸發鈕＋對應 i18n key——嚴格限「角色 × 某權限維度」runtime 編輯介面
@@ -182,9 +188,10 @@
 - **(f)** 列表欄位排序掛載：column 定義加 naive-ui `sorter` props＋受控 `sortOrder`＋`@update:sorter` 綁定＋查詢參數 sort；於列表 view 工具列掛「清除排序」控制（有 `TableHeaderOperation` 的頁用其 `#suffix` slot、自有工具列的頁 inline）——嚴格限「列表排序」、**不改 `table-header-operation.vue` 元件本體**；配套新檔循 ADAPT/WRAPPER
 - **(g)** 非-manage 頂層自助頁：`views/user-center/index.vue`＋可選 `modules/*`——登入者本人 profile 自助檢視／編輯＋改密碼＋驗證 UI 佔位，消費 auth-only 自助端點（operator＝本人）；`hideInMenu:true`、經頭像下拉入口、非 Casbin menu——**嚴格限「登入者本人自助」、不擴張到管理他人資料／任意新 UI**
 - **(h)** manage 頁維運動作：`views/manage/user/index.vue` 頁首維運 modal 觸發鈕＋net-new `modules/user-unlock-modal.vue`（登入解鎖：dimension 選擇＋目標輸入→既有 unlockLogin 端點）＋operate 欄維運動作（kick／reset-pwd、NDropdown 收納）＋對應 i18n key——嚴格限「使用者頁既有後端維運端點之觸發 UI」、不擴張到新後端能力／任意新 UI（ADR 0053）
+- **(i)** 稽核中心唯讀報表頁：`views/manage/audit/index.vue` 一頁多分頁（NTabs 四源）唯讀報表佈局＋`modules/audit-search-*.vue` 搜尋卡（含時間區間選擇控件、全庫首例）＋`modules/audit-purge-modal.vue`（天數輸入＋二次確認→purge 端點）＋對應 route 與 i18n key——嚴格限「稽核四源唯讀查詢與其清理維運觸發 UI」、不擴張到任意新 UI／寫端管理功能（ADR 0057/0058）
 
 **紀律**：
-- 嚴格限八用途，絕不擴張到其他 inline 邏輯；第 (i) 種用途 → §V.2 Amendment
+- 嚴格限九用途，絕不擴張到其他 inline 邏輯；第 (j) 種用途 → §V.2 Amendment
 - **補完 vs 新能力判準**：既有授權頁內「單頁、純加、復用既有 wrapper、零新 key/元件/路由」四條件全中的 dispatcher 補完（如同頁補一種值型別的 render 控件分支）＝**用途補完、不 bump 本檔**；跨多頁新能力＝**須 Amendment**
   - **「零新 key」釋義**（ADR 0041）：指**新 i18n 命名空間／新元件／新路由等「面」級新增**；**不含**既有授權頁、既有子命名空間之下的**資料級 label key**（如 `page.manage.systemSettings.items.<newKey>` 三語譯文與型別鏡像）。★仍受約束：新增 top-level i18n 命名空間走 I18N-WIRING (ii)；route locale key 須隨建頁走；新元件／路由／跨頁能力仍須 Amendment；動 upstream 既有命名空間之下的 key 不在此釋義範圍。判準其餘三條件仍須全中。
 - 每改一處在 spec 內紀錄（位置＋改動內容＋upstream 衝突風險評估）
@@ -286,9 +293,10 @@
 
 ---
 
-**Version**: 1.9.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-14
+**Version**: 1.10.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-15
 
 **Amendment log**:
+- 1.10.0（2026-07-15）：§I.7 行為島進場——島 J 稽核域 reporting 與 retention（J1 讀端 read-only＋僅超管＋逐欄構造／J2 access-log 寫入 fail-open〔不記 body・query、未認證零列、信任錨；反轉＝MAJOR〕／J3 purge 時間水平線唯一形狀＋同交易自落 op-log＋PURGE 固定豁免＝§I.6 變體 B「不可竄改」之 retention 權威釋義〔反轉＝MAJOR〕／J4 PII 顯示打碼單點＋落庫白名單為政策本體／J5 解鎖稽核先於生效；ADR 0057 四源讀端／0058 purge 執行面／0059 PII 打碼／0060 access-log 寫入端啟用、四筆隨本 Amendment 轉 accepted）＋§I.6 變體 B 加 J3 交叉釋義＋§III.2 MODAL-WIRING 新用途 (i) 稽核中心唯讀報表頁；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝012-audit-admin plan Constitution Check Q9/Q2/Q7＋analyze C1 時序修正（user 親決 2026-07-15「先修後親決、A 案照 draft 全過」）。
 - 1.9.0（2026-07-14）：§I.7 行為島進場——島 I 使用者域治理（I1 統一序列化＋固定鎖序〔與 login/refresh 共鎖、user 列→role 列→指派列禁反向、lock-then-redecide、addUser 豁免、partial-uniq 為復原守門顯式前提；反轉＝MAJOR〕／I2 撤銷連動同交易＋權威優先＋登入鎖內重驗〔revoked/kicked 體驗碼不互換、廣播 best-effort 殘留窗明文接受、login 鎖內重驗活性＋密碼雜湊、換發不另重驗雜湊、合法撤銷換發靜默；反轉＝MAJOR〕／I3 seed 帳號結構保護〔三帳號不可刪、Super 恆禁停用/解超管指派、self 刪/停/踢/改指派四不〕／I4 刪除硬刪指派＋復原不回灌＋status 保留＋批刪整批拒／I5 密碼政策單一驗證點＋密碼三重不洩〔反轉＝MAJOR〕；ADR 0053 總綱／0054 密碼政策／0055 B-030 拆階段）＋§III.2 軌道擴展四處〔MODAL-WIRING (d) 擴 user 頁回收桶／新用途 (h) manage 頁維運動作／(a) 分類釐清 drawer 接線必要控件／LOGIN-CAPTCHA-WIRING 新用途 (ii) pwd-login 表單規則放寬〕；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝011-user-admin plan Constitution Check Q9/Q2/Q7（user 親決 2026-07-14、A 案照 draft 全過）。
 - 1.8.0（2026-07-13）：§I.7 行為島進場——島 H 選單域生命週期與授權連動（H1 選單域寫入序列化域＋鎖內重驗〔反轉＝MAJOR〕／H2 同鍵重建零繼承〔連動歸檔 menu_soft_delete／menu_button_removed、reason gate 不可手動復原〕／H3 樹結構不變式〔無環／未刪子掛未刪父／protected 與非空目錄不可刪／批刪 no-partial child-first 拓撲序〕／H4 不可變錨欄 route_name·menu_type＋治理域／顯示域分層／H5 復原不回灌；ADR 0051 選單域狀態機總綱／0052 本 Amendment）＋§III.2(d) 軌道錨點擴充〔「顯示已刪除」toggle＋逐列 restore 鈕錨點自 menu-operate-modal.vue 擴至 views/manage/menu/index.vue、用途字串不動〕；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝010-menu-admin plan Constitution Check Q9/Q2/Q7（user 親決 2026-07-13）。
 - 1.7.0（2026-07-12）：§I.7 行為島進場——島 G casbin 授權治理（G1 真相唯一與同步失敗契約〔重建成功才 swap、失敗保留已知良好、反轉＝MAJOR〕／G2 受保護拒絕／G3 撤銷必歸檔〔role_id＋reason〕／G4 刪除守門＋批次 no-partial／G5 復原同實例＋現役寫入全端點 lock-then-redecide；ADR 0048 本島／0049 歸檔 role_id／0050 明細通道）＋MODAL-WIRING (a) 檔名枚舉澄清〔擴句涵蓋同頁 *-auth-modal.vue 既有 placeholder 接線與附屬模板行為小修〕；MINOR（§V.3「行為島隨刀進場」＋「軌道授權邊界擴展」）——觸發＝009-role-admin plan Constitution Check Q9＋analyze A1 甲案（user 親決 2026-07-12）。★本 log 行為 010 plan 期補記（009 收刀遺漏、PATCH 級勘誤、隨 v1.8.0 一併）。

@@ -2,7 +2,7 @@
 id: "0059"
 title: op-log payload PII 政策——落庫白名單定調＋讀端顯示面打碼（收 B-044）
 date: 2026-07-14
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-14 012-audit-admin brainstorm（user 親決 D5＝顯示面打碼、不取落庫遮蔽/不遮兩案）；rev3:B-044「op-log payload PII 遮蔽策略先拍再落庫」（K2-29）；實查＝sys_user AuditSerialize 白名單（password/session_id 永不入列、t009_* 負向自證）而 user_phone/user_email 在列、011 起既成落庫"
