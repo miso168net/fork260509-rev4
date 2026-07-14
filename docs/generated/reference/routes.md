@@ -62,3 +62,4 @@
 | /systemManage/updateRoleMenu | POST | Policy | update-role-menu | 否 |
 | /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |
 | /systemManage/updateUser | POST | Policy | update-user | 否 |
+| /systemManage/updateUserSessionPolicy | POST | Policy | update-user-session-policy | 否 |
