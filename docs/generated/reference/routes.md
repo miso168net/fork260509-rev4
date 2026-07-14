@@ -21,11 +21,14 @@
 | /systemManage/addIpRule | POST | Policy | add-ip-rule | 否 |
 | /systemManage/addMenu | POST | Policy | add-menu | 否 |
 | /systemManage/addRole | POST | Policy | add-role | 否 |
+| /systemManage/addUser | POST | Policy | add-user | 否 |
 | /systemManage/batchDeleteMenu | DELETE | Policy | batch-delete-menu | 否 |
 | /systemManage/batchDeleteRole | DELETE | Policy | batch-delete-role | 否 |
+| /systemManage/batchDeleteUser | DELETE | Policy | batch-delete-user | 否 |
 | /systemManage/deleteIpRule | DELETE | Policy | delete-ip-rule | 否 |
 | /systemManage/deleteMenu | DELETE | Policy | delete-menu | 否 |
 | /systemManage/deleteRole | DELETE | Policy | delete-role | 否 |
+| /systemManage/deleteUser | DELETE | Policy | delete-user | 否 |
 | /systemManage/getAllButtons | GET | Policy | get-all-buttons | 否 |
 | /systemManage/getAllEndpoints | GET | Policy | get-all-endpoints | 否 |
 | /systemManage/getAllPages | GET | Policy | get-all-pages | 否 |
@@ -41,6 +44,7 @@
 | /systemManage/getRoleList | GET | Policy | get-role-list | 否 |
 | /systemManage/getRoleMenu | GET | Policy | get-role-menu | 否 |
 | /systemManage/getSystemSettings | GET | Policy | get-system-settings | 否 |
+| /systemManage/getUserList | GET | Policy | get-user-list | 否 |
 | /systemManage/restoreIpRule | POST | Policy | restore-ip-rule | 否 |
 | /systemManage/restoreMenu | POST | Policy | restore-menu | 否 |
 | /systemManage/restorePolicy | POST | Policy | restore-policy | 否 |
@@ -53,3 +57,4 @@
 | /systemManage/updateRoleHome | POST | Policy | update-role-home | 否 |
 | /systemManage/updateRoleMenu | POST | Policy | update-role-menu | 否 |
 | /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |
+| /systemManage/updateUser | POST | Policy | update-user | 否 |
