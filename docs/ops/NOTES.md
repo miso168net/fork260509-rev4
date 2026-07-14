@@ -20,6 +20,6 @@
 - ★新 i18n key 加入後 CDP 前需 restart base-web（vite 未必熱載新字典、否則顯 raw key、L-015）。
 - ★Workflow 發射前 Bash 持久 CWD 須在 repo 根（hook/wf-watchdog 走相對路徑、漂進 submodule 會 404、L-137）；
   ★Workflow script prompt body 模板字串勿含 `${...}`（會被 JS 插值、node --check 只 parse 漏抓——發射前須執行期評估）；
-  ★防呆②長度下限 400（固定 800 在短前綴單元誤觸、L-140）；mac2 中文 bash 工具 LC_ALL=C＋新機先 generate-dev-cert 再 compose up（L-141）。
+  ★防呆②長度下限 400（固定 800 在短前綴單元誤觸、L-140）；mac2 中文 bash 工具 LC_ALL=C（L-142）＋新機先 generate-dev-cert 再 compose up（L-141）。
 - ★CDP 自駕（rev4-cdp 速查）：Edge@9229 `/json/list` 取 42080 page target→Node WebSocket `Runtime.evaluate`；
   quick-login 點 `超級管理員`（Super/123456）；i18n 驗 `$t('backend.<msg>')` 回 raw 即缺鍵；登入表單三坑 L-121~123。

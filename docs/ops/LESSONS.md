@@ -1,4 +1,4 @@
-<!-- next: L-142 -->
+<!-- next: L-143 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -315,3 +315,25 @@
 
 - **L-140**｜workflow 防呆②「渲染後 prompt 長度下限」用固定值會在**短前綴單元**誤觸零派發 throw：011 U12（base-web 單元、HARD_RULES 無 cargo 段）fix prompt＝前綴＋blockers JSON 僅 686 字元＜下限 800→整支 workflow 中止。防：下限取 400（或 max(400, 前綴長 ×0.8)）；恢復＝改門檻後 `resumeFromRunId` 續跑——已完成 agent（implementer＋review 首輪）走快取零重跑，實測零額外損耗。｜出處：011 U12 編排
 - **L-141**｜compose up 先於 dev 憑證生成＝front-nginx PEM emerg 死循環（新機必踩）：bind-mount 來源（`deploy/dev-certs/*.pem`、gitignored 實值）不存在時 **Docker 代建空目錄**佔位→nginx 讀目錄當憑證「no start line」emerg 退出、且假目錄使後續生成腳本混淆。防：新機序＝bootstrap→`deploy/generate-dev-cert.sh`→compose up；修復＝`rmdir` 兩個假目錄→生成→`up -d --force-recreate front-nginx`（bind 重解析、restart 不夠）。｜出處：011 U14 前置檢查（mac2 首跑）
+
+- **L-142**｜**macOS 專屬**：在 macOS 上執行 workspace 內含中文字串的 bash 工具
+  （`tools/bootstrap`、`tools/wf-watchdog` 等），凡「`$var` 緊接全形標點／CJK」的模式
+  （如 `tools/bootstrap` line 30 `ok "…（origin＝$origin_url）"`）配 `set -euo pipefail`，
+  bash 會把緊接的多位元組字元 lead byte 併入變數名 → 讀成未定義變數 → **執行期**報
+  `xxx�: unbound variable`（`bash -n` 只 parse 不展開故通過＝假綠、騙過語法檢查）。
+  **與 bash 版本無關**：系統 `/bin/bash` 3.2.57 與 Homebrew `/opt/homebrew/bin/bash` 5.3.15
+  雙雙中招；`LANG`／`LC_CTYPE` 設成任何 UTF-8 值皆無效（`${#中}` 仍＝1，證明 UTF-8 字串長度
+  處理正常，但 `$name` 邊界掃描照吃 byte）。根因＝macOS/BSD 的 ctype 在 UTF-8 locale 下對
+  UTF-8 lead byte（如全形 `）`＝U+FF09＝`ef bc 89`，首 byte 0xEF）回傳 `isalnum`＝true，
+  而 bash 的 `$name` 識別字元掃描是 byte-wise，遂把 0xEF 併入變數名；Linux glibc 下
+  `isalnum(0xEF)`＝false 故不發（∴ WSL2/Linux 維護者不會遇到）。
+  防：macOS 上一律以 **`LC_ALL=C`**（或 `LC_CTYPE=C`／`POSIX`——純 ASCII ctype 使
+  `isalnum(0xEF)`＝false、bash 於多位元組邊界正確停止；中文訊息仍以 raw UTF-8 bytes 正常輸出）
+  前綴執行；腳本若 spawn python 且需讀 UTF-8 檔（如 `tools/fork-delta-lint` 讀 `原行:` 註解）
+  再加 **`PYTHONUTF8=1`** 保 python 在 C locale 下仍以 UTF-8 `open()`。定案指令：
+  `cd <repo 根>; LC_ALL=C PYTHONUTF8=1 bash tools/bootstrap`；`bash tools/wf-watchdog <token>`
+  同理前綴 `LC_ALL=C`（此為 Workflow 編排看門狗、macOS 上不加會靜默壞）。跨平台根治（可選、
+  與環境變數繞法二擇一）：把所有「`$var` 緊接非 `[A-Za-z0-9_]` 字元」處改 `${var}` 顯式界定
+  （braces 使 bash 不吃後續 byte、macOS/Linux 皆安全），惟涉改多支 committed 工具、非必要。
+  ｜出處：2026-07-13 macOS fresh-clone bootstrap 實測（Darwin 25；bash 3.2.57＋Homebrew 5.3.15
+  雙證、locale 矩陣＋`LC_ALL=C` 修正實證；交接檔 2026-07-14 以 L-142 收錄——原配號 L-139 已被佔用）
