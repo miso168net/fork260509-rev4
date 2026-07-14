@@ -103,7 +103,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   `2222 auth.login.captchaRequired`【零列零計數】）→ ⑤ authenticate（★⑤絕不寫 L1）＝`find_by_user_name`（濾軟刪）→ argon2 `verify`（未命中跑
   `dummy_verify` 拉平時序、B-043）→ `status==2` 判（verify 後、carry uid）→ 三態（not-found／錯密／停用）
   collapse `1000`（不洩存在性）→ DB-fresh roles → 生 sid/jti、讀 N 套 TTL 公式 `sign` access(min(300,N×30)s)＋
-  refresh(N×60+access s) → ★insert `sys_token` active（rotation_chain=sid）；`effective_single`（per-user＞全域＝
+  refresh(N×60+access s) → ★鎖內重驗（011 島 I2/B1：advisory(uid) 內、insert 前重讀 sys_user 列，`status==1`∧未刪∧`password==`驗證階段所讀雜湊〔純字串比對、不重跑 argon2〕；任一不符→中止 `1000`、恰一列失敗稽核〔島 E3〕＋計入節流窗——並發撤銷/改密×登入漏網結構性不可達）→ ★insert `sys_token` active（rotation_chain=sid）；`effective_single`（per-user＞全域＝
   島 A2）為真→per-user advisory lock（R1）＋`revoke_others_of_user` loop-until-0-active（保留新 sid）＋
   denylist(kicked)＋session_event(kicked)＋write session_id → 記 last_activity → 終局寫 `sys_login_attempt`
   （★稽核口徑 FR-010：只有被密碼雜湊實際驗證過的登入終局才落恰一列——鎖定/captcha 短路一律零列、量級走麵包屑；
@@ -126,9 +126,11 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   →`8888`（絕不 3333/9999/9998）→ `token_hash`(SHA-256) `find_by_hash_for_update` 鎖呈遞列（島 B2 lock-then-
   redecide、L-075）→ 依鎖住列現值重判：active→精確 idle（`now−last_activity>N×60`→`8888`＋session_event(idle)、
   ★refresh 不推進 last_activity＝島 D2）→ rotate（舊 rotated+used_at／新 active、同 sid 新 jti、refresh TTL
-  N×60+access）＋grace 快取；rotated 窗內→grace 冪等回既發後繼（並發同票不誤撤、島 B1），窗外/revoked→reuse
-  `revoke_family` loop-until-0-active＋denylist(revoked)＋session_event(reuse)＋`8888`；denylist reason=kicked→
-  `7777`（島 A1）。refresh-time 清同 chain 過期 rotated 列（R6）。TTL 公式 access=min(300,N×30)/refresh=N×60+access。
+  N×60+access）＋grace 快取；rotated 窗內→grace 冪等回既發後繼（並發同票不誤撤、島 B1），rotated 窗外→reuse
+  `revoke_family` loop-until-0-active＋denylist(revoked)＋session_event(reuse)＋`8888`；★revoked＋denylist
+  reason=revoked（011 島 I2）＝合法撤銷→靜默 `8888` 零 reuse 事件〔停用/刪除/改密/登出所致、含 reuse-family
+  已撤後之窗內重放去重；無 denylist 訊號→保守走 reuse 偵測 fail-secure；換發側不另重驗密碼雜湊、FR-023 收窄〕；
+  denylist reason=kicked→`7777`（島 A1）。refresh-time 清同 chain 過期 rotated 列（R6）。TTL 公式 access=min(300,N×30)/refresh=N×60+access。
 - **RBAC 判定鏈**：`enforce_mw`（Authed/Policy：bearer→`verify`→缺/壞→`3333`；★denylist 前置——`Ok(Some)` kicked→
   `7777`/revoked→`8888`、`Ok(None)`＝未撤放行、`Err`→退 PG `has_active_in_chain` fail-closed〔島 C2〕、valid-access
   推進 last_activity〔島 D2〕→注入 Claims）→ Policy 端點另掛 `require_policy`（DB-fresh→casbin→拒 `5003`）。
@@ -168,6 +170,24 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   換源）——停用選單仍在候選、全量替換不誤撤停用授權〔停用≠撤銷、FR-019〕。**顯示域**〔啟用∧未刪、
   `list_active`〕＝getUserRoutes〔上「動態選單鏈」〕／getAllPages 源——停用即隱、下次載入生效、已刪暫離候選
   restore 即回（FR-018/032、010 不動）。「活性」一詞在選單域專指 deleted_at IS NULL、「啟用」指 status=1。
+- **使用者域寫端鏈**（011、島 I；`/systemManage/*` 使用者域端點〔實值→generated/reference/routes〕、寫端
+  super-only）：一切既有使用者標的寫端＝txn 起手 `pg_advisory_xact_lock(uid)`〔與 login/refresh **共鎖**＝
+  島 I1、撤銷×並發登入序列化〕→標的列 `FOR UPDATE`〔復原用已刪列版〕→sys_role 列〔僅指派路、id 升序、
+  複用 009 鎖讀〕→指派寫入；★addUser 豁免 advisory〔新列 commit 前不可見、同名競態＝partial-uniq 23505、
+  FR-022〕。update 守門固定序＝userName 不可變雙鍵→停用路〔superCannotDisable→cannotDisableSelf〕→指派路
+  〔superRoleProtected→cannotChangeSelfRoles→roleNotFound 整批拒〕→diff 全等提前 no-op〔值 vs 現值、
+  NULL≡""、字串欄 Some("")=清空〕。deleteUser/batch＝seeded {1,2,3}→self→軟刪成對＋★同交易硬刪全指派列
+  〔零幽靈掛載〕＋撤 session；batch 自管單 txn、去重升序、fail-fast 整批拒〔含已刪 id〕。★撤銷觸發端
+  reason 映射（島 I2、C1 PG-first）：停用/刪除/批刪/改密→session_event(revoked、`user_disabled`/
+  `user_deleted`/`password_reset`) **同交易**→commit→denylist best-effort 逐 sid `8888` 靜默；kickUser
+  〔self 守門→鎖列未刪即可＝停用可踢、Super 可踢〕→`admin_kick`→`7777` 阻斷；★denylist TTL=refresh_secs
+  〔access_secs 會重演假 reuse 稽核污染〕。resetUserPassword＝政策驗〔單一驗證點、違規不落庫不撤〕→hash
+  ★鎖前算→改密→撤 token〔標的=operator keep 當前 sid、否則全撤〕；★不解節流〔前端 toast 提示另行解鎖〕。
+  回收桶＝getDeletedUsers〔deleted_at DESC〕＋restoreUser〔鎖已刪列→鎖內同名活性重驗 `userNameExists`＋
+  23505 兜底→成對清 deleted_at/by、★零回灌授權、status 保留原值、不 bump updated_at〕。session_policy＝
+  值域驗〔txn 前、雙錯角落 Invalid 優先〕→no-op 判→寫；改 single 不即時踢〔下次登入 006 收斂〕。op-log
+  詞彙＋`KICK`/`RESET_PASSWORD`；payload 一律白名單四件構造〔結構性無 password/session_id；reset 恰
+  {id,user_name}〕；密碼 DTO 手寫 Debug 遮蔽（島 I5 三重不洩）。
 
 ## §7 部署
 
