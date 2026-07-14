@@ -53,7 +53,7 @@
 
 （停用／刪除 之斷 session 由 #3 updateUser 停用路與 #4/#5 deleteUser/batchDeleteUser 承載，非獨立端點。）
 
-- **kickUser**：`advisory_lock(uid)`→ self→`cannotKickSelf`→鎖列（**未刪即可**、停用帳號可踢殘餘 session）→ 全撤 token → session_event(**kicked**)→ denylist(**kicked**、**7777 阻斷 modal**、前端「已被登出」)→ op-log。Super **可被踢**（無永久傷害、可重登、「三不可」不含踢除）。
+- **kickUser**：self→`cannotKickSelf`（純 id 比對、txn 前）→`advisory_lock(uid)`→鎖列（**未刪即可**、停用帳號可踢殘餘 session）→ 全撤 token → session_event(**kicked**)→ denylist(**kicked**、**7777 阻斷 modal**、前端「已被登出」)→ op-log。Super **可被踢**（無永久傷害、可重登、「三不可」不含踢除）。
 - **resetUserPassword**：密碼政策驗新密＋hash **於取鎖前**算 → `advisory_lock(uid)`→鎖列 → UPDATE password → 撤 token：**標的=operator 時 keep 當前 sid**（super 改自己密碼不自斷）、否則全撤（revoked、8888 靜默）→ session_event(revoked)→ op-log｛**payload 僅 `{id, userName}`、絕不含任何 hash**｝。**不解除登入節流鎖定**（節流獨立狀態）；成功 toast 帶「若該帳號登入鎖定中需另行解鎖」指引（審查 minor）。
 
 ## US4 使用者回收桶（2）
