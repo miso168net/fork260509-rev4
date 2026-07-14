@@ -155,6 +155,15 @@ SEED_ADDITIVE_ALLOWLIST = {
     ("system_settings", ("ip_max_fails",)),        # 008-ip-gate m006
     ("system_settings", ("ip_window_minutes",)),   # 008-ip-gate m006
     ("system_settings", ("ip_captcha_after",)),    # 008-ip-gate m006
+    # 011-user-admin m008（4 端點 p 列＋4 按鈕碼、全 R_SUPER；natural key＝ptype+v0..v5 七元組）
+    ("casbin_rule", ("p", "R_SUPER", "/systemManage/resetUserPassword", "POST", "", "", "")),  # 011 m008
+    ("casbin_rule", ("p", "R_SUPER", "/systemManage/kickUser", "POST", "", "", "")),           # 011 m008
+    ("casbin_rule", ("p", "R_SUPER", "/systemManage/getDeletedUsers", "GET", "", "", "")),     # 011 m008
+    ("casbin_rule", ("p", "R_SUPER", "/systemManage/restoreUser", "POST", "", "", "")),        # 011 m008
+    ("casbin_rule", ("p", "R_SUPER", "user:reset-pwd", "button", "", "", "")),                 # 011 m008
+    ("casbin_rule", ("p", "R_SUPER", "user:kick", "button", "", "", "")),                      # 011 m008
+    ("casbin_rule", ("p", "R_SUPER", "user:restore", "button", "", "", "")),                   # 011 m008
+    ("casbin_rule", ("p", "R_SUPER", "user:unlock", "button", "", "", "")),                    # 011 m008
 }
 
 # ---- audit 變體矩陣（contracts §4）----

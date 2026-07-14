@@ -39,7 +39,12 @@ echo "看門狗 ARMED → $(basename "$DIR")｜冒煙: $smoke（stall>${STALL}s�
 while true; do
   sleep 60
   now=$(date +%s)
+  # 最新 mtime（epoch）：GNU find -printf 先試（Linux）；macOS BSD find 無 -printf→
+  # 落空時以 BSD stat -f '%m' 兜底（L-139：勿反序——GNU stat -f 是檔案系統狀態、%m=掛載點）
   newest=$(find "$DIR" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1); newest=${newest%.*}
+  if [ -z "${newest:-}" ]; then
+    newest=$(find "$DIR" -type f -exec stat -f '%m' {} + 2>/dev/null | sort -n | tail -1)
+  fi
   if [ -z "${newest:-}" ]; then
     echo "看門狗 目錄不可讀：$(basename "$DIR")——疑被清或發射失敗"
     break
