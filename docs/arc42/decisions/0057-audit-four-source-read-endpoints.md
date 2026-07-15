@@ -2,7 +2,7 @@
 id: "0057"
 title: 稽核讀端四源＋查詢能力——兌現並增補 ADR 0011（三表→四源、pg_trgm 本刀落地）
 date: 2026-07-14
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-14 012-audit-admin brainstorm（user 親決 D2/D3；偵察＝m002 三支 GET seed 已預埋、session_event 五事件有寫零讀）；rev3:ADR 0011 母體（三表讀端＋僅超管 read-only）"

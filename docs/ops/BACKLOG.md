@@ -1,4 +1,4 @@
-<!-- next: B-095 -->
+<!-- next: B-097 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -53,3 +53,5 @@
 - B-092｜update_setting 忽略 update_by_key Option＝TOCTOU 誤報成功（現不可達、加刪除端點即現形）——防禦性小修｜設定域擴充時（出處：REVIEW-001-010 F004-1）
 - B-093｜idle 稽核非冪等：背景 refresh-loop 累積 session_event(idle) 審計噪音（denylist NX 或首次 idle 才落列）｜audit 刀一併議（出處：REVIEW-001-010 F006-2）
 - B-094｜未刪選單列表分頁裝飾性、>100 頂層將靜默截斷｜選單規模成長時（出處：REVIEW-001-010 F010-1）
+- B-095｜sys_menu 測試 list_active_returns_seeded_menus 讀共享 live DB、與同檔 partial-uniq 系列暫態 commit 競態（012 U1 全量跑首見 flake：期望 78 得 79、重跑即綠、DB 無殘留）——測試隔離補強｜flake 再現或下次動 sys_menu 測試時（出處：012 U1 implementer 報告）
+- B-096｜稽核中心四 search 卡 daterange 邏輯逐字重複×4（audit-search-{operation,access,login,session}.vue 各約 25 行 dateRange ref＋applyDateRange＋defaultModel/resetModel/search 純函式段）——提煉輕量 composable（建議形 useAuditSearchDateRange(model, emit)）｜下次觸及稽核 search 卡時（出處：012 final review code-quality 觀察 1）

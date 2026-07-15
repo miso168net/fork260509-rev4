@@ -61,7 +61,7 @@
 | # | path | method | 政策角色〔seed〕 | req | res data｜拒因 |
 |---|---|---|---|---|---|
 | 8 | `/systemManage/getDeletedUsers` | GET | R_SUPER〔★m008〕 | `DeletedUserListReq{current, size}` | `PageRes<User>`（已軟刪列、`deleted_at` DESC、逐欄構造不含 password/session_id、`userRoles` 空〔已硬刪〕；FR-030） |
-| 9 | `/systemManage/restoreUser` | POST | R_SUPER〔★m008〕 | `RestoreUserReq{id}` | `null`（0000）｜`2222 userNameExists`（鎖內重驗同名活性衝突、23505 兜底）／`userNotFound`（標的不存在）／`notRestorable`（找到但非可復原態） |
+| 9 | `/systemManage/restoreUser` | POST | R_SUPER〔★m008〕 | `RestoreUserReq{id}` | `null`（0000）｜`2222 userNameExists`（鎖內重驗同名活性衝突、23505 兜底）／`userNotFound`（標的不存在或非可復原態——勘誤 2026-07-15 B-088：原 notRestorable 併歸、後端未發射） |
 
 - **restoreUser**：`advisory_lock(uid)`→鎖已刪列（`find_deleted_by_id_for_update`）→ 鎖內重驗同帳號名活性衝突（另存活性同名→`userNameExists`；★partial-uniq 索引 `WHERE deleted_at IS NULL` 為顯式前提、23505 兜底收斂）→ 成對清 `deleted_at`/`deleted_by` → op-log。**零回灌**（指派已硬刪不回來、須 super 重指派＝復原後零角色、FR-032）；`status` **保留刪除前原值**（停用時被刪、復原後仍停用＝誠實）。
 
@@ -112,8 +112,7 @@
 | 帳號名不可變 | `user.userNameImmutable` | updateUser |
 | 密碼政策違規 | `user.passwordPolicy`〔data 帶違規清單〕 | addUser／resetUserPassword |
 | 角色代碼無效（未知/已刪、整批拒） | `user.roleNotFound` | addUser／updateUser |
-| 標的不存在 | `user.userNotFound` | updateUser／deleteUser／batchDeleteUser／resetUserPassword／kickUser／restoreUser |
-| 不可復原（找到但非可復原態） | `user.notRestorable` | restoreUser |
+| 標的不存在（restore 含非可復原態——勘誤 B-088：原 notRestorable 併歸） | `user.userNotFound` | updateUser／deleteUser／batchDeleteUser／resetUserPassword／kickUser／restoreUser |
 | 帳號名形制違規 | `user.userNameInvalid`（plan 期定稿、鏡像 009 codeInvalid） | addUser |
 | 會話策略值域 | `user.sessionPolicyInvalid`（plan 期定稿） | updateUserSessionPolicy |
 | 解鎖 非法/缺目標 | `unlock.*` 2 鍵（007 欠帳、隨本刀補建） | unlockLogin |

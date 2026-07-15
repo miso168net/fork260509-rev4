@@ -2,7 +2,7 @@
 id: "0060"
 title: sys_access_log 寫入端啟用——protected 全請求、fail-open、不記 body/query
 date: 2026-07-14
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-14 012-audit-admin brainstorm（user 親決 D1＝全做、不取空表上架/整包延後兩案）；偵察＝sys_access_log entity＋schema＋casbin seed（m002:345）齊備但零 facade 零寫入端＝零流量表；rev3:ADR 0011 三表讀端含存取日誌"

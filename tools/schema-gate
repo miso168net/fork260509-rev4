@@ -164,6 +164,9 @@ SEED_ADDITIVE_ALLOWLIST = {
     ("casbin_rule", ("p", "R_SUPER", "user:kick", "button", "", "", "")),                      # 011 m008
     ("casbin_rule", ("p", "R_SUPER", "user:restore", "button", "", "", "")),                   # 011 m008
     ("casbin_rule", ("p", "R_SUPER", "user:unlock", "button", "", "", "")),                    # 011 m008
+    # 012-audit-admin m009（getSessionEvent GET＋purgeAuditLog POST、全 R_SUPER；natural key＝ptype+v0..v5 七元組）
+    ("casbin_rule", ("p", "R_SUPER", "/systemManage/getSessionEvent", "GET", "", "", "")),     # 012 m009
+    ("casbin_rule", ("p", "R_SUPER", "/systemManage/purgeAuditLog", "POST", "", "", "")),      # 012 m009
 }
 
 # ---- audit 變體矩陣（contracts §4）----
