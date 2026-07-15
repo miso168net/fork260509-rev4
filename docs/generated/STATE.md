@@ -3,7 +3,7 @@
 
 ## git
 - default branch：rev4-admin-root
-- pins：base-web=1328552｜rust-api=1afce49
+- pins：base-web=1328552｜rust-api=89b39d0
 
 ## constitution
 - 版本：1.10.0
