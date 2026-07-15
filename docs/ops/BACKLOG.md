@@ -20,17 +20,15 @@
 - B-036｜列表排序 per-column 索引評估＋三端白名單單一來源或 parity 檢查｜列表排序刀｜出處：rev3:CHECKLIST§4.2（K2-20）
 - B-037｜prod TLS/信任拓樸落地組做成部署 checklist＋自動化驗收（★2026-07-11 008 final review #1 加：CDN origin 防火牆鎖定〔僅受 CDN 邊緣連線／Authenticated Origin Pulls〕＝Tier-1 位置錨承重前提、與 DNAT 同級）｜prod 部署刀｜出處：rev3:CHECKLIST§4.2＋§3.E（K2-21）
 - B-038｜prod 多副本橫向擴展拓樸留位（LB＋共用 DB/Redis）｜含水平擴展目標時｜出處：rev3:CHECKLIST§4.2（K2-22）
-- B-039｜審計 scale：pg_trgm 索引＋purge 執行面（政策本體＝B-016）｜審計功能刀 schema 期｜出處：rev3:CHECKLIST§4.2＋§5（K2-23）
 - B-040｜cleanup sidecar 最小權限 DB 憑證（背景 job secret 最小權限＝預設）｜首個背景 job 設計期｜出處：rev3:CHECKLIST§3.A（K2-25）
 - B-041｜obs 採集容器非-root 硬化起手照配（docker.sock 窄化）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.A（K2-26）
 - B-042｜prod nginx 完整資源 CSP 收緊內建部署驗收｜prod 部署刀｜出處：rev3:CHECKLIST§3.J（K2-27）
-- B-044｜op-log payload PII 遮蔽策略先拍再落庫｜審計 payload 設計期｜出處：rev3:CHECKLIST§3.J（K2-29）
 - B-045｜低位殘項 checklist（trace_id 控制字元/XFF 空 token/計數 race/migration down 非對稱/CDN 錨）｜重寫對應模組時逐項內建｜出處：rev3:CHECKLIST§3.J（K2-30）
 - B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（偵察 2026-07-10 薦案 a＝tooltip 改 $t help 鍵、seed description 留 DB 作 fallback、零 migration；005 遺漏 session_idle_timeout 的 label 鍵〔三語 UI 直顯 seed 繁體〕宜同刀補；★007 已落 login_throttle_* 三鍵、同檔 index.vue labelKeyMap＋三語 locale 已動——先後次序顧慮已解、enrich 屆時直接改）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）
 - B-060｜demo 選單清理：002 casbin menu seed 給 R_SUPER 全 soybean template demo（about/document/plugin/alova/pro-naive/multi-menu/function）menu policy，rev4 真選單應只 home/manage/user-center｜動 002 casbin/sys_menu seed（新 migration；偵察 2026-07-10：demo＝67 menu＋77 casbin 列、keep＝11〔含 B-061 三未建頁項不動〕；casbin_rule 無 deleted_at→policy 硬刪不可避、gate2 缺列紅需 SEED_REMOVAL_ALLOWLIST＋新 ADR〔0032 只放寬新增〕；拍板點＝sys_menu hard vs 軟刪／exception 樹入否；受影響測試＝sys_menu facade list_active 計數＋route handler R_USER_COMMON 正向斷言）（★2026-07-13 010 拍板不折入；★2026-07-14 011 拍板 user 寫端全 super-only、R_ADMIN user:edit 有鈕無權不對稱留置＝誠實 5003 拒因、隨本項 demo 清理一併處理〔D1 親決、FR-004〕）｜出處：005 CDP item#2 拍板 2026-07-06
-- B-061｜2 manage 子項 i18n：manage_audit/ip-rule 已 002 seed 選單項但 locale 三語無 route.manage_* 譯文→dynamic 選單顯 raw key（未建頁、前端無 route/view→點擊 404）｜各子系統刀建時補譯文（★route locale 鍵無「獨立新增」授權、須隨建頁走 MODAL-WIRING(e)＝憲法 §III.2；004 manage_system-settings 即此範式；2026-07-06 定案延後、非 quick win；註 2026-07-10：007 /systemManage/unlockLogin 純 API、零選單項零譯文需求、不擴本清單——前端解鎖 UI 屆時隨使用者管理刀建頁同軌道補；★2026-07-12 009 已清 policy-archive 一項＝隨回收桶建頁補三語 route locale〔MODAL-WIRING(e)〕、殘餘 audit/ip-rule 兩項待各子系統刀建頁時補；★2026-07-13 010 CDP 驗收再證兩項 raw key 仍在；★2026-07-14 011 已兌現「前端解鎖 UI」note＝user-unlock-modal 隨使用者管理刀落地〔MODAL-WIRING (h)〕、殘餘 audit/ip-rule 兩項續待各子系統刀建頁補）｜出處：005 CDP item#2 拍板 2026-07-06
+- B-061｜manage_ip-rule 子項 i18n：已 002 seed 選單項但 locale 三語無 route.manage_ip-rule 譯文→dynamic 選單顯 raw key（未建頁、前端無 route/view→點擊 404）｜ip-rule 頁刀建時補譯文（★route locale 鍵無「獨立新增」授權、須隨建頁走 MODAL-WIRING(e)＝憲法 §III.2；004 manage_system-settings 即此範式）｜出處：005 CDP item#2 拍板 2026-07-06（★2026-07-15 012 已兌現 manage_audit 項＝隨稽核中心建頁補三語 route locale〔U9〕、殘餘 ip-rule 一項續待）
 - B-063｜孤兒/背景 reaper：sys_token 跨 session 孤兒＋rotated 過期列完整回收（006 refresh-time prune_expired_rotated 已止血同 chain；跨 session/背景批次遞延）｜obs/維運刀｜出處：006 R6/SC-009
 - B-065｜denylist 逐出/命中監控＋enforce PG-fallback 負載觀測（每受保護請求一次 ttl_from_settings SELECT、admin 規模可接受）｜obs 刀｜出處：006 U4/final review minor
 - B-067｜session_event 膨脹治理：reuse 同票重放逐次累積稽核列（006 SC-009 只列 sys_token 回收、未列 session_event；曝險有界於 refresh JWT exp、無安全風險）｜obs 刀｜出處：006 final review minor
@@ -38,7 +36,6 @@
 - B-074｜軟區決策負快取：軟區缺-captcha 熱路徑永不計數故永不被 L1 短路，每發 1×unlock marker 讀＋1×settings 三鍵＋1×L2 count（成本誠實記載＝ADR 0038「軟區為未被負快取隔離的熱路徑」節；仍比 argon2 主宰的正常登入便宜）｜登入端點負載量測顯示成問題時｜出處：ADR 0038
 - B-075｜captcha 強化包：產圖對抗性（干擾強度/字型多樣）＋UX 觀察——「碼對密錯」（captcha 相符、密碼錯）該題已提交即消耗、前端不主動換題 ⇒ 下一發必 captchaRequired 多一輪往返｜captcha 對抗性或 UX 痛點實際出現時｜出處：007 U5/U6 觀察
 - B-076｜schema-gate 白名單整批重凍退路：ADR 0039 建立 STRUCT/SEED additive 白名單範式（只放寬新增），白名單隨刀累積會稀釋「凍結基準」語意；需保留「重擷取 fixtures 整批重凍＋清空白名單」退路（基準改動、拍板級）｜白名單膨脹或下次大 schema 刀｜出處：ADR 0039／007 U3
-- B-077｜unlock op-log 持久化強化：unlockLogin 動作序＝SET marker→DEL lock→op-log insert（Redis 兩步成功後 best-effort、失敗僅告警不回滾）⇒ 管理動作可能零審計列；候選＝失敗重試/事後補記/回報 caller｜審計功能刀｜出處：007 U7／data-model §5.4
 - B-080｜CDN 錨碼層硬化：Tier-1 CDN 位置錨僅檢查「最右 CDN 段」、不檢查該 CDN 由傳輸層背書，origin 對外裸露時可偽造 XFF 注入公開 CDN 邊緣 IP 當錨繞過閘（final review #1、ADR 0043）；候選＝Tier-1 錨要求「錨右鄰起全受信基建」；★留獨立後續刀（避免誤傷合法多層 CDN/LB 拓樸）｜ingress 硬化刀｜出處：008 final holistic review #1
 - B-081｜prod Dockerfile xdb 資料檔 COPY：xdb/resources/ip2region.xdb 已 git-tracked，但現僅 dev stage、prod 多階段建置需 COPY 進映像＋設 XDB_FILEPATH（否則 prod xdb_ready=false、region 恆空）｜prod 多階段建置刀｜出處：008 U12 as-built（L-083/L-084）
 - B-082｜committed-row 測試 panic-safe teardown：auth 節流 flaky 併發測（throttle_no_false_lock…、seed_temp_user us2_ 前綴）測尾 cleanup 排在測末、panic 即漏跑→留 committed sys_user 孤兒污染 gate2 seed 面、連累後續刀 gate2 假紅（009 U6/U7 各清一次）；候選＝RAII Drop guard／scope-guard 使 panic 亦清 committed 列（可推廣至所有 committed-row 測試）｜test 衛生刀或 flaky 再現頻繁時｜出處：009 U7 gate2（近 B-078 flaky 區）
@@ -46,12 +43,8 @@
 - B-085｜ADR 0050 protectedRevoke 命名 as-built 漂移：ADR 0050 line 20 字面列命名空間為 `biz.policy.protectedRevoke`，as-built（rust-api handler role.rs／契約表／base-web 三語 locale）一律用 `biz.role.protectedRevoke`（distinct key 一因一鍵、與其餘 biz.role.* 拒因同命名空間）——★文檔漂移、實作正確（ADR accepted body 不可變、不回灌）；翻案／再動明細通道 key 命名時 MUST 立新 ADR 校正字面｜明細通道再設計或 ADR 0050 翻案觸發時｜出處：009 U16 收刀 as-built 核對
 - B-086｜restorePolicy menu 維孤兒檢查用 list_active vs 治理域一致性：sys_casbin_archive.rs restore_archived 判標的選單存在以 list_active（顯示域），停用選單（status=2、未刪、屬治理域）之歸檔授權復原會誤判 NotRestorable、與 010 FR-019「治理域＝未刪含停用、停用≠撤銷」有張力；010 R2 明列且僅列四治理讀端換源點、restorePolicy 非其一、屬 U8/009 授權回收桶路徑，010 正確 surgical 未動｜授權回收桶再設計或 restore 停用選單語義釐清時｜出處：010 U10 spec/quality review minor
 - B-087｜「共享表絕對計數／兩查直比」測試家族偶發假紅（committed-row 併發測與計數型斷言預設平行互擾、L-079 精神違背；已見三例：①sys_menu list_tree_governed 兩次 list_tree total 15 vs 14〔011 U2〕②sys_menu list_active 斷言 78 轉紅〔011 U3；U7 於 HEAD a6d1a69 stash 全量 3/3 重現＝前既存實證〕③handler::user list_empty_string_params baseline 與第二查間被他測 committed sys_user 列插隊〔011 U7、culprit=u6ep_ba_*〕；修法候選＝併發測 #[ignore] 序列跑、計數斷言改容忍並行位移/同語句快照/測試前綴過濾）｜該假紅再現時（L-138 近緣）
-- B-088｜user 域 notRestorable 鍵 dead-key＋文件漂移 housekeeping（backend.biz.user.notRestorable 三語已建但 rust 端 user restore 路徑不發射〔U10 拍板兩案同歸 userNotFound〕；漂移橫跨四文件：data-model §3/§5、contracts 拒因兩表、★spec.md FR-038「不可復原」、quickstart S5——errata 紀律須四處一併處置勿只修兩處；治理定性一併決：as-built 勘誤對齊〔傾向、行為安全＋FR-042 零新碼 rationale〕或後端補發射該鍵）｜011 收刀後 housekeeping 或 audit 刀順帶（出處：011 U14 註4＋final review scope 補完）
-- B-089｜sys_token 歷史測試孤兒列清理（81 列 created_by 已不在 sys_user、009/010 測試帳號硬刪殘留；gate2 不檢 sys_token 故不擋閘）｜audit 刀順帶（出處：011 U14 驗收觀察＋final review）
 - B-090｜使用者自助改密（user-center、驗舊密改密；B-030 隨機生成＋首登強制改密之前置依賴）｜user-center 刀或需求觸發（出處：011 clarification user 親決＋ADR 0055）
-- B-091｜datetime offset 守門重建義務（003 §8 明文「隨首個顯示時間欄的刀重建」；009 起 createTime/updateTime/archivedAt 已上 wire、義務未兌現）｜audit 刀或下次 contract 擴充（出處：REVIEW-001-010 F003-2）
 - B-092｜update_setting 忽略 update_by_key Option＝TOCTOU 誤報成功（現不可達、加刪除端點即現形）——防禦性小修｜設定域擴充時（出處：REVIEW-001-010 F004-1）
-- B-093｜idle 稽核非冪等：背景 refresh-loop 累積 session_event(idle) 審計噪音（denylist NX 或首次 idle 才落列）｜audit 刀一併議（出處：REVIEW-001-010 F006-2）
 - B-094｜未刪選單列表分頁裝飾性、>100 頂層將靜默截斷｜選單規模成長時（出處：REVIEW-001-010 F010-1）
 - B-095｜sys_menu 測試 list_active_returns_seeded_menus 讀共享 live DB、與同檔 partial-uniq 系列暫態 commit 競態（012 U1 全量跑首見 flake：期望 78 得 79、重跑即綠、DB 無殘留）——測試隔離補強｜flake 再現或下次動 sys_menu 測試時（出處：012 U1 implementer 報告）
 - B-096｜稽核中心四 search 卡 daterange 邏輯逐字重複×4（audit-search-{operation,access,login,session}.vue 各約 25 行 dateRange ref＋applyDateRange＋defaultModel/resetModel/search 純函式段）——提煉輕量 composable（建議形 useAuditSearchDateRange(model, emit)）｜下次觸及稽核 search 卡時（出處：012 final review code-quality 觀察 1）

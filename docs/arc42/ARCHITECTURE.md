@@ -188,6 +188,25 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   值域驗〔txn 前、雙錯角落 Invalid 優先〕→no-op 判→寫；改 single 不即時踢〔下次登入 006 收斂〕。op-log
   詞彙＋`KICK`/`RESET_PASSWORD`；payload 一律白名單四件構造〔結構性無 password/session_id；reset 恰
   {id,user_name}〕；密碼 DTO 手寫 Debug 遮蔽（島 I5 三重不洩）。
+- **稽核域 reporting＋retention**（012、島 J；`handler/audit.rs`＋`model/audit_query.rs`＋四稽核 facade）：
+  **讀端四源**（J1；`get{OperationLog,AccessLog,LoginAttempt,SessionEvent}` GET Policy super-only〔三支 m002＋
+  getSessionEvent m009 seed〕）＝純唯讀〔SC-010 前後列數不變機器證〕；共用基建＝`parse_time_range`〔閉開、畸形/空
+  ＝未設、顛倒→Empty 短路〕／`resolve_person_filter`〔帳號名→識別集合含已軟刪、id 優先、零命中 Empty〕／
+  `ilike_contains`〔`%_\` 字面化＋`ESCAPE`、欄名寫死零注入、走 m009 GIN trigram〕；facade `list` 統一
+  `created_at DESC, id DESC`＋分頁；DTO 逐欄構造〔camelCase、2^53 守衛、`to_rfc3339` offset〕＋批次 enrich〔含已
+  刪、查無 null〕。★**打碼單點**（J4）：op-log payload `user_phone`/`user_email` 經 `mask_pii_payload` 於 DTO
+  恰一處〔電話前3後2中段 `****`／≤5 全遮／email 首字元+`***`@domain、封閉無洩原值〕；落庫白名單〔雜湊/會話識別永
+  不入列〕為政策本體、不回溯。**access-log 寫入端**（J2、首個寫入端；`middleware/mod.rs::access_log_mw` 掛
+  authed/policy 內側、`enforce_mw` 下游讀 `Claims`+`RequestContext`）＝response 後 `tokio::spawn` 寫入〔失敗僅
+  `warn`＝fail-open 絕不擋業務〕、記 `uri.path()`〔不含 query、零 body〕、region best-effort（ADR 0046）；未認證不
+  經本 layer＋`created_by NOT NULL` 雙保證零列（FR-010/011）。**水平線 purge**（J3；`purgeAuditLog` POST）＝守門
+  固定序①表白名單〔四表封閉枚舉、外→`invalidTable`〕→②`beforeDays≥PURGE_MIN_DAYS=30`〔違→`purgeBelowFloor`＋
+  `{minDays}`〕→③單交易{`purge_before` DELETE＋op-log `PURGE` 自記〔`{table,before_days,deleted_count}`、0 列照
+  落〕}；構造禁挑列〔僅表×天數〕＋op-log 固定豁免 `operation<>'PURGE'`＋自記與 DELETE 同交易〔刪了沒記/記了沒刪皆
+  不可達〕。**品質補強**：unlock PG-first（J5；`throttle.rs` op-log→SET→DEL、op-log 失敗即 5000 Redis 全不動＝生
+  效但零稽核列不可達、B-077）＋idle 冪等（`auth.rs` `set_nx_ex(session:idle-emitted:{sid})` 守門、同 sid 恰一
+  列、傾向少記、B-093）。m009＝`pg_trgm`＋GIN×2〔attempted_user_name/http_path〕＋casbin 2 列＋B-089 孤兒清理；零
+  表結構變更／零新錯誤碼〔2222 reuse〕／零按鈕級授權〔整頁 manage_audit 選單政策供裝、5003 兜底〕。
 
 ## §7 部署
 
