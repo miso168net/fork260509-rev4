@@ -176,6 +176,11 @@ commit 完成；起本 Phase 前確認憲法版本 ≥1.10.0 即可。
       渲染與值型（全 repo 首例、plan §風險）；容器內 typecheck＋CDP 煙測；結論記回 tasks notes
       （失敗→改替代控件並升級主線）；★spike 產物全清理（草稿 view 刪除＋elegant codegen 四產物
       回復、零殘留——analyze L2）
+      ▸ **spike 結論（2026-07-15 U8 實測、PASS）**：naive-ui 2.44.1 之 datetimerange 正常渲染／
+      開面板／選起訖；v-model 值型＝兩元素毫秒 timestamp 陣列或 null（typecheck 零 cast 過）；
+      wire 轉換＝逐端 `new Date(ms).toISOString()`（UTC RFC3339、null/未選略參數）；注意：search
+      卡須 default-expanded-names 預設展開（NCollapse 惰性渲染）＋控件寬（grid m:12＋w-full）＋
+      僅點日期格 time=00:00:00；fallback（兩枚 datetime 分立）未動用。殘留歸零（status 全空）。
 - [ ] T023 [US5] `base-web/src/typings/api/rev4-audit.d.ts`（ADAPT、declaration merging 併
       Api.SystemManage、交叉型別不 merge alias；contracts 型別節全集）＋
       `base-web/src/service/api/rev4-audit.ts`（WRAPPER 5 fetcher、★直接 `import { request } from
