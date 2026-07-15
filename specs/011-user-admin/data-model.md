@@ -98,7 +98,7 @@ schema 全於 002 凍結基線（出處＝`docs/generated/reference/schema.md` �
 - **batchDeleteUser**：自管單一 txn、ids **去重升序取鎖**、逐 id 同 deleteUser 守門、★**fail-fast**（首個違規即整批 rollback＋回該違規結構化拒因、**不 collect-all**）；清單含已軟刪 id＝鎖列回 None→`userNotFound`→**整批拒**（違規、非冪等跳過）；資料零變更。
 - **resetUserPassword**：鎖列 → 政策驗新密 →★**hash 在取鎖前算好**（避 argon2 夾鎖內拉長持有期）→ UPDATE password → 撤 token：**標的＝operator 時 keep 當前 sid**（super 改自己密碼不自斷）、否則全撤 → session_event(revoked) → op-log｛**payload 僅 {id, user_name}（snake_case、對齊 009 op-log 範式）、絕不含任何 hash**｝。★不解除節流鎖定、結果提示「若該帳號登入鎖定中需另行解鎖」。
 - **kickUser**：self→`cannotKickSelf` → 鎖列（**未刪即可**、停用帳號可踢殘餘 session）→ 全撤 token → session_event(kicked) → op-log。Super **可被踢**（「三不可」不含踢除、可重登）。
-- **restoreUser**：鎖已刪列（`find_deleted_by_id_for_update`；標的不存在→`userNotFound`／`notRestorable`）→ 鎖內重驗同名活性衝突（另存活性同名→`userNameExists`、23505 兜底）→ 成對清 deleted_at/by → op-log。★**零回灌**（指派已硬刪不回來、須 super 重指派）；**status 保留刪除前原值**（停用時被刪、復原仍停用＝誠實）。
+- **restoreUser**：鎖已刪列（`find_deleted_by_id_for_update`；標的不存在或非已刪態→`userNotFound`〔勘誤 2026-07-15 B-088：原規劃 notRestorable 於實作拍板（011 U10）併歸 userNotFound、後端未發射〕）→ 鎖內重驗同名活性衝突（另存活性同名→`userNameExists`、23505 兜底）→ 成對清 deleted_at/by → op-log。★**零回灌**（指派已硬刪不回來、須 super 重指派）；**status 保留刪除前原值**（停用時被刪、復原仍停用＝誠實）。
 - **updateUserSessionPolicy**（獨立端點、protected=true）：鎖列 → 值域驗（inherit／single／multi）→ **no-op 判** → 寫。改 single **不即時踢**（下次登入 006 機制收斂、島 A2 解析階層無涉即時性）。
 
 ### Super 保護完備性（D10、島 I3；不需動態計數即結構成立）
@@ -144,8 +144,7 @@ schema 全於 002 凍結基線（出處＝`docs/generated/reference/schema.md` �
 | `backend.biz.user.userNameInvalid`（plan 期定稿、鏡像 009 codeInvalid） | 2222 | addUser：user_name 形制違規（非空／字元集／長度） |
 | `backend.biz.user.passwordPolicy` | 2222 | addUser／resetUserPassword：密碼未過政策（**BizData 帶違規清單**、§6） |
 | `backend.biz.user.roleNotFound` | 2222 | addUser／updateUser：指派 code 未知／已刪（整批拒） |
-| `backend.biz.user.userNotFound` | 2222 | updateUser／delete／reset／kick／restore：facade no-op（含 batch 遇已刪 id） |
-| `backend.biz.user.notRestorable` | 2222 | restoreUser：標的非可復原（不存在／非已刪態） |
+| `backend.biz.user.userNotFound` | 2222 | updateUser／delete／reset／kick／restore：facade no-op（含 batch 遇已刪 id；restore 含非已刪態——勘誤 B-088：原 notRestorable 併歸本鍵） |
 | `backend.biz.user.sessionPolicyInvalid` | 2222 | updateUserSessionPolicy：值不屬 inherit／single／multi |
 | `backend.biz.unlock.*`（2 鍵，007 欠帳補建） | 2222 | unlockLogin：IP 維目標非法／缺目標（帳號維缺帳號名） |
 

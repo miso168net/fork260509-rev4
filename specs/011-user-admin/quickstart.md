@@ -70,7 +70,7 @@ CDP 建列場景（新增／刪除／重建）用測試專屬 `userName` 前綴�
 5. `backend.biz.unlock.*` 三語齊、無 raw key（007 欠帳補建；FR-037）。列表**不顯鎖定態**（權威態在快取、非資料欄；FR-036）。
 
 ### S5 拒因 i18n 三語零 raw key（US7）
-逐一觸發各拒因（`seededProtected`／`cannotDeleteSelf`／`superCannotDisable`／`cannotDisableSelf`／`superRoleProtected`／`cannotChangeSelfRoles`／`cannotKickSelf`／`userNameExists`／`userNameImmutable`／`passwordPolicy`／`roleNotFound`／`userNotFound`／`notRestorable`＋`unlock.*`）→ 各以**專屬訊息鍵**呈現（一因一鍵、含插值位、三語齊、無 raw key；FR-038/FR-040）；既有無明細業務錯誤路徑行為 100% 不變（FR-039／SC-014）。
+逐一觸發各拒因（`seededProtected`／`cannotDeleteSelf`／`superCannotDisable`／`cannotDisableSelf`／`superRoleProtected`／`cannotChangeSelfRoles`／`cannotKickSelf`／`userNameExists`／`userNameImmutable`／`passwordPolicy`／`roleNotFound`／`userNotFound`＋`unlock.*`；勘誤 2026-07-15 B-088：原列 notRestorable 併歸 userNotFound、未發射）→ 各以**專屬訊息鍵**呈現（一因一鍵、含插值位、三語齊、無 raw key；FR-038/FR-040）；既有無明細業務錯誤路徑行為 100% 不變（FR-039／SC-014）。
 
 ### S6 密碼政策違規渲染（US3／US7、島 I5）
 1. drawer add 模式密碼欄 → best-effort fetch 004 設定組動態 hint（「8–64 字、需數字…」）；fetch 失敗靜默降級為僅後端驗。
