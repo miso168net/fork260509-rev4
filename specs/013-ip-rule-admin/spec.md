@@ -129,7 +129,7 @@
 
 **治理（隨刀落地）**
 
-- **FR-016**：憲法 §III.2 MODAL-WIRING (d) MUST 擴字串涵蓋「IP 規則回收桶復原」（含 `views/manage/ip-rule/index.vue` 混排清單的已刪列顯示與逐列 restore 鈕、無 toggle），MINOR bump v1.10.0→v1.11.0（ADR 0061、user 親決轉 accepted）。
+- **FR-016**：憲法 §III.2 MODAL-WIRING (d) MUST 擴字串涵蓋「IP 規則回收桶復原」——錨點含 `views/manage/ip-rule/index.vue` 混排清單的已刪列顯示與狀態欄辨識、**其搜尋卡「狀態」三態過濾控件**（★承載已刪視圖切換、取代 menu/user 的 toggle 形；analyze D1 親決明寫進錨點字面）、逐列 restore 鈕；MINOR bump v1.10.0→v1.11.0（ADR 0061、user 親決轉 accepted）。
 - **FR-017**：`sys_menu.buttons` 的既有凍結 seed 列內容變更 MUST 走新機制 `SEED_CONTENT_OVERRIDE_ALLOWLIST`（key＝表×natural_key×欄、值＝預期新內容、fixture 保持凍結、保留漂移偵測、附 self-test；ADR 0064）；本刀首用登記 `(sys_menu, manage_ip-rule, buttons)`＝四碼。
 - **FR-018**：casbin 按鈕政策新列 MUST 登記 `SEED_ADDITIVE_ALLOWLIST`（ADR 0032/0039 範式）；本刀 MUST NOT 動 002 既有 demo seed（B-060 不折入）。
 - **FR-019**：`order` 欄的 UI 呈現與表單文案 MUST NOT 暗示規則有優先序（島 F F1：any-match、白＞黑＞default-allow、無順序化規則鏈）。

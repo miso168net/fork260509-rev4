@@ -83,8 +83,17 @@
 
 | 步 | 動作 | schema-gate 軌道 |
 |---|---|---|
-| ① | `sys_casbin_rule` INSERT 四列：`ipRule:add`／`ipRule:edit`／`ipRule:delete`／`ipRule:restore`（R_SUPER 底下、按鈕政策形） | **`SEED_ADDITIVE_ALLOWLIST` +4**（natural key＝ptype+v0..v5 七元組；ADR 0032/0039 範式） |
-| ② | `sys_menu` UPDATE `route_name='manage_ip-rule'` 列 `buttons` ＝ 四碼 jsonb | ★**`SEED_CONTENT_OVERRIDE_ALLOWLIST`**（新機制、ADR 0064）登記 `(sys_menu, route_name=manage_ip-rule, buttons)`＝預期四碼；fixtures **保持凍結不改寫** |
+| ① | **`casbin_rule`**（★表名無 `sys_` 前綴）INSERT 四列：`('p','R_SUPER','ipRule:{add,edit,delete,restore}','button','','','',false)`＋`WHERE NOT EXISTS` 冪等守門（照 m008 前例） | **`SEED_ADDITIVE_ALLOWLIST` +4**（natural key＝ptype+v0..v5 七元組；ADR 0032/0039 範式） |
+| ② | `sys_menu` UPDATE `route_name='manage_ip-rule'` 列 `buttons` ＝ 四碼 jsonb（★**物件形**、見下） | ★**`SEED_CONTENT_OVERRIDE_ALLOWLIST`**（新機制、ADR 0064）登記 `(sys_menu, route_name=manage_ip-rule, buttons)`＝預期 jsonb 字面；fixtures **保持凍結不改寫** |
+
+★**`buttons` jsonb 元素形＝物件 `{code, desc}`、非純字串陣列**——`sys_menu::all_button_codes` 逐元素取 `b.get("code")`；純字串元素 `get("code")` 恆 `None`→四碼**靜默消失**（不炸）。desc 對齊 m002 既有風格（實庫 `manage_user.buttons`＝`[{"code":"user:add","desc":"新增用户"},…]`；既有 seed 文案未 i18n 化、本刀延續不擴大）：
+
+```json
+[{"code": "ipRule:add",     "desc": "新增IP规则"},
+ {"code": "ipRule:edit",    "desc": "编辑IP规则"},
+ {"code": "ipRule:delete",  "desc": "删除IP规则"},
+ {"code": "ipRule:restore", "desc": "恢复IP规则"}]
+```
 
 **down**：對稱（DELETE 四列＋`buttons` 還原 NULL）。
 **不動 002 既有 demo seed**（B-060 不折入）。

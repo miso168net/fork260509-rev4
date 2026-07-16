@@ -120,7 +120,7 @@
 
 - **級別**：MINOR（既有款擴字串／擴錨點；v1.8.0/v1.9.0 兩前例）；v1.10.0→**v1.11.0**。
 - **before**（constitution.md:186）：「**(d)** 選單／使用者復原、re-parent 維運控制：`menu-operate-modal.vue` edit 模式 parentId selector＋`views/manage/menu/index.vue` 與 `views/manage/user/index.vue` 的「顯示已刪除」列表切換（toggle）＋逐列 restore 鈕＋對應 i18n key——嚴格限『選單樹復原／父層級調整／使用者回收桶復原』」
-- **after**（逐字終稿，見 ADR 0061）：加「IP 規則」入用途、加 `views/manage/ip-rule/index.vue` 混排清單（**含已刪列顯示與狀態欄辨識、無 toggle**）的逐列 restore 鈕入錨點、用途字串加「IP 規則回收桶復原」。標頭 (a)~(i) 用途款集**不新增**（只擴 (d) 既有款字串、不立新用途 (j)）。
+- **after**（逐字終稿，見 ADR 0061）：加「IP 規則」入用途、加 `views/manage/ip-rule/index.vue` 混排清單（**含已刪列顯示與狀態欄辨識**）＋**其搜尋卡「狀態」三態過濾控件**（★clarify Q1 追加、analyze D1 親決明寫入錨點：承載已刪視圖切換、取代 menu/user 的 toggle 形）＋逐列 restore 鈕入錨點、用途字串加「IP 規則回收桶復原」。標頭 (a)~(i) 用途款集**不新增**（只擴 (d) 既有款字串、不立新用途 (j)）。
 - **為何不需其他 amendment**：搜尋卡＝(e) 鏡像 user 頁；hasAuth 按鈕＝(b)；**DELETE 接線＝WRAPPER 新檔（§III.1 預設軌道）＋(e) 新頁消費端點**（013 全新檔零 placeholder、不掛 (a)）；i18n＝route-locale-隨頁走＋I18N-WIRING (ii)(iii)——全既有軌道。（★schema-gate 新機制 ADR 0064 屬 tools/ 治理、非憲法軌道，不觸 amendment。）
 - **程序**：ADR 0061 draft（本 commit）→ spec 定稿期 user 親決轉 accepted＋改 constitution.md＋bump v1.11.0，獨立 commit `docs(constitution): amend`＋docs-sync generate（§V.2）。
 

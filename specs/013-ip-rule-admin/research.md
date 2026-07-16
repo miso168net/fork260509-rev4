@@ -21,7 +21,7 @@
   | `'2001:0DB8:...:0001/128'::inet` | `2001:db8::1/128` | `2001:db8::1/128` |
 
   ①`::text` **保留** `/32`／`/128`（隱式與顯式遮罩皆然）——宣稱之「抑制」**不成立**於 PG 18.4（compose pin `postgres:18.4-alpine`）。
-  ②`host()||'/'||masklen()` 與 `::text` 對六組樣本輸出**逐一相同**＝等價但更繞。
+  ②`host()||'/'||masklen()` 與 `::text` 對五組可比樣本輸出**逐一相同**＝等價但更繞（隱式遮罩列未取 host() 對照、故為五組）。
   ③Rust 側 wire＝`IpNetwork::to_string`；既有測試 `handler/ip_rule.rs` normalize_cidr 案斷言單 IP→`203.0.113.7/32`、單 IPv6→`2001:db8::1/128`。
   ∴ **PG `::text` 與 Rust Display 天然同形、無盲點**。疑審查將 `host(inet)`（剝光遮罩→`203.0.113.7`）誤作 `::text`。
 - **Alternatives considered**：`host()||'/'||masklen()`（等價、更繞、無收益）→ 否決；`abbrev()`（會抑制遮罩）→ 否決。

@@ -70,13 +70,13 @@ MUST 完成（§V.2 程序、user 親決）：
 
 - [ ] T007 [US1] `list` 加三條件分支 in `rust-api/server/src/model/facade/sys_ip_rule.rs`：①`wbipCidr` 模糊＝**複用 `model/audit_query.rs::ilike_contains`**、比對面 **`wbip_cidr::text`**（★R1 實測定讞：PG 18.4 `::text` 保留 `/32`／`/128`、與 Rust `IpNetwork::to_string` 天然同形——**不得**改用剝遮罩式如 `host()`）②`wbipType` 等值 ③`deleted` 三態→`deleted_at IS NULL`／`IS NOT NULL`／不加條件；★排序子句恆定不動（active 沉頂→`order` ASC NULLS LAST→id ASC）
 - [ ] T008 [US1] 負向自證 ①②③ in `rust-api/server/src/model/facade/sys_ip_rule.rs`（tests）：①拆 `ilike_contains` 的 `%_\` 字面化／`ESCAPE` → 搜 `_` 被當萬用即紅 ②★**單主機（`/32`・`/128`）以顯示值與「/32」可搜到**——比對面改剝遮罩式即紅（釘死 R1） ③拆三態 WHERE 分支 → `active`／`deleted` 視圖混入他集、total 失準即紅
-- [ ] T009 [US1] `get_ip_rule_list` handler 接線 in `rust-api/server/src/handler/ip_rule.rs`：三 filter 空字串→None 正規化（沿 L-090 房式）＋值域 txn 前驗（`wbipType` 非法→`2222 biz.ipRule.invalidRuleType`；`deleted` 非法→**復用既有拒因族、零新碼**〔若復用不自然：回報主線〕）
-- [ ] T010 [US1] 審計欄批次 enrich 接線 in `rust-api/server/src/handler/ip_rule.rs`：收集本頁 `created_by`／`updated_by` id → **`model/facade/sys_user.rs::user_names_by_ids` 一次 IN 查**→HashMap 回填（★走 sys_user facade **單一管道**〔§I.5〕、**不得**在 sys_ip_rule facade 寫跨表 JOIN）
+- [ ] T009 [US1] `get_ip_rule_list` handler 接線 in `rust-api/server/src/handler/ip_rule.rs`：三 filter 空字串→None 正規化（沿 L-090 房式）＋值域 txn 前驗（`wbipType` 非法→`2222 biz.ipRule.invalidRuleType`；★`deleted` 非法→**同樣回 `2222 biz.ipRule.invalidRuleType`**〔analyze BC-004 拍定：該鍵語意「參數值域非法」可覆蓋、零新碼；★若實作期發現語意不自然→**回報主線、絕不自行造碼**〕）
+- [ ] T010 [US1] 審計欄批次 enrich 接線 in `rust-api/server/src/handler/ip_rule.rs`：收集本頁 `created_by`／`updated_by` id → **`model/facade/sys_user.rs::user_names_by_ids` 一次 IN 查**→HashMap 回填（★走 sys_user facade **單一管道**〔ADR 0062／012 audit enrich 範式；★非憲法 §I.5——該節為 RUSTAPI-SOURCE-ISOLATION、與本紀律無關〕、**不得**在 sys_ip_rule facade 寫跨表 JOIN）
 - [ ] T011 [US1] 負向自證 ④ in `rust-api/server/src/handler/ip_rule.rs`（tests）：已軟刪建立者**查得帳號名**（改用排除已軟刪之查法即紅）＋餵不存在 id → `null` 不 panic
 - [ ] T012 [US1] 契約 case 更新＝負向自證 ⑤ in `rust-api/server/tests/contract.rs`：`getIpRuleList` request query 形隨三參數更新＋斷言（★**registry 筆數不變**——013 零新 route、`ROUTES` 不增）
 - [ ] T013 [US1] `index.vue` 清單渲染 in `base-web/src/views/manage/ip-rule/index.vue`：`useNaivePaginatedTable`＋`useTableOperate`＋NDataTable remote＋mobilePagination；欄＝index／wbipCidr／wbipType（NTag：allow=success／deny=error）／wbipMemo（null→「—」）／order／狀態（NTag：現役=success／已刪除=error）／createdAt／updatedAt（null→「—」）／createdBy／updatedBy／操作（依 `deleted` 切換：現役=編輯+刪除、已刪=僅復原）
 - [ ] T014 [US1] 建三維搜尋卡 `base-web/src/views/manage/ip-rule/modules/ip-rule-search.vue`（NCollapse 沿 user-search 範式）：wbipCidr NInput 模糊＋wbipType NSelect clearable＋★狀態 NSelect 三態（現役／已刪除／全部、**預設全部**）＋重置/搜索
-- [ ] T015 [US1] 補 `page.manage.ipRule.*` **清單面**鍵三語（title／欄名／statusActive／statusDeleted／ruleTypeMap allow·deny／搜尋卡 label／empty）in `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts` ＋ `App.I18n.Schema` 鏡像 in `base-web/src/typings/app.d.ts`（圈界）
+- [ ] T015 [US1] 補 `page.manage.ipRule.*` **清單面**鍵三語（title／欄名／statusActive／statusDeleted／★**statusAll**〔狀態三態下拉之「全部」選項標籤；T014 三選項全需鍵〕／ruleTypeMap allow·deny／搜尋卡 label／empty）in `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts` ＋ `App.I18n.Schema` 鏡像 in `base-web/src/typings/app.d.ts`（圈界）
 
 **Checkpoint**: spec US1 AC1~AC5 全過；`cargo test -p server` 綠；`pnpm typecheck`＋`fork-delta-lint` 綠。**MVP 可示範**。
 
@@ -100,8 +100,8 @@ MUST 完成（§V.2 程序、user 親決）：
 
 - [ ] T020 [US3] 實作 `SEED_CONTENT_OVERRIDE_ALLOWLIST` 機制 in `tools/schema-gate`（ADR 0064）：整合點＝**單列內容比對函式**（現 `exclude = GLOBAL_SEED_EXCLUDE | PER_TABLE_SEED_EXCLUDE.get(table, set())` 一帶）加 per-cell override 查表；key＝`(table, natural_key_str, column)`、值＝預期新內容；命中→比對 `實庫值 == override 預期值`（**非** `== fixture 值`）；★fixture **保持凍結不改寫**；★白名單外任何既有列內容差異**仍 FAIL**
 - [ ] T021 [US3] 補 `SEED_CONTENT_OVERRIDE_ALLOWLIST` **self-test** in `tools/schema-gate`（★防恆綠：改壞 override 預期值即 FAIL；比照既有 self-test 紀律）
-- [ ] T022 [US3] 建 `rust-api/migration/src/m010_ip_rule_admin.rs`：①`sys_casbin_rule` INSERT 四列（`ipRule:add`／`ipRule:edit`／`ipRule:delete`／`ipRule:restore`、R_SUPER 底下、按鈕政策形）②`sys_menu` UPDATE `route_name='manage_ip-rule'` 列 `buttons`＝四碼 jsonb；**down 對稱**（DELETE 四列＋buttons 還原 NULL）；★**不動 002 既有 demo seed**（B-060 不折入）＋註冊 mod／`migrations()` in `rust-api/migration/src/lib.rs`
-- [ ] T023 [US3] allowlist 登記 in `tools/schema-gate`：`SEED_ADDITIVE_ALLOWLIST` **+4**（casbin natural key＝ptype+v0..v5 七元組）＋`SEED_CONTENT_OVERRIDE_ALLOWLIST` **+1**（`(sys_menu, route_name=manage_ip-rule, buttons)`＝預期四碼）
+- [ ] T022 [US3] 建 `rust-api/migration/src/m010_ip_rule_admin.rs`：①**`casbin_rule`**（★表名**無 `sys_` 前綴**）INSERT 四列、七元組字面照 m008 前例＝`('p','R_SUPER','ipRule:add','button','','','',false)`／`…'ipRule:edit'…`／`…'ipRule:delete'…`／`…'ipRule:restore'…`＋`WHERE NOT EXISTS` 冪等守門 ②`sys_menu` UPDATE `route_name='manage_ip-rule'` 列 `buttons` ＝ ★**物件形 jsonb**（**非**純字串陣列——`all_button_codes` 逐元素取 `b.get("code")`、純字串恆 None→四碼**靜默消失**）：`[{"code":"ipRule:add","desc":"新增IP规则"},{"code":"ipRule:edit","desc":"编辑IP规则"},{"code":"ipRule:delete","desc":"删除IP规则"},{"code":"ipRule:restore","desc":"恢复IP规则"}]`（desc 對齊 m002 既有簡體風格、既有 seed 文案未 i18n 化之延續）；**down 對稱**（DELETE 四列＋buttons 還原 NULL）；★**不動 002 既有 demo seed**（B-060 不折入）＋註冊 mod／`migrations()` in `rust-api/migration/src/lib.rs`
+- [ ] T023 [US3] allowlist 登記 in `tools/schema-gate`：`SEED_ADDITIVE_ALLOWLIST` **+4**（★表名 **`casbin_rule`**、natural key＝ptype+v0..v5 七元組）＋`SEED_CONTENT_OVERRIDE_ALLOWLIST` **+1**＝`(sys_menu, route_name=manage_ip-rule, buttons)` → 預期值＝**T022 ② 之完整 jsonb 字面**（逐字一致、否則 gate2 紅）
 - [ ] T024 [US3] 四操作鈕掛 `hasAuth('ipRule:add'|'ipRule:edit'|'ipRule:delete'|'ipRule:restore')` in `base-web/src/views/manage/ip-rule/index.vue`（MODAL-WIRING (b)；★按鈕碼**僅可見性**、後端 `require_policy` 為唯一安全邊界）
 - [ ] T025 [US3] 驗證 in container：`docker exec rev4-admin-migrate-1 sh -c 'cd /app && cargo run --bin migration up'` 套用 m010 → `python3 tools/schema-gate gate2` 綠（casbin +4 走 additive、buttons 一格走 content-override）＋`getAllButtons` 回應候選含四碼
 
@@ -142,6 +142,7 @@ MUST 完成（§V.2 程序、user 親決）：
 
 | U | 涵蓋 | 備註 |
 |---|---|---|
+| **GATE** | ★★治理前置（ADR 0061~0064 accepted＋憲法 (d) 擴字串＋bump v1.11.0＋獨立 commit＋docs-sync generate） | ★**主線親跑＋user 親決、不入 Workflow**（比照 U9）；時序＝**U1 後、U2 前**（(d) 涵蓋 US1 已刪列顯示＋狀態三態下拉，而 U2 起動前端） |
 | **U1** | Phase 1（T001~T002）＋Phase 2（T003~T006） | 型骨架＋前端地基；Checkpoint＝typecheck 綠、選單不 404 |
 | **U2** | Phase 3 後端（T007~T012） | facade 三分支＋enrich＋契約＋負向①②③④⑤ |
 | **U3** | Phase 3 前端（T013~T015） | 清單＋搜尋卡＋清單面 i18n 🎯 **MVP checkpoint** |

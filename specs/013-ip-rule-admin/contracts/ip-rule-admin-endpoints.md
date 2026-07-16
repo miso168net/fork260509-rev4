@@ -77,14 +77,31 @@ GET /systemManage/getIpRuleList
 **四寫端皆過寫端自鎖守門**（島 F F3 唯一 fail-closed 例外）：組「變更後規則集」→同一 `decide` 純函式→操作者當下 `client_ip` 判 Deny＝**拒寫、不落庫、不 reload**。
 **寫成功後端自動 reload＋門鈴 PUBLISH**——前端**毋需**追加生效呼叫。
 
-## §4 m010 seed 增量（casbin）
+## §4 m010 seed 增量
 
-```text
-sys_casbin_rule +4（R_SUPER 按鈕政策）：
-  ipRule:add / ipRule:edit / ipRule:delete / ipRule:restore
-sys_menu.manage_ip-rule.buttons: NULL → ["ipRule:add","ipRule:edit","ipRule:delete","ipRule:restore"]
+### ① `casbin_rule` +4（★表名無 `sys_` 前綴；R_SUPER 按鈕政策）
+
+七元組字面照 m008 前例（`ptype='p'`、`v2='button'`、`v3~v5=''`、`protected=false`）＋`WHERE NOT EXISTS` 冪等守門：
+
+```sql
+('p', 'R_SUPER', 'ipRule:add',     'button', '', '', '', false),
+('p', 'R_SUPER', 'ipRule:edit',    'button', '', '', '', false),
+('p', 'R_SUPER', 'ipRule:delete',  'button', '', '', '', false),
+('p', 'R_SUPER', 'ipRule:restore', 'button', '', '', '', false)
 ```
-→ `getAllButtons`（＝`sys_menu.buttons` 聯集）候選納入四碼＝角色頁按鈕指派面板可勾（**本刀不指派給任何非 super 角色**）。
+
+### ② `sys_menu.manage_ip-rule.buttons`：NULL → 四碼
+
+★**jsonb 元素形＝物件 `{code, desc}`**（**不是**純字串陣列）——`sys_menu::all_button_codes` 逐元素取 `b.get("code")`；純字串元素 `get("code")` 恆 `None`→**四碼靜默消失**（不炸、難察覺）。desc 文案對齊 m002 既有風格（實庫 `manage_user.buttons`＝`[{"code":"user:add","desc":"新增用户"},…]`；★既有 seed 文案未 i18n 化、本刀延續不擴大）：
+
+```json
+[{"code": "ipRule:add",     "desc": "新增IP规则"},
+ {"code": "ipRule:edit",    "desc": "编辑IP规则"},
+ {"code": "ipRule:delete",  "desc": "删除IP规则"},
+ {"code": "ipRule:restore", "desc": "恢复IP规则"}]
+```
+
+→ `getAllButtons`（＝`sys_menu.buttons` 聯集、逐元素取 `code`）候選納入四碼＝角色頁按鈕指派面板可勾（**本刀不指派給任何非 super 角色**）。**驗收判準＝`getAllButtons` 回應含四碼**。
 
 ## §5 拒因鍵（008 已發射；013 補三語 locale）
 

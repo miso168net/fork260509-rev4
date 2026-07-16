@@ -28,7 +28,7 @@ docker exec rev4-admin-migrate-1 sh -c 'cd /app && cargo run --bin migration up'
 
 # schema-gate（含新機制 self-test）
 python3 tools/schema-gate gate2
-python3 tools/schema-gate --self-test        # 期望：SEED_CONTENT_OVERRIDE_ALLOWLIST self-test 綠
+python3 tools/schema-gate test                # ★self-test 子命令＝`test`（非 --self-test）；含新 SEED_CONTENT_OVERRIDE_ALLOWLIST self-test
 # 期望：gate2 綠——casbin +4 走 additive allowlist、manage_ip-rule.buttons 一格走 content-override
 
 # 前端
