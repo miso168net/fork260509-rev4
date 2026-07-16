@@ -10,10 +10,11 @@
   ADR 0061~0064；零 schema／零新錯誤碼／零新依賴／零新島（純消費島 F）。cargo 全綠＋gate2
   244/244（override 軌生效）＋負向五條實證（⑤實驗證偽→勘誤＋B-099）＋CDP S1~S6 全 PASS＋
   final review 雙 Opus 零 merge-blocker。merge --no-ff 9d4b47c＋push（user 同意 2026-07-16）。詳 events/STATE。
-- **下一步＝待 user 定向**。候選（皆 BACKLOG 觸發制或成熟項）：①B-060 demo 選單清理
-  （010/011 兩度拍板折入此項、偵察已備——demo 67 menu＋77 casbin 列、需 SEED_REMOVAL_ALLOWLIST
-  新軌道＋ADR）②prod 組（B-037/080/081）③obs 組（B-031/033 grafana/HLL）④B-090 自助改密
-  （解 B-030 前置）。
+- **下一步＝B-059 settings tooltip 三語化**（user 定向 2026-07-16；重偵察已落 B-059 條目——
+  殘餘僅 tooltip 一處 help 鍵化、單一單元量級、零 migration 零後端）。新 session 起手：階段 0
+  brainstorm（可短）→SDD 五步→實作。後續候選：B-060 demo 選單清理（010/011 兩度拍板折入、
+  需 SEED_REMOVAL_ALLOWLIST 姊妹軌道＋ADR；★動工前重偵察——keep=11 前提已因 013 建頁漂移）、
+  B-090 自助改密（解 B-030 前置）、prod 組（B-037/080/081）、obs 組（B-031/033）。
 - 013 遺留/追蹤：B-098（ip_rule enrich 測試清理段不耐 panic、殘留污染 gate2——下次動 ip_rule
   測試時改 guard 形）；B-099（契約層對 query 形零判別力、防護實由 endpoint 測試承載）；
   B-100（系統軟刪掃描通用刀）；B-101（casbin 按鈕碼與 buttons 聯集漂移、011 缺口）；
