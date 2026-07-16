@@ -63,3 +63,7 @@
 | 0058 | accepted | 2026-07-14 | 稽核 purge 執行面——時間水平線唯一形狀、下限守門、自落 op-log；保留天數政策 B-016 續留 | — | — | — |
 | 0059 | accepted | 2026-07-14 | op-log payload PII 政策——落庫白名單定調＋讀端顯示面打碼（收 B-044） | — | — | — |
 | 0060 | accepted | 2026-07-14 | sys_access_log 寫入端啟用——protected 全請求、fail-open、不記 body/query | — | — | — |
+| 0061 | draft | 2026-07-16 | 憲法 amend——MODAL-WIRING (d) 擴字串涵蓋 IP 規則回收桶復原（v1.10.0→v1.11.0 MINOR） | — | — | — |
+| 0062 | draft | 2026-07-16 | 008 IP 規則讀端契約擴充——getIpRuleList 加 filter＋IpRuleRecord 審計欄上 wire＋enrich（最小誠實形→管理頁完整形） | — | — | — |
+| 0063 | draft | 2026-07-16 | ip-rule RBAC 按鈕碼 seed＋sys_menu.buttons 回填——為未來非-super 授權下放預留完整基建（B-083 前置鏈） | — | — | — |
+| 0064 | draft | 2026-07-16 | schema-gate seed 內容變更受管軌道——SEED_CONTENT_OVERRIDE_ALLOWLIST（既有 seed 列內容合法演進） | — | — | — |
