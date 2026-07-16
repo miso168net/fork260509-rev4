@@ -21,14 +21,22 @@ hybrid 回收桶、判定邏輯全數沿用）。
 
 ## 決定
 
-- **getIpRuleList 加 filter**（D3）：query 加 `wbipCidr`（模糊、可空）＋`wbipType`（精確 allow|deny、可空）。
-  facade 加條件分支——wbipCidr 走**複用 012 `ilike_contains`**（產 `ILIKE $1 ESCAPE '\'`、bind 值＝Rust 端
-  含頭尾 `%` 包裹＋`%_\` 字面化的 pattern、欄名 cust 直渲染寫死零注入）。★**搜尋側運算式須釘死為與 wire
-  顯示值同形**：wire `wbipCidr`＝Rust `IpNetwork::to_string` 恆帶前綴（`203.0.113.7/32`），但 PostgreSQL
-  `inet::text` 對單主機遮罩會**抑制 `/32`、`/128` 後綴**（`'203.0.113.7/32'::inet::text`＝`'203.0.113.7'`）
-  →若對 `wbip_cidr::text` ILIKE，使用者搜顯示值或「/32」會**零命中**（既有測試全用 /64 恰好測不出）。
-  故搜尋側改對 `host(wbip_cidr)||'/'||masklen(wbip_cidr)`（v4/v6 皆與 Rust Display 一致）；wbipType 走等值。
-  hybrid 排序（active 沉頂→order ASC→id）不變。契約 registry getIpRuleList 簽名更新＋斷言。
+- **getIpRuleList 加 filter**（D3＋clarify Q1）：query 加三個可空參數——`wbipCidr`（模糊）＋`wbipType`
+  （精確 allow|deny）＋`deleted`（三態：現役-only／已刪-only／全部）。facade 加條件分支：
+  - `wbipCidr` 走**複用 012 `ilike_contains`**（產 `{expr} ILIKE $1 ESCAPE '\'`、bind 值＝Rust 端含頭尾
+    `%` 包裹＋`%_\` 字面化的 pattern；`column` 參數為 cust 直渲染故可傳運算式、寫死零注入）；
+    比對運算式＝**`wbip_cidr::text`**。
+  - `wbipType` 走等值；`deleted` 三態＝`deleted_at IS NULL`／`IS NOT NULL`／不加條件（預設「全部」）。
+  - hybrid 排序（active 沉頂→order ASC→id）不變。契約 registry getIpRuleList 簽名更新＋斷言。
+- **★單主機遮罩形（實測定讞、修正 draft 期誤述）**：`wbip_cidr::text` **與 wire 顯示值天然同形**、可直接
+  ILIKE，**不需** `host()||'/'||masklen()` 繞路。實證（本專案 pin 的 PostgreSQL 18.4 實跑）：
+  `'203.0.113.7'::inet::text` 與 `'203.0.113.7/32'::inet::text` **皆輸出 `203.0.113.7/32`**（`/32` 未被抑制；
+  IPv6 同理輸出 `2001:db8::1/128`），且 `host(v)||'/'||masklen(v)` 對五組樣本輸出與 `::text` **逐一相同**＝
+  等價但更繞。Rust 側 wire＝`IpNetwork::to_string`，既有測試（`handler/ip_rule.rs` normalize_cidr 案）斷言
+  單 IP→`203.0.113.7/32`、單 IPv6→`2001:db8::1/128`——**兩側同形、無盲點**。
+  ★本檔 draft 初稿曾載「`inet::text` 抑制 `/32`／`/128`」＝**誤述**（疑將 `host(inet)`〔剝光遮罩〕誤作 `::text`），
+  經 plan 期 Phase 0 實測反證後於 draft 期更正；「單主機規則須能被顯示值與『/32』搜到」之**行為要求與負向測保留**
+  （有效迴歸守門，理由改為「`::text` 含遮罩、兩側同形」）。
 - **IpRuleRecord 加審計欄**（D4）：createdAt/updatedAt（RFC3339 帶 offset、to_rfc3339、直渲染）＋
   createdBy/updatedBy（**批次 enrich `user_names_by_ids`、走 sys_user facade 單一管道〔§I.5〕、非在
   sys_ip_rule facade 寫 SQL JOIN**；含已軟刪用戶查得名、查無 id→null；同 012 audit enrich 範式）。

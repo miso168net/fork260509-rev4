@@ -14,7 +14,7 @@
 
 - **D1 回收桶呈現＝混排單清單**：`getIpRuleList` 為 hybrid 端點（一份清單含現役＋已刪、active 沉頂 deleted 殿後、每列帶 `deleted` 導出布林）；前端**不做「顯示已刪除」toggle**，直接混排渲染、以狀態欄辨識、已刪列只顯復原鈕。異於 menu(010)/user(011) 的雙端點 toggle 形（008 後端天然同構、分頁誠實）。
 - **D2 復原鈕憲法軌道＝擴 MODAL-WIRING (d)**：ip-rule 回收桶復原 UI 須顯式擴 §III.2 (d) 用途字串（MINOR、v1.10.0→v1.11.0；ADR 0061）；(d) 前例僅涵蓋 menu/user 兩頁，新頁回收桶非 (e) 天然涵蓋。
-- **D3 搜尋＝做搜尋卡（rev3-parity）**：`wbipCidr` 模糊比對＋`wbipType` 精確過濾；需擴 008 `getIpRuleList` 契約加 filter 參數（ADR 0062）。★搜尋側運算式須與 wire 顯示值同形（避單主機 `/32`、`/128` 搜不到自己、見 FR-013）。
+- **D3 搜尋＝做搜尋卡（rev3-parity）**：`wbipCidr` 模糊比對＋`wbipType` 精確過濾；需擴 008 `getIpRuleList` 契約加 filter 參數（ADR 0062）。★搜尋側運算式須與 wire 顯示值同形，使清單顯示值可被原樣搜到（含單主機 `/32`、`/128`；見 FR-013）。
 - **D4 審計欄＝時間＋操作者都顯**：`IpRuleRecord` 上 wire 加 `createdAt`/`updatedAt`/`createdBy`/`updatedBy`（操作者經批次 enrich 解析帳號名、走 sys_user facade 單一管道；ADR 0062）。`deletedAt`/`deletedBy` 不上 wire。
 - **D5 按鈕碼＝新 migration seed**：seed casbin 按鈕政策 `ipRule:add/edit/delete/restore`（R_SUPER 底下）＋前端 hasAuth gating；provenance＝**未來下放非 super 預留**（ADR 0063）。
 - **D6 列表排序＝不做**：後端預設排序（active 沉頂→order ASC→id）已足。
@@ -40,7 +40,7 @@
 
 1. **Given** 庫中有現役與已軟刪的 IP 規則，**When** 超管開啟 IP 規則頁，**Then** 一份清單同時呈現兩者、現役沉頂已刪殿後、以狀態欄（現役／已刪除）辨識、分頁 total 誠實。
 2. **Given** 清單含多筆規則，**When** 超管於搜尋卡輸入網段片段（如 `203.0`）並搜尋，**Then** 網段字面含該片段者命中（大小寫不敏感）、類型下拉可再精確過濾。
-3. **Given** 一筆單主機規則（如 `203.0.113.7/32`），**When** 超管以顯示值或「/32」搜尋，**Then** 該規則被命中（不因遮罩後綴被抑制而漏搜）。
+3. **Given** 一筆單主機規則（如 `203.0.113.7/32`），**When** 超管以顯示值或「/32」搜尋，**Then** 該規則被命中（搜尋比對面與 wire 顯示值同形、遮罩後綴可搜）。
 4. **Given** 一筆規則的建立者帳號已被軟刪，**When** 超管檢視該列，**Then** 建立者仍顯示其帳號名（不因軟刪而空白或報錯）；操作者 id 查無時顯示空值降級。
 5. **Given** 庫中現役與已刪規則並存，**When** 超管將狀態下拉切為「已刪除」，**Then** 清單只列已刪規則（分頁 total 隨之為已刪列數）；切為「現役」只列現役；切回「全部」回混排全景（預設）。
 
@@ -89,7 +89,7 @@
 
 ### Edge Cases
 
-- **單主機遮罩搜尋**：`inet::text` 抑制 `/32`、`/128` 後綴，但 wire 顯示值恆帶前綴——搜尋須對「host＋遮罩長度」組合比對，否則單主機規則搜不到自己（FR-013）。
+- **單主機遮罩搜尋**：單主機規則（`/32`、`/128`）的 wire 顯示值恆帶遮罩後綴——搜尋比對面須與之同形，使顯示值可被原樣搜到（FR-013）。★plan 期 Phase 0 已實測定讞：PostgreSQL 18.4 `inet::text` **保留** `/32`／`/128`（與 Rust `IpNetwork::to_string` 天然同形），故 `wbip_cidr::text` 直接滿足此要求、無需繞路運算式；仍以負向測釘死此行為（防日後改動漏失）。
 - **已軟刪操作者**：建立/更新者帳號被軟刪，審計欄仍須解析出帳號名（含已刪用戶）；id 查無則降級空值、不報錯。
 - **復原衝突**：復原一筆已刪規則時，同網段×類型已有現役規則→衝突拒因（partial-uniq 於 `deleted_at IS NULL` 重入時觸發 23505 收斂）。
 - **dev 自鎖不可測**：dev 環境還原位址落私網→結構豁免先放行、對其建阻擋又被自鎖拒，selfLock 於 dev 實機無法直接觸發（以單元測試 mock 驗證、CDP 場景註記侷限）。
