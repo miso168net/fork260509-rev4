@@ -86,8 +86,8 @@
 
 ## §3 讀端設計（US1：清單＋搜尋＋審計欄）
 
-- **後端 getIpRuleList 擴充**（ADR 0062）：query 加 `wbipCidr`（模糊、可空）＋`wbipType`（精確 allow|deny、可空）；facade 加條件分支——wbipCidr 走**複用 012 `ilike_contains`**（產 `ILIKE $1 ESCAPE '\'`、Rust 端 pattern 含頭尾 `%`＋`%_\` 字面化、欄名寫死零注入）。★**搜尋側運算式釘死為與 wire 顯示值同形**：`inet::text` 會抑制單主機遮罩 `/32`、`/128`，但 wire 值恆帶前綴→須對 `host(wbip_cidr)||'/'||masklen(wbip_cidr)` 比對（詳 §10、ADR 0062）；wbipType 走等值。hybrid 排序不變。契約 registry 簽名更新＋斷言。
-- **後端 IpRuleRecord 擴充**（ADR 0062）：加 createdAt/updatedAt（RFC3339 帶 offset、直渲染）＋createdBy/updatedBy（**批次 enrich `user_names_by_ids`、走 sys_user facade 單一管道〔§I.5〕、非 SQL JOIN**；含已軟刪用戶查得名、查無 id→null；同 012 audit 範式）。deletedAt/deletedBy 不上 wire（見 §10）。
+- **後端 getIpRuleList 擴充**（ADR 0062）：query 加 `wbipCidr`（模糊、可空）＋`wbipType`（精確 allow|deny、可空）〔★clarify Q1 追加 `deleted` 三態〕；facade 加條件分支——wbipCidr 走**複用 012 `ilike_contains`**（產 `ILIKE $1 ESCAPE '\'`、Rust 端 pattern 含頭尾 `%`＋`%_\` 字面化、欄名寫死零注入）、比對面＝**`wbip_cidr::text`**（★plan 期實測定讞：PG 18.4 `::text` 保留 `/32`／`/128`、與 Rust `IpNetwork::to_string` 天然同形，無需繞路運算式——詳 §10、ADR 0062）；wbipType 走等值。hybrid 排序不變。契約 registry 簽名更新＋斷言。
+- **後端 IpRuleRecord 擴充**（ADR 0062）：加 createdAt/updatedAt（RFC3339 帶 offset、直渲染）＋createdBy/updatedBy（**批次 enrich `user_names_by_ids`、走 sys_user facade 單一存取管道〔★出處＝012 audit enrich 範式／ADR 0062，非憲法 §I.5〕、非 SQL JOIN**；含已軟刪用戶查得名、查無 id→null；同 012 audit 範式）。deletedAt/deletedBy 不上 wire（見 §10）。
 - **前端**：`views/manage/ip-rule/index.vue`（混排單清單、NDataTable remote＋mobilePagination、useNaivePaginatedTable＋useTableOperate）；欄＝index／wbipCidr／wbipType（NTag：allow=success「白名單（放行）」／deny=error「黑名單（阻擋）」）／wbipMemo（null→「—」）／order／狀態（NTag：現役=success／已刪除=error）／建立時間／更新時間／建立者／更新者／操作（依 deleted 切換：現役=編輯+刪除、已刪=復原）。`modules/ip-rule-search.vue`（NCollapse 搜尋卡：wbipCidr NInput 模糊＋wbipType NSelect clearable＋重置/搜索，沿 user-search 範式）。
 - **不做排序（D6）**：後端預設排序即足。
 
@@ -120,7 +120,7 @@
 
 - **級別**：MINOR（既有款擴字串／擴錨點；v1.8.0/v1.9.0 兩前例）；v1.10.0→**v1.11.0**。
 - **before**（constitution.md:186）：「**(d)** 選單／使用者復原、re-parent 維運控制：`menu-operate-modal.vue` edit 模式 parentId selector＋`views/manage/menu/index.vue` 與 `views/manage/user/index.vue` 的「顯示已刪除」列表切換（toggle）＋逐列 restore 鈕＋對應 i18n key——嚴格限『選單樹復原／父層級調整／使用者回收桶復原』」
-- **after**（逐字終稿，見 ADR 0061）：加「IP 規則」入用途、加 `views/manage/ip-rule/index.vue` 混排清單（**含已刪列顯示與狀態欄辨識、無 toggle**）的逐列 restore 鈕入錨點、用途字串加「IP 規則回收桶復原」。標頭 (a)~(i) 用途款集**不新增**（只擴 (d) 既有款字串、不立新用途 (j)）。
+- **after**（逐字終稿，見 ADR 0061）：加「IP 規則」入用途、加 `views/manage/ip-rule/index.vue` 混排清單（**含已刪列顯示與狀態欄辨識**）＋**其搜尋卡「狀態」三態過濾控件**（★clarify Q1 追加、analyze D1 親決明寫入錨點：承載已刪視圖切換、取代 menu/user 的 toggle 形）＋逐列 restore 鈕入錨點、用途字串加「IP 規則回收桶復原」。標頭 (a)~(i) 用途款集**不新增**（只擴 (d) 既有款字串、不立新用途 (j)）。
 - **為何不需其他 amendment**：搜尋卡＝(e) 鏡像 user 頁；hasAuth 按鈕＝(b)；**DELETE 接線＝WRAPPER 新檔（§III.1 預設軌道）＋(e) 新頁消費端點**（013 全新檔零 placeholder、不掛 (a)）；i18n＝route-locale-隨頁走＋I18N-WIRING (ii)(iii)——全既有軌道。（★schema-gate 新機制 ADR 0064 屬 tools/ 治理、非憲法軌道，不觸 amendment。）
 - **程序**：ADR 0061 draft（本 commit）→ spec 定稿期 user 親決轉 accepted＋改 constitution.md＋bump v1.11.0，獨立 commit `docs(constitution): amend`＋docs-sync generate（§V.2）。
 
@@ -141,14 +141,14 @@
 
 ## §9 測試與驗收
 
-- **後端 TDD 負向自證候選**：①getIpRuleList filter——wbipCidr 模糊命中大小寫不敏感＋`%_\` 字面化不被當萬用（拆 escape 即紅）②★**單主機規則（/32、/128）能被顯示值與「/32」搜到**（`host()||'/'||masklen()` 對齊 wire；拆回 `::text` 即紅——防 §10 盲點）③wbipType 精確過濾④審計欄批次 enrich——已軟刪建立者查得名、查無 id 回 null 不炸⑤契約 registry getIpRuleList 新簽名雙射。
+- **後端 TDD 負向自證候選**：①getIpRuleList filter——wbipCidr 模糊命中大小寫不敏感＋`%_\` 字面化不被當萬用（拆 escape 即紅）②★**單主機規則（/32、/128）能被顯示值與「/32」搜到**（比對面 `wbip_cidr::text` 與 wire 同形；改成剝遮罩的運算式〔如 `host()`〕即紅——釘死此行為、防日後改動漏失）③wbipType 精確過濾〔★clarify Q1 追加 deleted 三態各自只列對應集合〕④審計欄批次 enrich——已軟刪建立者查得名、查無 id 回 null 不炸⑤契約 registry getIpRuleList 新簽名雙射。
 - **schema-gate**：`SEED_CONTENT_OVERRIDE_ALLOWLIST` self-test（防恆綠：改壞 override 預期值即 FAIL）；gate2 對 manage_ip-rule.buttons 回填綠、白名單外任何既有列內容差異仍 FAIL。
 - **前端／整合**：typecheck（route.manage_ip-rule 三語不補即紅）＋fork-delta-lint（新檔零原行圈界）。
 - **CDP 實機（Edge@9229、42080）候選場景**：S1 清單混排（現役＋已刪同表、已刪只顯復原）／S2 CRUD（新增/編輯/刪除 DELETE 動詞）／S3 復原（confirmRestore→列回現役）／S4 搜尋（cidr 模糊大小寫不敏感＋type 精確；含單主機規則）／S5 拒因三語零 raw key（conflict：建重複網段；selfLock 註記 dev 測不出、以單測 mock 補）／S6 hasAuth 按鈕（super 全顯）。★restart base-web 防 vite stale-locale。
 
 ## §10 風險與備註
 
-- **★D3 單主機搜尋盲點**：`inet::text` 抑制 `/32`、`/128` 後綴、但 wire 恆帶前綴→若對 `wbip_cidr::text` ILIKE，搜顯示值或「/32」零命中（既有測試全 /64 測不出）。修＝搜尋側改 `host(wbip_cidr)||'/'||masklen(wbip_cidr)`（ADR 0062、§9 負向測釘死）。
+- **★D3「單主機搜尋盲點」＝假警報（plan 期實測撤銷）**：brainstorm 期對抗式審查曾宣稱「`inet::text` 抑制 `/32`／`/128`→單主機搜不到自己」，並開藥方 `host()||'/'||masklen()`。**plan 期 Phase 0 於本專案 pin 的 PG 18.4 實測反證**：`'203.0.113.7'::inet::text` 與 `'203.0.113.7/32'::inet::text` **皆輸出 `203.0.113.7/32`**（`/32` 未被抑制、IPv6 同理），且 `host()||'/'||masklen()` 對五組樣本輸出與 `::text` 逐一相同＝等價但更繞；Rust 側既有測試斷言 `to_string()` 亦為 `203.0.113.7/32`——**兩側天然同形、無盲點**（疑審查將 `host(inet)`〔剝光遮罩〕誤作 `::text`）。∴ 比對面用 `wbip_cidr::text` 即可；「單主機可被顯示值搜到」之行為要求與 §9 負向測**保留**（有效迴歸守門、理由更正）。
 - **dev 自鎖測不出**：還原位址落私網→結構豁免先放行、對其建 deny 又被自鎖拒——selfLock 的 CDP 實機需構造轉發標頭模擬公網來源，或單測 mock（spec.md:294/302 侷限）。
 - **order 欄語意**：僅顯示排序、判定無優先權（島 F F1）；表單 placeholder／欄名文案 MUST 避免暗示規則優先序。
 - **混排＋分頁回收桶可達性**：active 沉頂→已刪列恆居尾頁，且搜尋只有 cidr/type、無 deleted 狀態 filter——已刪多時找復原對象須翻尾頁或憑 cidr 搜（rev3 同形、量級小＝已知取捨；spec 期若在意可加 deleted 狀態 filter）。

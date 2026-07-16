@@ -2,7 +2,7 @@
 id: "0064"
 title: schema-gate seed 內容變更受管軌道——SEED_CONTENT_OVERRIDE_ALLOWLIST（既有 seed 列內容合法演進）
 date: 2026-07-16
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-16 013-ip-rule-admin brainstorm（user 親決 D8 buttons 回填走 B-mech＋『凍結既有 seed 列隨功能建立已開始不適用』）；缺口＝schema-gate 只有 SEED_ADDITIVE_ALLOWLIST〔新列〕無『改既有列內容』軌道；B-076『整批重凍』退路的手術刀替代"
@@ -29,7 +29,8 @@ byte 級凍結、重寫整支、provenance 流失），不宜為單一 cell 動�
 - **保留漂移偵測**：override 存「預期新值」而非「豁免比對」——基準只是自凍結 fixture 演進為登記的新值，
   無意間再漂移仍被抓。
 - **附 self-test**（防恆綠、比照 fork-delta-lint／schema-gate 既有 self-test 紀律）。
-- **013 首用登記**：`(sys_menu, route_name=manage_ip-rule, buttons)` → `["ipRule:add","ipRule:edit","ipRule:delete","ipRule:restore"]`。
+- **013 首用登記**：`(sys_menu, route_name=manage_ip-rule, buttons)` → 預期值＝**物件形 jsonb**（★非純字串陣列——`sys_menu::all_button_codes` 逐元素取 `b.get("code")`；desc 對齊 m002 既有風格）：
+  `[{"code":"ipRule:add","desc":"新增IP规则"},{"code":"ipRule:edit","desc":"编辑IP规则"},{"code":"ipRule:delete","desc":"删除IP规则"},{"code":"ipRule:restore","desc":"恢复IP规则"}]`。
 - **可複用**：往後任何 feature 合法改既有 seed 列內容一律走此軌、於本檔（或後續 ADR）登記。
 
 ## 後果

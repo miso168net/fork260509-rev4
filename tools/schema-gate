@@ -167,6 +167,31 @@ SEED_ADDITIVE_ALLOWLIST = {
     # 012-audit-admin m009（getSessionEvent GET＋purgeAuditLog POST、全 R_SUPER；natural key＝ptype+v0..v5 七元組）
     ("casbin_rule", ("p", "R_SUPER", "/systemManage/getSessionEvent", "GET", "", "", "")),     # 012 m009
     ("casbin_rule", ("p", "R_SUPER", "/systemManage/purgeAuditLog", "POST", "", "", "")),      # 012 m009
+    # 013-ip-rule-admin m010（4 按鈕碼 p 列、全 R_SUPER；natural key＝ptype+v0..v5 七元組；ADR 0063）
+    ("casbin_rule", ("p", "R_SUPER", "ipRule:add", "button", "", "", "")),      # 013 m010
+    ("casbin_rule", ("p", "R_SUPER", "ipRule:edit", "button", "", "", "")),     # 013 m010
+    ("casbin_rule", ("p", "R_SUPER", "ipRule:delete", "button", "", "", "")),   # 013 m010
+    ("casbin_rule", ("p", "R_SUPER", "ipRule:restore", "button", "", "", "")),  # 013 m010
+}
+
+# ---- 閘 2 seed 面：既有 seed 列內容變更受管軌道（ADR 0064）----
+# 與 SEED_ADDITIVE_ALLOWLIST 平行分工：additive＝「實庫多列（新增 seed）」容差；
+# content-override＝「natural key 配對成功之既有列、單一 cell 內容」的受管演進。
+# key＝(table, natural_key_str, column)——natural_key_str＝fmt_natural_key 輸出形
+# （c=v 逗號串接，例 route_name=manage_ip-rule）；value＝登記的預期新內容。
+# 行為：命中 cell 改比「實庫值 == 登記預期值」（兩側皆過 norm_seed_value 正規化；
+# ★非 == fixture 值）——基準自凍結 fixture 演進為登記值、仍逐值比對、保留漂移偵測、
+# 絕非跳過該格不比；fixture 保持 byte 級凍結不改寫；白名單外任何既有列內容差異仍 FAIL。
+# 逐筆登記須 ADR／spec 留痕（首筆＝013 m010 buttons 回填、隨該刀 seed 登記）。
+SEED_CONTENT_OVERRIDE_ALLOWLIST = {
+    # 013-ip-rule-admin m010（首筆；ADR 0063/0064）：manage_ip-rule 列 buttons 自 NULL 回填
+    # 四按鈕碼——★物件形 {code, desc}（all_button_codes 逐元素取 code；desc＝m002 既有簡體風格）。
+    ("sys_menu", "route_name=manage_ip-rule", "buttons"): [
+        {"code": "ipRule:add", "desc": "新增IP规则"},
+        {"code": "ipRule:edit", "desc": "编辑IP规则"},
+        {"code": "ipRule:delete", "desc": "删除IP规则"},
+        {"code": "ipRule:restore", "desc": "恢复IP规则"},
+    ],
 }
 
 # ---- audit 變體矩陣（contracts §4）----
@@ -450,7 +475,8 @@ def norm_seed_value(val):
 
 def compare_seed_row(table, key_str, live, fixt):
     """配對後單列內容比對。排除面與 password PHC 規則見檔頭 gate2 節；
-    fixt 缺鍵視同 NULL（memo 新欄不 seed）；輸出不含 password 值。"""
+    fixt 缺鍵視同 NULL（memo 新欄不 seed）；輸出不含 password 值；
+    cell 命中 SEED_CONTENT_OVERRIDE_ALLOWLIST（ADR 0064）→改比登記預期值。"""
     issues = []
     exclude = GLOBAL_SEED_EXCLUDE | PER_TABLE_SEED_EXCLUDE.get(table, set())
     if table == "sys_user":
@@ -464,6 +490,15 @@ def compare_seed_row(table, key_str, live, fixt):
             issues.append(f"{table}（{key_str}）.{col}：實庫無此欄（基準有值）")
             continue
         lv = norm_seed_value(live.get(col))
+        ov_key = (table, key_str, col)
+        if ov_key in SEED_CONTENT_OVERRIDE_ALLOWLIST:
+            # content-override 軌（ADR 0064）：基準自凍結 fixture 演進為登記預期值
+            # ——仍逐值比對、保留漂移偵測、非豁免；fixture 保持凍結不改寫。
+            ev = norm_seed_value(SEED_CONTENT_OVERRIDE_ALLOWLIST[ov_key])
+            if lv != ev:
+                issues.append(f"{table}（{key_str}）.{col}：內容不符"
+                              f"（override 軌 ADR 0064：登記預期 {ev!r}、實庫 {lv!r}）")
+            continue
         fv = norm_seed_value(fixt.get(col))
         if lv != fv:
             issues.append(f"{table}（{key_str}）.{col}：內容不符"
@@ -1574,6 +1609,64 @@ class TestSeedContentCompare(unittest.TestCase):
         issues = compare_seed_row("sys_role", "role_code=R_SUPER", live2, fixt)
         self.assertEqual(len(issues), 1)
         self.assertIn("role_memo", issues[0])
+
+
+class TestSeedContentOverride(unittest.TestCase):
+    """SEED_CONTENT_OVERRIDE_ALLOWLIST self-test（ADR 0064；防恆綠）。
+    以 unittest.mock.patch.dict 於測試內暫換常數表（clear＋還原）、絕不污染真表。"""
+
+    _KEY = ("sys_menu", "route_name=manage_ip-rule", "buttons")
+    _EXPECT = [{"code": "ipRule:add", "desc": "新增IP规则"},
+               {"code": "ipRule:edit", "desc": "编辑IP规则"}]
+
+    def _patched(self, mapping):
+        from unittest import mock
+        return mock.patch.dict(SEED_CONTENT_OVERRIDE_ALLOWLIST, mapping, clear=True)
+
+    def test_override_hit_matches_expected(self):
+        # 命中 override 且實庫值==登記預期值→零 issue；fixture 值不同亦零 issue＝override 生效證據
+        live = {"route_name": "manage_ip-rule", "buttons": list(self._EXPECT)}
+        fixt = {"route_name": "manage_ip-rule", "buttons": None}
+        with self._patched({self._KEY: self._EXPECT}):
+            self.assertEqual(
+                compare_seed_row("sys_menu", "route_name=manage_ip-rule", live, fixt), [])
+
+    def test_override_hit_mismatch_fails(self):
+        # 防恆綠核心：改壞登記預期值即紅——證明機制真在比對、非跳過該格
+        live = {"route_name": "manage_ip-rule", "buttons": list(self._EXPECT)}
+        fixt = {"route_name": "manage_ip-rule", "buttons": None}
+        broken = [{"code": "ipRule:BROKEN", "desc": "x"}]
+        with self._patched({self._KEY: broken}):
+            issues = compare_seed_row("sys_menu", "route_name=manage_ip-rule", live, fixt)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("buttons", issues[0])
+        self.assertIn("override", issues[0])
+
+    def test_non_override_column_still_fixture(self):
+        # 未命中 override 的欄照舊比 fixture（原行為零迴歸）
+        live = {"route_name": "manage_ip-rule", "buttons": list(self._EXPECT),
+                "icon": "new-icon"}
+        fixt = {"route_name": "manage_ip-rule", "buttons": None, "icon": "old-icon"}
+        with self._patched({self._KEY: self._EXPECT}):
+            issues = compare_seed_row("sys_menu", "route_name=manage_ip-rule", live, fixt)
+        self.assertEqual(len(issues), 1)
+        self.assertIn(".icon", issues[0])
+
+    def test_empty_override_table_unchanged(self):
+        # override 表空時行為與現行完全一致（buttons 差異仍 FAIL）
+        live = {"route_name": "m", "buttons": [{"code": "a", "desc": "b"}]}
+        fixt = {"route_name": "m", "buttons": None}
+        with self._patched({}):
+            issues = compare_seed_row("sys_menu", "route_name=m", live, fixt)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("buttons", issues[0])
+
+    def test_override_side_normalized(self):
+        # 登記預期值亦過 norm_seed_value（空容器 []≡NULL、與 fixture 側同則）
+        live = {"route_name": "m", "buttons": None}
+        fixt = {"route_name": "m", "buttons": [{"code": "a", "desc": "b"}]}
+        with self._patched({("sys_menu", "route_name=m", "buttons"): []}):
+            self.assertEqual(compare_seed_row("sys_menu", "route_name=m", live, fixt), [])
 
 
 class TestMenuParentMap(unittest.TestCase):

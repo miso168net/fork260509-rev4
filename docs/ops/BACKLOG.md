@@ -1,4 +1,4 @@
-<!-- next: B-098 -->
+<!-- next: B-100 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -42,3 +42,5 @@
 - B-086｜restorePolicy menu 維孤兒檢查用 list_active vs 治理域一致性：sys_casbin_archive.rs restore_archived 判標的選單存在以 list_active（顯示域），停用選單（status=2、未刪、屬治理域）之歸檔授權復原會誤判 NotRestorable、與 010 FR-019「治理域＝未刪含停用、停用≠撤銷」有張力；010 R2 明列且僅列四治理讀端換源點、restorePolicy 非其一、屬 U8/009 授權回收桶路徑，010 正確 surgical 未動｜授權回收桶再設計或 restore 停用選單語義釐清時｜出處：010 U10 spec/quality review minor- B-090｜使用者自助改密（user-center、驗舊密改密；B-030 隨機生成＋首登強制改密之前置依賴）｜user-center 刀或需求觸發（出處：011 clarification user 親決＋ADR 0055）
 - B-092｜update_setting 忽略 update_by_key Option＝TOCTOU 誤報成功（現不可達、加刪除端點即現形）——防禦性小修｜設定域擴充時（出處：REVIEW-001-010 F004-1）
 - B-094｜未刪選單列表分頁裝飾性、>100 頂層將靜默截斷｜選單規模成長時（出處：REVIEW-001-010 F010-1）- B-096｜稽核中心四 search 卡 daterange 邏輯逐字重複×4（audit-search-{operation,access,login,session}.vue 各約 25 行 dateRange ref＋applyDateRange＋defaultModel/resetModel/search 純函式段）——提煉輕量 composable（建議形 useAuditSearchDateRange(model, emit)）｜下次觸及稽核 search 卡時（出處：012 final review code-quality 觀察 1）
+- B-098｜ip_rule enrich 端點測試（list_enriches_operator_names_incl_softdeleted_and_missing_id）清理段不耐中途失敗——raw SQL 種入之 ghost user／規則列於 assert 失敗時洩漏、污染 gate2 seed 面（2026-07-16 U5 實證、主線已手清）；宜改 guard 形或前置清掃｜下次動 ip_rule 測試時
+- B-099｜契約測試（contract.rs registry cases）對 request query 形零判別力——case 僅斷 registry 完整性＋保護碼、query 不解析且 DTO 無 deny_unknown_fields；query 契約防護實由 DB-backed endpoint 測試承載（013 U8 拆除實驗證偽 quickstart 原宣稱、已勘誤）；若未來需契約層把關 query 形→另立掃源/樣本裁判｜下次動 contract.rs 架構或新增 query 契約時

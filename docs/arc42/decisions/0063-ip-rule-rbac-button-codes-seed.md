@@ -2,7 +2,7 @@
 id: "0063"
 title: ip-rule RBAC 按鈕碼 seed＋sys_menu.buttons 回填——為未來非-super 授權下放預留完整基建（B-083 前置鏈）
 date: 2026-07-16
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-16 013-ip-rule-admin brainstorm（user 親決 D5 保留按鈕碼、provenance 明述「未來 ip-rule 會下放權限給非 R_SUPER 其它角色」；D8 buttons 回填走 B-mech）；家族前例＝011 user 頁 seed user:restore 等四支按鈕碼（super-only 頁亦 seed、但未回填 sys_menu.buttons）；反例＝012 audit 頁零按鈕碼（super-only 免 hasAuth）"
