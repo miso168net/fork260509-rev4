@@ -34,7 +34,7 @@ python3 tools/schema-gate test                # ★self-test 子命令＝`test`�
 # 前端
 docker exec rev4-admin-base-web-1 sh -c 'cd /app && pnpm typecheck'
 # 期望：綠（route.manage_ip-rule 三語不補即紅＝型閘生效證據）
-bash tools/fork-delta-lint                    # 期望：綠（新檔零原行圈界）
+python3 tools/fork-delta-lint                 # 期望：綠（新檔零原行圈界）★python3 直跑——bash 跑會炸語法錯（U1 實證勘誤）
 
 # 文件
 python3 tools/docs-sync check                 # 期望：一致
@@ -48,7 +48,7 @@ python3 tools/docs-sync check                 # 期望：一致
 | ② | ★**單主機可被顯示值搜到** | 比對面自 `wbip_cidr::text` 改成剝遮罩式（如 `host(wbip_cidr)`）→ 搜 `203.0.113.7/32` 或 `/32` 零命中、斷言即紅（★釘死 R1 實測結論、防日後改動漏失） |
 | ③ | **`deleted` 三態各自只列對應集合** | 拿掉三態 WHERE 分支 → `active`／`deleted` 視圖混入他集、total 失準、斷言即紅 |
 | ④ | **enrich 已軟刪查得名＋查無回 null** | 改用「排除已軟刪」的查法 → 已軟刪建立者變 null、斷言即紅；餵不存在 id → 須 null 不 panic |
-| ⑤ | **getIpRuleList query 契約形** | 契約 case 未隨三參數更新 → 契約裁判紅指名 |
+| ⑤ | **getIpRuleList query 三 filter 接線** | 拆 handler 三 filter 接線（模擬實作未隨契約更新）→ endpoint 測試 `list_query_filters_wired_and_value_domain_prevalidated` 即紅（★U8 實證勘誤：原宣稱「契約 case 未隨三參數更新→契約裁判紅指名」被證偽——contract.rs case 僅承載 registry 完整性 63 筆＋3333 保護斷言、query 不解析、對 query 形無判別力；本條 load-bearing 防護實由該 DB-backed endpoint 測試承載） |
 
 ★`selfLock` **dev 實機測不出**（還原位址落私網→結構豁免先放行、對其建 deny 又被自鎖拒）——以**單元測試 mock** 覆蓋（spec Edge Cases／Assumptions 明載侷限）。
 
