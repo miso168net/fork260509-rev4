@@ -2,7 +2,7 @@
 id: "0061"
 title: 憲法 amend——MODAL-WIRING (d) 擴字串涵蓋 IP 規則回收桶復原（v1.10.0→v1.11.0 MINOR）
 date: 2026-07-16
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-16 013-ip-rule-admin brainstorm（user 親決 D1 混排回收桶／D2 復原鈕走擴 (d)）＋/speckit-clarify Q1（user 親決追加搜尋卡狀態三態過濾）＋/speckit-analyze D1（user 親決 2026-07-16：狀態三態下拉明寫進 (d) 錨點字面——其承載已刪視圖切換、功能等價 menu/user 的 toggle）；憲法前例＝v1.8.0 擴 (d) 至 menu 頁、v1.9.0 擴 (d) 至 user 頁回收桶（兩次 MINOR）"

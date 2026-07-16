@@ -2,7 +2,7 @@
 id: "0064"
 title: schema-gate seed 內容變更受管軌道——SEED_CONTENT_OVERRIDE_ALLOWLIST（既有 seed 列內容合法演進）
 date: 2026-07-16
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-16 013-ip-rule-admin brainstorm（user 親決 D8 buttons 回填走 B-mech＋『凍結既有 seed 列隨功能建立已開始不適用』）；缺口＝schema-gate 只有 SEED_ADDITIVE_ALLOWLIST〔新列〕無『改既有列內容』軌道；B-076『整批重凍』退路的手術刀替代"

@@ -2,7 +2,7 @@
 id: "0062"
 title: 008 IP 規則讀端契約擴充——getIpRuleList 加 filter＋IpRuleRecord 審計欄上 wire＋enrich（最小誠實形→管理頁完整形）
 date: 2026-07-16
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-16 013-ip-rule-admin brainstorm（user 親決 D3 模糊搜尋 rev3-parity／D4 時間＋操作者都顯）；008 現況＝getIpRuleList 僅 current/size 無 filter（ip_rule.rs:41「不超前」）、IpRuleRecord 六欄審計不上 wire（ip_rule.rs:52「FR-042 最小誠實形」）；rev3 承襲＝022 頁有 cidr/type 搜尋＋createTime/updateTime 欄"
