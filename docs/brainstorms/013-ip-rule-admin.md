@@ -87,7 +87,7 @@
 ## §3 讀端設計（US1：清單＋搜尋＋審計欄）
 
 - **後端 getIpRuleList 擴充**（ADR 0062）：query 加 `wbipCidr`（模糊、可空）＋`wbipType`（精確 allow|deny、可空）〔★clarify Q1 追加 `deleted` 三態〕；facade 加條件分支——wbipCidr 走**複用 012 `ilike_contains`**（產 `ILIKE $1 ESCAPE '\'`、Rust 端 pattern 含頭尾 `%`＋`%_\` 字面化、欄名寫死零注入）、比對面＝**`wbip_cidr::text`**（★plan 期實測定讞：PG 18.4 `::text` 保留 `/32`／`/128`、與 Rust `IpNetwork::to_string` 天然同形，無需繞路運算式——詳 §10、ADR 0062）；wbipType 走等值。hybrid 排序不變。契約 registry 簽名更新＋斷言。
-- **後端 IpRuleRecord 擴充**（ADR 0062）：加 createdAt/updatedAt（RFC3339 帶 offset、直渲染）＋createdBy/updatedBy（**批次 enrich `user_names_by_ids`、走 sys_user facade 單一管道〔§I.5〕、非 SQL JOIN**；含已軟刪用戶查得名、查無 id→null；同 012 audit 範式）。deletedAt/deletedBy 不上 wire（見 §10）。
+- **後端 IpRuleRecord 擴充**（ADR 0062）：加 createdAt/updatedAt（RFC3339 帶 offset、直渲染）＋createdBy/updatedBy（**批次 enrich `user_names_by_ids`、走 sys_user facade 單一存取管道〔★出處＝012 audit enrich 範式／ADR 0062，非憲法 §I.5〕、非 SQL JOIN**；含已軟刪用戶查得名、查無 id→null；同 012 audit 範式）。deletedAt/deletedBy 不上 wire（見 §10）。
 - **前端**：`views/manage/ip-rule/index.vue`（混排單清單、NDataTable remote＋mobilePagination、useNaivePaginatedTable＋useTableOperate）；欄＝index／wbipCidr／wbipType（NTag：allow=success「白名單（放行）」／deny=error「黑名單（阻擋）」）／wbipMemo（null→「—」）／order／狀態（NTag：現役=success／已刪除=error）／建立時間／更新時間／建立者／更新者／操作（依 deleted 切換：現役=編輯+刪除、已刪=復原）。`modules/ip-rule-search.vue`（NCollapse 搜尋卡：wbipCidr NInput 模糊＋wbipType NSelect clearable＋重置/搜索，沿 user-search 範式）。
 - **不做排序（D6）**：後端預設排序即足。
 

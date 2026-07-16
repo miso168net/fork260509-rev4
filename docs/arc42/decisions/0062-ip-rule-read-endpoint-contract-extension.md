@@ -38,7 +38,8 @@ hybrid 回收桶、判定邏輯全數沿用）。
   經 plan 期 Phase 0 實測反證後於 draft 期更正；「單主機規則須能被顯示值與『/32』搜到」之**行為要求與負向測保留**
   （有效迴歸守門，理由改為「`::text` 含遮罩、兩側同形」）。
 - **IpRuleRecord 加審計欄**（D4）：createdAt/updatedAt（RFC3339 帶 offset、to_rfc3339、直渲染）＋
-  createdBy/updatedBy（**批次 enrich `user_names_by_ids`、走 sys_user facade 單一管道〔§I.5〕、非在
+  createdBy/updatedBy（**批次 enrich `user_names_by_ids`、走 sys_user facade 單一存取管道〔★本紀律出處＝
+  012 audit enrich 範式與本 ADR，非憲法 §I.5——該節為 RUSTAPI-SOURCE-ISOLATION、與此無關〕、非在
   sys_ip_rule facade 寫 SQL JOIN**；含已軟刪用戶查得名、查無 id→null；同 012 audit enrich 範式）。
 - **不做**：sort 參數（D6，後端預設排序足）；op-log/payload 級搜尋（YAGNI）；網段包含式查詢（rev3 為文字比對、對齊之）；
   **deletedAt/deletedBy 不上 wire**（deleted 導出 bool 已足辨識回收桶列、量級小；如 spec 期認為「誰刪何時刪」需顯示再擴）。
