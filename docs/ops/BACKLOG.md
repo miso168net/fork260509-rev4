@@ -1,4 +1,4 @@
-<!-- next: B-100 -->
+<!-- next: B-102 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -28,7 +28,6 @@
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
 - B-059｜settings 頁 tooltip 顯示的 description＝DB seed 繁體名（7/8 與 i18n label 同文、zh-CN/en 下腳本不符、tooltip 冗餘）→ enrich 成真正 localized 說明（偵察 2026-07-10 薦案 a＝tooltip 改 $t help 鍵、seed description 留 DB 作 fallback、零 migration；005 遺漏 session_idle_timeout 的 label 鍵〔三語 UI 直顯 seed 繁體〕宜同刀補；★007 已落 login_throttle_* 三鍵、同檔 index.vue labelKeyMap＋三語 locale 已動——先後次序顧慮已解、enrich 屆時直接改）｜enrich settings 說明的刀｜出處：004 單元⑧ user 拍板 B（保留＋BACKLOG）
 - B-060｜demo 選單清理：002 casbin menu seed 給 R_SUPER 全 soybean template demo（about/document/plugin/alova/pro-naive/multi-menu/function）menu policy，rev4 真選單應只 home/manage/user-center｜動 002 casbin/sys_menu seed（新 migration；偵察 2026-07-10：demo＝67 menu＋77 casbin 列、keep＝11〔含 B-061 三未建頁項不動〕；casbin_rule 無 deleted_at→policy 硬刪不可避、gate2 缺列紅需 SEED_REMOVAL_ALLOWLIST＋新 ADR〔0032 只放寬新增〕；拍板點＝sys_menu hard vs 軟刪／exception 樹入否；受影響測試＝sys_menu facade list_active 計數＋route handler R_USER_COMMON 正向斷言）（★2026-07-13 010 拍板不折入；★2026-07-14 011 拍板 user 寫端全 super-only、R_ADMIN user:edit 有鈕無權不對稱留置＝誠實 5003 拒因、隨本項 demo 清理一併處理〔D1 親決、FR-004〕）｜出處：005 CDP item#2 拍板 2026-07-06
-- B-061｜manage_ip-rule 子項 i18n：已 002 seed 選單項但 locale 三語無 route.manage_ip-rule 譯文→dynamic 選單顯 raw key（未建頁、前端無 route/view→點擊 404）｜ip-rule 頁刀建時補譯文（★route locale 鍵無「獨立新增」授權、須隨建頁走 MODAL-WIRING(e)＝憲法 §III.2；004 manage_system-settings 即此範式）｜出處：005 CDP item#2 拍板 2026-07-06（★2026-07-15 012 已兌現 manage_audit 項＝隨稽核中心建頁補三語 route locale〔U9〕、殘餘 ip-rule 一項續待）
 - B-063｜孤兒/背景 reaper：sys_token 跨 session 孤兒＋rotated 過期列完整回收（006 refresh-time prune_expired_rotated 已止血同 chain；跨 session/背景批次遞延）｜obs/維運刀｜出處：006 R6/SC-009
 - B-065｜denylist 逐出/命中監控＋enforce PG-fallback 負載觀測（每受保護請求一次 ttl_from_settings SELECT、admin 規模可接受）｜obs 刀｜出處：006 U4/final review minor
 - B-067｜session_event 膨脹治理：reuse 同票重放逐次累積稽核列（006 SC-009 只列 sys_token 回收、未列 session_event；曝險有界於 refresh JWT exp、無安全風險）｜obs 刀｜出處：006 final review minor
@@ -44,3 +43,5 @@
 - B-094｜未刪選單列表分頁裝飾性、>100 頂層將靜默截斷｜選單規模成長時（出處：REVIEW-001-010 F010-1）- B-096｜稽核中心四 search 卡 daterange 邏輯逐字重複×4（audit-search-{operation,access,login,session}.vue 各約 25 行 dateRange ref＋applyDateRange＋defaultModel/resetModel/search 純函式段）——提煉輕量 composable（建議形 useAuditSearchDateRange(model, emit)）｜下次觸及稽核 search 卡時（出處：012 final review code-quality 觀察 1）
 - B-098｜ip_rule enrich 端點測試（list_enriches_operator_names_incl_softdeleted_and_missing_id）清理段不耐中途失敗——raw SQL 種入之 ghost user／規則列於 assert 失敗時洩漏、污染 gate2 seed 面（2026-07-16 U5 實證、主線已手清）；宜改 guard 形或前置清掃｜下次動 ip_rule 測試時
 - B-099｜契約測試（contract.rs registry cases）對 request query 形零判別力——case 僅斷 registry 完整性＋保護碼、query 不解析且 DTO 無 deny_unknown_fields；query 契約防護實由 DB-backed endpoint 測試承載（013 U8 拆除實驗證偽 quickstart 原宣稱、已勘誤）；若未來需契約層把關 query 形→另立掃源/樣本裁判｜下次動 contract.rs 架構或新增 query 契約時
+- B-100｜系統軟刪掃描通用刀：島 H2 之通用正確性——各軟刪路徑（選單/角色/使用者…）下 casbin 碼與 sys_menu.buttons 聯集的歸檔一致性全面掃描（013 D8 明文 decouple、ADR 0064「不做」節）｜未來排程（入波時拍範圍）｜出處：013 spec D8＋ADR 0063/0064
+- B-101｜casbin 按鈕碼與 sys_menu.buttons 聯集漂移追蹤：m008 user 四碼（reset-pwd/kick/restore/unlock）中 buttons 欄未同步回填之 011 缺口＋013 ip-rule 四碼已同步——兩源（casbin 政策 vs buttons 面板候選）無機器一致性檢查、會靜默漂移｜下次動按鈕碼 seed 或角色頁按鈕面板時｜出處：013 tasks T033＋ADR 0063

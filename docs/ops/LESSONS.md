@@ -1,4 +1,4 @@
-<!-- next: L-143 -->
+<!-- next: L-146 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -116,3 +116,21 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   （braces 使 bash 不吃後續 byte、macOS/Linux 皆安全），惟涉改多支 committed 工具、非必要。
   ｜出處：2026-07-13 macOS fresh-clone bootstrap 實測（Darwin 25；bash 3.2.57＋Homebrew 5.3.15
   雙證、locale 矩陣＋`LC_ALL=C` 修正實證；交接檔 2026-07-14 以 L-142 收錄——原配號 L-139 已被佔用）
+- **L-143**｜`tools/fork-delta-lint` 以 `bash` 前綴跑＝假紅：該工具為 python 腳本，bash 解析
+  即噴語法錯 exit 2（實測 `bash tools/fork-delta-lint`＝exit 2、`python3 tools/fork-delta-lint`
+  ＝exit 0 真綠）；文檔曾散佈 `bash` 前綴寫法（quickstart／tasks 已勘誤）。防法：一律
+  `python3 tools/fork-delta-lint` 直跑；編排 agent prompt 明寫 python3。
+  ｜出處：2026-07-16 013 U1 主線邊界實測。
+- **L-144**｜wf-watchdog 目錄搶答：Workflow launch 與 Monitor 同回合原子成對發射時，若新
+  wf_* transcript 目錄晚於看門狗 sleep 10 的掃描窗才建立（首 agent 起跑慢），`ls -dt` 會選中
+  上一個 run 的目錄——看門狗盯死舊目錄、對新 run 的 stall 保護靜默失效。防法：ARMED 首行
+  帶所鎖 run-id，主線收到 ARMED 事件★必核對與 launch 回傳 Run ID 一致、不符即 TaskStop
+  重掛（013 U5r／U10 兩例實證、重掛即正確）。根修候選：wf-watchdog 加「目錄 mtime 晚於
+  自身啟動時刻」等待迴圈。｜出處：2026-07-16 013 主線編排實證。
+- **L-145**｜casbin enforcer 記憶體快取 vs 熱套 migration：dev 環境以 migrate 容器直寫 DB
+  熱套含 casbin 列的 migration（如 m010 按鈕政策）後，運行中 rust-api 的 `state.enforcer`
+  （boot 時載入）不知新政策→`getUserInfo.buttons`（走 enforcer 記憶體）缺新碼、前端 hasAuth
+  全 false；而 `getAllButtons`（走 sys_menu DB 直讀）正常——兩資料路不同步構成認知陷阱
+  （「面板有碼但鈕不顯」）。防法：熱套後 restart rust-api 重載 enforcer＋前端重新登入刷新
+  userInfo；prod 無此問題（migration 在容器啟動序、enforcer 必後於 seed 載入）。
+  ｜出處：2026-07-16 013 U6 邊界 CDP 實證（restart 後四鈕即顯）。

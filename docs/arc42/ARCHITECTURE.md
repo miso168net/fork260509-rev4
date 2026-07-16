@@ -66,14 +66,16 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
     ＋`trust`（真實來源位址還原純函式：`resolve_client_ip` 三層信任錨〔peer-gate→Tier-1 CDN 位置錨
     →Tier-2 rightmost-untrusted〕＋通道／CF 兩 overlay＋七態 `Confidence`；`normalize_xff` 右端視窗截斷、
     畸形不 panic）＋`ipgate`（IP 閘純函式：`decide` 白＞黑＞default-allow 集合 any-match、`STRUCTURAL_EXEMPT`
-    六段〔僅豁免阻擋、不豁免節流〕、`would_self_lock` 寫端自鎖守門；ArcSwap 熱替＋門鈴 pub/sub 失效）
+    六段〔僅豁免阻擋、不豁免節流〕、`would_self_lock` 寫端自鎖守門；ArcSwap 熱替＋門鈴 pub/sub 失效；
+    013 管理頁消費五端點——`getIpRuleList` additive 擴充三 filter〔cidr 模糊走 `wbip_cidr::text` ILIKE
+    遮罩同形＋type 等值＋deleted 三態〕＋審計欄上 wire 批次 enrich〔sys_user 單一管道〕、判定邏輯零觸碰）
     ＋`config`（信任模型 TOML 六集合、解析失敗退空集 all-direct）＋`middleware`（HTTP 層編排
     `request_context_mw`＋`ip_gate_mw`、政策零內聯）；`throttle` 擴充來源維〔per-IP 桶〕、不變式入憲 §I.7 島 F；
     session 生命週期（DB-stateful rotation／single-session／denylist／精確 idle）狀態機不變式入憲 §I.7 島 A/B/C/D；
     三態 router `Protection{Public,Authed,Policy}`。系統設定端點（Policy super-only）＋auth 縱切
     （登入/換發/個資＋動態選單路由＋替代登入 stub）為業務範式（端點全集住 generated/reference/routes）。
-  - `migration`：schema 與 seed 的唯一寫入者——基線結構＋定稿 seed 兩支 migration，
-    由 compose migrate 閘門套用，冪等可逆。
+  - `migration`：schema 與 seed 的唯一寫入者——基線兩支（結構＋定稿 seed）＋刀次增量
+    （additive seed／index，至 m010），由 compose migrate 閘門套用，冪等可逆。
   - `entity`：sea-orm 型別化實體層（每張業務表一檔）——後續刀的資料存取消費介面；
     欄位宣告順序照定稿。
   - `sea-orm-adapter`：vendored casbin 授權配接層（constitution §I.5 例外、內容零改寫）——
@@ -82,7 +84,8 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
     IPv4 二分查找、`OnceCell` 快取；稽核 `region` best-effort 消費、boot `Path::exists` 守門後才 init。
 - 表／欄明細與 archetype 變體歸屬住 generated/reference/schema；初始帳號面住
   generated/reference/accounts。
-- 前端結構與 facade 地圖隨對應波次建置填入。
+- 前端管理頁家族（role／menu／user／audit／ip-rule）與 auth 縱切已建——全走 WRAPPER/ADAPT
+  新檔軌道＋i18n 圈界（憲法 §III）；螢幕全集住 generated/reference/screens。
 
 ## §6 Runtime
 

@@ -119,7 +119,7 @@ MUST 完成（§V.2 程序、user 親決）：
 ## Phase 7: Polish＋治理＋簿記
 
 - [ ] T028 驗證治理 GATE 已落地：ADR 0061~0064 status=accepted in `docs/arc42/decisions/`；`.specify/memory/constitution.md` §III.2 (d) 含「IP 規則回收桶復原」＋version **v1.11.0**；`python3 tools/docs-sync check` 一致
-- [ ] T029 全量閘（[quickstart §1](./quickstart.md)）：容器內 `cargo test -p server` 全綠（零既有轉紅）＋`python3 tools/schema-gate gate2`＋self-test＋`pnpm typecheck`＋`bash tools/fork-delta-lint`＋`python3 tools/docs-sync check`
+- [ ] T029 全量閘（[quickstart §1](./quickstart.md)）：容器內 `cargo test -p server` 全綠（零既有轉紅）＋`python3 tools/schema-gate gate2`＋self-test＋`pnpm typecheck`＋`python3 tools/fork-delta-lint`（★python3 直跑、bash 跑假紅＝L-143）＋`python3 tools/docs-sync check`
 - [ ] T030 負向自證五條「拆除即紅」實證（[quickstart §2](./quickstart.md)）——逐條實跑記錄；★`selfLock` dev 測不出→以單元測試 mock 覆蓋、明載侷限
 - [ ] T031 CDP 實機 S1~S6（[quickstart §3](./quickstart.md)；Edge@9229→`http://127.0.0.1:42080`、quick-login「超級管理員」）＋★殘留清理（`cdp013_` 類前綴歸零）；★跑前 restart base-web（L-015）＋驗 base-web healthy（OOMKilled 137 前科）
 - [ ] T032 final holistic review（雙 review：spec 合規＋code quality；★review agent 只讀不寫、findings 只回傳）→ findings 三分流（修／轉 B-NNN／won't-fix ADR）
