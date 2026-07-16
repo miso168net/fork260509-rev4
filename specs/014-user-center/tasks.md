@@ -30,7 +30,7 @@
 
 ## ★★ 治理前置 GATE（起 Phase 2 T007 起全部任務前 MUST 完成）
 
-**§III.2 (g) 擴字串涵蓋「＋對應 i18n key」（page.userCenter.\* 29 鍵射程）＋ADR 0065（getUserRoutes 恆附掛白名單、US3 依賴）**
+**§III.2 (g) 擴字串涵蓋「＋對應 i18n key」（page.userCenter.\* 射程＝29 承襲鍵＋D3 成功 toast 鍵、命名空間共 30 鍵）＋ADR 0065（getUserRoutes 恆附掛白名單、US3 依賴）**
 → 親決 gate 照 013 判例提前（T001~T006 純型骨架與新檔地基、不依賴、可先行）。
 
 MUST 完成（§V.2 程序、user 親決）：
@@ -69,10 +69,10 @@ MUST 完成（§V.2 程序、user 親決）：
 
 **Independent Test**: 雙 session 改密→本 sid 存活他 sid 撤；五類拒因逐一可觸發可區分。
 
-- [ ] T008 [US1] 測試先行（紅）：keep-sid 語意測（本 sid 存活＋他 sid 撤＋session_event(revoked, password_reset) 逐筆＋廣播 8888）＋單一驗證點零分叉測（政策路走 validate_against_policy、新≠舊不在其內）＋redact 測（ChangePwdReq Debug 零明文＋op-log payload 零密碼）＋固定序拒因測（userNotFound→passwordMismatch→oldPasswordMismatch→passwordSameAsOld→passwordPolicy 序與可達性）in `rust-api/server/src/model/facade/sys_user.rs` tests＋`rust-api/server/src/handler/user_center.rs` tests
-- [ ] T009 [US1] facade `change_own_password`（data-model §4 固定序逐步：鎖外 find_active→verify(old)→new≠old→load_policy＋validate→hash｜txn 內 advisory_lock_user_db→for_update 重讀→phc 純比對→UPDATE＋updated_at/by→revoke_others_of_user(keep=claims.sid)→session_event 逐筆→op-log(ResetPassword,{id,user_name})｜commit 後 broadcast_revocation；兩處查無→userNotFound）in `rust-api/server/src/model/facade/sys_user.rs`（T008 轉綠）
-- [ ] T010 [P] [US1] handler `get_password_policy`（PASSWORD_POLICY_KEYS allowlist、`find_by_keys` 投影 {settingKey,settingValue}）in `rust-api/server/src/handler/user_center.rs`
-- [ ] T011 [US1] handler `change_password`（req 驗證＋拒因映射：confirm≠new→`biz.user.passwordMismatch`／verify 敗→`biz.user.oldPasswordMismatch`／new==old→`biz.user.passwordSameAsOld`／政策違規→`BizData("biz.user.passwordPolicy", violations)`／查無→`biz.user.userNotFound`；呼 facade）in `rust-api/server/src/handler/user_center.rs`
+- [ ] T008 [US1] 測試先行（紅）：keep-sid 語意測（本 sid 存活＋他 sid 撤＋session_event(revoked, password_reset) 逐筆＋廣播 8888）＋單一驗證點零分叉測（政策路走 validate_against_policy、新≠舊不在其內）＋redact 測（ChangePwdReq Debug 零明文＋op-log payload 零密碼）＋固定序拒因測（userNotFound→passwordMismatch→oldPasswordMismatch→passwordSameAsOld→passwordPolicy 序與可達性）＋★鎖內 phc 已變→oldPasswordMismatch 測（並發改密、rev3 F-6 防重踩）in `rust-api/server/src/model/facade/sys_user.rs` tests＋`rust-api/server/src/handler/user_center.rs` tests
+- [ ] T009 [US1] facade `change_own_password`（簽名收三欄 old/new/confirm；data-model §4 固定序逐步：鎖外 ★新建 `find_active_by_id`〔鏡像 sys_role.rs:96 讀端範式：濾 deleted_at、無鎖〕→**confirm==new**→verify(old)→new≠old→load_policy＋validate→hash｜txn 內 advisory_lock_user_db→for_update 重讀→phc 純比對→UPDATE＋updated_at/by→revoke_others_of_user(keep=claims.sid)→session_event 逐筆→op-log(ResetPassword,{id,user_name})｜★回傳被撤 sids 清單〔照 reset_password 既有形、廣播歸 handler〕；兩處查無→userNotFound）in `rust-api/server/src/model/facade/sys_user.rs`（T008 轉綠）
+- [ ] T010 [US1] handler `get_password_policy`（PASSWORD_POLICY_KEYS allowlist、`find_by_keys` 投影 {settingKey,settingValue}）＋★allowlist 負向測（測試 DB 塞非 password_ 前綴鍵〔session_／ip_ 類〕、斷言回應僅 7 鍵他鍵不出現——FR-010 負向面／SC-007 後半機器背書）in `rust-api/server/src/handler/user_center.rs`
+- [ ] T011 [US1] handler `change_password`（欄位反序列化＋拒因映射**僅轉譯 facade 錯誤、不先行驗 confirm**〔confirm==new 由 facade 固定序第 2 步承載〕：passwordMismatch／oldPasswordMismatch／passwordSameAsOld／`BizData("biz.user.passwordPolicy", violations)`／userNotFound；★facade 返回後 commit 已成、handler 呼 `broadcast_revocation` 送 8888〔前置：handler/user.rs 該函式 pub(crate) 化一行改動〕）in `rust-api/server/src/handler/user_center.rs`
 - [ ] T012 [US1] 建改密卡 `base-web/src/views/user-center/modules/password-card.vue`（rev3 藍本逐項：radio 三選〔old 預設、NFormItem #label slot、切換清 credential＋type 翻轉〕＋buildPolicyRules 消費 getPasswordPolicy〔7 鍵含 forbid_username、D4〕＋confirm rule 傳 `toRef(model,'newPassword')`＋新≠舊即時 rule〔僅 old 方式下〕＋非 old 路徑 comingSoon toast 擋路＋成功清場＋成功 toast 用 D3 專屬鍵；`<!-- -->` 註記；新檔圈界）
 
 **Checkpoint**: 容器內 `cargo test --workspace` 綠＋typecheck 綠＋fork-delta-lint 綠——US1 後端可 curl 驗、前端卡可渲染。
@@ -83,9 +83,9 @@ MUST 完成（§V.2 程序、user 親決）：
 
 **Independent Test**: 改暱稱單卡儲存零串擾；三態後綴與「未修改」正確；空 body 零副作用。
 
-- [ ] T013 [US2] 測試先行（紅）：update_own_profile 全 None 提前 no-op（零時戳 bump）＋部分更新零串擾（單欄 Set 其餘 Unchanged）＋user_gender wire_enum12（值域外 None 不動）＋鎖內查無 notFound＋get_own_profile 三態折疊（system/self/admin/null）in `rust-api/server/src/model/facade/sys_user.rs` tests
+- [ ] T013 [US2] 測試先行（紅）：update_own_profile 全 None 提前 no-op（零時戳 bump）＋部分更新零串擾（單欄 Set 其餘 Unchanged）＋user_gender wire_enum12（值域外 None 不動）＋鎖內查無 notFound＋get_own_profile 三態折疊（system/self/admin/null）＋★get_own_profile 標的軟刪→Internal 5000 測（讀端分工、自拍 2）in `rust-api/server/src/model/facade/sys_user.rs` tests
 - [ ] T014 [US2] facade `get_own_profile`（roles join＋三態折疊、不洩 operator uid）＋`update_own_profile`（★島 I1：txn 起手 advisory_lock_user_db＋for_update 重讀＋lock-then-redecide；窄寫四欄＋updated_at/by 成對＋同 txn op-log）in `rust-api/server/src/model/facade/sys_user.rs`（T013 轉綠）
-- [ ] T015 [US2] handler `get_profile`（ProfileRes 逐欄構造、RFC3339 offset、id 2^53 守衛；查無→Internal 5000）＋`update_profile`（wire_enum12 值域守門＋呼 facade）in `rust-api/server/src/handler/user_center.rs`
+- [ ] T015 [US2] handler `get_profile`（ProfileRes 逐欄構造、RFC3339 offset、id 2^53 守衛；查無→Internal 5000）＋`update_profile`（wire_enum12 值域守門＋呼 facade；★前置：handler/user.rs 之 `wire_enum12`／`i16_to_wire` pub(crate) 化各一行改動——同源複用防同形複製漂移）in `rust-api/server/src/handler/user_center.rs`
 - [ ] T016 [P] [US2] 建基本資料卡 `base-web/src/views/user-center/modules/basic-info-card.vue`（rev3 藍本：账号/角色/建立/修改時間 `.uc-readonly` 純文字＋三態後綴＋「未修改」＋時間 `YYYY-MM-DD HH:mm:ss`；昵稱 input＋性別男女 radio；儲存只送 {userGender,nickName}）
 - [ ] T017 [P] [US2] 建信箱卡＋手機卡 `base-web/src/views/user-center/modules/email-card.vue`＋`phone-card.vue`（同構：值輸入框＋NInputGroup 驗證碼佔位組〔發送鈕＋碼框＋驗證鈕、全 enabled、點擊 comingSoon〕；儲存各只送 {userEmail}／{userPhone}；格式寬鬆驗證 trigger=change）
 
@@ -109,13 +109,13 @@ MUST 完成（§V.2 程序、user 親決）：
 
 **Independent Test**: 三語切換全頁與改密全流程零 raw key。
 
-- [ ] T021 [US4] 三語全表審校：zh-TW 29 鍵在地化用語覆核（儲存／信箱／手機號碼／正體標點）＋zh-CN 與 rev3 底本逐字對帳＋en 語法覆核＋前端「兩次輸入密碼不一致」form-rule 鍵與後端拒因鍵**並存不混併**確認＋`$t` 引用零 raw key 靜態掃描 in `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts`
+- [ ] T021 [US4] 三語全表審校：zh-TW 30 鍵（29 承襲＋D3 toast）在地化用語覆核（儲存／信箱／手機號碼／正體標點）＋zh-CN 與 rev3 底本逐字對帳＋en 語法覆核＋前端「兩次輸入密碼不一致」form-rule 鍵與後端拒因鍵**並存不混併**確認＋`$t` 引用零 raw key 靜態掃描 in `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts`
 
 **Checkpoint**: typecheck 綠（Schema 鏡像）＋三檔鍵集 diff 一致。
 
 ## Phase 7: Polish＆驗收（cross-cutting）
 
-- [ ] T022 CDP 實機 S1~S6（quickstart 表：S1 非-super 進頁＋版面對照／S2 雙 session keep-sid／S3 五類拒因＋即時提示／S4 佔位三處零寫入／S5 三卡部分更新零串擾／S6 三語零 raw key；cdp014_ 測試帳號 psql 建、驗畢殘留歸零；★新 i18n 後先 restart base-web）
+- [ ] T022 CDP 實機 S1~S6（quickstart 表：S1 非-super 進頁＋版面對照／S2 雙 session keep-sid／S3 拒因即時提示——CDP 實測四類、★帳號消失類由 T008 單元測代驗〔並發刪帳不入 CDP〕／S4 佔位三處零寫入／S5 三卡部分更新零串擾／S6 三語零 raw key；cdp014_ 測試帳號 psql 建、驗畢殘留歸零；★新 i18n 後先 restart base-web）
 - [ ] T023 quickstart 全量閘收口：容器內 `cargo test --workspace` 零轉紅＋contract/wire_schema 綠＋typecheck 綠＋`python3 tools/fork-delta-lint` 綠＋負向自證二條確認（撤 session 拆除即紅／零分叉拆除即紅）＋BACKLOG append 舊密節流條目（自拍 9 兌現）
 
 ## Dependencies
@@ -127,7 +127,7 @@ MUST 完成（§V.2 程序、user 親決）：
 ## Parallel Examples
 
 - Phase 2：T005 ∥ T006（不同新檔）。
-- Phase 3：T010 ∥（T009 之後的）T012 前端（rust/vue 異棧；惟 rev4 慣例單元內 serial、並行僅供參考）。
+- Phase 3：後端全 serial（T009~T011 同檔或 rust 紀律）；T012 前端可與後端收尾鬆並行（異棧、僅供參考）。
 - Phase 4：T016 ∥ T017（不同新檔）。
 
 ## Implementation Strategy

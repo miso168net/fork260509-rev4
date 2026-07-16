@@ -16,7 +16,7 @@
 | nick_name / user_gender / user_phone / user_email | getProfile 回傳＋updateProfile 窄寫四欄（Some 才 Set、未帶 Unchanged） | 讀＋寫 |
 | status / deleted_at | 活性判定（find_active_by_id／_for_update）；軟刪＝寫端 notFound、讀端 Internal | 讀 |
 | created_at / created_by / updated_at / updated_by | getProfile 三態語意折疊（見 §3）；寫端成對更新 updated_at/by＝claims.uid | 讀＋寫 |
-| current_session_id | 不動（rev3 同）——keep-sid 語意由 sys_token 層承載 | — |
+| session_id | 不動（rev3 同）——keep-sid 語意由 sys_token 層承載 | — |
 
 **user_gender 值域**：wire 形字串 `"1"`（男）/`"2"`（女）/null；入庫 i16 1/2/NULL；值域外輸入→None 不動（`wire_enum12` 範式、handler/user.rs:226-242 同形）；出 wire `i16_to_wire`。
 
@@ -49,7 +49,7 @@ changePassword→AuditOperation reuse `ResetPassword`、payload 白名單 `{id, 
 
 ### 3.2 POST /userCenter/updateProfile（req：四欄全 Option）→ `Res<null>`
 
-`{ nickName?, userGender?("1"|"2")，userPhone?, userEmail? }`——Some 才 Set、未帶 Unchanged；全 None→提前 no-op（零時戳 bump）；值域外 gender→None 不動；**DTO 無 id／userName／roles／password／status 欄**（結構性防身分滲入）。
+`{ nickName?, userGender?("1"|"2"), userPhone?, userEmail? }`——Some 才 Set、未帶 Unchanged；全 None→提前 no-op（零時戳 bump）；值域外 gender→None 不動；**DTO 無 id／userName／roles／password／status 欄**（結構性防身分滲入）。
 
 ### 3.3 GET /userCenter/getPasswordPolicy → `Res<Vec<{settingKey, settingValue}>>`
 
@@ -74,7 +74,8 @@ getProfile 標的消失→Internal 5000（比照 getUserInfo 分工、自拍 2�
 ## §4 changePassword 固定序（狀態轉移；R5 定稿）
 
 ```text
-【鎖外】find_active_by_id → confirm==new → verify(old, phc)[argon2] → new≠old[明文比對]
+【鎖外】find_active_by_id［★sys_user 無此讀端、須新建：鏡像 sys_role.rs:96 範式（濾 deleted_at、無鎖）］
+     → confirm==new → verify(old, phc)[argon2] → new≠old[明文比對]
      → load_policy[7 鍵單快照] → validate_against_policy(含 user_name) → hash(new)[argon2]
 【txn】 advisory_lock_user_db(uid)[與 login/refresh 共鎖]
      → find_active_by_id_for_update 重讀［查無→userNotFound］
@@ -82,7 +83,7 @@ getProfile 標的消失→Internal 5000（比照 getUserInfo 分工、自拍 2�
      → UPDATE password＋updated_at/by
      → revoke_others_of_user(keep=claims.sid) → 逐 sid session_event(revoked, password_reset)
      → op-log(ResetPassword, {id, user_name})
-【commit 後】broadcast_revocation(8888) best-effort
+【commit 後】broadcast_revocation(8888) best-effort［★層歸屬：facade 回傳被撤 sids、廣播由 handler 呼叫——照 reset_password 既有分層］
 ```
 
 任一步失敗＝整體無副作用（密碼不變、session 不變、稽核不落——txn 前失敗零寫入、txn 內失敗整體 rollback）。

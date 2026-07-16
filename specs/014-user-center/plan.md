@@ -26,7 +26,7 @@
 
 **Constraints**: UI 與 rev3 逐項一致（user 拍板硬約束）；零 migration／零新錯誤碼（全 2222）／零新依賴；島 I1/I2/I5 合規；fork-delta（index.vue 修改型 inline＋新檔圈界）；三語＋Schema 鏡像機器一致
 
-**Scale/Scope**: 單頁 4 卡＋4 新端點＋facade 3 支新建＋getUserRoutes 白名單附掛＋i18n 29 鍵×3 語＋2 新拒因鍵×3 語＋1 成功 toast 鍵×3 語
+**Scale/Scope**: 單頁 4 卡＋4 新端點＋facade 3 支新建＋getUserRoutes 白名單附掛＋i18n 29 承襲鍵×3 語＋3 新拒因鍵×3 語＋1 成功 toast 鍵×3 語
 
 ## Constitution Check
 
@@ -36,7 +36,7 @@
 |---|---|---|
 | Q1 | 違反 §I.1 base-web 為權威？rust-api 未提供 base-web 用到的端點？ | **否（前後端同刀交付）**。`/userCenter/{getProfile,updateProfile,getPasswordPolicy,changePassword}` 4 端點全新建（rev4 首個 auth-only 業務端點家族）；契約以 rev3 as-built 為藍本隨刀定稿（camelCase wire、`Res<T>` 信封）；前端消費面與端點面同刀、無先後斷差。 |
 | Q2 | 動 base-web inline？屬 §III.2 哪個用途？授權邊界內？依 fork-delta 紀律？ | **是、頁本體落 (g) 既有用途，i18n 一處須隨刀 Amendment**：①`views/user-center/index.vue` 改寫＋`modules/*` 4 卡＝MODAL-WIRING **(g)**「非-manage 頂層自助頁」字面**全涵蓋**（profile 自助檢視／編輯＋改密＋驗證 UI 佔位、auth-only 端點、hideInMenu:true）——零新用途款；②**page.userCenter.\* 29 鍵三語＋App.I18n.Schema 鏡像＝(g) 擴字串 Amendment 候選**（(g) 字面不含「＋對應 i18n key」、(c)(d)(e)(h)(i) 五用途全明寫對照顯著；MINOR、照 v1.11.0 (d) 擴字串前例）；③WRAPPER/ADAPT（`rev4-user-center.ts`／`rev4-user-center.d.ts`）＝§III.1 新檔零原行；④index.vue＝**修改型 inline**（基線 7 行 LookForward 佔位頁、`原行:` 逐字標）；⑤locale 三檔＋app.d.ts 增量走 `rev4-inline` 圈界；⑥`backend.biz.user.*` 新拒因鍵（oldPasswordMismatch／passwordMismatch／passwordSameAsOld）＝I18N-WIRING **(ii)(iii)** 既有 backend 命名空間資料級補完。 |
-| Q3 | menu 顯示走 Casbin enforce？ | **是、含一筆憲法內頁級豁免**。user-center `hideInMenu:true`＝(g) 明文「非 Casbin menu、經頭像下拉入口」——此頁不顯示於選單、§I.2「有權才顯示」的選單顯示語意不觸發；**路由可達性**走 getUserRoutes 恆附掛 self-service 白名單（ADR 0065：casbin 過濾結果之後聯集、業務 menu 的 Casbin 過濾零改動、白名單擴充紀律鎖死 RBAC 資源頁禁入）；既存 `p|R_SUPER|user-center|menu` 列保留（聯集下冗餘無害、硬刪屬 B-060 seed 移除軌道）。 |
+| Q3 | menu 顯示走 Casbin enforce？ | **是、含一筆憲法內頁級豁免**。user-center＝(g) 明文「`hideInMenu:true`、經頭像下拉入口、非 Casbin menu」——此頁不顯示於選單、§I.2「有權才顯示」的選單顯示語意不觸發；**路由可達性**走 getUserRoutes 恆附掛 self-service 白名單（ADR 0065：casbin 過濾結果之後聯集、業務 menu 的 Casbin 過濾零改動、白名單擴充紀律鎖死 RBAC 資源頁禁入）；既存 `p|R_SUPER|user-center|menu` 列保留（聯集下冗餘無害、硬刪屬 B-060 seed 移除軌道）。 |
 | Q4 | wire 對齊 §I.3 權威序與不變式？ | **是**。envelope `{data,code,msg}` 凍結形不動；**4 新 route→registry +4＋contract case 4 筆**（get-profile／update-profile／get-password-policy／change-password、`Protection::Authed`、缺 case 即紅）；拒因全 **2222**＋msg=i18n key（政策違規沿 011 `BizData("biz.user.passwordPolicy", violations)` 明細形＋`passwordViolation.*` 8 鍵三語已備；舊密不符／兩次不一致／新同舊三鍵新增於 biz.user.* 域）；id i64→JSON number 2^53 守衛；時間 RFC3339 帶 offset；getProfile 回應**零密碼零會話識別**（島 I5 三重不洩）。 |
 | Q5 | 從前代 source 拷貝 code？ | **否**。rev3 025 為受控參照不拷貝（§I.5）；承襲結論清單載 brainstorm §0.1（含 rev3 已知坑防重踩：confirm rule toRef／radio 切換清憑證／F-6 並發假報修形／F-2 ORDER BY）；**不可照抄四處明列**：①update_own_profile 須島 I1 advisory lock（rev3 無鎖）②changePassword 時序須島 I5 合規（rev3 無此約束；鎖外 verify/hash、鎖內 phc 純比對）③user_gender 走 rev4 `wire_enum12` 形（rev3 裸 i16 繞過 rev4 wire 不變式）④錯誤鍵落 rev4 `biz.user.*` 域（rev3 為 biz.password.* 域＋notFound 鍵名不同）。 |
 | Q6 | 抵觸 §II 拍板？ | **否**。#1 unknown header／#2 dynamic route／#3 `/api` 前綴皆照現制消費、不涉。 |

@@ -5,7 +5,7 @@
 ## R1 密碼政策 7 鍵常數同源（SYNTH 缺口 1）
 
 - **Decision**: getPasswordPolicy 端點的 allowlist 直接復用 `model/password.rs` 既有 `KEY_*` 常數（`password_min_length`／`password_max_length`／`password_require_{lowercase,uppercase,digit,special}`／`password_forbid_username`、行 76 起）——將 7 鍵常數 pub 化（或聚合為 `pub const PASSWORD_POLICY_KEYS: [&str; 7]`），端點過濾與 `load_policy`（行 168 起、`find_by_keys` 單快照）同源。
-- **Rationale**: 防兩處字面漂移（brainstorm §3.2 明載）；`load_policy` 已是 7 鍵單語句快照讀（FR-026 範式）、allowlist 同組零新語意。
+- **Rationale**: 防兩處字面漂移（brainstorm §3.2 明載）；`load_policy`（password.rs:171 起）已是 7 鍵單語句快照讀（011 spec FR-026 範式、島 I5 政策鍵單一快照）、allowlist 同組零新語意。
 - **Alternatives considered**: 端點內另寫字面陣列（rev3 形）——兩處漂移風險、棄。
 
 ## R2 ROUTES／contract case 慣例（SYNTH 缺口 2）
@@ -28,7 +28,7 @@
 
 ## R5 change_own_password 固定序（島 I1/I2/I5 合規）
 
-- **Decision**: 鎖外＝預讀列（find_active_by_id）→confirm==new→verify(old, phc)（argon2、鎖外）→**new≠old 明文比對**（改密端點固有規則、非政策鍵）→load_policy＋validate_against_policy（含 user_name）→hash(new)（鎖外）。txn 內＝advisory_lock_user_db（與 login/refresh 共鎖）→find_active_by_id_for_update 重讀（查無→notFound）→**phc 純字串比對**（與鎖外 verify 所讀一致；已變→oldMismatch 誠實拒）→UPDATE password＋updated_at/by→revoke_others_of_user(txn, uid, keep=claims.sid)→逐 sid session_event(revoked, password_reset)→op-log（password redacted）→commit→broadcast_revocation 8888 best-effort。
+- **Decision**: 鎖外＝預讀列（`sys_user::find_active_by_id`——★rev4 現無此讀端、須新建：鏡像 sys_role.rs:96 範式〔濾 deleted_at、無鎖〕）→confirm==new→verify(old, phc)（argon2、鎖外）→**new≠old 明文比對**（改密端點固有規則、非政策鍵）→load_policy＋validate_against_policy（含 user_name）→hash(new)（鎖外）。txn 內＝advisory_lock_user_db（與 login/refresh 共鎖）→find_active_by_id_for_update 重讀（查無→notFound）→**phc 純字串比對**（與鎖外 verify 所讀一致；已變→oldMismatch 誠實拒）→UPDATE password＋updated_at/by→revoke_others_of_user(txn, uid, keep=claims.sid)→逐 sid session_event(revoked, password_reset)→op-log（password redacted）→commit→broadcast_revocation 8888 best-effort。
 - **Rationale**: 島 I5「密碼雜湊 MUST NOT 於持有列鎖期間計算」＋島 I2 登入款「純比對不重跑雜湊」範式（auth.rs:279 先例）＋島 I1 lock-then-redecide；對抗審查 blocker 4 的修正結論；`revoke_others_of_user` 既存（facade/sys_token.rs:143）。
 - **Alternatives considered**: 鎖內 argon2 verify（brainstorm 初稿）——觸島 I5 字面、對抗審查否決。
 
@@ -40,7 +40,7 @@
 
 ## R7 rev3 前端承襲與不可照抄清單
 
-- **Decision**: 承襲＝brainstorm §0.1 全清單（四卡骨架／NGrid 1 s:2／label-width 100·76 刻意差異／radio 三選切換清憑證＋type 翻轉／toRef confirm rule／buildPolicyRules 演算法／部分更新形／佔位三處＋comingSoon toast／.uc-readonly 純文字／三態後綴／直接路徑 import）。**不可照抄四處**：島 I1 鎖（後端）／島 I5 時序（後端）／user_gender 走 `wire_enum12` 字串 1|2 形（handler/user.rs:226-242 範式、值域外 None 不動）／錯誤鍵 rev4 域名（biz.user.userNotFound 等）。前端行為增補三處＝D3 成功 toast 專屬鍵／D4 forbid_username 第 7 鍵即時提示／clarify 新≠舊即時提示（舊密碼驗證方式下比對 credential 欄）。
+- **Decision**: 承襲＝brainstorm §0.1 全清單（四卡骨架／NGrid 1 s:2／label-width 100·76 刻意差異／radio 三選切換清憑證＋type 翻轉／toRef confirm rule／buildPolicyRules 演算法／部分更新形／佔位三處＋comingSoon toast／.uc-readonly 純文字／三態後綴／直接路徑 import）。**不可照抄四處**：島 I1 鎖（後端）／島 I5 時序（後端）／user_gender 走 `wire_enum12` 字串 1|2 形（handler/user.rs:226-232 範式＋`i16_to_wire`、值域外 None 不動）／錯誤鍵 rev4 域名（biz.user.userNotFound 等）。前端行為增補三處＝D3 成功 toast 專屬鍵／D4 forbid_username 第 7 鍵即時提示／clarify 新≠舊即時提示（舊密碼驗證方式下比對 credential 欄）。
 - **Rationale**: user 拍板「UI 全部要一樣」＝版面層逐項復刻；行為增補皆非版面變動（brainstorm D3/D4＋clarify 親決）。
 
 ## R8 i18n 面與 amendment 字面
@@ -51,7 +51,7 @@
 
 ## R9 「新密碼＝舊密碼」規則落點（clarify 親決）
 
-- **Decision**: 落 handler 固定驗證序第 4 步（舊密正確之後、政策之前）、`req.new_password == req.old_password` 明文比對；拒因 `biz.user.passwordSameAsOld`（2222）；前端 form rule 同步（僅舊密碼驗證方式下比對）。**MUST NOT 入 `validate_against_policy`**——單一驗證點由建帳／管理員重設共用、彼等無舊密可比，入點即分叉（spec 治理節明文）。
+- **Decision**: 落 **facade 固定序**第 4 步（舊密正確之後、政策之前；handler 僅欄位反序列化與拒因映射）、`new_password == old_password` 明文比對；拒因 `biz.user.passwordSameAsOld`（2222）；前端 form rule 同步（僅舊密碼驗證方式下比對）。**MUST NOT 入 `validate_against_policy`**——單一驗證點由建帳／管理員重設共用、彼等無舊密可比，入點即分叉（spec 治理節明文）。
 - **Rationale**: clarify 2026-07-17 user 親決；ADR 0054 零分叉不變式。
 - **Alternatives considered**: 政策鍵化（password_forbid_same_as_old 設定）——無人要求可配置性、YAGNI 棄。
 

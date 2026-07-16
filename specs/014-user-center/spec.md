@@ -12,7 +12,7 @@
 
 ### Session 2026-07-17（brainstorm 階段逐題親決，摘錄影響 scope 者）
 
-- Q: 承襲範圍？ → A: **rev3 025-user-center 全頁承襲、UI 全部要一樣**（含 profile 編輯與驗證碼預留 UI；rev3 為受控參照不拷貝）。
+- Q: 承襲範圍？ → A: **rev3 025-user-center 全頁承襲、UI 全部要一樣**（含 profile 編輯與驗證碼預留 UI〔即後文之驗證碼佔位控件〕；rev3 為受控參照不拷貝）。
 - Q: 非-super 選單可達性（兩庫親驗 casbin menu policy 僅 R_SUPER 一列、rev3 同病）？ → A: **D1＝getUserRoutes 恆附掛 self-service 路由白名單**（寫死常數、現僅 user-center；任何登入角色必得、新角色永不漏；憲法錨點＝§III.2(g)「非 Casbin menu」頁級豁免；ADR 0065 draft）。
 - Q: 改密政策違規拒因訊息形？ → A: **D2＝rev4 BizData 明細形**（toast 逐條列違規、複用 biz.user.passwordPolicy＋violations；表單內即時驗證維持 rev3 統一單句）。
 - Q: 改密成功 toast？ → A: **D3＝加撤 session 揭露**（專屬文案「密碼已更新，其他裝置已登出」、新鍵三語）。
