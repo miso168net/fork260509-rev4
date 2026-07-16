@@ -167,6 +167,11 @@ SEED_ADDITIVE_ALLOWLIST = {
     # 012-audit-admin m009（getSessionEvent GET＋purgeAuditLog POST、全 R_SUPER；natural key＝ptype+v0..v5 七元組）
     ("casbin_rule", ("p", "R_SUPER", "/systemManage/getSessionEvent", "GET", "", "", "")),     # 012 m009
     ("casbin_rule", ("p", "R_SUPER", "/systemManage/purgeAuditLog", "POST", "", "", "")),      # 012 m009
+    # 013-ip-rule-admin m010（4 按鈕碼 p 列、全 R_SUPER；natural key＝ptype+v0..v5 七元組；ADR 0063）
+    ("casbin_rule", ("p", "R_SUPER", "ipRule:add", "button", "", "", "")),      # 013 m010
+    ("casbin_rule", ("p", "R_SUPER", "ipRule:edit", "button", "", "", "")),     # 013 m010
+    ("casbin_rule", ("p", "R_SUPER", "ipRule:delete", "button", "", "", "")),   # 013 m010
+    ("casbin_rule", ("p", "R_SUPER", "ipRule:restore", "button", "", "", "")),  # 013 m010
 }
 
 # ---- 閘 2 seed 面：既有 seed 列內容變更受管軌道（ADR 0064）----
@@ -179,6 +184,14 @@ SEED_ADDITIVE_ALLOWLIST = {
 # 絕非跳過該格不比；fixture 保持 byte 級凍結不改寫；白名單外任何既有列內容差異仍 FAIL。
 # 逐筆登記須 ADR／spec 留痕（首筆＝013 m010 buttons 回填、隨該刀 seed 登記）。
 SEED_CONTENT_OVERRIDE_ALLOWLIST = {
+    # 013-ip-rule-admin m010（首筆；ADR 0063/0064）：manage_ip-rule 列 buttons 自 NULL 回填
+    # 四按鈕碼——★物件形 {code, desc}（all_button_codes 逐元素取 code；desc＝m002 既有簡體風格）。
+    ("sys_menu", "route_name=manage_ip-rule", "buttons"): [
+        {"code": "ipRule:add", "desc": "新增IP规则"},
+        {"code": "ipRule:edit", "desc": "编辑IP规则"},
+        {"code": "ipRule:delete", "desc": "删除IP规则"},
+        {"code": "ipRule:restore", "desc": "恢复IP规则"},
+    ],
 }
 
 # ---- audit 變體矩陣（contracts §4）----
