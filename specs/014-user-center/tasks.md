@@ -30,7 +30,7 @@
 
 ## ★★ 治理前置 GATE（起 Phase 2 T007 起全部任務前 MUST 完成）
 
-**§III.2 (g) 擴字串涵蓋「＋對應 i18n key」（page.userCenter.\* 射程＝29 承襲鍵＋D3 成功 toast 鍵、命名空間共 30 鍵）＋ADR 0065（getUserRoutes 恆附掛白名單、US3 依賴）**
+**§III.2 (g) 擴字串涵蓋「＋對應 i18n key」（page.userCenter.\* 射程＝29 承襲鍵＋D3 成功 toast 鍵、命名空間共 30 鍵〔★U4 勘誤 2026-07-17：D2 統一單句鍵缺口經 user 親決 A 案補 `pwdPolicyNotMet`、命名空間實為 31 鍵；(g) 正文「＋對應 i18n key」無鍵數綁定、30 為親決當時盤點〕）＋ADR 0065（getUserRoutes 恆附掛白名單、US3 依賴）**
 → 親決 gate 照 013 判例提前（T001~T006 純型骨架與新檔地基、不依賴、可先行）。
 
 MUST 完成（§V.2 程序、user 親決）：
@@ -109,7 +109,7 @@ MUST 完成（§V.2 程序、user 親決）：
 
 **Independent Test**: 三語切換全頁與改密全流程零 raw key。
 
-- [ ] T021 [US4] 三語全表審校：zh-TW 30 鍵（29 承襲＋D3 toast）在地化用語覆核（儲存／信箱／手機號碼／正體標點）＋zh-CN 與 rev3 底本逐字對帳＋en 語法覆核＋前端「兩次輸入密碼不一致」form-rule 鍵與後端拒因鍵**並存不混併**確認＋`$t` 引用零 raw key 靜態掃描 in `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts`
+- [ ] T021 [US4] 三語全表審校：zh-TW 31 鍵（29 承襲＋D3 toast＋D2 統一單句 pwdPolicyNotMet〔U4 勘誤、user 親決 2026-07-17〕）在地化用語覆核（儲存／信箱／手機號碼／正體標點）＋zh-CN 與 rev3 底本逐字對帳＋en 語法覆核＋前端「兩次輸入密碼不一致」form-rule 鍵與後端拒因鍵**並存不混併**確認＋`$t` 引用零 raw key 靜態掃描 in `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts`
 
 **Checkpoint**: typecheck 綠（Schema 鏡像）＋三檔鍵集 diff 一致。
 

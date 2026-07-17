@@ -26,7 +26,7 @@
 
 **Constraints**: UI 與 rev3 逐項一致（user 拍板硬約束）；零 migration／零新錯誤碼（全 2222）／零新依賴；島 I1/I2/I5 合規；fork-delta（index.vue 修改型 inline＋新檔圈界）；三語＋Schema 鏡像機器一致
 
-**Scale/Scope**: 單頁 4 卡＋4 新端點＋facade 3 支新建＋getUserRoutes 白名單附掛＋i18n 29 承襲鍵×3 語＋3 新拒因鍵×3 語＋1 成功 toast 鍵×3 語
+**Scale/Scope**: 單頁 4 卡＋4 新端點＋facade 3 支新建＋getUserRoutes 白名單附掛＋i18n 29 承襲鍵×3 語＋3 新拒因鍵×3 語＋1 成功 toast 鍵×3 語＋1 D2 統一單句鍵×3 語（pwdPolicyNotMet——U4 勘誤：盤點缺口、user 親決 2026-07-17 A 案補鍵）
 
 ## Constitution Check
 

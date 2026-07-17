@@ -45,7 +45,7 @@
 
 ## R8 i18n 面與 amendment 字面
 
-- **Decision**: `page.userCenter.*` 29 鍵（rev3 30 鍵砍死鍵 changePwdBtn）×3 語＋`App.I18n.Schema` 鏡像；新鍵 3 枚入 `backend.biz.user.*`（oldPasswordMismatch／passwordMismatch／passwordSameAsOld）＋改密成功 toast 專屬鍵（page.userCenter 命名空間內）；zh-TW 在地化轉寫（儲存／信箱／手機號碼）、zh-CN 底本＝rev3 逐字、en 照 rev3 底本潤飾。Amendment 候選字面＝§III.2(g) 於「消費 auth-only 自助端點（operator＝本人）」後加「＋對應 i18n key」（照 (c)(d)(e)(h)(i) 五用途同形；MINOR v1.11.0→v1.12.0）。
+- **Decision**: `page.userCenter.*` 29 鍵（rev3 30 鍵砍死鍵 changePwdBtn）×3 語＋`App.I18n.Schema` 鏡像；新鍵 3 枚入 `backend.biz.user.*`（oldPasswordMismatch／passwordMismatch／passwordSameAsOld）＋改密成功 toast 專屬鍵（page.userCenter 命名空間內）＋D2 統一單句鍵 pwdPolicyNotMet（★U4 勘誤 2026-07-17：本節原盤點漏列表單即時驗證統一單句所需鍵——rev3 tooWeak 屬 backend 域、被歸「明細管線零工作」；user 親決 A 案補於 page.userCenter 域、三語照 rev3 tooWeak 逐字）；zh-TW 在地化轉寫（儲存／信箱／手機號碼）、zh-CN 底本＝rev3 逐字、en 照 rev3 底本潤飾。Amendment 候選字面＝§III.2(g) 於「消費 auth-only 自助端點（operator＝本人）」後加「＋對應 i18n key」（照 (c)(d)(e)(h)(i) 五用途同形；MINOR v1.11.0→v1.12.0）。
 - **Rationale**: 對抗審查 blocker 5＋013 v1.11.0 (d) 擴字串判例（字面縫隙以擴字串正名、不走寬讀）。
 - **Alternatives considered**: 寬讀「(g) 授權頁面隱含 i18n」——五用途明寫對照下站不住、棄。
 

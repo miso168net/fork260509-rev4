@@ -57,5 +57,5 @@ ROUTES registry **+4**；`server/tests/contract.rs` 各一筆結構斷言（缺 
 ## i18n 新鍵對帳（隨 amendment 親決後落地）
 
 - `backend.biz.user.{passwordMismatch, oldPasswordMismatch, passwordSameAsOld}` ×3 語（I18N-WIRING (ii)(iii)）。
-- `page.userCenter.*` 29 鍵＋改密成功專屬 toast 鍵（含「其他裝置已登出」語意）×3 語＋App.I18n.Schema 鏡像（(g) 擴字串 amendment 射程）。
+- `page.userCenter.*` 29 鍵＋改密成功專屬 toast 鍵（含「其他裝置已登出」語意）＋D2 統一單句鍵 `pwdPolicyNotMet`（U4 勘誤、user 親決 2026-07-17）×3 語＋App.I18n.Schema 鏡像（(g) 擴字串 amendment 射程）。
 - 既有零工作：`route.user-center`／`common.userCenter`／`backend.biz.user.passwordViolation.*` 8 鍵。
