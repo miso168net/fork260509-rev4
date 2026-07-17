@@ -2,7 +2,7 @@
 id: "0067"
 title: 密碼經手表 sys_pwd_custody＋首登強制換密（鎖態 token 硬閘）——B-030 兌現選型
 date: 2026-07-17
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-17 015-pwd-custody brainstorm——四鏡頭偵察（wf_ddcc0b57）＋user 親決 8 題（含經手表模型與一體適用規則兩次 user 主動規則升級）；ADR 0055 殘餘義務兌現"

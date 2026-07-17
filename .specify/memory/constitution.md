@@ -25,7 +25,7 @@
 **含義**：
 - 業務 menu 走 `/route/getUserRoutes` → 後端 Casbin enforce 過濾 → 前端顯示
 - demo menu 處理：demo view **全部進 `sys_menu` seed、初始僅勾給 `R_SUPER`**——全集完整、可見性由角色勾選層（casbin menu 維度）治理下放；`hideInMenu`／頁面排除等前端隱藏機制**皆不啟用**
-- constantRoutes（login／404／403）前端寫死、與 menu 無關、不動
+- constantRoutes（login／404／403）前端寫死、與 menu 無關、不動；constant route 集合可經 §III.2 授權新增（如 (k) 強制改密頁）——builtin 三頁不動與 Casbin 豁免語意不變
 
 ### I.3 wire 契約權威序與不變式（NON-NEGOTIABLE）
 
@@ -130,12 +130,13 @@
   - **H3 樹結構不變式**：選單樹恆無環（改父層 MUST 過防環檢查）；活性子項 MUST NOT 掛於已軟刪父層之下；受保護種子選單 MUST NOT 可刪；存在未刪子項（不論啟用停用）之目錄 MUST NOT 可刪；批次刪除逐項驗證、任一違規**整批拒**（no-partial、單一交易、child-first 拓撲序）。此對偶島 G4 之選單實體側。
   - **H4 不可變錨欄與治理域／顯示域分層**：`route_name`（授權列 v1 錨／i18n 錨）與 `menu_type` 建後不可變（寫端 MUST 顯式拒變更、MUST NOT 靜默忽略）；選單讀端分兩域——**治理域**（授權候選與映射）以「未軟刪」全集為準（含停用）、**顯示域**（使用者可見性）以「啟用且未軟刪」為準；停用 MUST NOT 使全量替換語意誤撤停用選單的授權（停用＝暫時下架、非撤銷）。
   - **H5 復原不回灌**：選單復原 MUST 於序列化域內鎖定並重驗守門（同路由鍵活性衝突／父層未刪）；復原 MUST NOT 回灌任何授權——復原後選單零授權，可見性一律經授權面板重新勾選下放（與新增選單之兩步流一致）。
-- **島 I — 使用者域治理**（011、ADR 0053 總綱／0054 密碼政策）
+- **島 I — 使用者域治理**（011、ADR 0053 總綱／0054 密碼政策；I6＝015、ADR 0067）
   - **I1 統一序列化與固定鎖序**：一切以既有使用者為標的之使用者域寫端（含撤 session 者：更新、刪除、批刪、重設密碼、踢除、復原、會話策略）MUST 於交易起手取得與登入／換發同源的每使用者序列化鎖（DB 交易級 advisory 鎖、key＝使用者識別、與 login/refresh 共鎖）；域內固定鎖序 MUST 為①標的使用者列 `FOR UPDATE`（復原用已刪列版）→②角色列（僅指派路、識別升序、複用角色域鎖讀）→③指派列寫入，禁反向；一切守門判定 MUST 鎖內重驗（lock-then-redecide、永不信 pre-read；與島 G5／B2／H1 同範式）。新增使用者豁免每使用者鎖（新識別對並發不可見；並發同名保護＝帳號名活性唯一約束）。帳號名活性 partial-uniq 索引為復原同名衝突守門之顯式前提。★方向反轉（拆散統一序列化、改回無鎖 pre-read）＝MAJOR。
   - **I2 撤銷連動同交易＋權威優先＋登入鎖內重驗**：停用／刪除／改密 MUST 同交易撤銷標的使用者全部既有 session（撤銷類、靜默）〔★釋義：操作者＝標的之改密＝撤銷全部**其他** session、保留當前操作 session（不自斷）；出處 011 FR-025／ADR 0055 不變式〕；踢除＝踢除類（阻斷）；兩類體驗碼 MUST NOT 互換。動作序 MUST 權威優先（業務寫＋session 作廢＋稽核同交易落定→commit→失效廣播 best-effort、存活時間覆蓋換發憑證壽命）；即時性契約＝廣播成功即時、失敗殘留窗上界 access token 壽命（換發期活性守門兜底、沿島 C fail-open），MUST NOT 為此新增每請求活性判定。登入流程 MUST 於序列化鎖內、發 token 前重讀標的列並重驗活性與密碼雜湊（與驗證階段所讀一致、純比對不重跑雜湊），任一不符 MUST 中止不發 token；換發流程 MUST 於換發憑證列鎖內重驗使用者活性（不另重驗密碼雜湊）；被合法撤銷者換發 MUST 靜默拒絕、MUST NOT 誤判為憑證盜用。★方向反轉（拔登入鎖內重驗、改廣播優先）＝MAJOR。
   - **I3 seed 帳號結構保護**：前三個種子帳號 MUST 不可刪；第一個（Super）MUST 恆禁停用、恆禁解除其超管角色指派（不因操作者身分而異）——系統恆有至少一個活躍且啟用的超級管理員（結構保證、不需動態計數）；Super MAY 被踢除、被重設密碼。操作者 MUST NOT 刪除／停用／踢除自己、MUST NOT 變更自己的角色指派。
   - **I4 刪除清指派＋復原不回灌**：使用者軟刪 MUST 同交易硬刪其全部角色指派列（零幽靈掛載、角色域掛載計數守門保持誠實）；復原 MUST NOT 回灌任何指派（復原後零角色、須重新指派）、狀態保留刪除前原值；同帳號名重建之新使用者 MUST NOT 經任何路徑繼承舊實例角色。批次刪除逐項驗證、任一違規（含已刪識別）**整批拒**（fail-fast、單一交易、識別去重升序取鎖）。
   - **I5 密碼政策單一驗證點＋密碼三重不洩**：密碼政策驗證 MUST 為單一驗證點（建帳與重設共用、零分叉）、政策鍵單一快照讀取；長度單位＝字元、另加固定位元組上界 ≤登入端形制上限；「禁止密碼與帳號名相同」＝大小寫不敏感相等。密碼明文與雜湊 MUST NOT 洩漏於任何面：承載密碼之 DTO 除錯輸出 MUST 遮蔽（不得預設印出）；操作稽核 payload MUST NOT 含密碼明文／雜湊／會話識別；API 回應 MUST NOT 含密碼與會話識別（列表逐欄構造、不序列化原始列）；密碼雜湊 MUST NOT 於持有列鎖期間計算。★方向反轉（拆單一驗證點、拔遮蔽）＝MAJOR。
+  - **I6 密碼經手與首登強制換密**（015、ADR 0067）：經手判定單一規則——標的名下存在任一筆「操作者≠標的」經手記錄→登入後強制換密；判定 MUST 登入後動態求值（非簽發時快照）且收斂為單一純函式 seam 三處共用（身分投影／API 硬閘／測試）、MUST NOT 各處內聯分叉。寫入規則 MUST 與密碼更新同交易原子：他人設密＝upsert 該（標的×操作者）對；本人改密＝全刪標的名下全部經手記錄＋寫一筆自改記錄（「全刪」範圍恆＝標的名下、絕非操作者名下）。設密冷卻＝端點固有規則——排各端點既有拒因全過之後、鎖內、UPDATE 前，MUST NOT 入 I5 單一驗證點；一體適用零例外（含強制換密狀態下本人改密）、拒絕提示攜剩餘秒數。強制換密硬閘 MUST 僅放行改密必需白名單（改密／政策讀取／本人身分／路由查詢；登出與憑證換發結構性不經閘）且 MUST 同時覆蓋一般已認證與帶權限管理端點。★硬閘每請求 EXISTS 判定與島 I2「MUST NOT 為此新增每請求活性判定」之射程區隔：該禁令限撤銷即時性（session 活性）、custody 閘＝改密強制判定、不在其射程。
 - **島 J — 稽核域 reporting 與 retention**（012、ADR 0057 四源讀端／0058 purge 執行面／0059 PII 打碼／0060 access-log 寫入端）
   - **J1 讀端 read-only＋僅超管**：稽核查詢面（操作日誌／存取軌跡／登入嘗試／會話事件四源）MUST 純唯讀（handler 零業務寫入、零狀態變更；存取軌跡由統一記錄層承載、非查詢職責）且僅授權超級管理員；回應逐欄構造、不序列化原始列；資料源增減＝新 ADR。
   - **J2 access-log 寫入 fail-open**：存取軌跡記錄 MUST best-effort——寫入故障僅結構化告警、MUST NOT 影響業務請求成敗與延遲語意（與島 E1／F3 同向）；MUST NOT 記錄請求內文與查詢字串；未認證請求 MUST NOT 落列（構造保證＝記錄層位於認證下游＋created_by NOT NULL）；位址輸入取信任錨（島 F4）。★方向反轉（改 fail-closed／記 body・query）＝MAJOR。
@@ -177,9 +178,9 @@
 
 ### III.2 ★ 需 constitution 顯式授權軌道（本檔已授權）
 
-#### MODAL-WIRING ★ — 本檔授權十用途 (a)~(j)（(a)~(g)＝rev3 已落地驗證邊界一次全授、(h)＝011 Amendment、(i)＝012 Amendment、(j)＝B-104 Amendment；**新用途 (k) 起走 Amendment**）
+#### MODAL-WIRING ★ — 本檔授權十一用途 (a)~(k)（(a)~(g)＝rev3 已落地驗證邊界一次全授、(h)＝011 Amendment、(i)＝012 Amendment、(j)＝B-104 Amendment、(k)＝015 Amendment；**新用途 (l) 起走 Amendment**）
 
-**邊界**：`base-web/src/views/manage/**` 內〔(a)~(f)、(h)~(i)；(g)(j) 為樹外例外〕——
+**邊界**：`base-web/src/views/manage/**` 內〔(a)~(f)、(h)~(i)；(g)(j) 為樹外例外；(k) 跨樹內外〕——
 - **(a)** `// request` placeholder 接線：`modules/*-operate-{modal,drawer}.vue`（create/update）與 `index.vue` 的 delete/batchDelete handler，及同頁 `modules/*-auth-modal.vue` 既有 placeholder 接線；附屬模板行為小修（如 search reset 補 emit('search')）同屬本用途（ADR 0048）；create/update 接線所必要之表單控件屬本用途（如 user drawer add 模式密碼欄＋政策提示、edit 模式 session_policy 選擇器——payload 必要欄之輸入載體），仍限既有 operate-modal/drawer 檔內、不含新 modal（ADR 0053）
 - **(b)** 業務頁操作按鈕 `hasAuth(<button_code>)` 可見性 gating：`index.vue` 操作鈕 `v-if` 與共用元件 `table-header-operation.vue` 的附加顯隱 prop
 - **(c)** 同模式新權限 modal＋trigger：角色編輯區新增 `*-auth-modal.vue`（鏡像 menu/button-auth-modal）＋觸發鈕＋對應 i18n key——嚴格限「角色 × 某權限維度」runtime 編輯介面
@@ -190,9 +191,10 @@
 - **(h)** manage 頁維運動作：`views/manage/user/index.vue` 頁首維運 modal 觸發鈕＋net-new `modules/user-unlock-modal.vue`（登入解鎖：dimension 選擇＋目標輸入→既有 unlockLogin 端點）＋operate 欄維運動作（kick／reset-pwd、NDropdown 收納）＋對應 i18n key——嚴格限「使用者頁既有後端維運端點之觸發 UI」、不擴張到新後端能力／任意新 UI（ADR 0053）
 - **(i)** 稽核中心唯讀報表頁：`views/manage/audit/index.vue` 一頁多分頁（NTabs 四源）唯讀報表佈局＋`modules/audit-search-*.vue` 搜尋卡（含時間區間選擇控件、全庫首例）＋`modules/audit-purge-modal.vue`（天數輸入＋二次確認→purge 端點）＋對應 route 與 i18n key——嚴格限「稽核四源唯讀查詢與其清理維運觸發 UI」、不擴張到任意新 UI／寫端管理功能（ADR 0057/0058）
 - **(j)** layout 上游缺陷修補：`src/layouts/modules/**` 與其配套樣式（`src/styles/css/transition.css`）之可重現上游 bug workaround——嚴格限「修復有重現法與行為對照記錄之上游缺陷、一案一 ADR」、**不擴張到 layout 重設計／新 UI／行為性新功能**（ADR 0066）
+- **(k)** 首登強制換密控制流：`views/_builtin/force-change-pwd/index.vue` 強制改密頁（constant route、hideInMenu、免曝光鏈）＋`build/plugins/router.ts` constantRoutes 名單觸點（修改型）＋`src/router/guard/route.ts` 全域攔截控制流（isLogin＋needChangePwd→改寫導向強制頁、置於路由存在性解析之先）＋`src/store/modules/auth/*` needChangePwd 承載 inline＋`views/manage/user/index.vue` operate 欄「密碼」動作與其隨機專用浮層觸發（(h) 維運動作同型擴充、沿用既有「重設密碼」按鈕碼）＋`views/manage/user/modules/user-operate-drawer.vue` add 密碼欄旁隨機鈕（(a) 接線必要控件同型）＋`views/user-center/modules/password-card.vue` 隨機鈕（(g) 本人自助射程確認）＋`src/components/` 產密浮層共用元件（新檔、新增型圈界——十用途原不涵蓋 src/components/、本款顯式授權）＋對應 i18n key——嚴格限「首登強制換密＋隨機產密」控制流與其掛載點、不擴張到任意新 UI／新攔截器控制流／其他 guard 邏輯（ADR 0067）
 
 **紀律**：
-- 嚴格限九用途，絕不擴張到其他 inline 邏輯；第 (j) 種用途 → §V.2 Amendment
+- 嚴格限十一用途，絕不擴張到其他 inline 邏輯；第 (l) 種用途 → §V.2 Amendment
 - **補完 vs 新能力判準**：既有授權頁內「單頁、純加、復用既有 wrapper、零新 key/元件/路由」四條件全中的 dispatcher 補完（如同頁補一種值型別的 render 控件分支）＝**用途補完、不 bump 本檔**；跨多頁新能力＝**須 Amendment**
   - **「零新 key」釋義**（ADR 0041）：指**新 i18n 命名空間／新元件／新路由等「面」級新增**；**不含**既有授權頁、既有子命名空間之下的**資料級 label key**（如 `page.manage.systemSettings.items.<newKey>` 三語譯文與型別鏡像）。★仍受約束：新增 top-level i18n 命名空間走 I18N-WIRING (ii)；route locale key 須隨建頁走；新元件／路由／跨頁能力仍須 Amendment；動 upstream 既有命名空間之下的 key 不在此釋義範圍。判準其餘三條件仍須全中。
 - 每改一處在 spec 內紀錄（位置＋改動內容＋upstream 衝突風險評估）
@@ -294,9 +296,10 @@
 
 ---
 
-**Version**: 1.13.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-17
+**Version**: 1.14.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-18
 
 **Amendment log**:
+- 1.14.0（2026-07-18）：§III.2 MODAL-WIRING **新用途 (k)** 首登強制換密控制流（強制改密頁 constant route＋constantRoutes 名單觸點 build/plugins/router.ts 修改型＋route guard 全域攔截＋auth store needChangePwd inline＋manage「密碼」動作與隨機專用浮層〔(h) 同型擴充、沿重設密碼按鈕碼〕＋add 抽屜隨機鈕〔(a) 接線必要控件同型〕＋user-center 改密卡隨機鈕〔(g) 自助射程確認〕＋src/components/ 產密浮層共用元件新檔〔新增型圈界〕＋對應 i18n key——兩檔位錨〔015 analyze U1〕）＋§I.2 constantRoutes 射程釋義一句（constant route 集合可經 §III.2 授權新增、builtin 三頁與 Casbin 豁免語意不變〔015 analyze C1〕）＋§I.7 島 I 新細項 I6 密碼經手與首登強制換密（經手判定單一規則純函式 seam／三入口同交易寫入＋全刪恆標的名下／冷卻端點固有規則不入 I5 單一驗證點＋一體適用零例外攜剩餘秒數／硬閘白名單語意含帶權限管理端點；硬閘每請求 EXISTS 與島 I2「MUST NOT 每請求活性判定」射程區隔＝該禁令限撤銷即時性）＋§III.2 紀律行「嚴格限九用途」→「嚴格限十一用途」失步勘誤（v1.13.0 加 (j) 時漏改）。ADR 0067（經手表 sys_pwd_custody 模型＋鎖態 token 硬閘選型；specify 期親決收斂＝冷卻一體適用零例外＋拒絕攜剩餘秒數、豁免殘句已刪）隨本 Amendment 轉 accepted；MINOR（§V.3「軌道授權邊界擴展（新用途）」＋「行為島隨刀進場（§I.7 填充）」）——觸發＝015-pwd-custody plan Constitution Check Q2/Q7/Q9（user 親決 2026-07-18、A 案照定稿全過）。
 - 1.13.0（2026-07-17）：§III.2 MODAL-WIRING **新用途 (j)** layout 上游缺陷修補（`src/layouts/modules/**`＋配套樣式 `transition.css`；嚴格限「有重現法與行為對照記錄之上游缺陷、一案一 ADR」、不擴張到 layout 重設計／新 UI／行為性新功能）——首案＝B-104：global-content 頁面切換 Transition（mode=out-in＋KeepAlive）快速連續導航 race 使 Vue BaseTransition state.isLeaving 卡 true、main 永久空渲染（僅整頁 F5 可復原；80ms 連打 14 次可重現、CDP 診斷證據鏈＋spike 實證存 ADR 0066）；workaround 選型 user 親決（2026-07-17）＝去 mode=out-in＋fade-slide-leave-active 加 position:absolute（並行交疊淡出、零版面跳動、isLeaving 卡死路徑根除）。ADR 0066 隨本 Amendment 轉 accepted；MINOR（§V.3「軌道授權邊界擴展（新用途）」）——觸發＝user 實機回報 bug＋輕量軌拍板（B-104 A 案改提前施工）。
 - 1.12.0（2026-07-17）：兩筆一次收（user 親決 2026-07-17）——①§III.2 MODAL-WIRING **(g) 擴字串**：用途加「＋對應 i18n key」（page.userCenter.* 射程＝29 承襲鍵＋改密成功 toast 鍵共 30；(c)(d)(e)(h)(i) 五用途本已明寫、014 前唯 (g) 獨缺＝字面縫隙以擴字串正名、013 v1.11.0 (d) 判例第四度）；②§I.7 **島 I2 釋義字面**：改密撤銷句補「操作者＝標的＝撤全部其他 session、保留當前操作 session（不自斷）」（照 1.6.0 島 E2 射程釐清前例＝已入憲 invariant 細項調整；意圖鏈本已完整——011 spec FR-025 MUST 字面＋as-built u9 keep-sid 測試錨定；★同時裁決 accepted ADR 互牴：ADR 0053 島 I2 內文「改密消費 revoke_all_of_user 不留 keep_sid」與 ADR 0055 不變式「保留當前操作 session」不一致、**以 0055 為準**——本釋義入憲後依 §V.1 字面優先壓住 0053 偏差句、0053 body 照 accepted 不可變紀律不動）。ADR 0065（getUserRoutes 恆附掛 self-service 路由白名單＝(g) 非 Casbin menu 頁級豁免在路由樹組裝層的實作；casbin 業務 menu 過濾零改動）隨本 Amendment 轉 accepted；MINOR（§V.3「軌道授權邊界擴展」＋「已入憲 invariant 細項調整」）——觸發＝014-user-center plan Constitution Check Q2/Q7＋analyze 一致性掃描 C1（HIGH、對抗覆核屬實：keep-sid 為 FR-005/SC-002 核心驗收、僅靠 ADR 寬讀撐字面 supremacy 站不穩）。
 - 1.11.0（2026-07-16）：§III.2 MODAL-WIRING **(d) 擴字串**——用途加「IP 規則回收桶復原」、錨點加 `views/manage/ip-rule/index.vue` 混排清單（含已刪列顯示與狀態欄辨識）之搜尋卡「狀態」三態過濾控件〔現役／已刪除／全部——★承載已刪視圖切換、取代 menu/user 的 toggle 形；搜尋卡之網段模糊／類型精確兩維仍屬 (e) 鏡像〕＋逐列 restore 鈕；標頭 (a)~(i) 用途款集不動（不立新用途 (j)）。★**零新行為島**（013 純消費島 F、不動判定邏輯——家族首刀）。ADR 0061 本 Amendment／0062 008 IP 規則讀端契約擴充〔getIpRuleList 三 filter＋IpRuleRecord 審計欄上 wire＋批次 enrich〕／0063 ip-rule RBAC 按鈕碼 seed＋sys_menu.buttons 回填〔B-083 行為級 forward-link、無機器強制之殘餘風險明載〕／0064 schema-gate seed 內容變更受管軌道 `SEED_CONTENT_OVERRIDE_ALLOWLIST`〔0062~0064 為 feature/工具級 ADR、非憲法變更，隨本 gate 同批轉 accepted〕——四筆隨本 Amendment 轉 accepted；MINOR（§V.3「軌道授權邊界擴展（新用途／新範圍）」；v1.8.0 擴 (d) 至 menu 頁、v1.9.0 擴 (d) 至 user 頁回收桶＝同判例第三度）——觸發＝013-ip-rule-admin plan Constitution Check Q2/Q7＋clarify Q1（搜尋卡加狀態三態）＋analyze D1（user 親決 2026-07-16「狀態三態下拉明寫進 (d) 錨點字面」——該控件承載已刪視圖切換、不寫則落 (d)/(e) 縫隙）。
