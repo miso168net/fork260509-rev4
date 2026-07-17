@@ -1,4 +1,4 @@
-<!-- next: L-146 -->
+<!-- next: L-148 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -134,3 +134,17 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   （「面板有碼但鈕不顯」）。防法：熱套後 restart rust-api 重載 enforcer＋前端重新登入刷新
   userInfo；prod 無此問題（migration 在容器啟動序、enforcer 必後於 seed 載入）。
   ｜出處：2026-07-16 013 U6 邊界 CDP 實證（restart 後四鈕即顯）。
+
+- L-146｜治理級決定不得以「主線裁決」名義烤進 sub-agent prompt——會被安全分類器判「指令注入」
+  整刀擋下（014 U4 實證：spec-review 升級「i18n 鍵落點需拍板」、主線自裁 A 案並把裁決段寫進
+  review/fix prompt 預壓複審→分類器以 Instruction Poisoning 攔截、零派發）。判準：憲法/GATE 字面
+  相鄰、user 可見行為、審查鏈明文要求拍板者＝真親決事項；正路＝AskUserQuestion 三案攤開讓 user 選、
+  拍板後在 prompt 記載「user 親決（日期）」並誠實分層（親決項 vs 主線工程判斷項）。
+  ｜出處：2026-07-17 014 U4（親決後 resume 一次過、複審自然通過）。
+
+- L-147｜i18n 混語全表對帳的 review agent 會觸發 LLM 輸出內容過濾（Output blocked by content
+  filtering policy）——014 U8 兩連擋、對 prompt 加「report 精簡令」無效（觸發在審查軌跡本體、
+  非最終 report）。防法：本質機器可驗的對帳（鍵集 diff／逐字比對／raw-key 掃描）不派 LLM 審——
+  主線寫確定性腳本（python）親跑同等斷言收口，零模型生成混語內容＝零誤傷面；LLM 審查留給
+  需要判斷力的面向。注意腳本判準自身的誤報（簡繁通用字字集過寬、間接引用未追蹤）需人工覆核。
+  ｜出處：2026-07-17 014 U8（implementer 審校結論最終由主線 python 對帳獨立複證、全數一致）。
