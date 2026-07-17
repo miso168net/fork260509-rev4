@@ -125,6 +125,8 @@ STRUCT_ADDITIVE_ALLOWLIST = {
     ("table", "session_event", None),                     # 006-session-lifecycle m004
     ("index", "sys_token", "uq_sys_token_chain_active"),  # 006-session-lifecycle m004
     ("table", "sys_pwd_custody", None),                   # 015-pwd-custody m011
+    ("index", "sys_access_log", "idx_access_log_path_trgm"),             # 012-audit-admin m009（015 U2 勘誤補登、L-148）
+    ("index", "sys_login_attempt", "idx_login_attempt_user_name_trgm"),  # 012-audit-admin m009（015 U2 勘誤補登、L-148）
 }
 
 # ---- 閘 2 seed 面（contracts §3）----
@@ -1355,11 +1357,13 @@ class TestStructAdditiveAllowlist(unittest.TestCase):
     """閘 1 結構 additive 白名單（ADR 0039）：白名單內多表／多索引＝容差 delta、
     白名單外＝仍 FAIL；只放寬「新增」、不放寬「改動」；零萬用字元。"""
 
-    def test_allowlist_exactly_three(self):
+    def test_allowlist_exactly_five(self):
         self.assertEqual(STRUCT_ADDITIVE_ALLOWLIST, {
             ("table", "session_event", None),
             ("index", "sys_token", "uq_sys_token_chain_active"),
-            ("table", "sys_pwd_custody", None)})
+            ("table", "sys_pwd_custody", None),
+            ("index", "sys_access_log", "idx_access_log_path_trgm"),
+            ("index", "sys_login_attempt", "idx_login_attempt_user_name_trgm")})
 
     def test_extra_table_allowlisted(self):
         self.assertTrue(is_allowlisted_struct_extra_table("session_event"))
@@ -1373,6 +1377,10 @@ class TestStructAdditiveAllowlist(unittest.TestCase):
     def test_extra_index_allowlisted(self):
         self.assertTrue(is_allowlisted_struct_extra_index(
             "sys_token", "uq_sys_token_chain_active"))
+        self.assertTrue(is_allowlisted_struct_extra_index(
+            "sys_access_log", "idx_access_log_path_trgm"))
+        self.assertTrue(is_allowlisted_struct_extra_index(
+            "sys_login_attempt", "idx_login_attempt_user_name_trgm"))
 
     def test_extra_index_unlisted_rejected(self):
         self.assertFalse(is_allowlisted_struct_extra_index("sys_token", "idx_rogue"))

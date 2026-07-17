@@ -1,4 +1,4 @@
-<!-- next: L-148 -->
+<!-- next: L-149 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -148,3 +148,9 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   主線寫確定性腳本（python）親跑同等斷言收口，零模型生成混語內容＝零誤傷面；LLM 審查留給
   需要判斷力的面向。注意腳本判準自身的誤報（簡繁通用字字集過寬、間接引用未追蹤）需人工覆核。
   ｜出處：2026-07-17 014 U8（implementer 審校結論最終由主線 python 對帳獨立複證、全數一致）。
+- L-148｜migration 新增索引／表未同步登記 schema-gate STRUCT_ADDITIVE_ALLOWLIST 不會即時翻紅——
+  gate1 不在 pre-commit、只在人工實跑時驗，漏登記可潛伏數刀（實證：012 m009 兩支 trgm 索引漏登、
+  潛伏至 015 U2 表就位驗證首撞 gate1 紅、誤耗一輪 workflow 升級診斷）。防法：凡 migration 含
+  CREATE TABLE／CREATE INDEX，同 commit 必登 STRUCT_ADDITIVE_ALLOWLIST＋self-test 集合斷言同步
+  （015 tasks T002 內建此排項＝正例）；每刀收刀前把 quickstart 全量閘（含 schema-gate 三子命令）
+  實跑一遍、不倚賴 pre-commit 面。｜出處：2026-07-18 015 U2（gate1 白名單外差異 2、主線勘誤補登）。
