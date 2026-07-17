@@ -1,4 +1,4 @@
-<!-- next: B-105 -->
+<!-- next: B-106 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -44,3 +44,4 @@
 - B-101｜casbin 按鈕碼與 sys_menu.buttons 聯集漂移追蹤：m008 user 四碼（reset-pwd/kick/restore/unlock）中 buttons 欄未同步回填之 011 缺口＋013 ip-rule 四碼已同步——兩源（casbin 政策 vs buttons 面板候選）無機器一致性檢查、會靜默漂移｜下次動按鈕碼 seed 或角色頁按鈕面板時｜出處：013 tasks T033＋ADR 0063
 - B-102｜changePassword 舊密暴力試節流（攻擊前提＝已劫持 session、舊密 gate 即既有防線＝風險有限；007/008 throttle 狀態機綁死 login 流程〔sys_login_attempt 計數＋captcha gate〕不可直掛、需另做 per-user 節流 seam）｜auth 安全補強刀或與 B-027/B-028 同刀｜出處：014 spec 設計取捨（自拍 9、2026-07-17）
 - B-103｜user-center email/phone 雙卡同構重複（各約 85 行、僅差欄名／title 鍵／pattern rule 四處字面）——提煉共用 ContactCard 候選（rev3 藍本本即雙卡、012 B-096 同構容忍先例、收刀不強修）｜下次觸及 user-center 卡片時｜出處：014 final review 品質鏡頭建議 1（2026-07-17）
+- B-105｜docs-sync LESSONS 計數 regex 與檔內近期條目格式分歧：L-146~L-148 用 plain「- L-NNN｜」形、RE_ENTRY['L'] 只認粗體形→STATE 顯 145 實 148（靜默低估）；且 plain→粗體正規化會被 L9 反回收檢查誤判「舊號回收」擋 commit（HEAD 端看不見 plain 條目、staged 端視為新增舊號）。lint 調規候選二擇：①RE_ENTRY 擴兼容 plain 形（HEAD/staged 同視野、反回收語意不損）②一次性正規化＋lint amnesty 機制。user 拍板後施作｜下次 lint 調規批｜出處：015 U2R 品質審觀察 A＋主線邊界 commit 實撞 L9（2026-07-18）

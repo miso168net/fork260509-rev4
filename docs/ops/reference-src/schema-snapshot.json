@@ -873,6 +873,30 @@
       "default": null
     },
     {
+      "table": "sys_pwd_custody",
+      "column": "user_id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_pwd_custody",
+      "column": "created_by",
+      "ordinal": 2,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_pwd_custody",
+      "column": "created_at",
+      "ordinal": 3,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "now()"
+    },
+    {
       "table": "sys_role",
       "column": "id",
       "ordinal": 1,
@@ -1314,6 +1338,11 @@
     },
     {
       "table": "sys_access_log",
+      "name": "idx_access_log_path_trgm",
+      "definition": "CREATE INDEX idx_access_log_path_trgm ON public.sys_access_log USING gin (http_path gin_trgm_ops)"
+    },
+    {
+      "table": "sys_access_log",
       "name": "sys_access_log_pkey",
       "definition": "CREATE UNIQUE INDEX sys_access_log_pkey ON public.sys_access_log USING btree (id)"
     },
@@ -1354,6 +1383,11 @@
     },
     {
       "table": "sys_login_attempt",
+      "name": "idx_login_attempt_user_name_trgm",
+      "definition": "CREATE INDEX idx_login_attempt_user_name_trgm ON public.sys_login_attempt USING gin (attempted_user_name gin_trgm_ops)"
+    },
+    {
+      "table": "sys_login_attempt",
       "name": "idx_login_attempt_user_time",
       "definition": "CREATE INDEX idx_login_attempt_user_time ON public.sys_login_attempt USING btree (attempted_user_name, created_at)"
     },
@@ -1386,6 +1420,11 @@
       "table": "sys_operation_log",
       "name": "sys_operation_log_pkey",
       "definition": "CREATE UNIQUE INDEX sys_operation_log_pkey ON public.sys_operation_log USING btree (id)"
+    },
+    {
+      "table": "sys_pwd_custody",
+      "name": "sys_pwd_custody_pkey",
+      "definition": "CREATE UNIQUE INDEX sys_pwd_custody_pkey ON public.sys_pwd_custody USING btree (user_id, created_by)"
     },
     {
       "table": "sys_role",
@@ -1743,6 +1782,26 @@
       "table": "sys_operation_log",
       "name": "sys_operation_log_pkey",
       "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sys_pwd_custody",
+      "name": "sys_pwd_custody_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_pwd_custody",
+      "name": "sys_pwd_custody_created_by_not_null",
+      "definition": "NOT NULL created_by"
+    },
+    {
+      "table": "sys_pwd_custody",
+      "name": "sys_pwd_custody_pkey",
+      "definition": "PRIMARY KEY (user_id, created_by)"
+    },
+    {
+      "table": "sys_pwd_custody",
+      "name": "sys_pwd_custody_user_id_not_null",
+      "definition": "NOT NULL user_id"
     },
     {
       "table": "sys_role",

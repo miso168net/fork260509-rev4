@@ -82,6 +82,7 @@
 索引：
 - idx_access_log_created_at｜CREATE INDEX idx_access_log_created_at ON public.sys_access_log USING btree (created_at)
 - idx_access_log_operator_time｜CREATE INDEX idx_access_log_operator_time ON public.sys_access_log USING btree (created_by, created_at)
+- idx_access_log_path_trgm｜CREATE INDEX idx_access_log_path_trgm ON public.sys_access_log USING gin (http_path gin_trgm_ops)
 - sys_access_log_pkey｜CREATE UNIQUE INDEX sys_access_log_pkey ON public.sys_access_log USING btree (id)
 
 約束：
@@ -177,6 +178,7 @@
 索引：
 - idx_login_attempt_created_at｜CREATE INDEX idx_login_attempt_created_at ON public.sys_login_attempt USING btree (created_at)
 - idx_login_attempt_ip_time｜CREATE INDEX idx_login_attempt_ip_time ON public.sys_login_attempt USING btree (real_ip, created_at)
+- idx_login_attempt_user_name_trgm｜CREATE INDEX idx_login_attempt_user_name_trgm ON public.sys_login_attempt USING gin (attempted_user_name gin_trgm_ops)
 - idx_login_attempt_user_time｜CREATE INDEX idx_login_attempt_user_time ON public.sys_login_attempt USING btree (attempted_user_name, created_at)
 - sys_login_attempt_pkey｜CREATE UNIQUE INDEX sys_login_attempt_pkey ON public.sys_login_attempt USING btree (id)
 
@@ -263,6 +265,23 @@
 - sys_operation_log_id_not_null｜NOT NULL id
 - sys_operation_log_operation_not_null｜NOT NULL operation
 - sys_operation_log_pkey｜PRIMARY KEY (id)
+
+## sys_pwd_custody（archetype C 極簡）
+
+| 欄 | 型別 | 可空 | 預設 |
+|---|---|---|---|
+| user_id | bigint | 否 | — |
+| created_by | bigint | 否 | — |
+| created_at | timestamp with time zone | 否 | now() |
+
+索引：
+- sys_pwd_custody_pkey｜CREATE UNIQUE INDEX sys_pwd_custody_pkey ON public.sys_pwd_custody USING btree (user_id, created_by)
+
+約束：
+- sys_pwd_custody_created_at_not_null｜NOT NULL created_at
+- sys_pwd_custody_created_by_not_null｜NOT NULL created_by
+- sys_pwd_custody_pkey｜PRIMARY KEY (user_id, created_by)
+- sys_pwd_custody_user_id_not_null｜NOT NULL user_id
 
 ## sys_role（archetype A 業務全六欄）
 
