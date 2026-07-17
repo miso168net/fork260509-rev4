@@ -68,3 +68,7 @@
 | /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |
 | /systemManage/updateUser | POST | Policy | update-user | 否 |
 | /systemManage/updateUserSessionPolicy | POST | Policy | update-user-session-policy | 否 |
+| /userCenter/changePassword | POST | Authed | change-password | 否 |
+| /userCenter/getPasswordPolicy | GET | Authed | get-password-policy | 否 |
+| /userCenter/getProfile | GET | Authed | get-profile | 否 |
+| /userCenter/updateProfile | POST | Authed | update-profile | 否 |

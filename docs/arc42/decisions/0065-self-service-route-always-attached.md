@@ -2,7 +2,7 @@
 id: "0065"
 title: getUserRoutes 恆附掛 self-service 路由白名單——自助頁可達性與 RBAC 授權表脫鉤
 date: 2026-07-17
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-17 014-user-center brainstorm（user 親決 D1；五鏡頭探索兩庫親驗 casbin user-center menu policy 僅 R_SUPER 一列＝rev3 同病未解）；B-090 自助改密受眾＝任何登入者、選單可達性不得依賴逐角色授權配置"
