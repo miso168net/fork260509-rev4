@@ -28,12 +28,12 @@ python3 tools/docs-sync check
 
 ## CDP 七場景（rev4-cdp 速查；Edge@9229 42080）
 
-1. **首登強制＋硬閘實彈**：admin 對測試會員按 operate 欄「密碼」→浮層「產生」→複製→確認送出；該會員登入→驗證直接落強制改密頁（點選單/直輸網址/F5 皆導回）；**以該會員 token 用 Runtime fetch 直打 `/systemManage/getUserList`→回 2222 mustChangePassword**（硬閘實彈）；改密成功→自動登出→新密碼重登→getUserInfo needChangePwd=false、API 面全開、custody 收斂為 (u,u)。
+1. **首登強制＋硬閘實彈**：admin 對測試會員以既有「重設密碼」手輸一組（Phase 3 即可跑；浮層入口段於 Phase 4 checkpoint 補驗、analyze I2）；該會員登入→驗證直接落強制改密頁（點選單/直輸網址/F5 皆導回）；**以該會員 token 用 Runtime fetch 直打 `/systemManage/getUserList`→回 2222 mustChangePassword**（硬閘實彈）；**子步 a**＝強制頁先送錯舊密與違政策新密各一次→與自助改密一致的逐項拒因顯示、狀態不變；**子步 b**＝點「登出」鈕→回登入頁→原密碼重登仍落強制頁（analyze G3）；改密成功→自動登出→新密碼重登→getUserInfo needChangePwd=false、API 面全開、custody 收斂為 (u,u)。
 2. **手輸重設同觸發**：admin「重設密碼」手輸→該會員登入同樣被強制。
 3. **建帳首登觸發**：新增使用者（手輸或隨機）→新會員首登被強制。
 4. **seed 三帳號零影響**：Super/Admin/User 登入→needChangePwd=false、直接進系統。
 5. **冷卻連按**：admin 對同一會員連續兩次重設（間隔 < N）→第二次 2222 pwdSetTooFrequent＋剩餘秒數；等滿 N 秒重試成功；settings 改 0→不受限。
-6. **user-center 自助不觸發**：會員自助改密（含用改密卡隨機鈕）→成功、needChangePwd 保持 false、014 撤他裝置行為不變。
+6. **user-center 自助不觸發＋生成合政策雙組合**：會員自助改密（含用改密卡隨機鈕）→成功、needChangePwd 保持 false、014 撤他裝置行為不變；**產生值合政策驗證跑兩組合＝預設政策＋settings 暫調最嚴組合（最短長度+全字元類別必含+禁同帳號名）、驗後還原**（SC-005、analyze G4）。
 7. **三語零 raw key**：zh-TW/zh-CN/en-US 各切一次走 US1 全流程＋三掛載點浮層＋settings 新項→零 raw key。
 
 ## 負向自證（拆即紅）

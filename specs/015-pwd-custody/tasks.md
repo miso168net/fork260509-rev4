@@ -16,7 +16,7 @@
 - ★review agent **只讀不寫** repo 檔；findings 只放回傳訊息。
 - ★**絕不 push／merge**（收尾 finishing 階段才議、且需 user 明確同意）；tasks 不得排入 push/merge。
 - ★base-web worktree commit 一律 `--no-verify`；`.vue` template 標記用 `<!-- -->`（L-119）。
-- ★fork-delta：**修改型 inline**（guard/route.ts、auth store、manage/user index.vue、user-operate-drawer.vue、password-card.vue、build/plugins/router.ts、locale 三檔、app.d.ts）每處被動行標 `原行:` 逐字基線原文；**新增型圈界**（產密浮層元件、force-change-pwd 頁、rev4-pwd-custody.d.ts）零原行；每次改動跑 `python3 tools/fork-delta-lint`（★python3 直跑、bash 假紅 L-143）。
+- ★fork-delta：**修改型 inline**（guard/route.ts、auth store、manage/user index.vue、user-operate-drawer.vue、password-card.vue、build/plugins/router.ts——動到基線既有行）每處被動行標 `原行:` 逐字基線原文；**新增型圈界**（產密浮層元件、force-change-pwd 頁、rev4-pwd-custody.d.ts、locale 三檔與 app.d.ts 之純插入新鍵——I18N-WIRING 歷刀同形）零原行；判準＝**基線檔實況為準：純插入行＝圈界、動到既有行＝原行**（analyze I3 裁定）；每次改動跑 `python3 tools/fork-delta-lint`（★python3 直跑、bash 假紅 L-143）。
 - ★島 I5 密碼三重不洩：經手表結構性零密碼欄；op-log payload 零密碼；隨機密碼**本地 CSPRNG**（`crypto.getRandomValues`、絕不 Math.random）＋伺服器回應零密碼。
 - ★密碼驗證複用單一驗證點零分叉；**冷卻＝端點固有規則、排各端點既有拒因全過之後、UPDATE 前、鎖內**，MUST NOT 入 `validate_against_policy`。
 - ★判定規則收斂為**單一純函式** `need_change_pwd`（三處共用：getUserInfo／pwd_gate_mw／測試）——絕不各處內聯 SQL（分叉＝014 U9 同類坑）。
@@ -35,8 +35,8 @@
 → 親決 gate 照 013/014 判例提前（Phase 1 純測試骨架與工具聯動不依賴、可先行）。
 
 MUST 完成（§V.2 程序、user 親決）：
-1. **ADR 0067 → accepted**（經手表模型＋鎖態 token 硬閘選型）
-2. `.specify/memory/constitution.md` §III.2 **新用途 (k)**（枚舉見 research R5：強制改密頁＋route guard 攔截控制流＋auth store inline＋manage「密碼」動作與浮層＋add 抽屜與 user-center 改密卡隨機鈕＋「＋對應 i18n key」字樣；(a)/(g)/(h) 擴字面併敘）＋**Q9 島 I 細項擴充字面**（經手判定／寫入規則／冷卻／硬閘白名單語意＋硬閘每請求 EXISTS 與島 I2「MUST NOT 每請求活性判定」射程區隔論證）＋**九/十用途失步勘誤**＋**bump v1.13.0→v1.14.0**
+1. **ADR 0067 → accepted**（經手表模型＋鎖態 token 硬閘選型；★轉 accepted 前 draft 已收斂 specify 期親決——冷卻一體適用零例外＋攜剩餘秒數、豁免殘句已刪〔analyze I5〕）
+2. `.specify/memory/constitution.md` §III.2 **新用途 (k)**（枚舉見 research R5：強制改密頁＋route guard 攔截控制流＋auth store inline＋manage「密碼」動作與浮層＋add 抽屜與 user-center 改密卡隨機鈕＋「＋對應 i18n key」字樣＋**兩檔位錨**——產密浮層共用元件（src/components/ 新檔、新增型圈界）與 constantRoutes 名單觸點（build/plugins/router.ts、修改型）〔analyze U1〕；(a)/(g)/(h) 擴字面併敘＋**§I.2 constantRoutes 射程釋義一句**（constant route 集合可經 §III.2 授權新增、builtin 三頁與 Casbin 豁免語意不變〔analyze C1〕））＋**Q9 島 I 細項擴充字面**（經手判定／寫入規則／冷卻／硬閘白名單語意＋硬閘每請求 EXISTS 與島 I2「MUST NOT 每請求活性判定」射程區隔論證）＋**九/十用途失步勘誤**＋**bump v1.13.0→v1.14.0**
 3. **獨立 commit** `docs(constitution): amend 新用途 (k) 首登強制換密頁＋guard 攔截控制流`（憲法＋ADR 同 commit）＋`python3 tools/docs-sync generate`
 
 起 Phase 2 前確認：`grep -n '^- 1\.14\.0' .specify/memory/constitution.md` 有值即可。
@@ -47,7 +47,7 @@ MUST 完成（§V.2 程序、user 親決）：
 
 **Purpose**: 判定純函式 seam 與工具閘先立（不依賴治理 GATE、可先行）。
 
-- [ ] T001 判定純函式 `need_change_pwd(conn, user_id) -> Result<bool>` seam（`EXISTS(... WHERE user_id=$1 AND created_by<>$1)`）＋單元測三態（零列/純自改列/含他人經手列）in `rust-api/server/src/model/facade/sys_user.rs`（暫以既有表 stub 或待 T005 表就位後接線——先立函式簽章與測試骨架）
+- [ ] T001 判定純函式 `need_change_pwd(conn, user_id) -> Result<bool>` seam（`EXISTS(... WHERE user_id=$1 AND created_by<>$1)`）＋單元測三態（零列/純自改列/含他人經手列）in `rust-api/server/src/model/facade/sys_user.rs`——完成判準＝簽章＋三態測試骨架（`#[ignore]` 標記註明待表）編譯綠；**Phase 2 T005 接線真表後取消 ignore 轉綠**（實庫測試無自然 stub 縫、analyze A2 裁定）
 - [ ] T002 [P] `tools/schema-gate` 工具聯動：`audit_table` 加 `elif variant=="C" and table=="sys_pwd_custody":` 分支（檢 created_at NOT NULL＋禁 updated_*/deleted_* 出現）＋STRUCT_ADDITIVE_ALLOWLIST 加 sys_pwd_custody＋SEED_ADDITIVE_ALLOWLIST 加 `password_change_min_interval`＋TestAuditTable 案例＋self-test dict 同步 in `tools/schema-gate`
 - [ ] T003 [P] archetype-map 登記＋baseline data-model 歸屬補列（variant C、note 記 created_at 語意/零 FK/不存密碼）in `docs/ops/reference-src/archetype-map.json`＋`specs/002-schema-baseline/data-model.md`
 
@@ -71,20 +71,20 @@ MUST 完成（§V.2 程序、user 親決）：
 
 ### 後端（rust-api）
 
-- [ ] T007 [US1] 測試先行（紅）：三寫入路徑經手列斷言（insert→(new,admin)／reset_password operator≠target→upsert(target,admin)／reset_password operator==target→全刪+寫(self,self)／change_own_password→全刪+寫(self,self)）＋seed 帳號零列 in `rust-api/server/tests/`（新測檔）
+- [ ] T007 [US1] 測試先行（紅）：三寫入路徑經手列斷言（insert→(new,admin)／reset_password operator≠target→upsert(target,admin)／reset_password operator==target→全刪+寫(self,self)／change_own_password→全刪+寫(self,self)）＋seed 帳號零列＋**FR-016 pin**（軟刪標的後 custody 列仍在、復原後 need_change_pwd 判定不變——一斷言、防後續刀無聲加清理〔analyze G1〕）in `rust-api/server/tests/`（新測檔）
 - [ ] T008 [US1] facade 三入口經手寫入（`insert` append／`reset_password` operator 分支 upsert-or-本人改路徑〔沿既有 keep-sid 自我分支點〕／`change_own_password` 全刪+寫自列）——同交易＋鎖內原子；「全刪」恆 `WHERE user_id=標的` in `rust-api/server/src/model/facade/sys_user.rs`（T007 轉綠）
 - [ ] T009 [US1] getUserInfo 加 `needChangePwd`（UserInfo struct 加 `need_change_pwd:bool` wire camelCase＋既有 sys_user 重讀旁 +1 need_change_pwd 呼叫）＋contract/in-crate 正負向斷言（含他人經手→true／零列→false）in `rust-api/server/src/handler/auth.rs`＋`rust-api/server/tests/contract.rs`
-- [ ] T010 [US1] 測試先行（紅）：pwd_gate_mw 白名單內外（needChangePwd 真時 getUserList→2222 mustChangePassword／changePassword 放行／getUserInfo 放行）＋兩子 router 皆掛（policy 端點亦擋）in `rust-api/server/tests/`（新測檔）
+- [ ] T010 [US1] 測試先行（紅）：pwd_gate_mw——**六白名單路徑逐一正向放行斷言**（changePassword／getPasswordPolicy／getUserInfo／getUserRoutes／getProfile／isRouteExist；漏列任一即強制頁自身癱瘓〔analyze G2〕）＋負向封鎖斷言（getUserList→2222 mustChangePassword）＋兩子 router 皆掛（**帶權限 manage 端點亦擋＝casbin policy 子 router 亦掛閘；getPasswordPolicy 屬白名單放行**——措辭消歧）in `rust-api/server/tests/`（新測檔）
 - [ ] T011 [US1] `pwd_gate_mw`（讀 Claims.uid→need_change_pwd→白名單 path const 比對→2222 `biz.auth.mustChangePassword`）in `rust-api/server/src/middleware/`（新檔或 mod.rs）＋掛 `build()` authed＋policy 兩子 router（enforce 後、access_log 內側）in `rust-api/server/src/router.rs`（T010 轉綠）
 
 ### 前端（base-web）
 
 - [ ] T012 [P] [US1] 新增型：`rev4-pwd-custody.d.ts`（`Api.Auth.UserInfo` needChangePwd?:boolean 成員級 declaration merging；不動凍結 auth.d.ts）in `base-web/src/typings/api/rev4-pwd-custody.d.ts`
 - [ ] T013 [US1] auth store 承載 `needChangePwd`（修改型 inline `原行:`、optional 免補初值、getUserInfo 回填）in `base-web/src/store/modules/auth/*`
-- [ ] T014 [US1] 強制改密 constant route 頁（新增型：舊密+新密+確認+隨機鈕〔US2 元件〕+登出鈕；成功→清 store needChangePwd+呼 logout→登入頁；政策 rules 用共用 hook〔US2 抽出〕；userName 走 getProfile 真帳號）in `base-web/src/views/_builtin/force-change-pwd/index.vue`＋constantRoutes 名單一行（修改型 `原行:`）in `base-web/build/plugins/router.ts`
+- [ ] T014 [US1] 強制改密 constant route 頁（新增型：舊密+新密+確認+隨機鈕+登出鈕；成功→清 store needChangePwd+呼 logout→登入頁；政策 rules 用共用 hook；userName 走 getProfile 真帳號；**說明區強調「複製後送出」提醒**〔隨機值未抄存即送出→鎖出、analyze G6〕）in `base-web/src/views/_builtin/force-change-pwd/index.vue`＋constantRoutes 名單一行（修改型 `原行:`）in `base-web/build/plugins/router.ts`——**顯式前置＝T016**（浮層元件＋共用 hook 先就位、analyze I1）
 - [ ] T015 [US1] route guard 全域攔截（修改型 inline `原行:`：isLogin+needChangePwd+目的地≠強制頁→改寫導向；置於路由存在性解析之先）in `base-web/src/router/guard/route.ts`
 
-**Checkpoint**: 容器內 cargo 全綠（三寫入/硬閘/getUserInfo 正負向）＋typecheck＋fork-delta-lint 綠；CDP S1（首登強制+硬閘實彈+登出重登）＋S4（seed 零影響）PASS。
+**Checkpoint**: 容器內 cargo 全綠（三寫入/硬閘/getUserInfo 正負向）＋typecheck＋fork-delta-lint 綠；CDP S1（首登強制+硬閘實彈+登出重登——**以既有「重設密碼」手輸入口執行主鏈；浮層入口段於 Phase 4 checkpoint 與 T024 補驗**〔analyze I2〕）＋S4（seed 零影響）PASS。
 
 ## Phase 4: User Story 2 - 隨機密碼產生浮層（三掛載點） (P2)
 
@@ -105,7 +105,7 @@ MUST 完成（§V.2 程序、user 親決）：
 
 **Independent Test**: 同對連兩次設密（<N）→第二次拒+剩餘秒數；滿 N 過；N=0 不限；不同 admin 同標的不受限；失敗嘗試不計。
 
-- [ ] T020 [US3] 測試先行（紅）：冷卻正負向（未滿拒/已滿過/N=0 停用/不同操作者不受限/失敗嘗試不計/強制頁自改亦受冷卻）in `rust-api/server/tests/`（新測檔）
+- [ ] T020 [US3] 測試先行（紅）：冷卻正負向（未滿拒/已滿過/N=0 停用/不同操作者不受限/失敗嘗試不計/強制頁自改亦受冷卻/**settings 缺鍵或值非法→fail-default 60 運作、設密不被阻斷**〔analyze G5〕）in `rust-api/server/tests/`（新測檔）
 - [ ] T021 [US3] 冷卻檢查插入三入口（鎖內、各端點既有拒因全過之後、UPDATE 前；pair created_at 未滿 N→2222 `biz.user.pwdSetTooFrequent` 攜剩餘秒數〔BizData 帶值〕；settings 單鍵讀缺鍵 fail-default 60、0 停用）in `rust-api/server/src/model/facade/sys_user.rs`（T020 轉綠；依賴 US1 T008 三寫入路徑已就位）
 
 **Checkpoint**: 容器內 cargo 冷卻正負向全綠；CDP S5（冷卻連按+剩餘秒數+N=0）PASS。
@@ -116,7 +116,7 @@ MUST 完成（§V.2 程序、user 親決）：
 
 **Independent Test**: 三語各切一次走 US1 全流程＋三掛載點浮層＋settings 新項→零 raw key。
 
-- [ ] T022 [US4] 三語 locale 全量新鍵（產密浮層 5 鍵/manage「密碼」動作標籤/強制頁 route+標題+說明+成功+登出鈕/`backend.biz.auth.mustChangePassword`/`backend.biz.user.pwdSetTooFrequent`〔攜剩餘秒數佔位〕/settings `passwordChangeMinInterval` 標籤；zh-TW 在地化正體）in `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts`＋`App.I18n.Schema` 鏡像 in `base-web/src/typings/app.d.ts`（`rev4-inline` 圈界）——typecheck 綠＝鏡像機器證
+- [ ] T022 [US4] 三語 locale 全量新鍵（產密浮層 5 鍵/manage「密碼」動作標籤/強制頁 route+標題+說明〔含「複製後送出」提醒語意、analyze G6〕+成功+登出鈕/`backend.biz.auth.mustChangePassword`/`backend.biz.user.pwdSetTooFrequent`〔攜剩餘秒數佔位〕/settings `passwordChangeMinInterval` 標籤；zh-TW 在地化正體）in `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts`＋`App.I18n.Schema` 鏡像 in `base-web/src/typings/app.d.ts`（`rev4-inline` 圈界）——typecheck 綠＝鏡像機器證
 - [ ] T023 [US4] restart base-web＋CDP S7（三語零 raw key）PASS
 
 **Checkpoint**: typecheck＋fork-delta-lint 綠；CDP S7 三語全流程零 raw key。
@@ -125,7 +125,7 @@ MUST 完成（§V.2 程序、user 親決）：
 
 **Purpose**: 全場景實彈＋全量閘＋final review（收刀簿記另計、不排此）。
 
-- [ ] T024 CDP 七場景全量複跑（quickstart §CDP）＋負向自證（拆判定/拆 policy 掛載/拆失敗不計冷卻/拆 getUserInfo 投影 各即紅）＋資料清理（custody 列+測試會員+settings 還原 60）
+- [ ] T024 CDP 七場景全量複跑（quickstart §CDP、**含 S1 兩子步：強制頁錯舊密/違政策拒因顯示＋「登出」鈕退路再登入仍強制**〔analyze G3〕）＋負向自證（拆判定/拆 policy 掛載/拆失敗不計冷卻/拆 getUserInfo 投影 各即紅）＋資料清理（custody 列+測試會員+settings 還原 60）
 - [ ] T025 全量閘：容器內 `cargo test -p server -- --test-threads=1`＋`cargo test --test contract --test wire_schema`＋schema-gate 三子命令＋`--self-test`＋typecheck＋`python3 tools/fork-delta-lint`＋`python3 tools/docs-sync check` 全綠
 - [ ] T026 final holistic review（雙鏡頭：安全狀態機＋治理合規；只讀不寫、findings 回主線）→ 三分流（修/轉 B-NNN/won't-fix ADR）
 
@@ -139,7 +139,7 @@ MUST 完成（§V.2 程序、user 親決）：
 - **治理 GATE**（憲法 (k)+ADR 0067、主線 AskUserQuestion 親決）→ 起 Phase 2。
 - **Phase 2**（T004~T006）BLOCKING：migration→entity→落庫，序列（同表相依）。
 - **Phase 3 US1**（MVP）：後端 T007→T008、T009、T010→T011（測試先行）；前端 T012[P]→T013→T014→T015。後端前端可並行推進（不同 worktree）。
-- **Phase 4 US2**：依賴 US1 T014（強制頁引用浮層元件與共用 hook）——T016 先於 T014 完整化，或 T014 先立骨架、T016 補元件後回填。實作編排時 T016 併 US1 尾或 US2 首。
+- **T014（US1）依賴 T016（US2 浮層元件＋共用 hook）**——定案（analyze I1）：**T016 前移、執行序在 T014 之前**（歸執行單元 U4 首）；Phase 4 其餘掛載點（T017~T019）不被 US1 依賴、照序。
 - **Phase 5 US3**：依賴 US1 T008（三寫入路徑就位）——冷卻插既有路徑。
 - **Phase 6 US4**：i18n 可與各 US 並行加鍵、但 T022 統一收口＋機器證置後。
 - **Phase 7**：全量、序列收尾。
@@ -150,8 +150,8 @@ MUST 完成（§V.2 程序、user 親決）：
 2. **[治理 GATE]** 主線 AskUserQuestion 親決憲法 (k)+ADR 0067→accepted+bump→獨立 commit（非 workflow）。
 3. **U2 表就位**（T004~T006）：migration＋entity＋落庫＋schema-gate 三綠。
 4. **U3 後端首登鏈**（T007~T011）：三寫入＋getUserInfo＋硬閘（含測試先行）。
-5. **U4 前端首登鏈**（T012~T015）：typing＋auth store＋強制頁＋guard。
-6. **U5 產密浮層**（T016~T019）：元件＋三掛載＋共用 hook。
+5. **U4 前端首登鏈**（**T016**＋T012~T015）：浮層元件與共用 hook 先行（T014 顯式前置、analyze I1）→typing＋auth store＋強制頁＋guard。
+6. **U5 浮層掛載**（T017~T019）：三掛載點。
 7. **U6 冷卻**（T020~T021）：測試先行＋三入口插入。
 8. **U7 三語**（T022~T023）：全量鍵＋機器證＋CDP S7。
 9. **U8 全量驗收**（T024~T026）：CDP 七場景＋全量閘＋final review。

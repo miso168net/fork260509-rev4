@@ -15,7 +15,7 @@ CREATE TABLE sys_pwd_custody (
 
 - **零 FK**（ADR 0009 對齊、research R7）：user_id／created_by 皆不加 FK constraint；參照完整性由應用層承擔。
 - **複合 PK `(user_id, created_by)`**：每（標的×操作者）至多一筆；upsert 目標鍵。
-- **無 `updated_*`/`deleted_*`**（變體 C 不可竄改語意、硬刪）；`created_at` 語意＝該對**最後設定時間**（非建列不可變；upsert 刷新——archetype-map note 正名）。
+- **無 `updated_*`/`deleted_*` 審計欄**（變體 C 極簡欄集、硬刪；列本身可 upsert 刷新與全刪、非 append-only〔analyze I6〕）；`created_at` 語意＝該對**最後設定時間**（upsert 刷新——archetype-map note 正名）。
 - **不存密碼**（結構性零密碼欄、島 I5）。
 - down：`DROP TABLE IF EXISTS sys_pwd_custody`（對稱）。
 

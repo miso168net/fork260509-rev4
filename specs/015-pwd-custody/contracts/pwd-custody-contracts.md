@@ -20,7 +20,7 @@
 
 ## C3 設密冷卻拒因
 
-- 三入口（addUser 天然無冷卻／reset_password／changePassword）鎖內、既有拒因後：pair 距上次 created_at 未滿 N 秒→`{code:2222, msg:"biz.user.pwdSetTooFrequent"}`（攜剩餘秒數：BizData 帶值或前端據 created_at 推算）。
+- 三入口（addUser 天然無冷卻／reset_password／changePassword）鎖內、既有拒因後：pair 距上次 created_at 未滿 N 秒→`{code:2222, msg:"biz.user.pwdSetTooFrequent", data:{remainingSeconds}}`（**BizData 帶 remainingSeconds、前端以 i18n 佔位鍵格式化——載體定稿〔analyze A1〕**；B-047 攜參 2222 先例）。
 - N＝system_settings `password_change_min_interval`（缺鍵 fail-default 60、0＝停用）。
 
 ## C4 system_settings 新鍵
