@@ -68,3 +68,4 @@
 | 0063 | accepted | 2026-07-16 | ip-rule RBAC 按鈕碼 seed＋sys_menu.buttons 回填——為未來非-super 授權下放預留完整基建（B-083 前置鏈） | — | — | — |
 | 0064 | accepted | 2026-07-16 | schema-gate seed 內容變更受管軌道——SEED_CONTENT_OVERRIDE_ALLOWLIST（既有 seed 列內容合法演進） | — | — | — |
 | 0065 | accepted | 2026-07-17 | getUserRoutes 恆附掛 self-service 路由白名單——自助頁可達性與 RBAC 授權表脫鉤 | — | — | — |
+| 0066 | accepted | 2026-07-17 | global-content 頁面切換 Transition 去 out-in＋fade-slide leave absolute——上游 isLeaving 卡死 workaround | — | — | — |
