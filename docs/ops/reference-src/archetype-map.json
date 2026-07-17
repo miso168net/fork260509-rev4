@@ -74,6 +74,13 @@
       "note": "created_at NN＋created_by NN＋status；無 updated_*／deleted_*。created_by＝domain 擁有者欄（原 user_id、user 定稿改名）、非 archetype 審計欄——NN 不受 §I.6「*_by nullable」通則約束"
     },
     {
+      "table": "sys_pwd_custody",
+      "variant": "C",
+      "label": "C 極簡",
+      "active_unique": null,
+      "note": "複合 PK (user_id,created_by)；created_at＝最後設定時間（upsert 刷新）；零 FK（ADR 0009）；不存密碼。來源＝015-pwd-custody m011（變體 C）"
+    },
+    {
       "table": "sys_casbin_policy_archive",
       "variant": "D",
       "label": "D 治理",
