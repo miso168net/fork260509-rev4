@@ -10,12 +10,14 @@
   D4 比對源錯位並修——authStore.userName＝nick_name 別名〔憲法 L45〕、改走 getProfile 真帳號 prop）＋
   final review 雙 Opus 零 merge-blocker。merge --no-ff 0a3f790＋push（user 同意 2026-07-17）。詳 events/STATE。
 - **B-104 Transition 卡死 workaround 已收刀**（2026-07-17、輕量軌第二例——user 拍板提前施工；
-  憲法 v1.13.0 新用途 (j) 首案＋ADR 0066；詳 events/STATE）。
-- **下一步（user 拍板 2026-07-17 roadmap）**：①B-030 首登強制改密（★014 已解鎖觸發條件、
-  ADR 0055 拆階段；需 sys_user 加欄＋login 插閘＋強制改密頁；順路評 B-103；★新 session
-  brainstorm 起手）→②維護批輕量刀（B-098＋B-096＋B-092 三條打包、各自獨立 commit）→
-  ③B-060 demo 選單清理（順路收 B-101、順路裁 B-094；★動工前重偵察——keep=11 前提已因
-  013 建頁漂移）→之後 auth 延伸組（B-027/028/102）vs prod 組（B-013/037/038/042/080/081）擇定。
+  憲法 v1.13.0 新用途 (j) 首案＋ADR 0066；詳 events/STATE）。**維護批三條已收刀**（2026-07-17、
+  輕量軌第三例——B-098 測試 RAII guard＋B-092 TOCTOU 補縫＋B-096 daterange composable；
+  三支 Workflow 序列、各自獨立 commit；詳 events/STATE）。
+- **下一步（user 拍板 2026-07-17 roadmap、維護批已兌現）**：①B-030 首登強制改密（★014 已解鎖
+  觸發條件、ADR 0055 拆階段；需 sys_user 加欄＋login 插閘＋強制改密頁；順路評 B-103；★新 session
+  brainstorm 起手）→②B-060 demo 選單清理（順路收 B-101、順路裁 B-094；★動工前重偵察——
+  keep=11 前提已因 013 建頁漂移）→之後 auth 延伸組（B-027/028/102）vs prod 組
+  （B-013/037/038/042/080/081）擇定。
 - 014 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；
   B-103（email/phone 雙卡同構重複、B-096 同構容忍先例）。013 前遺留：B-098（ip_rule enrich 測試
   清理段不耐 panic）；B-099（契約層對 query 形零判別力）；B-100（系統軟刪掃描通用刀）；

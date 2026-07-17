@@ -104,7 +104,9 @@ EVENT_SCHEMAS = {
     },
     "misc": {
         "required": ["type", "date", "summary"],
-        "optional": ["notes"],
+        # backlog_done：輕量軌收刀（非 NNN- branch、無 feature_close 事件）消化 BACKLOG 條目的
+        # 唯一證據通道（L4/L5 對賬同源；user 拍板調規 2026-07-17——維護批首例）。
+        "optional": ["notes", "backlog_done"],
     },
 }
 
@@ -172,6 +174,9 @@ def _check_event(e):
             errs.append("findings 須為 {total≥0, fixed≥0, to_backlog[B-NNN…], wontfix_adr[00NN…]}")
         elif fd["fixed"] + len(fd["to_backlog"]) + len(fd["wontfix_adr"]) != fd["total"]:
             errs.append("findings 分流不守恆：fixed＋len(to_backlog)＋len(wontfix_adr) 須＝total")
+    elif etype == "misc":
+        if "backlog_done" in e and not _id_list_ok(e["backlog_done"], RE_BID):
+            errs.append("backlog_done 須為 B-NNN 字串 list（可空）")
     return errs
 
 
@@ -1640,10 +1645,11 @@ def _backlog_id_ever_existed(root, nb):
 
 
 def _backlog_done_ids(events):
-    """曾在任一 feature_close.backlog_done 被標記完成的 B-NNN 集（＝已被消化的證據）。"""
+    """曾在任一 feature_close／misc 之 backlog_done 被標記完成的 B-NNN 集（＝已被消化的證據；
+    misc 通道＝輕量軌收刀、2026-07-17 調規）。"""
     out = set()
     for e in events:
-        if e.get("type") == "feature_close" and isinstance(e.get("backlog_done"), list):
+        if e.get("type") in ("feature_close", "misc") and isinstance(e.get("backlog_done"), list):
             out.update(_norm_bid(b) for b in e["backlog_done"] if isinstance(b, str))
     return out
 
@@ -1668,10 +1674,13 @@ def lint_close_existence(root):
     done_ids = _backlog_done_ids(events)
     adr_ids = _adr_ids_on_disk(root)
     for e in events:
-        if e.get("type") != "feature_close":
+        etype = e.get("type")
+        # misc 亦可攜 backlog_done（輕量軌消化通道、2026-07-17 調規）——同受「宣稱完成卻未刪列」檢查；
+        # 其餘檢查（adrs/backlog_add/specs）對 misc 自然 no-op（欄不存在）。
+        if etype not in ("feature_close", "misc"):
             continue
         feat = e.get("feature")
-        where = f"{EVENTS}｜{feat}"
+        where = f"{EVENTS}｜{feat if etype == 'feature_close' else 'misc ' + str(e.get('date'))}"
         for adr in e.get("adrs", []) or []:
             if adr not in adr_ids:
                 out.append(finding(ERROR, "L4", where,
@@ -2864,6 +2873,20 @@ class TestLintEvents(unittest.TestCase):
     def test_blank_line_rejected(self):
         f = lint_events(json.dumps(VALID_MISC) + "\n\n" + json.dumps(VALID_MISC) + "\n")
         self.assertEqual(len(f), 1)
+
+    def test_misc_backlog_done_valid(self):
+        """misc 攜 backlog_done（輕量軌消化通道、2026-07-17 調規）——合法形零錯。"""
+        e = dict(VALID_MISC); e["backlog_done"] = ["B-092", "B-098"]
+        self.assertEqual(lint_events(_jl(e)), [])
+
+    def test_misc_backlog_done_bad_ids(self):
+        e = dict(VALID_MISC); e["backlog_done"] = ["X-1"]
+        self.assertEqual(len(lint_events(_jl(e))), 1)
+
+    def test_backlog_done_ids_includes_misc(self):
+        """_backlog_done_ids 掃 misc 通道——改壞掃描（如回退只掃 feature_close）即紅。"""
+        m = dict(VALID_MISC); m["backlog_done"] = ["B-010"]
+        self.assertEqual(_backlog_done_ids([VALID_CLOSE, m]), {"B-003", "B-010"})
 
 
 class TestLintCloseExistence(unittest.TestCase):
