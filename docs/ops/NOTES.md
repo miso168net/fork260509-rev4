@@ -1,24 +1,23 @@
 # NOTES — 當前意圖／下一步
 
-- 波 0（001~003）＋波 1（004~008 auth family 五刀）＋**admin 管理面家族五刀全收**：role(009)、
-  menu(010)、user(011)、audit(012)、**ip-rule(013) 已收刀**。**013-ip-rule-admin 收刀——家族第五刀**
-  （IP 規則管理面：008 IP 閘後端做成 super-only 管理頁）：US1 讀端（getIpRuleList 三 filter
-  additive＋審計欄 enrich＋混排回收桶清單＋三維搜尋卡）／US2 寫端（drawer 四欄＋NPopconfirm
-  刪除復原＋拒因攔截層）／US3 授權預留（m010 casbin 四按鈕碼＋buttons 物件形 jsonb 回填＋
-  SEED_CONTENT_OVERRIDE_ALLOWLIST 新軌道＋hasAuth）／US4 三語（B-061 兌現＋五拒因鍵）／
-  U10 收刀前 user 拍板 UI 調整（列表欄序＋drawer 審計四項唯讀）。核心＝憲法 v1.11.0 (d) 擴字串＋
-  ADR 0061~0064；零 schema／零新錯誤碼／零新依賴／零新島（純消費島 F）。cargo 全綠＋gate2
-  244/244（override 軌生效）＋負向五條實證（⑤實驗證偽→勘誤＋B-099）＋CDP S1~S6 全 PASS＋
-  final review 雙 Opus 零 merge-blocker。merge --no-ff 9d4b47c＋push（user 同意 2026-07-16）。詳 events/STATE。
-- **B-059 settings tooltip 三語化已收刀**（2026-07-17、輕量軌首例——BACKLOG 小刀跳過
-  brainstorm＋SDD 五步、user 拍板；判準與不可省項見 events 該筆 notes 欄；詳 events/STATE）。
-  **下一步＝候選擇定**：B-060 demo 選單清理（010/011 兩度拍板折入、需 SEED_REMOVAL_ALLOWLIST
-  姊妹軌道＋ADR；★動工前重偵察——keep=11 前提已因 013 建頁漂移）、B-090 自助改密（解 B-030
-  前置）、prod 組（B-037/080/081）、obs 組（B-031/033）。
-- 013 遺留/追蹤：B-098（ip_rule enrich 測試清理段不耐 panic、殘留污染 gate2——下次動 ip_rule
-  測試時改 guard 形）；B-099（契約層對 query 形零判別力、防護實由 endpoint 測試承載）；
-  B-100（系統軟刪掃描通用刀）；B-101（casbin 按鈕碼與 buttons 聯集漂移、011 缺口）；
-  B-096（稽核 daterange 重複×4）；B-086（010 restorePolicy）；B-085（protectedRevoke 命名）。
+- 波 0（001~003）＋波 1（004~008 auth family 五刀）＋admin 管理面家族五刀（009~013）＋B-059 輕量刀
+  全收。**014-user-center 已收刀**（個人中心自助頁、B-090 兌現＋rev3 025 全頁承襲）：US1 自助改密
+  全鏈（固定驗證序五拒因＋keep-sid 撤他裝置 8888＋島 I1/I2/I5 合規時序）／US2 profile 三卡部分更新
+  （三態折疊不洩 operator）／US3 getUserRoutes self-service 白名單（ADR 0065、人人可達＋零 policy
+  角色 home 兜底新行為）／US4 三語 31＋3 鍵（D2 統一單句 pwdPolicyNotMet＝實作期盤點缺口 user 親決
+  補鍵、量詞勘誤 30→31）。核心＝憲法 v1.12.0（(g) 擴 i18n key＋島 I2 keep-sid 釋義）＋ADR 0065；
+  零 migration／零 schema／零新錯誤碼／零新依賴／零新島。全量閘綠＋CDP S1~S6 全 PASS（U9 抓獲
+  D4 比對源錯位並修——authStore.userName＝nick_name 別名〔憲法 L45〕、改走 getProfile 真帳號 prop）＋
+  final review 雙 Opus 零 merge-blocker。merge --no-ff 0a3f790＋push（user 同意 2026-07-17）。詳 events/STATE。
+- **下一步＝候選擇定**：B-030 首登強制改密（★014 已解鎖觸發條件、ADR 0055 拆階段；需 sys_user
+  加欄＋login 插閘＋強制改密頁）、B-060 demo 選單清理（010/011 兩度拍板折入、需
+  SEED_REMOVAL_ALLOWLIST 姊妹軌道＋ADR；★動工前重偵察——keep=11 前提已因 013 建頁漂移）、
+  prod 組（B-037/080/081）、obs 組（B-031/033）。
+- 014 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；
+  B-103（email/phone 雙卡同構重複、B-096 同構容忍先例）。013 前遺留：B-098（ip_rule enrich 測試
+  清理段不耐 panic）；B-099（契約層對 query 形零判別力）；B-100（系統軟刪掃描通用刀）；
+  B-101（casbin 按鈕碼與 buttons 聯集漂移）；B-096（稽核 daterange 重複×4）；B-086（010
+  restorePolicy）；B-085（protectedRevoke 命名）。
 - base-web 改動走 fork-delta 原行紀律（★lint 一律 `python3 tools/fork-delta-lint` 直跑——bash 跑假紅
   ＝L-143；以 example 為基線機器強制、掛 pre-commit 於 base-web pin 變動時擋）；base-web worktree
   commit 一律 `--no-verify`；★`.vue` template 標記用 `<!-- -->`（L-119）。
