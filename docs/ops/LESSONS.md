@@ -1,4 +1,4 @@
-<!-- next: L-149 -->
+<!-- next: L-150 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -154,3 +154,11 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   CREATE TABLE／CREATE INDEX，同 commit 必登 STRUCT_ADDITIVE_ALLOWLIST＋self-test 集合斷言同步
   （015 tasks T002 內建此排項＝正例）；每刀收刀前把 quickstart 全量閘（含 schema-gate 三子命令）
   實跑一遍、不倚賴 pre-commit 面。｜出處：2026-07-18 015 U2（gate1 白名單外差異 2、主線勘誤補登）。
+- L-149｜constant route 頁面上呼 authStore.resetStore() 後再 SPA 導向 login 會撞「No match for
+  login」競態——resetStore 內建 toLogin 因 meta.constant 被跳過，而其未 await 的
+  routeStore.resetStore() 先 resetVueRoutes() 移除 login 常數路由、再非同步 initConstantRoute()
+  重建；非 constant 頁登出（user-avatar）因 resetStore 在移除前就 await toLogin() 而無恙，constant
+  頁在外面補的 toLogin 落入重建空窗。純靜態審查與 typecheck 看不出（route 執行期才不存在）、唯 CDP
+  實機能抓（L-053/L-114 同類）。防：constant route 頁（如 force-change-pwd）的登出一律 window.
+  location.href 整頁重載回 /login（徹底重建 router/store、避競態、登出語意本即回全新未登入態）；
+  勿在 constant 頁依賴 SPA toLogin。｜出處：2026-07-18 015 U4 Phase 3 CDP S1 子步 b。

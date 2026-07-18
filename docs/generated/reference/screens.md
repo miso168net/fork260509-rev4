@@ -12,6 +12,7 @@
 | alova | /alova | layout.base | route.alova |
 | alova_request | /alova/request | view.alova_request | route.alova_request |
 | alova_scenes | /alova/scenes | view.alova_scenes | route.alova_scenes |
+| force-change-pwd | /force-change-pwd | layout.blank$view.force-change-pwd | route.force-change-pwd |
 | function | /function | layout.base | route.function |
 | function_hide-child | /function/hide-child | — | route.function_hide-child |
 | function_hide-child_one | /function/hide-child/one | view.function_hide-child_one | route.function_hide-child_one |
