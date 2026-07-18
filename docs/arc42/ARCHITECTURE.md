@@ -75,9 +75,13 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
     三態 router `Protection{Public,Authed,Policy}`。系統設定端點（Policy super-only）＋auth 縱切
     （登入/換發/個資＋動態選單路由＋替代登入 stub）為業務範式（端點全集住 generated/reference/routes）；
     014 起 auth-only 自助端點家族（`/userCenter` 四端點、operator=claims.uid 不信 body id、密碼政策
-    7 鍵 allowlist 同源常數）＋`getUserRoutes` 恆附掛 self-service 白名單（casbin 過濾後聯集去重、ADR 0065）。
+    7 鍵 allowlist 同源常數）＋`getUserRoutes` 恆附掛 self-service 白名單（casbin 過濾後聯集去重、ADR 0065）；
+    015 首登強制換密＝`pwd_gate_mw` 鎖態 token 硬閘（判定真＋六白名單外 2222、掛 authed＋policy 雙子
+    router、enforce 後 access_log 內側、fail-closed）＋密碼經手表 `sys_pwd_custody`（判定純函式
+    `need_change_pwd` 三處共用、getUserInfo 投影 needChangePwd）＋設密冷卻（pair 計攜剩餘秒數、fail-default 60）；
+    不變式入憲 §I.7 島 I6。
   - `migration`：schema 與 seed 的唯一寫入者——基線兩支（結構＋定稿 seed）＋刀次增量
-    （additive seed／index，至 m010），由 compose migrate 閘門套用，冪等可逆。
+    （additive seed／index，至 m011〔015 sys_pwd_custody 變體 C＋settings 冷卻鍵〕），由 compose migrate 閘門套用，冪等可逆。
   - `entity`：sea-orm 型別化實體層（每張業務表一檔）——後續刀的資料存取消費介面；
     欄位宣告順序照定稿。
   - `sea-orm-adapter`：vendored casbin 授權配接層（constitution §I.5 例外、內容零改寫）——
@@ -87,8 +91,9 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 - 表／欄明細與 archetype 變體歸屬住 generated/reference/schema；初始帳號面住
   generated/reference/accounts。
 - 前端管理頁家族（role／menu／user／audit／ip-rule）＋user-center 自助頁（單欄四卡、改密 keep-sid
-  ＋profile 部分更新＋驗證碼佔位、014）與 auth 縱切已建——全走 WRAPPER/ADAPT 新檔軌道＋i18n 圈界
-  （憲法 §III；user-center 之 index.vue＝首例基線佔位頁修改型 inline 改寫）；螢幕全集住 generated/reference/screens。
+  ＋profile 部分更新＋驗證碼佔位、014）＋強制改密頁（`_builtin/force-change-pwd` constant route＋route
+  guard 全域攔截＋產密浮層共用元件 CSPRNG 三掛載點、015）與 auth 縱切已建——全走 WRAPPER/ADAPT 新檔
+  軌道＋i18n 圈界（憲法 §III；user-center 之 index.vue＝首例基線佔位頁修改型 inline 改寫）；螢幕全集住 generated/reference/screens。
 
 ## §6 Runtime
 

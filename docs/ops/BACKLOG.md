@@ -14,7 +14,6 @@
 - B-026｜部分更新契約內建顯式 clear 語意｜部分更新 wire 設計時（★2026-07-14 011 部分兌現：字串欄 Some("")=清空已落 user 域〔FR-007〕；非字串欄〔user_gender〕清空機制明文不引入；殘餘＝通用顯式 clear wire 設計）｜出處：rev3:REVIEW§3.4（K2-10）
 - B-027｜alt-login 補全知識包（確認密碼規則值快照 race 的 toRef 範式等）（註 2026-07-10：007 captcha 底座〔無狀態簽題＋提交即消耗〕可複用；★alt-login 端點的節流 seam 不自動涵蓋——throttle 判定序只掛 login，屆時需自行接）｜B-008 拍板後施工輸入｜出處：rev3:CHECKLIST§4.2（K2-11）
 - B-028｜手機/信箱真實驗證＋驗證碼改密（與 alt-login 共享 captcha 基建、宜同刀或緊接）（註 2026-07-10：007 captcha 底座可複用——loginCaptcha 端點形＋無狀態簽題直接搬）｜user-center/auth 波排程｜出處：rev3:CHECKLIST§4.2（K2-12）
-- B-030｜新帳號初始密碼政策化（隨機生成＋首登強制改密）｜★自助改密（B-090）落地後（★2026-07-17 014 已落地、觸發條件達成；2026-07-14 011 已做 admin 指定初始密碼＋政策驗證、ADR 0055 拆階段；殘餘＝隨機生成＋首登強制改密〔需 sys_user 加欄＋login 插閘＋強制改密頁〕）｜出處：rev3:CHECKLIST§4.2＋REVIEW§3.3-F-7（K2-14）
 - B-031｜obs 告警通知投遞 channel 最小一條納首發｜觀測層刀｜出處：rev3:CHECKLIST§4.2（K2-15）
 - B-033｜節流快取遞延組（壓制告警/廣度估計/TTL 拆分）＋誤鎖緩解優先級提前（★部分消化 2026-07-10：007 已落壓制麵包屑結構化告警＋unlockLogin 誤鎖緩解；殘餘＝grafana 告警規則＋HLL 廣度估計＋IP 維 TTL 拆分）｜obs 刀（grafana/HLL）＋IP 閘刀（TTL 拆分）｜出處：rev3:CHECKLIST§4.2＋§3.H（K2-17）
 - B-036｜列表排序 per-column 索引評估＋三端白名單單一來源或 parity 檢查｜列表排序刀｜出處：rev3:CHECKLIST§4.2（K2-20）
