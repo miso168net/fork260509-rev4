@@ -16,11 +16,10 @@
 - **015-pwd-custody 已收刀**（2026-07-18、B-030 兌現）：密碼經手表 sys_pwd_custody（變體 C m011）＋首登強制
   換密（pwd_gate_mw 硬閘＋強制改密頁＋route guard）＋設密冷卻＋產密浮層三掛載點；憲法 v1.14.0((k)＋島 I6)
   ＋ADR 0067；收尾 UI 微調（偏離 US2 AC4）＋★U8 捏造工具呼叫事故 workflow 隔離重做全翻正（L-150）。詳 events/STATE。
-- **下一步（user 拍板 2026-07-17 roadmap、B-030 已兌現）**：①B-060 demo 選單清理（順路收 B-101、
-  順路裁 B-094；★動工前重偵察——keep 前提已因 013 建頁漂移）→之後 auth 延伸組（B-027/028/102）vs
-  prod 組（B-013/037/038/042/080/081）擇定。
+- **下一步（user 拍板 2026-07-19：B-060/B-103 移滯後卷 BACKLOG-DEFERRED＝正式 release 前清理批）**：
+  auth 延伸組（B-027/028/102）vs prod 組（B-013/037/038/042/080/081）擇定。
 - 014 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；
-  B-103（email/phone 雙卡同構重複、B-096 同構容忍先例）。013 前遺留：B-098（ip_rule enrich 測試
+  B-103（→滯後卷）。013 前遺留：B-098（ip_rule enrich 測試
   清理段不耐 panic）；B-099（契約層對 query 形零判別力）；B-100（系統軟刪掃描通用刀）；
   B-101（casbin 按鈕碼與 buttons 聯集漂移）；B-096（稽核 daterange 重複×4）；B-086（010
   restorePolicy）；B-085（protectedRevoke 命名）。

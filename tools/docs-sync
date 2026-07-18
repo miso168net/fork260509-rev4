@@ -217,6 +217,7 @@ BUDGETS = {
 }
 LESSONS_TOKEN_LIMIT = 25000
 LESSONS_TOKEN_WARN = 22500
+BACKLOG_VOL_LINE_LIMIT = 200
 # 活書單節配額（行數、超出＝警告）
 SECTION_QUOTAS = {1: 40, 2: 30, 3: 50, 4: 40, 5: 90, 6: 120,
                   7: 60, 8: 90, 9: 5, 10: 40, 11: 3, 12: 30}
@@ -248,20 +249,25 @@ def lint_budgets(root):
         if max_tokens is not None and token_count(text) > max_tokens:
             out.append(finding(ERROR, "L7", rel,
                                f"約 {token_count(text)} tokens 超出預算 {max_tokens}"))
-    # LESSONS 全卷（LESSONS.md＋LESSONS-*.md）各卷限額
+    # LESSONS 全卷（LESSONS.md＋LESSONS-*.md）各卷 token 限額；BACKLOG 卷（BACKLOG-*.md）
+    # 各卷行數限額（同主檔 200）——皆走 glob、新卷免登記 BUDGETS 即被涵蓋
     ops_dir = os.path.join(root, "docs/ops")
     if os.path.isdir(ops_dir):
         for name in sorted(os.listdir(ops_dir)):
-            if not (name == "LESSONS.md" or (name.startswith("LESSONS-") and name.endswith(".md"))):
-                continue
             rel = f"docs/ops/{name}"
-            toks = token_count(_read(root, rel))
-            if toks > LESSONS_TOKEN_LIMIT:
-                out.append(finding(ERROR, "L7", rel,
-                                   f"約 {toks} tokens 超出單卷上限 {LESSONS_TOKEN_LIMIT}——請分卷（詳活書文件規則）"))
-            elif toks > LESSONS_TOKEN_WARN:
-                out.append(finding(WARN, "L7", rel,
-                                   f"約 {toks} tokens 逼近單卷上限 {LESSONS_TOKEN_LIMIT}，宜準備分卷"))
+            if name == "LESSONS.md" or (name.startswith("LESSONS-") and name.endswith(".md")):
+                toks = token_count(_read(root, rel))
+                if toks > LESSONS_TOKEN_LIMIT:
+                    out.append(finding(ERROR, "L7", rel,
+                                       f"約 {toks} tokens 超出單卷上限 {LESSONS_TOKEN_LIMIT}——請分卷（詳活書文件規則）"))
+                elif toks > LESSONS_TOKEN_WARN:
+                    out.append(finding(WARN, "L7", rel,
+                                       f"約 {toks} tokens 逼近單卷上限 {LESSONS_TOKEN_LIMIT}，宜準備分卷"))
+            elif name.startswith("BACKLOG-") and name.endswith(".md"):
+                lines = _line_count(_read(root, rel) or "")
+                if lines > BACKLOG_VOL_LINE_LIMIT:
+                    out.append(finding(ERROR, "L7", rel,
+                                       f"行數 {lines} 超出單卷預算 {BACKLOG_VOL_LINE_LIMIT}"))
     # 活書單節配額（警告級）
     book = _read(root, BOOK)
     if book is not None:
@@ -401,7 +407,14 @@ def lint_adrs(adrs, head_adrs, amend=False):
 RE_NEXT_ID = re.compile(r"<!--\s*next:\s*([BL])-(\d+)\s*-->")
 RE_ENTRY = {
     "B": re.compile(r"^- B-(\d+)｜", re.M),
-    "L": re.compile(r"^- \*\*L-(\d+)\*\*｜", re.M),
+    "L": re.compile(r"^- (?:\*\*)?L-(\d+)(?:\*\*)?｜", re.M),
+}
+# 反回收豁免視野（L9 head_ids 專用）：不錨行首的寬鬆子串形——｜為欄位分隔、散文引用不帶，
+# 故「字串曾在 HEAD 出現」即非回收；格式事故（行黏連/縮排）修復不誤判，真回收（號碼已刪列
+# ＝字串已消失）照抓。staged 側計數/撞號仍用嚴格 RE_ENTRY。user 拍板調規 2026-07-19（B-106）。
+RE_ENTRY_ANYPOS = {
+    "B": re.compile(r"B-(\d+)｜"),
+    "L": re.compile(r"L-(\d+)(?:\*\*)?｜"),
 }
 
 
@@ -441,7 +454,7 @@ def lint_ids(kind, texts, head_texts):
                                f"next-id 須單調遞增（HEAD {head_next} → 現 {cur_next}）"))
         head_ids = set()
         for text in head_texts:
-            head_ids.update(int(m.group(1)) for m in RE_ENTRY[kind].finditer(text or ""))
+            head_ids.update(int(m.group(1)) for m in RE_ENTRY_ANYPOS[kind].finditer(text or ""))
         for n in sorted(set(ids) - head_ids):
             if n < head_next:
                 out.append(finding(ERROR, "L9", label,
@@ -507,7 +520,8 @@ def lint_dictionary(texts):
 
 RE_MD_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 RE_LINE_REF = re.compile(r"\S+\.md:\d+")
-RE_VOLATILE_ANCHOR = re.compile(r"(?:BACKLOG|NOTES|STATE)\.md#\S+")
+# BACKLOG 全系（含 BACKLOG-*.md 卷）皆揮發故一律禁錨；LESSONS 系 append-only、錨穩定故不禁
+RE_VOLATILE_ANCHOR = re.compile(r"(?:BACKLOG(?:-[A-Za-z0-9-]+)?|NOTES|STATE)\.md#\S+")
 RE_MEMORY_PATH = re.compile(r"(?:~|/home/[^/\s]+)/\.claude/[^\s)]*")
 
 
@@ -707,7 +721,7 @@ def gen_state(ctx):
 
 ## 帳面統計
 - ADR：{len(adr_metas)}（{adr_stat}）
-- BACKLOG 待辦：{ctx.get('backlog_count', 0)}（next：{f'B-{bn:03d}' if bn else '？'}）
+- BACKLOG 待辦：{ctx.get('backlog_count', 0)}（next：{f'B-{bn:03d}' if bn else '？'}）｜滯後：{ctx.get('backlog_deferred_count', 0)}
 - LESSONS：{ctx.get('lessons_count', 0)} 筆（next：{f'L-{ln:03d}' if ln else '？'}）
 - events：{len(events)} 筆（{ev_stat}）
 
@@ -923,12 +937,23 @@ def load_head_adrs(root):
     return head
 
 
-def lessons_paths(root):
+def _volume_paths(root, main_rel, prefix):
+    """主檔＋docs/ops 下同前綴分卷（sorted）；主檔恆在 index 0。"""
     ops = os.path.join(root, "docs/ops")
     vols = (sorted(n for n in os.listdir(ops)
-                   if n.startswith("LESSONS-") and n.endswith(".md"))
+                   if n.startswith(prefix) and n.endswith(".md"))
             if os.path.isdir(ops) else [])
-    return ["docs/ops/LESSONS.md"] + [f"docs/ops/{v}" for v in vols]
+    return [main_rel] + [f"docs/ops/{v}" for v in vols]
+
+
+def lessons_paths(root):
+    return _volume_paths(root, "docs/ops/LESSONS.md", "LESSONS-")
+
+
+def backlog_paths(root):
+    """BACKLOG 全卷：主檔＋滯後卷（BACKLOG-*.md；滯後≠完成、條目仍屬開放待辦）。
+    配號 next-id 只在主檔（texts[0]）；滯後卷收 user 拍板滯後之整行搬移條目。"""
+    return _volume_paths(root, BACKLOG, "BACKLOG-")
 
 
 def gen_reference_stub(name):
@@ -1590,15 +1615,16 @@ def compute_generated(root):
     """重算 docs/generated/ 全部應有內容。回 {rel: content}。"""
     events = parse_events_loose(_read(root, EVENTS))
     metas = [parse_front_matter(t)[0] for t in load_adrs(root).values()]
-    backlog = _read(root, BACKLOG) or ""
+    btexts = [(_read(root, rel) or "") for rel in backlog_paths(root)]
     lessons_texts = [(_read(root, rel) or "") for rel in lessons_paths(root)]
     ctx = {
         "pins": index_pins(root),
         "constitution_version": constitution_version(root),
         "events": events,
         "adr_metas": metas,
-        "backlog_count": len(RE_ENTRY["B"].findall(backlog)),
-        "backlog_next": _parse_next("B", backlog),
+        "backlog_count": len(RE_ENTRY["B"].findall(btexts[0])),
+        "backlog_next": _parse_next("B", btexts[0]),
+        "backlog_deferred_count": sum(len(RE_ENTRY["B"].findall(t)) for t in btexts[1:]),
         "lessons_count": sum(len(RE_ENTRY["L"].findall(t)) for t in lessons_texts),
         "lessons_next": _parse_next("L", lessons_texts[0]),
     }
@@ -1630,9 +1656,13 @@ def _norm_bid(s):
 
 
 def _open_backlog_ids(root):
-    """現況 BACKLOG.md 仍開放的 B-NNN 條目集（RE_ENTRY 認真條目、非散文引用）。"""
-    text = _read(root, BACKLOG) or ""
-    return {f"B-{int(m.group(1)):03d}" for m in RE_ENTRY["B"].finditer(text)}
+    """現況 BACKLOG 全卷（主檔＋滯後卷）仍開放的 B-NNN 條目集（RE_ENTRY 認真條目、
+    非散文引用；滯後≠完成——滯後卷條目對 L4/L5 一律視為仍開放）。"""
+    ids = set()
+    for rel in backlog_paths(root):
+        text = _read(root, rel) or ""
+        ids.update(f"B-{int(m.group(1)):03d}" for m in RE_ENTRY["B"].finditer(text))
+    return ids
 
 
 def _backlog_id_ever_existed(root, nb):
@@ -1640,7 +1670,7 @@ def _backlog_id_ever_existed(root, nb):
     ★不問「何時加」：backlog 項或於 mid-feature commit、或於 merge 後之收刀簿記 commit 加入
     （CLAUDE.md §2 簿記排在 merge 之後），故 merge SHA 非可靠參考點——只問「有沒有真加過」。
     `｜` 為條目欄位分隔、散文引用不帶，故 `B-NNN｜` 專認真條目。git 不可用（測試）→False。"""
-    out = git_out(["log", "--oneline", "-S", f"{nb}｜", "--", BACKLOG], root)
+    out = git_out(["log", "--oneline", "-S", f"{nb}｜", "--", *backlog_paths(root)], root)
     return bool(out and out.strip())
 
 
@@ -1688,7 +1718,7 @@ def lint_close_existence(root):
         for b in e.get("backlog_done", []) or []:
             if _norm_bid(b) in open_ids:
                 out.append(finding(ERROR, "L4", where,
-                                   f"backlog_done {b} 仍在 BACKLOG.md（宣稱完成卻未刪列）"))
+                                   f"backlog_done {b} 仍在 BACKLOG 卷（主檔或滯後卷；宣稱完成卻未刪列）"))
         for b in e.get("backlog_add", []) or []:
             nb = _norm_bid(b)
             # 快速路徑：現況仍開放 或 後續 backlog_done 消化＝顯然真被 defer、免 git。
@@ -1835,7 +1865,9 @@ def run_lint(root):
     findings += lint_budgets(root)
     amend = os.environ.get("DOCS_SYNC_ADR_AMEND") == "1"
     findings += lint_adrs(load_adrs(root), load_head_adrs(root), amend=amend)
-    findings += lint_ids("B", [_read(root, BACKLOG) or ""], [head_file(BACKLOG, root)])
+    bpaths = backlog_paths(root)
+    findings += lint_ids("B", [(_read(root, p) or "") for p in bpaths],
+                         [head_file(p, root) for p in bpaths])
     lpaths = lessons_paths(root)
     findings += lint_ids("L", [(_read(root, p) or "") for p in lpaths],
                          [head_file(p, root) for p in lpaths])
@@ -2098,6 +2130,34 @@ class TestLintIds(unittest.TestCase):
         f = lint_ids("L", [main, vol], [main, vol])
         self.assertTrue(any("重複" in x["msg"] for x in f))
 
+    def test_repairing_midline_entry_not_recycle(self):
+        # B-106 場景：HEAD 端條目黏他行行尾（非行首、嚴格 RE_ENTRY 不認），staged 補換行
+        # 修復不得誤判舊號回收——反回收 HEAD 豁免視野採寬鬆子串形（｜為欄位分隔、散文引用不帶）
+        head = "<!-- next: B-005 -->\n# BACKLOG\n\n- B-003｜甲（註）- B-004｜乙\n"
+        cur = head.replace("（註）- B-004｜乙", "（註）\n- B-004｜乙")
+        self.assertEqual(lint_ids("B", [cur], [head]), [])
+
+    def test_backlog_multi_volume_move_and_duplicate(self):
+        # 滯後卷與主檔同視野：同 commit 整行搬移＝非舊號回收；跨卷撞號可偵測
+        head_main = "<!-- next: B-005 -->\n# BACKLOG\n\n- B-003｜甲\n- B-004｜乙\n"
+        cur_main = head_main.replace("- B-003｜甲\n", "")
+        vol = "# BACKLOG-DEFERRED — 滯後卷\n\n- B-003｜甲｜★滯後：release 前\n"
+        self.assertEqual(lint_ids("B", [cur_main, vol], [head_main, None]), [])
+        dup = vol + "- B-004｜乙撞號\n"
+        f = lint_ids("B", [cur_main, dup], [head_main, None])
+        self.assertTrue(any("重複" in x["msg"] for x in f))
+
+    def test_lessons_plain_form_same_view(self):
+        # B-105：plain 形（- L-NNN｜）與粗體形同視野——計數入帳、
+        # 反回收兩側同視（plain→粗體正規化不得誤判舊號回收）、跨形撞號可偵測
+        head = "<!-- next: L-103 -->\n# LESSONS\n- **L-101**｜甲\n- L-102｜乙\n"
+        self.assertEqual(len(RE_ENTRY["L"].findall(head)), 2)
+        cur = head.replace("- L-102｜", "- **L-102**｜")
+        self.assertEqual(lint_ids("L", [cur], [head]), [])
+        dup = head + "- **L-102**｜跨形撞號\n"
+        f = lint_ids("L", [dup], [head])
+        self.assertTrue(any("重複" in x["msg"] for x in f))
+
 
 class TestGenMilestones(unittest.TestCase):
     def test_empty(self):
@@ -2137,7 +2197,7 @@ class TestGenState(unittest.TestCase):
         "constitution_version": None,
         "events": [VALID_MISC, VALID_MISC, VALID_MISC, VALID_CLOSE],
         "adr_metas": [],
-        "backlog_count": 2, "backlog_next": 6,
+        "backlog_count": 2, "backlog_next": 6, "backlog_deferred_count": 2,
         "lessons_count": 101, "lessons_next": 102,
     }
 
@@ -2148,6 +2208,7 @@ class TestGenState(unittest.TestCase):
         self.assertIn("未建置", text)            # api pin 缺
         self.assertIn("未鑄", text)              # constitution 版本缺
         self.assertIn("B-006", text)            # backlog next
+        self.assertIn("滯後：2", text)           # 滯後卷分計
         self.assertIn("101", text)              # lessons count
 
     def test_tail_three_events_newest_first(self):
@@ -2769,6 +2830,12 @@ class TestLintVolatileDeepLinks(unittest.TestCase):
         self.assertEqual(len(f), 1)
         self.assertIn("整檔", f[0]["msg"])
 
+    def test_deep_link_to_backlog_volume_anchor(self):
+        # 滯後卷（BACKLOG-*.md）同屬揮發區——內部錨照禁
+        f = lint_volatile_deep_links({"CLAUDE.md": "[項](docs/ops/BACKLOG-DEFERRED.md#b-060)\n"})
+        self.assertEqual(len(f), 1)
+        self.assertIn("整檔", f[0]["msg"])
+
     def test_whole_file_link_ok(self):
         f = lint_volatile_deep_links({"CLAUDE.md": "[待辦](docs/ops/BACKLOG.md)\n"})
         self.assertEqual(f, [])
@@ -2949,6 +3016,20 @@ class TestLintCloseExistence(unittest.TestCase):
         self._w(EVENTS, _jl(e))
         f = lint_close_existence(self.root)
         self.assertTrue(any("B-077" in x["msg"] and x["code"] == "L4" for x in f))
+
+    def test_backlog_open_includes_deferred_volume(self):
+        # 滯後卷條目仍屬開放：backlog_add 指向滯後卷不誤報 phantom；
+        # backlog_done 誤標滯後中條目要被抓「宣稱完成卻未刪列」
+        e = self._clean()
+        self._w(BACKLOG, "<!-- next: B-100 -->\n# BACKLOG\n")
+        self._w("docs/ops/BACKLOG-DEFERRED.md",
+                "# BACKLOG-DEFERRED — 滯後卷\n\n- B-055｜開放中｜release 前\n")
+        self._w(EVENTS, _jl(e))
+        self.assertEqual(lint_close_existence(self.root), [])
+        e["backlog_done"] = ["B-055"]
+        self._w(EVENTS, _jl(e))
+        f = lint_close_existence(self.root)
+        self.assertTrue(any("宣稱完成卻未刪列" in x["msg"] for x in f))
 
     def test_backlog_add_consumed_by_later_done(self):
         self._adr("0007")
@@ -3251,6 +3332,12 @@ class TestLintBudgets(unittest.TestCase):
 
     def test_lessons_volume_files_also_checked(self):
         self._w("docs/ops/LESSONS-001-050.md", "字" * 25100)
+        f = lint_budgets(self.root)
+        self.assertEqual([x["level"] for x in f], [ERROR])
+
+    def test_backlog_volume_files_also_checked(self):
+        # BACKLOG-*.md 卷走 glob 限額（同主檔 200 行）——新卷免登記 BUDGETS 也被攔
+        self._w("docs/ops/BACKLOG-ARCHIVE.md", "x\n" * 201)
         f = lint_budgets(self.root)
         self.assertEqual([x["level"] for x in f], [ERROR])
 

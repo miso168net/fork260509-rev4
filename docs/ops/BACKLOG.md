@@ -1,4 +1,4 @@
-<!-- next: B-106 -->
+<!-- next: B-107 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -25,7 +25,6 @@
 - B-045｜低位殘項 checklist（trace_id 控制字元/XFF 空 token/計數 race/migration down 非對稱/CDN 錨）｜重寫對應模組時逐項內建｜出處：rev3:CHECKLIST§3.J（K2-30）
 - B-053｜obs 面板與 metrics 慣例（docker 友善板/計數器 pre-register/pushgateway 持久卷）｜觀測層刀起手｜出處：rev3:CHECKLIST§3.I（K2-38）
 - B-054｜completion log 噪音治理（預留 path 級過濾開關）｜request log 設計時｜出處：rev3:CHECKLIST§3.I（K2-39）
-- B-060｜demo 選單清理：002 casbin menu seed 給 R_SUPER 全 soybean template demo（about/document/plugin/alova/pro-naive/multi-menu/function）menu policy，rev4 真選單應只 home/manage/user-center｜動 002 casbin/sys_menu seed（新 migration；偵察 2026-07-10：demo＝67 menu＋77 casbin 列、keep＝11〔含 B-061 三未建頁項不動〕；casbin_rule 無 deleted_at→policy 硬刪不可避、gate2 缺列紅需 SEED_REMOVAL_ALLOWLIST＋新 ADR〔0032 只放寬新增〕；拍板點＝sys_menu hard vs 軟刪／exception 樹入否；受影響測試＝sys_menu facade list_active 計數＋route handler R_USER_COMMON 正向斷言）（★2026-07-13 010 拍板不折入；★2026-07-14 011 拍板 user 寫端全 super-only、R_ADMIN user:edit 有鈕無權不對稱留置＝誠實 5003 拒因、隨本項 demo 清理一併處理〔D1 親決、FR-004〕）｜出處：005 CDP item#2 拍板 2026-07-06
 - B-063｜孤兒/背景 reaper：sys_token 跨 session 孤兒＋rotated 過期列完整回收（006 refresh-time prune_expired_rotated 已止血同 chain；跨 session/背景批次遞延）｜obs/維運刀｜出處：006 R6/SC-009
 - B-065｜denylist 逐出/命中監控＋enforce PG-fallback 負載觀測（每受保護請求一次 ttl_from_settings SELECT、admin 規模可接受）｜obs 刀｜出處：006 U4/final review minor
 - B-067｜session_event 膨脹治理：reuse 同票重放逐次累積稽核列（006 SC-009 只列 sys_token 回收、未列 session_event；曝險有界於 refresh JWT exp、無安全風險）｜obs 刀｜出處：006 final review minor
@@ -34,7 +33,8 @@
 - B-075｜captcha 強化包：產圖對抗性（干擾強度/字型多樣）＋UX 觀察——「碼對密錯」（captcha 相符、密碼錯）該題已提交即消耗、前端不主動換題 ⇒ 下一發必 captchaRequired 多一輪往返｜captcha 對抗性或 UX 痛點實際出現時｜出處：007 U5/U6 觀察
 - B-076｜schema-gate 白名單整批重凍退路：ADR 0039 建立 STRUCT/SEED additive 白名單範式（只放寬新增），白名單隨刀累積會稀釋「凍結基準」語意；需保留「重擷取 fixtures 整批重凍＋清空白名單」退路（基準改動、拍板級）｜白名單膨脹或下次大 schema 刀｜出處：ADR 0039／007 U3
 - B-080｜CDN 錨碼層硬化：Tier-1 CDN 位置錨僅檢查「最右 CDN 段」、不檢查該 CDN 由傳輸層背書，origin 對外裸露時可偽造 XFF 注入公開 CDN 邊緣 IP 當錨繞過閘（final review #1、ADR 0043）；候選＝Tier-1 錨要求「錨右鄰起全受信基建」；★留獨立後續刀（避免誤傷合法多層 CDN/LB 拓樸）｜ingress 硬化刀｜出處：008 final holistic review #1
-- B-081｜prod Dockerfile xdb 資料檔 COPY：xdb/resources/ip2region.xdb 已 git-tracked，但現僅 dev stage、prod 多階段建置需 COPY 進映像＋設 XDB_FILEPATH（否則 prod xdb_ready=false、region 恆空）｜prod 多階段建置刀｜出處：008 U12 as-built（L-083/L-084）- B-083｜寫端授權下放前置複合條目（M-6 no-escalation 授權上限檢查＋seeded 護欄複評＋明細通道受眾邊界重評）——任何「寫端授權下放非 super」或「role CRUD 政策列下放非 super」之前 MUST 先建：①非超管寫端「不得授出超過自身所有」上限檢查（FR-045、本刀結構上不可達故未建）；②seeded 受保護護欄與「超管恆禁停用」結構護欄複評（FR-015／FR-018）；③明細通道受眾邊界重評（FR-035／ADR 0050——明細「自查等價」前提隨受眾改變即失效）｜寫端授權下放刀｜出處：009 FR-035/FR-045／ADR 0050
+- B-081｜prod Dockerfile xdb 資料檔 COPY：xdb/resources/ip2region.xdb 已 git-tracked，但現僅 dev stage、prod 多階段建置需 COPY 進映像＋設 XDB_FILEPATH（否則 prod xdb_ready=false、region 恆空）｜prod 多階段建置刀｜出處：008 U12 as-built（L-083/L-084）
+- B-083｜寫端授權下放前置複合條目（M-6 no-escalation 授權上限檢查＋seeded 護欄複評＋明細通道受眾邊界重評）——任何「寫端授權下放非 super」或「role CRUD 政策列下放非 super」之前 MUST 先建：①非超管寫端「不得授出超過自身所有」上限檢查（FR-045、本刀結構上不可達故未建）；②seeded 受保護護欄與「超管恆禁停用」結構護欄複評（FR-015／FR-018）；③明細通道受眾邊界重評（FR-035／ADR 0050——明細「自查等價」前提隨受眾改變即失效）｜寫端授權下放刀｜出處：009 FR-035/FR-045／ADR 0050
 - B-085｜ADR 0050 protectedRevoke 命名 as-built 漂移：ADR 0050 line 20 字面列命名空間為 `biz.policy.protectedRevoke`，as-built（rust-api handler role.rs／契約表／base-web 三語 locale）一律用 `biz.role.protectedRevoke`（distinct key 一因一鍵、與其餘 biz.role.* 拒因同命名空間）——★文檔漂移、實作正確（ADR accepted body 不可變、不回灌）；翻案／再動明細通道 key 命名時 MUST 立新 ADR 校正字面｜明細通道再設計或 ADR 0050 翻案觸發時｜出處：009 U16 收刀 as-built 核對
 - B-086｜restorePolicy menu 維孤兒檢查用 list_active vs 治理域一致性：sys_casbin_archive.rs restore_archived 判標的選單存在以 list_active（顯示域），停用選單（status=2、未刪、屬治理域）之歸檔授權復原會誤判 NotRestorable、與 010 FR-019「治理域＝未刪含停用、停用≠撤銷」有張力；010 R2 明列且僅列四治理讀端換源點、restorePolicy 非其一、屬 U8/009 授權回收桶路徑，010 正確 surgical 未動｜授權回收桶再設計或 restore 停用選單語義釐清時｜出處：010 U10 spec/quality review minor
 - B-094｜未刪選單列表分頁裝飾性、>100 頂層將靜默截斷｜選單規模成長時（出處：REVIEW-001-010 F010-1）
@@ -42,5 +42,3 @@
 - B-100｜系統軟刪掃描通用刀：島 H2 之通用正確性——各軟刪路徑（選單/角色/使用者…）下 casbin 碼與 sys_menu.buttons 聯集的歸檔一致性全面掃描（013 D8 明文 decouple、ADR 0064「不做」節）｜未來排程（入波時拍範圍）｜出處：013 spec D8＋ADR 0063/0064
 - B-101｜casbin 按鈕碼與 sys_menu.buttons 聯集漂移追蹤：m008 user 四碼（reset-pwd/kick/restore/unlock）中 buttons 欄未同步回填之 011 缺口＋013 ip-rule 四碼已同步——兩源（casbin 政策 vs buttons 面板候選）無機器一致性檢查、會靜默漂移｜下次動按鈕碼 seed 或角色頁按鈕面板時｜出處：013 tasks T033＋ADR 0063
 - B-102｜changePassword 舊密暴力試節流（攻擊前提＝已劫持 session、舊密 gate 即既有防線＝風險有限；007/008 throttle 狀態機綁死 login 流程〔sys_login_attempt 計數＋captcha gate〕不可直掛、需另做 per-user 節流 seam）｜auth 安全補強刀或與 B-027/B-028 同刀｜出處：014 spec 設計取捨（自拍 9、2026-07-17）
-- B-103｜user-center email/phone 雙卡同構重複（各約 85 行、僅差欄名／title 鍵／pattern rule 四處字面）——提煉共用 ContactCard 候選（rev3 藍本本即雙卡、012 B-096 同構容忍先例、收刀不強修）｜下次觸及 user-center 卡片時｜出處：014 final review 品質鏡頭建議 1（2026-07-17）
-- B-105｜docs-sync LESSONS 計數 regex 與檔內近期條目格式分歧：L-146~L-148 用 plain「- L-NNN｜」形、RE_ENTRY['L'] 只認粗體形→STATE 顯 145 實 148（靜默低估）；且 plain→粗體正規化會被 L9 反回收檢查誤判「舊號回收」擋 commit（HEAD 端看不見 plain 條目、staged 端視為新增舊號）。lint 調規候選二擇：①RE_ENTRY 擴兼容 plain 形（HEAD/staged 同視野、反回收語意不損）②一次性正規化＋lint amnesty 機制。user 拍板後施作｜下次 lint 調規批｜出處：015 U2R 品質審觀察 A＋主線邊界 commit 實撞 L9（2026-07-18）

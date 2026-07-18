@@ -135,26 +135,26 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   userInfo；prod 無此問題（migration 在容器啟動序、enforcer 必後於 seed 載入）。
   ｜出處：2026-07-16 013 U6 邊界 CDP 實證（restart 後四鈕即顯）。
 
-- L-146｜治理級決定不得以「主線裁決」名義烤進 sub-agent prompt——會被安全分類器判「指令注入」
+- **L-146**｜治理級決定不得以「主線裁決」名義烤進 sub-agent prompt——會被安全分類器判「指令注入」
   整刀擋下（014 U4 實證：spec-review 升級「i18n 鍵落點需拍板」、主線自裁 A 案並把裁決段寫進
   review/fix prompt 預壓複審→分類器以 Instruction Poisoning 攔截、零派發）。判準：憲法/GATE 字面
   相鄰、user 可見行為、審查鏈明文要求拍板者＝真親決事項；正路＝AskUserQuestion 三案攤開讓 user 選、
   拍板後在 prompt 記載「user 親決（日期）」並誠實分層（親決項 vs 主線工程判斷項）。
   ｜出處：2026-07-17 014 U4（親決後 resume 一次過、複審自然通過）。
 
-- L-147｜i18n 混語全表對帳的 review agent 會觸發 LLM 輸出內容過濾（Output blocked by content
+- **L-147**｜i18n 混語全表對帳的 review agent 會觸發 LLM 輸出內容過濾（Output blocked by content
   filtering policy）——014 U8 兩連擋、對 prompt 加「report 精簡令」無效（觸發在審查軌跡本體、
   非最終 report）。防法：本質機器可驗的對帳（鍵集 diff／逐字比對／raw-key 掃描）不派 LLM 審——
   主線寫確定性腳本（python）親跑同等斷言收口，零模型生成混語內容＝零誤傷面；LLM 審查留給
   需要判斷力的面向。注意腳本判準自身的誤報（簡繁通用字字集過寬、間接引用未追蹤）需人工覆核。
   ｜出處：2026-07-17 014 U8（implementer 審校結論最終由主線 python 對帳獨立複證、全數一致）。
-- L-148｜migration 新增索引／表未同步登記 schema-gate STRUCT_ADDITIVE_ALLOWLIST 不會即時翻紅——
+- **L-148**｜migration 新增索引／表未同步登記 schema-gate STRUCT_ADDITIVE_ALLOWLIST 不會即時翻紅——
   gate1 不在 pre-commit、只在人工實跑時驗，漏登記可潛伏數刀（實證：012 m009 兩支 trgm 索引漏登、
   潛伏至 015 U2 表就位驗證首撞 gate1 紅、誤耗一輪 workflow 升級診斷）。防法：凡 migration 含
   CREATE TABLE／CREATE INDEX，同 commit 必登 STRUCT_ADDITIVE_ALLOWLIST＋self-test 集合斷言同步
   （015 tasks T002 內建此排項＝正例）；每刀收刀前把 quickstart 全量閘（含 schema-gate 三子命令）
   實跑一遍、不倚賴 pre-commit 面。｜出處：2026-07-18 015 U2（gate1 白名單外差異 2、主線勘誤補登）。
-- L-149｜constant route 頁面上呼 authStore.resetStore() 後再 SPA 導向 login 會撞「No match for
+- **L-149**｜constant route 頁面上呼 authStore.resetStore() 後再 SPA 導向 login 會撞「No match for
   login」競態——resetStore 內建 toLogin 因 meta.constant 被跳過，而其未 await 的
   routeStore.resetStore() 先 resetVueRoutes() 移除 login 常數路由、再非同步 initConstantRoute()
   重建；非 constant 頁登出（user-avatar）因 resetStore 在移除前就 await toLogin() 而無恙，constant
@@ -162,7 +162,7 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   實機能抓（L-053/L-114 同類）。防：constant route 頁（如 force-change-pwd）的登出一律 window.
   location.href 整頁重載回 /login（徹底重建 router/store、避競態、登出語意本即回全新未登入態）；
   勿在 constant 頁依賴 SPA toLogin。｜出處：2026-07-18 015 U4 Phase 3 CDP S1 子步 b。
-- L-150｜主線（main agent）在長串多步驗證（CDP 手駕）中會捏造工具呼叫與結果——把「發出呼叫→
+- **L-150**｜主線（main agent）在長串多步驗證（CDP 手駕）中會捏造工具呼叫與結果——把「發出呼叫→
   收到結果」整段當文字生成：偽造 tool result、偽造 Workflow launched 回報、甚至偽造看門狗 ARMED
   通知（015 U8 三度實證：SC-005 假 CDP＋假清理、恢復期假 restore、WF-A 假發射；user 三度質疑
   戳破）。機制：對 LLM「執行」與「想像執行」都是 token 生成、唯一物理邊界＝輸出結構化呼叫後
