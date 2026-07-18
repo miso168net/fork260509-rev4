@@ -97,13 +97,12 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §6 Runtime
 
-- **請求前置鏈**（008、島 F；全域中介層蓋所有路由〔含未匹配 fallback〕、`router.rs` 掛於三態 router merge 後）：
-  `request_context_mw`（讀 `ConnectInfo` peer→`resolve_client_ip`＋通道／CF overlay→注入
-  `RequestContext{client_ip★恆 canonical、peer_ip、ip_confidence、x_forwarded_for 原文、trace_id}`；
-  peer 缺席→透傳不注入＝fail-open）→ `ip_gate_mw`（`/health`＋`/metrics` bypass→無 `RequestContext`
-  fail-open 放行→`ipgate::decide`〔ArcSwap lock-free、零 DB/Redis〕；deny→`5003`/403〔既有
-  `PermissionDenied`、零新碼〕＋per-cidr blocked 觀測 best-effort）。★政策零內聯——middleware 只抽標頭、
-  判定全在 `trust`／`ipgate` 純函式。
+- **請求前置鏈**（008、島 F；全域中介層蓋所有路由〔含未匹配 fallback〕、`router.rs` 掛於三
+  態 router merge 後）：`request_context_mw`（讀 `ConnectInfo` peer→`resolve_client_ip`＋通道／CF overlay→注
+  入 `RequestContext{client_ip★恆 canonical、peer_ip、ip_confidence、x_forwarded_for 原文、trace_id}`；peer 缺席→透傳不注
+  入＝fail-open）→ `ip_gate_mw`（`/health`＋`/metrics` bypass→無 `RequestContext`
+  fail-open 放行→`ipgate::decide`〔ArcSwap lock-free、零 DB/Redis〕；deny→`5003`/403〔既有 `PermissionDenied`、零新碼〕
+  ＋per-cidr blocked 觀測 best-effort）。★政策零內聯——middleware 只抽標頭、判定全在 `trust`／`ipgate` 純函式。
 - **登入鏈**（POST /auth/login，Public）——先過**節流判定序**（憲法 §I.7 島 E；詳 specs/007-login-throttle/
   spec.md FR-022＋data-model.md §5/§7）：形制閘（user_name≤64／password≤512B，超限 `1000`【零列零雜湊零計數】）
   → ① L1 GET `throttle:lock` 命中→`2222 auth.login.locked`【零 DB 零 argon2 零列；附有效 captcha 亦不受理且不消耗】
@@ -119,15 +118,14 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   denylist(kicked)＋session_event(kicked)＋write session_id → 記 last_activity → 終局寫 `sys_login_attempt`
   （★稽核口徑 FR-010：只有被密碼雜湊實際驗證過的登入終局才落恰一列——鎖定/captcha 短路一律零列、量級走麵包屑；
   exactly-one／best-effort、IP 最小版）→ `LoginToken`。
-- **登入鏈來源維增量**（008、島 F；`throttle::precheck` 於 authenticate〔⑤〕前雙維並列，FR-029）：
-  帳號維（判定鍵＝`user_name` 原文、承 007）‖ 來源維（判定鍵＝`ip_bucket(real_ip)`＝IPv4 /32／IPv6 /64）
-  合成＝任一維硬鎖→硬鎖、任一維軟區→軟區、否則放行；★來源維 L2 count `GREATEST 兩源`〔拔 reset-on-
-  success、與帳號維三源不同、ADR 0045〕、L1 `throttle:lock:ip:{bucket}` 為該維唯一寫入點；★⓪白名單跳
-  節流直讀顯式 allow 袋 `IpNetwork::contains`（絕不經 `decide`——結構豁免六段對 `decide` 亦回 Allow、會
-  誤跳，FR-032）；`real_ip` 缺席 sentinel→來源維整層跳過；兩維共用同一 `2222` 一般化訊息、不揭露觸發
-  維度（FR-028）。稽核列 `sys_login_attempt` 值語意升級〔★零結構改動、m001 baseline 凍結〕：`real_ip`＝
-  還原真值、`ip_confidence`＝七態、`peer_ip`／`x_forwarded_for`〔原文不解析〕、`region`＝GeoIP best-effort
-  〔唯一解析處＝登入稽核組裝點、`xdb_ready` 為假則不解析、ADR 0046〕。
+- **登入鏈來源維增量**（008、島 F；`throttle::precheck` 於 authenticate〔⑤〕前雙維並列，FR-029）：帳號維（判定鍵
+  ＝`user_name` 原文、承 007）‖ 來源維（判定鍵＝`ip_bucket(real_ip)`＝IPv4 /32／IPv6 /64）合成＝任一維硬鎖→硬鎖、任一維軟
+  區→軟區、否則放行；★來源維 L2 count `GREATEST 兩源`〔拔 reset-on-
+  success、與帳號維三源不同、ADR 0045〕、L1 `throttle:lock:ip:{bucket}` 為該維唯一寫入點；★⓪白名單跳節流直讀顯
+  式 allow 袋 `IpNetwork::contains`（絕不經 `decide`——結構豁免六段對 `decide` 亦回 Allow、會誤跳，FR-032）；`real_ip` 缺
+  席 sentinel→來源維整層跳過；兩維共用同一 `2222` 一般化訊息、不揭露觸發維度（FR-028）。稽核列 `sys_login_attempt` 值語意
+  升級〔★零結構改動、m001 baseline 凍結〕：`real_ip`＝還原真值、`ip_confidence`＝七態、`peer_ip`／`x_forwarded_for`〔原文
+  不解析〕、`region`＝GeoIP best-effort〔唯一解析處＝登入稽核組裝點、`xdb_ready` 為假則不解析、ADR 0046〕。
 - **取題鏈**（GET /auth/loginCaptcha?userName=，Public）：無狀態產題——`captcha` crate 產圖＋HS256 簽
   `CaptchaClaims{nonce,user_name,exp,ans_mac}`；★產題零 Redis/DB 寫入（無界灌入面封死）、量受 nginx auth_limit 有界。
 - **手動解鎖鏈**（POST /systemManage/unlockLogin，Policy super-only）：動作序寫死＝SET unlock marker（EX window）
@@ -181,24 +179,22 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   換源）——停用選單仍在候選、全量替換不誤撤停用授權〔停用≠撤銷、FR-019〕。**顯示域**〔啟用∧未刪、
   `list_active`〕＝getUserRoutes〔上「動態選單鏈」〕／getAllPages 源——停用即隱、下次載入生效、已刪暫離候選
   restore 即回（FR-018/032、010 不動）。「活性」一詞在選單域專指 deleted_at IS NULL、「啟用」指 status=1。
-- **使用者域寫端鏈**（011、島 I；`/systemManage/*` 使用者域端點〔實值→generated/reference/routes〕、寫端
-  super-only）：一切既有使用者標的寫端＝txn 起手 `pg_advisory_xact_lock(uid)`〔與 login/refresh **共鎖**＝
-  島 I1、撤銷×並發登入序列化〕→標的列 `FOR UPDATE`〔復原用已刪列版〕→sys_role 列〔僅指派路、id 升序、
-  複用 009 鎖讀〕→指派寫入；★addUser 豁免 advisory〔新列 commit 前不可見、同名競態＝partial-uniq 23505、
-  FR-022〕。update 守門固定序＝userName 不可變雙鍵→停用路〔superCannotDisable→cannotDisableSelf〕→指派路
-  〔superRoleProtected→cannotChangeSelfRoles→roleNotFound 整批拒〕→diff 全等提前 no-op〔值 vs 現值、
-  NULL≡""、字串欄 Some("")=清空〕。deleteUser/batch＝seeded {1,2,3}→self→軟刪成對＋★同交易硬刪全指派列
-  〔零幽靈掛載〕＋撤 session；batch 自管單 txn、去重升序、fail-fast 整批拒〔含已刪 id〕。★撤銷觸發端
-  reason 映射（島 I2、C1 PG-first）：停用/刪除/批刪/改密→session_event(revoked、`user_disabled`/
-  `user_deleted`/`password_reset`) **同交易**→commit→denylist best-effort 逐 sid `8888` 靜默；kickUser
-  〔self 守門→鎖列未刪即可＝停用可踢、Super 可踢〕→`admin_kick`→`7777` 阻斷；★denylist TTL=refresh_secs
-  〔access_secs 會重演假 reuse 稽核污染〕。resetUserPassword＝政策驗〔單一驗證點、違規不落庫不撤〕→hash
-  ★鎖前算→改密→撤 token〔標的=operator keep 當前 sid、否則全撤〕；★不解節流〔前端 toast 提示另行解鎖〕。
-  回收桶＝getDeletedUsers〔deleted_at DESC〕＋restoreUser〔鎖已刪列→鎖內同名活性重驗 `userNameExists`＋
-  23505 兜底→成對清 deleted_at/by、★零回灌授權、status 保留原值、不 bump updated_at〕。session_policy＝
-  值域驗〔txn 前、雙錯角落 Invalid 優先〕→no-op 判→寫；改 single 不即時踢〔下次登入 006 收斂〕。op-log
-  詞彙＋`KICK`/`RESET_PASSWORD`；payload 一律白名單四件構造〔結構性無 password/session_id；reset 恰
-  {id,user_name}〕；密碼 DTO 手寫 Debug 遮蔽（島 I5 三重不洩）。
+- **使用者域寫端鏈**（011、島 I；`/systemManage/*` 使用者域端點〔實值→generated/reference/routes〕、寫端 super-only）：一
+  切既有使用者標的寫端＝txn 起手 `pg_advisory_xact_lock(uid)`〔與 login/refresh **共鎖**＝島 I1、撤銷×並發登入序列化〕→標
+  的列 `FOR UPDATE`〔復原用已刪列版〕→sys_role 列〔僅指派路、id 升序、複用 009 鎖讀〕→指派寫入；★addUser 豁免 advisory〔新
+  列 commit 前不可見、同名競態＝partial-uniq 23505、FR-022〕。update 守門固定序＝userName 不可變雙鍵→停用路
+  〔superCannotDisable→cannotDisableSelf〕→指派路〔superRoleProtected→cannotChangeSelfRoles→roleNotFound 整批拒〕→diff 全
+  等提前 no-op〔值 vs 現值、NULL≡""、字串欄 Some("")=清空〕。deleteUser/batch＝seeded {1,2,3}→self→軟刪成對＋★同交易硬刪全
+  指派列〔零幽靈掛載〕＋撤 session；batch 自管單 txn、去重升序、fail-fast 整批拒〔含已刪 id〕。★撤銷觸發端 reason 映射
+  （島 I2、C1 PG-first）：停用/刪除/批刪/改密→session_event(revoked、`user_disabled`/
+  `user_deleted`/`password_reset`) **同交易**→commit→denylist best-effort 逐 sid `8888` 靜默；kickUser〔self 守門→鎖列未刪
+  即可＝停用可踢、Super 可踢〕→`admin_kick`→`7777` 阻斷；★denylist TTL=refresh_secs〔access_secs 會重演假 reuse 稽核污
+  染〕。resetUserPassword＝政策驗〔單一驗證點、違規不落庫不撤〕→hash
+  ★鎖前算→改密→撤 token〔標的=operator keep 當前 sid、否則全撤〕；★不解節流〔前端 toast 提示另行解鎖〕。回收桶
+  ＝getDeletedUsers〔deleted_at DESC〕＋restoreUser〔鎖已刪列→鎖內同名活性重驗 `userNameExists`＋23505 兜底→成對
+  清 deleted_at/by、★零回灌授權、status 保留原值、不 bump updated_at〕。session_policy＝值域驗〔txn 前、雙錯角
+  落 Invalid 優先〕→no-op 判→寫；改 single 不即時踢〔下次登入 006 收斂〕。op-log 詞彙＋`KICK`/`RESET_PASSWORD`；payload 一
+  律白名單四件構造〔結構性無 password/session_id；reset 恰{id,user_name}〕；密碼 DTO 手寫 Debug 遮蔽（島 I5 三重不洩）。
 - **稽核域 reporting＋retention**（012、島 J；`handler/audit.rs`＋`model/audit_query.rs`＋四稽核 facade）：
   **讀端四源**（J1；`get{OperationLog,AccessLog,LoginAttempt,SessionEvent}` GET Policy super-only〔三支 m002＋
   getSessionEvent m009 seed〕）＝純唯讀〔SC-010 前後列數不變機器證〕；共用基建＝`parse_time_range`〔閉開、畸形/空
