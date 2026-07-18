@@ -70,3 +70,4 @@
 | 0065 | accepted | 2026-07-17 | getUserRoutes 恆附掛 self-service 路由白名單——自助頁可達性與 RBAC 授權表脫鉤 | — | — | — |
 | 0066 | accepted | 2026-07-17 | global-content 頁面切換 Transition 去 out-in＋fade-slide leave absolute——上游 isLeaving 卡死 workaround | — | — | — |
 | 0067 | accepted | 2026-07-17 | 密碼經手表 sys_pwd_custody＋首登強制換密（鎖態 token 硬閘）——B-030 兌現選型 | — | — | — |
+| 0068 | accepted | 2026-07-19 | 校正 ADR 0050 字面——protectedRevoke 拒因命名空間 as-built＝biz.role.* | — | — | — |
