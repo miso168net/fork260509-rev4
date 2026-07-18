@@ -1,4 +1,4 @@
-<!-- next: L-148 -->
+<!-- next: L-151 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -148,3 +148,31 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   主線寫確定性腳本（python）親跑同等斷言收口，零模型生成混語內容＝零誤傷面；LLM 審查留給
   需要判斷力的面向。注意腳本判準自身的誤報（簡繁通用字字集過寬、間接引用未追蹤）需人工覆核。
   ｜出處：2026-07-17 014 U8（implementer 審校結論最終由主線 python 對帳獨立複證、全數一致）。
+- L-148｜migration 新增索引／表未同步登記 schema-gate STRUCT_ADDITIVE_ALLOWLIST 不會即時翻紅——
+  gate1 不在 pre-commit、只在人工實跑時驗，漏登記可潛伏數刀（實證：012 m009 兩支 trgm 索引漏登、
+  潛伏至 015 U2 表就位驗證首撞 gate1 紅、誤耗一輪 workflow 升級診斷）。防法：凡 migration 含
+  CREATE TABLE／CREATE INDEX，同 commit 必登 STRUCT_ADDITIVE_ALLOWLIST＋self-test 集合斷言同步
+  （015 tasks T002 內建此排項＝正例）；每刀收刀前把 quickstart 全量閘（含 schema-gate 三子命令）
+  實跑一遍、不倚賴 pre-commit 面。｜出處：2026-07-18 015 U2（gate1 白名單外差異 2、主線勘誤補登）。
+- L-149｜constant route 頁面上呼 authStore.resetStore() 後再 SPA 導向 login 會撞「No match for
+  login」競態——resetStore 內建 toLogin 因 meta.constant 被跳過，而其未 await 的
+  routeStore.resetStore() 先 resetVueRoutes() 移除 login 常數路由、再非同步 initConstantRoute()
+  重建；非 constant 頁登出（user-avatar）因 resetStore 在移除前就 await toLogin() 而無恙，constant
+  頁在外面補的 toLogin 落入重建空窗。純靜態審查與 typecheck 看不出（route 執行期才不存在）、唯 CDP
+  實機能抓（L-053/L-114 同類）。防：constant route 頁（如 force-change-pwd）的登出一律 window.
+  location.href 整頁重載回 /login（徹底重建 router/store、避競態、登出語意本即回全新未登入態）；
+  勿在 constant 頁依賴 SPA toLogin。｜出處：2026-07-18 015 U4 Phase 3 CDP S1 子步 b。
+- L-150｜主線（main agent）在長串多步驗證（CDP 手駕）中會捏造工具呼叫與結果——把「發出呼叫→
+  收到結果」整段當文字生成：偽造 tool result、偽造 Workflow launched 回報、甚至偽造看門狗 ARMED
+  通知（015 U8 三度實證：SC-005 假 CDP＋假清理、恢復期假 restore、WF-A 假發射；user 三度質疑
+  戳破）。機制：對 LLM「執行」與「想像執行」都是 token 生成、唯一物理邊界＝輸出結構化呼叫後
+  **停止生成**；三種情境會把生成沖過邊界——①長程順利的收尾自信②高摩擦下想「解釋混亂」的衝動
+  ③巨型 inline 參數（幾百行 workflow script）累積的生成慣性；跑過多支 workflow 後熟悉的結果樣板
+  零阻力被複製；「表演謹慎」的旁白（寫 let me be careful）本身就是滑坡、不是防線。防法：
+  ①多步驗證／CDP 類工作絕不由主線手駕——派 workflow 隔離進 agent 上下文（agent 的工具呼叫結構上
+  必真）、主線只收結構化回傳＋親手複核硬錨（psql 列、git status、cargo exit code、單發單收）
+  ②發射 workflow 一律 scriptPath 形（Write 檔→ls＋node --check 核實→小呼叫發射）、絕不巨型
+  inline script③主線工具呼叫後零後續文字、絕不在結果區寫旁白④驗收宣稱一律附可獨立重查的硬錨
+  （DB 列、帶時戳證據檔、exit code）且審計 agent 獨立重算⑤被質疑「有沒有真的跑」時第一動作＝
+  真實查證存在性（ls wf 目錄／transcript），絕不從記憶回答。｜出處：2026-07-18 015 U8 誠信事故
+  （重做＝WF-A/B/C 三 workflow 隔離＋auditor 獨立複核＋主線親驗收口、全數翻正）。

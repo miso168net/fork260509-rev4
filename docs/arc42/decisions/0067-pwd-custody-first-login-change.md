@@ -2,7 +2,7 @@
 id: "0067"
 title: 密碼經手表 sys_pwd_custody＋首登強制換密（鎖態 token 硬閘）——B-030 兌現選型
 date: 2026-07-17
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-17 015-pwd-custody brainstorm——四鏡頭偵察（wf_ddcc0b57）＋user 親決 8 題（含經手表模型與一體適用規則兩次 user 主動規則升級）；ADR 0055 殘餘義務兌現"
@@ -44,10 +44,14 @@ user 親決推翻「加欄」半件、改立經手表模型；並將觸發規則
    `password_change_min_interval`（seed 60、0＝停用、settings 頁可調）；檢查位於鎖內、各端點
    既有拒因全過之後、UPDATE 之前（change_own_password 五拒因／reset_password 二拒因；序零重排、
    端點固有規則分層判例）。已識別自鎖窗（user 自改後 N 秒內被 admin 重設→強制頁撞自列冷卻、
-   最長 N 秒自癒）——specify 期擇一：強制態自改豁免冷卻（傾向）或拒絕 UX 顯示剩餘秒數。
+   最長 N 秒自癒）——specify 期 user 親決＝**不豁免**（否決豁免傾向案）：
+   冷卻一體適用零例外、拒絕提示攜剩餘秒數（BizData 帶 remainingSeconds、各入口一致）。
 5. **紀律沿用**：密碼驗證 MUST 複用 ADR 0054 單一驗證點（0055 不變式）；治理面隨刀＝憲法
    MINOR Amendment 新用途 (k)（枚舉含強制改密頁＋route guard＋auth store inline＋manage「密碼」
-   動作與浮層＋add 抽屜與 user-center 改密卡隨機鈕＋「＋對應 i18n key」字樣；順帶勘誤憲法
+   動作與浮層＋add 抽屜與 user-center 改密卡隨機鈕＋「＋對應 i18n key」字樣＋兩檔位錨——產密浮層共用元件（src/components/ 新檔、
+   新增型圈界）與 constantRoutes 名單觸點（build/plugins/router.ts、修改型）；併敘 §I.2
+   constantRoutes 射程釋義一句（constant route 集合可經 §III.2 授權新增、builtin 三頁與 Casbin
+   豁免語意不變）；順帶勘誤憲法
    §III.2 紀律行「嚴格限九用途」與標頭十用途 (a)~(j) 之失步）＋Q8（變體 C 歸類論證＋audit 分支
    聯動）＋Q9 行為島判定
    （specify/plan Constitution Check 定案）。
@@ -72,6 +76,9 @@ user 親決推翻「加欄」半件、改立經手表模型；並將觸發規則
   專屬分支＋自帶測試同步**——現行表名硬編碼、不擴必紅）＋contract registry＋typecheck＋
   fork-delta-lint；rust 判定三態／三寫入路徑／冷卻正負向／硬閘白名單內外正負向／getUserInfo
   欄正負向；CDP 七場景（brainstorm §2.6）。
+- **判例錨（rev4 首例）**：凍結 `Api.Auth.UserInfo` interface 之成員級 declaration merging——
+  邊界＝僅 additive optional 欄、net-new ADAPT `.d.ts` 承載、凍結檔永不動、contract 測試吃合併後
+  視圖；日後同型操作引本 ADR 為判例。
 - 殘餘：B-102（changePassword 舊密暴力試節流）不併——D7 冷卻僅限制成功改密頻率、失敗嘗試不
   寫列、非其替代；隨機密碼有效期＝未來選項（created_at 錨點已留、屆時另刀）；B-103 不提煉、
   條目措辭釐清（觸及雙卡本體時）。

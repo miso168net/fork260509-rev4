@@ -21,6 +21,7 @@
 | 10 | sys_token | C 狀態機 | created_at NN＋created_by NN＋status；無 updated_*／deleted_*。created_by＝domain 擁有者欄（原 user_id、user 定稿改名）、**非 archetype 審計欄**——NN 不受 §I.6「*_by nullable」通則約束 |
 | 11 | sys_casbin_policy_archive | D 治理 | created_at/by（原 grant 快照、可空）＋archived_at NN def now＋archived_by＋archive_reason NN |
 | 12 | casbin_rule | D 治理 | adapter 基底 8 欄＋ALTER 治理欄 protected NN def false／created_at NN def now／created_by |
+| 13 | sys_pwd_custody | C 極簡 | created_at NN（＝該對最後設定時間、upsert 刷新）；禁 updated_*／deleted_*；複合 PK (user_id,created_by)、零 FK（ADR 0009）、硬刪；不存密碼。來源＝015-pwd-custody m011 |
 
 ## 2. 三類刻意差異（rev3 終態 → rev4 定稿；閘 1 白名單來源）
 
