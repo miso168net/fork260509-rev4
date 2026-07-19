@@ -7,7 +7,7 @@
 
 ```bash
 ./deploy/generate-secrets.sh          # 冪等：已存在跳過、缺則補
-./deploy/generate-secrets.sh --force  # 七支全重生
+./deploy/generate-secrets.sh --force  # 亂數九支全重生（alert_webhook_url 不重置）
 ```
 
 > 檔案權限：腳本對生成的 `.txt` 設 `chmod 600`。WSL2 掛載 Windows 磁碟（drvfs，
@@ -17,7 +17,7 @@
 > 絕不可手動改單一 leaf 檔（如 `postgres_password.txt`）而不重跑腳本——腳本會以
 > 內容比對偵測 drift 並連動重寫 composite；跳過腳本手改則兩處不一致、連線必失敗。
 
-## 七機密對照表（secret 檔 ↔ 消費服務 ↔ env 變數）
+## 十機密對照表（secret 檔 ↔ 消費服務 ↔ env 變數）
 
 | secret 檔 | 類型 | 消費服務 | env 變數／注入方式 |
 |---|---|---|---|
@@ -26,8 +26,19 @@
 | `jwt_secret.txt` | leaf（base64 48） | rust-api | `APP_JWT_JWT_SECRET_FILE`（001 僅驗在場；簽章歸功能刀） |
 | `refresh_token_secret.txt` | leaf（base64 48） | rust-api | `APP_JWT_REFRESH_TOKEN_SECRET_FILE`（001 僅驗在場；簽章歸功能刀） |
 | `captcha_secret.txt` | leaf（base64 48） | rust-api | `APP_CAPTCHA_SECRET_FILE`（007 captcha challenge HS256 密鑰） |
+| `reaper_password.txt` | leaf（hex 24） | 設密部署腳本（016） | psql `ALTER ROLE reaper LOGIN PASSWORD ...`（stdin heredoc、密碼絕不進 migration） |
 | `database_url.txt` | composite | rust-api、migrate | `APP_DATABASE_URL_FILE`（migrate 真連庫；server 驗在場＋非空＋非佔位） |
 | `redis_url.txt` | composite | rust-api | `APP_REDIS_URL_FILE`（001 僅驗在場；連線歸功能刀） |
+| `reaper_database_url.txt` | composite | reaper sidecar（016） | `APP_DATABASE_URL_FILE`（最小權限 DB 身分 reaper 連線） |
+| `alert_webhook_url.txt` | 佔位（user 自填） | grafana（016） | alerting provisioning `settings.url: $__file{/run/secrets/alert_webhook_url}` |
+
+### alert_webhook_url 特例（user 自填）
+
+- 腳本只在**缺檔**時寫入顯眼佔位 URL（`https://CHANGE-ME.invalid/...`、`.invalid` 保留域必不可達）；
+  真實 webhook URL 由 user 直接編輯 `alert_webhook_url.txt` 填入。
+- `--force` **不重置**此檔（保護已填真值）；要重置＝刪檔重跑腳本。
+- 佔位值在場即過 preflight（預檢只查檔在且非空）；佔位期間告警投遞必失敗、
+  屬預期（投遞失敗不影響規則狀態與業務）。
 
 ## Dual-write 不變式
 
@@ -35,6 +46,7 @@
 |---|---|---|
 | `database_url.txt` | `postgres://soybean:<pw>@postgres:5432/soybean_admin_rust` | `postgres_password.txt`（byte-identical） |
 | `redis_url.txt` | `redis://:<pw>@redis:6379` | `redis_password.txt`（byte-identical） |
+| `reaper_database_url.txt` | `postgres://reaper:<pw>@postgres:5432/soybean_admin_rust` | `reaper_password.txt`（byte-identical） |
 
 不變式（`generate-secrets.sh` 保證）：
 

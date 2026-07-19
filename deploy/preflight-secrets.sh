@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/preflight-secrets.sh — up 前七機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列）
+# deploy/preflight-secrets.sh — up 前十機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列；016 增 reaper_password／reaper_database_url／alert_webhook_url）
 # 用法：./deploy/preflight-secrets.sh
 #
 # 為何：docker compose secrets 用 `file: ./deploy/secrets/*.txt` bind；source 檔缺時
@@ -11,8 +11,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SECRETS_DIR="$SCRIPT_DIR/secrets"
 
-# 與 generate-secrets.sh 同一份七機密清單
-REQUIRED=(postgres_password redis_password jwt_secret refresh_token_secret database_url redis_url captcha_secret)
+# 與 generate-secrets.sh 同一份十機密清單
+REQUIRED=(postgres_password redis_password jwt_secret refresh_token_secret database_url redis_url captcha_secret reaper_password reaper_database_url alert_webhook_url)
 
 missing=()
 for name in "${REQUIRED[@]}"; do
@@ -31,4 +31,4 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 1
 fi
 
-echo "OK：七個必須 secret 檔齊備（deploy/secrets/）。可 up。"
+echo "OK：十個必須 secret 檔齊備（deploy/secrets/）。可 up。"
