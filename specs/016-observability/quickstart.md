@@ -76,8 +76,10 @@
 ## S5 reaper：dry-run→execute→守恆＋心跳
 
 - 容器內 TDD 判準矩陣先綠（九格、data-model §4）。
-- e2e：注入三類測試列 → `docker compose run reaper`（dry-run）：回報候刪數＋DB 零變動；
-  → `docker compose run reaper --execute`：僅「過期逾 G」列消失、餘六格守恆（SQL 斷言）；
+- e2e：注入三類測試列 → `docker compose run --rm reaper dry-run`：回報候刪數＋DB 零變動
+  （★裸 `run reaper` 會繼承 sidecar 之 `command: [loop]` 常駐真刪——dry-run 手動姿態
+  必帶 `dry-run` 分派字、T026 as-built 適配）；
+  → `docker compose run --rm reaper --execute`：僅「過期逾 G」列消失、餘六格守恆（SQL 斷言）；
   pushgateway `/metrics` 見 `reaper_last_success_timestamp{mode="execute"}` 更新。
 - 越權驗收：以 reaper 憑證執行 `UPDATE sys_token ...` 與 `SELECT FROM sys_user` → 皆被 DB 拒。
 

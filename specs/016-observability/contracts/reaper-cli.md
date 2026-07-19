@@ -15,7 +15,9 @@
 ## compose sidecar（profiles:[jobs]）
 
 - command＝sleep-loop 每 `REAPER_INTERVAL_SECS`（預設 86400）跑一次 **`reaper --execute`**
-  （★明文帶 --execute——dry-run 屬手動驗證姿態 `docker compose run reaper`、杜絕常駐空轉）。
+  （★明文帶 --execute——dry-run 屬手動驗證姿態 `docker compose run --rm reaper dry-run`、
+  杜絕常駐空轉；裸 `run reaper` 繼承 `command: [loop]`＝常駐真刪、故手動 dry-run 必帶
+  `dry-run` 分派字——T026 as-built 適配）。
 - restart 策略與 mem_limit 隨 compose 段明定。
 
 ## 心跳（pushgateway、job=reaper）
