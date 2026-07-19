@@ -304,6 +304,34 @@ services:
     networks:
       - rev4_net
 
+  # ═══ 016-observability T025 jobs（reaper 回收 sidecar、profiles:[jobs] opt-in、一般 up 不啟）═══
+  reaper:
+    profiles: [jobs]
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile.rust-api
+      # base 不給 target（沿 migrate 形）；dev override 提供 target＋entrypoint 姿態分派
+    environment:
+      # ★最小權限連線（FR-013／ADR 0072）：reaper_database_url＝reaper role 憑證（composite
+      #   secret；m012 建 role＋GRANT、deploy/setup-reaper-role.sh 設密）——絕不掛 database_url
+      #   （soybean 全權身分）。
+      APP_DATABASE_URL_FILE: /run/secrets/reaper_database_url
+      RUST_LOG: "info"
+      # REAPER_GRACE_DAYS 不設＝bin fail-default 7 天（FR-018）；
+      # REAPER_INTERVAL_SECS 不設＝dev override loop 內 fallback 86400（每日一輪）——
+      # ★與 deploy/grafana-provisioning/alerting/rules.yml 告警⑤門檻 172800 互為 2× 錨：
+      #   調本間隔 MUST 同步改 rules.yml 門檻（契約＝specs/016-observability/contracts/reaper-cli.md）。
+    secrets:
+      - reaper_database_url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # dev cargo run 連結峰值餘裕（prod 換預編譯二進位後可下修）；sidecar 跑 loop 非 server。
+    mem_limit: 768m
+    restart: unless-stopped
+    networks:
+      - rev4_net
+
 networks:
   rev4_net:
   # 016-obs FR-015：socket-proxy 專用網段——成員恰為 proxy＋alloy 兩件；internal＝無對外
@@ -343,3 +371,7 @@ secrets:
   # 016-observability T012：告警 webhook URL（alerting/contact-points.yml $__file{} provider 注入）
   alert_webhook_url:
     file: ./deploy/secrets/alert_webhook_url.txt
+  # 016-observability T025：reaper 最小權限 DB 憑證（composite＝postgres://reaper:…；
+  # m012 建 role、deploy/setup-reaper-role.sh 設密；FR-013 密碼零進版本庫）
+  reaper_database_url:
+    file: ./deploy/secrets/reaper_database_url.txt
