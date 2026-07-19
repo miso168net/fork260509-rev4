@@ -18,6 +18,7 @@ fork260509-rev4/
 │   ├── ops/BACKLOG-DEFERRED.md      滯後卷：user 拍板滯後的待辦（滯後≠完成、回收時點見條目）
 │   ├── ops/LESSONS.md               坑與防法 L-NNN（append-only、滿卷分卷）
 │   ├── ops/LESSONS-001-101.md       封存卷：rev3 教訓種子全量（errata 仍就地修）
+│   ├── ops/RUNBOOK.md               dev stack 操作手冊：起停／輪替／備份／維運端點
 │   ├── ops/events.jsonl             事件源：收刀／review／里程碑（機器讀；人讀 MILESTONES）
 │   ├── brainstorms/                 各刀 Phase 0 產出（史料；000＝退役的啟動書）
 │   ├── reviews/                     review 報告史料
@@ -30,7 +31,9 @@ fork260509-rev4/
 ├── docker-compose.dev.yml           dev override（host port／bind-mount／熱重載）
 ├── docker-compose.example.yml       example 視覺參照實例（獨立 project、與 dev stack 無關）
 ├── deploy/                          部署資產：Dockerfile.rust-api／nginx conf／secrets 與
-│                                      dev-certs（實值 gitignored）／生成與預檢腳本 ×3
+│                                      dev-certs（實值 gitignored）／腳本 ×5（生成×2／預檢
+│                                      ／reaper 設密／dev webhook 收器）／觀測層設定
+│                                      （grafana-provisioning／alloy／prometheus／loki）
 ├── .specify/memory/constitution.md  凍結權威：原則、wire 不變式、軌道授權、自查題組
 ├── specs/<NNN>-<feature-name>/      spec-kit per-feature 文件（收刀即凍結；首刀時出現）
 ├── fork260509-*/                    fork 源倉本機 clone（gitignored、必留、勿直接編輯）
@@ -50,6 +53,19 @@ fork260509-rev4/
 2. [docs/arc42/ARCHITECTURE.md 活書](docs/arc42/ARCHITECTURE.md) — 系統現在長怎樣（現在式 as-built、隨刀成長；空節＝對應子系統尚未建置）
 3. [.specify/memory/constitution.md SpecKit-憲法](.specify/memory/constitution.md) — 凍結權威：不可違反的原則、wire 不變式、前端改動授權軌道
 
+## 操作快速入口
+
+首次啟動五步（每步陷阱與全部維運程序→[docs/ops/RUNBOOK.md](docs/ops/RUNBOOK.md)）：
+
+1. `bash tools/bootstrap`
+2. `bash deploy/generate-secrets.sh`
+3. `bash deploy/preflight-secrets.sh`
+4. `bash deploy/generate-dev-cert.sh`（★非可選——缺憑證 up 即 front-nginx 死循環；自簽 ca.pem 記得 trust 進 OS）
+5. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait`
+
+人工必填三件（腳本不代辦；細節 RUNBOOK §4）：①alert_webhook_url 真值
+②`bash deploy/setup-reaper-role.sh` 設密（起 jobs profile 前必跑）③dev cert 信任。
+
 ## 想知道 X，看 Y
 
 | 想知道 | 去哪看 |
@@ -57,6 +73,7 @@ fork260509-rev4/
 | 系統架構 | [docs/arc42/ARCHITECTURE.md 活書](docs/arc42/ARCHITECTURE.md)（目錄樹全景＝本檔上方地圖） |
 | 什麼不能做（紅線） | [.specify/memory/constitution.md SpecKit-憲法](.specify/memory/constitution.md)＋CLAUDE.md「不要做的事」節 |
 | 之前踩過什麼坑 | [docs/ops/LESSONS.md](docs/ops/LESSONS.md)（L-NNN 教訓 registry） |
+| 怎麼起環境／日常操作／輪替機密／備份 | [docs/ops/RUNBOOK.md](docs/ops/RUNBOOK.md)（dev stack 操作手冊） |
 | 還有什麼沒做／候選 | [docs/ops/BACKLOG.md](docs/ops/BACKLOG.md)（B-NNN 待辦）＋[滯後卷](docs/ops/BACKLOG-DEFERRED.md) |
 | 現在進度到哪、submodule pins | [docs/generated/STATE.md](docs/generated/STATE.md)＋[docs/ops/NOTES.md](docs/ops/NOTES.md) |
 | 歷史上發生過什麼 | [docs/generated/MILESTONES.md](docs/generated/MILESTONES.md)＋git log |
