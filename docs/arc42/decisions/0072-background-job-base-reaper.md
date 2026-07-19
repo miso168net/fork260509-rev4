@@ -2,7 +2,7 @@
 id: "0072"
 title: 背景 job 底座三紀律＋首發 reaper（B-063 sys_token 回收、B-040 最小權限憑證預設）
 date: 2026-07-19
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-19 016-observability brainstorm——user 親決 D8/D10；NOTES 既定「首個背景 job 設計期觸發 B-040」兌現；審查 C2 兩讀堵死＋審查 D2 安全論證更正版"

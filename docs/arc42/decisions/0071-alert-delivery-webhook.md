@@ -2,7 +2,7 @@
 id: "0071"
 title: 告警通知投遞 channel 首發＝webhook（B-031 兌現）
 date: 2026-07-19
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-19 016-observability brainstorm——user 親決 D2；rev3 K2-15（FR-017 v1 rules-only 明拍不投遞）承襲翻補；審查 D4 secrets 衝突拍原則"

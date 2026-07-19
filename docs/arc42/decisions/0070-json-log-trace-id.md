@@ -2,7 +2,7 @@
 id: "0070"
 title: 後端 log 全環境 JSON 化＋trace_id 進 log＋completion log（B-054／B-045 子項配套）
 date: 2026-07-19
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-19 016-observability brainstorm——user 親決 D4（全環境 JSON）＋D6（B-045 trace_id 子項搭車）；審查 B 註掛點精確化"
