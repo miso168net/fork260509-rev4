@@ -38,8 +38,10 @@
     「撤銷名單命中 (denylist_hit_total by source)」`sum by (source) (denylist_hit_total)`｜
     「軟區命中 (throttle_soft_zone_total)」`throttle_soft_zone_total`｜
     「設定讀取頻次 (enforce_settings_select_total rate)」`rate(enforce_settings_select_total[5m])`｜
-    「請求率 by status (rate)」`sum by (status) (rate(axum_http_requests_total[5m]))`（axum 系列
-    隨首請求出現——S2 流量後非空）。
+    「請求率 by status (rate)」`sum by (status) (rate(axum_http_requests_total[5m]))`｜
+    「延遲分位 p50 / p95 / p99 (summary quantile)」
+    `max(axum_http_requests_duration_seconds{quantile="0.95"})`（rev4 該指標為 summary 型別、
+    僅 quantile 標籤序列無 _bucket；axum 系列隨首請求出現——S2 流量後非空）。
   - postgres：「Transactions」`irate(pg_stat_database_xact_commit{instance="$instance", datname=~"$datname"}[5m])`｜
     「Cache Hit Rate」`pg_stat_database_blks_hit{instance="$instance", datname=~"$datname"} / (pg_stat_database_blks_read{instance="$instance", datname=~"$datname"} + pg_stat_database_blks_hit{instance="$instance", datname=~"$datname"})`｜
     「Buffers (bgwriter)」`irate(pg_stat_bgwriter_buffers_alloc_total{instance="$instance"}[5m])`｜

@@ -339,8 +339,8 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "延遲分位 p50 / p95 / p99 (histogram_quantile)",
-      "description": "histogram_quantile(q, sum by (le) (rate(axum_http_requests_duration_seconds_bucket[5m])))。",
+      "title": "延遲分位 p50 / p95 / p99 (summary quantile)",
+      "description": "max(axum_http_requests_duration_seconds{quantile=\"q\"})——rev4 該指標經 metrics-exporter-prometheus 以 summary 型別曝出（僅 quantile 標籤序列、無 _bucket），summary 分位不可跨序列再聚合，取 max＝跨 endpoint 最壞值。",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -387,7 +387,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(axum_http_requests_duration_seconds_bucket[5m])))",
+          "expr": "max(axum_http_requests_duration_seconds{quantile=\"0.5\"})",
           "legendFormat": "p50"
         },
         {
@@ -396,7 +396,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(axum_http_requests_duration_seconds_bucket[5m])))",
+          "expr": "max(axum_http_requests_duration_seconds{quantile=\"0.95\"})",
           "legendFormat": "p95"
         },
         {
@@ -405,7 +405,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(axum_http_requests_duration_seconds_bucket[5m])))",
+          "expr": "max(axum_http_requests_duration_seconds{quantile=\"0.99\"})",
           "legendFormat": "p99"
         }
       ]
