@@ -1,7 +1,8 @@
 # Tasks: 016-observability 觀測層全套刀（obs 九項＋B-040＋三搭車）
 
 **Input**: Design documents from `/specs/016-observability/`（spec.md＋plan.md＋research.md＋
-data-model.md＋contracts/×4＋quickstart.md；全數 commit `297c712` 前後在案）
+data-model.md＋contracts/×4＋quickstart.md；全數 commit `297c712` 前後在案）；rev3 移植源＝
+repo 上層同目錄 `/mnt/d/AnewSpaces/x_Project/fork260509-rev3`（唯讀參考庫）
 
 **Tests**: 本 repo TDD 為預設紀律（spec §2.5 明列）——rust 任務一律先紅後綠。
 
@@ -13,7 +14,7 @@ toolchain、平行 cargo 互撞 target）——rust 任務永不標 [P]；[P] �
 
 ## Phase 1: Setup
 
-- [ ] T001 ADR 0069~0075 status draft→accepted（plan Constitution Check 九題全過、拍板全數 user 親決在案；research.md R5 對 0072 之 reaper_database_url 用詞更正〔leaf→composite〕於轉 accepted 前一併落）＋`tools/docs-sync generate` 重算，檔在 docs/arc42/decisions/0069-*.md ~ 0075-*.md
+- [ ] T001 ADR 0069~0075 status draft→accepted（plan Constitution Check 九題全過、拍板全數 user 親決在案；0071 機制句〔$__file 主案〕與 0072 用詞〔leaf→composite〕已於 analyze 修訂輪先行更正）＋`tools/docs-sync generate` 重算，檔在 docs/arc42/decisions/0069-*.md ~ 0075-*.md
 - [ ] T002 secrets 擴列：deploy/generate-secrets.sh 加 `reaper_password`（leaf、hex 24）＋`reaper_database_url`（composite）＋`alert_webhook_url`（placeholder 形、真值 user 自填）；deploy/preflight-secrets.sh REQUIRED 擴三項；deploy/secrets/README.md 補三檔說明
 - [ ] T003 [P] provisioning 骨架移植（rev3 照搬＋改造點見 research.md R6）：deploy/grafana-provisioning/datasources/{loki,prometheus}.yml（顯式 uid＋deleteDatasources guard）＋dashboards/provider.yaml＋deploy/loki-config.yml（retention 72h）＋deploy/prometheus/prometheus.yml（4 scrape job、15s、job 名＝alert selector 錨）
 
@@ -22,7 +23,7 @@ toolchain、平行 cargo 互撞 target）——rust 任務永不標 [P]；[P] �
 - [ ] T004 rust 依賴落定：rust-api/Cargo.toml＋server/Cargo.toml 加 metrics-exporter-prometheus 0.18.3（default-features=false）＋axum-prometheus 0.10.0＋ureq 3.3.0（default-features=false）＋tracing-subscriber features 補 "json"；容器內 cargo build 綠＋`cargo tree` 斷言 metrics 單版 0.24.6
 - [ ] T005 rust TDD：trace_id sanitize 單點——先紅測（白名單 `[0-9a-zA-Z._-]`＋上限 64 矩陣：控制字元／換行／超長／合法值）再實作於 rust-api/server/src/middleware/mod.rs 之 request_context_mw 抽標頭處；轉綠
 - [ ] T006 rust TDD：JSON log 全環境＋request span——rust-api/server/src/main.rs `fmt().json()`；per-request span 掛 trace_id 欄（middleware/mod.rs）；test_support 捕捉斷 JSON 形＋span 內既有 security.* 事件自動繼承 trace_id 欄
-- [ ] T007 rust TDD：`/metrics` 端點＋recorder＋pre-register——main.rs 裝 recorder；rust-api/server/src/router.rs 加 route＋ROUTES 常數＋contract registry case（contracts/metrics-endpoint.md）；既有三 counter＋`throttle_degraded_total` 12 label 全 pre-register 0；測＝scrape 文本含 data-model §1 全序列顯式 0
+- [ ] T007 rust TDD：`/metrics` 端點＋recorder＋pre-register——main.rs 裝 recorder；rust-api/server/src/router.rs 加 route＋ROUTES 常數＋contract registry case（contracts/metrics-endpoint.md）；既有三 counter＋`throttle_degraded_total` 12 label 全 pre-register 0；測＝scrape 文本含既有三 counter＋12 label 顯式 0（rust 側全序列收口斷言歸 T020/S3——後續任務之新 counter 各自帶 pre-register）
 - [ ] T008 rust：HTTP metrics 層——main.rs 掛 axum-prometheus 0.10 layer；測＝發請求後 `axum_http_requests_total` 增長且帶 method/status/endpoint label
 - [ ] T009 compose 觀測底座：docker-compose.yml 加 profiles `obs`（loki 3.7.3＋alloy 1.17.1＋grafana 13.1.0 跨掛＋wollomatic/socket-proxy v1.12.3）＋`metrics`（prometheus 3.13.1＋postgres-exporter 0.20.1＋redis_exporter 1.87.0-alpine＋pushgateway 1.11.3 具名持久卷）；專用 network（proxy 僅 alloy 可達、sock :ro 掛 proxy）；全件 mem_limit＋restart 策略；grafana secrets 掛載；docker-compose.dev.yml host ports 127.0.0.1:43000/43100/49090/49091
 - [ ] T010 alloy＋proxy 接線：deploy/alloy/alloy-config.alloy（docker-SD host 改 proxy tcp、relabel KEEP `rev4-admin`、loki push）；socket-proxy command `-allowGET` 白名單（containers/json＋containers/{id}/json|logs＋networks＋_ping＋version）＋`-allowHEAD`＋user 65534:docker-gid；冒煙＝開 obs profile 後 loki 有 rust-api log 流入（S2 前置）
@@ -34,10 +35,10 @@ toolchain、平行 cargo 互撞 target）——rust 任務永不標 [P]；[P] �
 **Goal**: 訊號→規則轉紅→webhook 真送達；四島義務全消費。
 **Independent Test**: 觸發節流壓制→告警轉紅→本機收器收到通知（零原始 log 行）。
 
-- [ ] T011 [US1] 告警五組 as-code：deploy/grafana-provisioning/alerting/rules.yml——①baseline 三條照搬（5xx `or vector(0)`＋clamp_min＋noDataState=OK；down 類 noDataState=Alerting）②壓制中（loki、`security.throttle` suppressed、窗內任一即紅、窗長冒煙定）③降級四子（throttle_degraded 12 label／ipgate degraded loki／casbin_reload 異常 outcome／access-log 寫故障 loki）④容量（`n_live_tup` 四表、門檻 1,000,000）⑤reaper 心跳（`mode="execute"`、2×間隔同源、no-data 姿態註明全驗在 US3）；契約＝contracts/alerting-delivery.md
+- [ ] T011 [US1] 告警五組 as-code：deploy/grafana-provisioning/alerting/rules.yml——①baseline 三條照搬（5xx `or vector(0)`＋clamp_min＋noDataState=OK；down 類 noDataState=Alerting）②壓制中（loki、`security.throttle` suppressed、窗內任一即紅、窗長冒煙定）③降級四子（throttle_degraded 12 label／ipgate degraded loki／casbin_reload 異常 outcome／access-log 寫故障 loki）④容量（`n_live_tup` 四表、門檻 1,000,000）⑤reaper 心跳**雙規則**（超時 rule noDataState=OK〔零序列不誤紅〕＋誤配 rule：dry-run 序列在而 execute 缺席即紅；門檻與間隔雙邊寫死互設註解錨；全驗在 US3/T026）；契約＝contracts/alerting-delivery.md
 - [ ] T012 [P] [US1] 投遞接線：deploy/grafana-provisioning/alerting/contact-points.yml（webhook、`settings.url: $__file{/run/secrets/alert_webhook_url}`）＋notification-policies.yml（單一 root policy 全路由）；grafana compose secrets 掛 alert_webhook_url
 - [ ] T013 [US1] dev webhook 收器＋$__file 冒煙：一次性輕量收器容器（同 network、POST 落證檔、驗完即撤之 script 或 compose run 形）；起 grafana 驗 contact point URL 實值非字面 `$__file`（R4 風險註記兌現；失敗即切 env-wrapper 備案並記 research.md）
-- [ ] T014 [US1] S4 驗收（quickstart）：觸發壓制→②轉紅（grafana API state=Alerting）→收器收到＋annotation 零原始 log 行 grep 斷言；③a 以測試訊號觸發、④暫調門檻觸發、⑤確認 no-data 不誤紅；驗畢還原
+- [ ] T014 [US1] S4 驗收（quickstart）：觸發壓制→②轉紅（grafana API state=Alerting）→收器收到＋annotation 零原始 log 行 grep 斷言；③a~③d 四子各注入一次（手段見 quickstart S4）、④暫調門檻觸發、⑤僅驗零序列 no-data 不誤紅（正向與誤配 rule 全驗歸 T026）；驗畢全數還原
 
 **Checkpoint**: MVP——出事找得到人閉環成立
 
@@ -47,9 +48,9 @@ toolchain、平行 cargo 互撞 target）——rust 任務永不標 [P]；[P] �
 **Independent Test**: 一請求憑 trace_id 撈 log→join 稽核；面板 datasource query 非空；字典 diff 零。
 
 - [ ] T015 [US2] rust TDD：completion event——顯式 `tracing::info!(target:"http.request",...)` 於 request span 內、ipgate 外（middleware/mod.rs）；`APP_LOG_EXCLUDE_PATHS` env 過濾（預設空＝全記）；測＝捕捉斷 target＋全欄位＋過濾正反測＋被 ipgate 擋請求也記；契約＝contracts/completion-event.md
-- [ ] T016 [US2] rust TDD：B-065 埋點——`denylist_hit_total{source=redis|pg}`（rust-api/server/src/auth/enforce.rs 命中／fallback 分支）＋`enforce_settings_select_total`（ttl_from_settings 呼叫點）；測＝分支觸發後 counter 增長
-- [ ] T017 [US2] rust TDD：HLL＋軟區——rust-api/server/src/throttle/mod.rs 壓制／鎖定分支 PFADD 兩 key＋EXPIRE NX（TTL＝throttle 窗同源）＋`throttle_hll_op_fail_total`＋`throttle_soft_zone_total`；/metrics handler 現場 PFCOUNT 曝 `throttle_hll_distinct{dim}` gauge；測＝fail-open 靜默（Redis 錯誤注入）＋計數增長
-- [ ] T018 [P] [US2] 面板七片：deploy/grafana-provisioning/dashboards/json/——master-overview／redis 照搬；postgres＝rev3 9628rev8 改造版直移＋0.20.1 改名格 grep 處理；audit-log 改 `rev4-admin`（五處 LogQL＋tags）＋容量趨勢格；rust-api 板加 HLL 兩格＋denylist＋軟區＋settings 頻次；cleanup-job 板改造為 reaper 板（心跳 age＋deleted＋mode）；全數 staging＋atomic-mv 紀律
+- [ ] T016 [US2] rust TDD：B-065 埋點——`denylist_hit_total{source=redis|pg}`（rust-api/server/src/auth/enforce.rs 命中／fallback 分支）＋`enforce_settings_select_total`（ttl_from_settings 呼叫點）；測＝分支觸發後 counter 增長＋兩 counter pre-register 0（重啟首刮即在）
+- [ ] T017 [US2] rust TDD：HLL＋軟區——rust-api/server/src/throttle/mod.rs 壓制／鎖定分支 PFADD 兩 key＋EXPIRE NX（TTL＝throttle 窗同源）＋`throttle_hll_op_fail_total`＋`throttle_soft_zone_total`；/metrics handler 現場 PFCOUNT 曝 `throttle_hll_distinct{dim}` gauge；測＝fail-open 靜默（Redis 錯誤注入）＋計數增長＋新 counter pre-register 0（重啟首刮即在）
+- [ ] T018 [P] [US2] 面板六片（第七片字典板歸 T019 生成鏈、兩任務檔案集不相交）：deploy/grafana-provisioning/dashboards/json/——master-overview／redis 照搬；postgres＝rev3 9628rev8 改造版直移＋0.20.1 改名格 grep 處理＋**移除/隱藏 docker 形態下恆空之 k8s 變數篩選格**（SC-004 後半承載）；audit-log 改 `rev4-admin`（五處 LogQL＋tags）＋容量趨勢格；rust-api 板加 HLL 兩格＋denylist＋軟區＋settings 頻次；cleanup-job 板改造為 reaper 板（心跳 age＋deleted＋mode）；全數 staging＋atomic-mv 紀律；★施工時逐板列舉核心格（panel 名＋query）落 quickstart S3 執行清單
 - [ ] T019 [P] [US2] 字典生成鏈：tools/docs-sync 加生成器（輸入 base-web locale `backend.*` 兩語）→產 docs/generated/reference/backend-msg-dict.md＋deploy/grafana-provisioning/dashboards/json/backend-msg-dict.json（檔頭機器生成勿手改）；check 延伸「兩產物重算 diff 零」；docs-sync 自帶測試補案例（生成＋手改攔截）
 - [ ] T020 [US2] S2/S3/S6 驗收（quickstart）：join 實測＋`/metrics` 全序列＋七片 provision 且核心格 query 非空＋字典 diff 零＋手改一字元 check 紅
 
@@ -63,9 +64,9 @@ toolchain、平行 cargo 互撞 target）——rust 任務永不標 [P]；[P] �
 - [ ] T021 [US3] migration m012：rust-api/migration/src/m012_reaper_role.rs——up＝DO 塊 `CREATE ROLE reaper NOLOGIN`（duplicate_object 容錯）＋`GRANT SELECT, DELETE ON sys_token`；down 對稱 REVOKE＋DROP ROLE IF EXISTS；「重建 sys_token 須同場重掛 GRANT」註解錨；容器內 migration up 冒煙
 - [ ] T022 [P] [US3] 設密腳本：deploy/setup-reaper-role.sh——psql exec -T＋SQL stdin heredoc（`ALTER ROLE reaper LOGIN PASSWORD`、密碼不進 process list）、可重跑、輸出不印值
 - [ ] T023 [US3] rust TDD：回收邏輯進 rust-api/server/src/model/facade/sys_token.rs——九格判準矩陣測（{active 孤兒,rotated,revoked}×{逾 G,未逾 G,未過期}、僅逾 G 三格候刪）＋dry-run 零變動測＋單語句 DELETE
-- [ ] T024 [US3] rust：reaper bin——rust-api/server/src/bin/reaper.rs（`--job` 預設 token-reap／`--execute`／退出碼契約／結構化事件／ureq 3.3.0 心跳 PUT 帶 mode label、失敗不推、best-effort）；契約＝contracts/reaper-cli.md；容器內 `cargo run --bin reaper` dry-run 冒煙
+- [ ] T024 [US3] rust：reaper bin——rust-api/server/src/bin/reaper.rs（`--job` 預設 token-reap／`--execute`／退出碼契約／結構化事件／ureq 3.3.0 心跳 PUT 帶 mode label、失敗不推、best-effort）；契約＝contracts/reaper-cli.md；容器內 `cargo run --bin reaper` dry-run 冒煙；失敗路徑測＝DB 不可達注入→非零退出＋零心跳推送（US3-AC4）
 - [ ] T025 [US3] compose jobs profile：docker-compose.yml reaper sidecar——sleep-loop 每 `REAPER_INTERVAL_SECS`（86400）跑 `reaper --execute`（★明文帶旗標）、`APP_DATABASE_URL_FILE`→reaper_database_url、mem_limit＋restart、depends_on postgres healthy
-- [ ] T026 [US3] S5 驗收（quickstart）＋告警⑤全驗：三類列注入→dry-run→execute→守恆 SQL 斷言；pushgateway 心跳可見；越權雙打（UPDATE sys_token／SELECT sys_user）被 DB 拒；停 sidecar 逾 2×間隔→告警⑤轉紅→webhook 收到
+- [ ] T026 [US3] S5 驗收（quickstart）＋告警⑤全驗：三類列注入→dry-run→execute→守恆 SQL 斷言；pushgateway 心跳可見；越權雙打（UPDATE sys_token／SELECT sys_user）被 DB 拒；停 sidecar 逾 2×間隔（★暫調 REAPER_INTERVAL_SECS 縮短等待、rules.yml 門檻註解錨同步）→告警⑤轉紅→webhook 收到；誤配 rule 驗證＝僅推 dry-run 心跳→轉紅
 
 **Checkpoint**: 回收閉環＋最小權限成立
 

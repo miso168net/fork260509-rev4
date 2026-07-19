@@ -3,7 +3,8 @@
 零新表、零 wire 契約變更。本刀資料面＝觀測訊號（metrics 序列／log 事件／Redis HLL）＋
 provisioning 實體（as-code 檔）＋reaper 對既有 `sys_token` 的讀刪語意＋一支 role migration。
 
-## §1 metrics 序列清單（全數 rust 側 counter pre-register 0；gauge 於 scrape 求值）
+## §1 metrics 序列清單（rust 側**自訂** counter 全 pre-register 0——axum_http 系列〔框架 label
+組合隨首請求出現〕與 exporter／pushgateway 側序列不在此承諾；gauge 於 scrape 求值）
 
 | 序列 | 型 | labels | 來源 | 兌現 |
 |---|---|---|---|---|
@@ -80,13 +81,15 @@ provisioning 實體（as-code 檔）＋reaper 對既有 `sys_token` 的讀刪語
 
 - datasources：`loki.yml`（uid=loki）＋`prometheus.yml`（uid=prometheus）——顯式 uid＋
   deleteDatasources guard（防雷③）。
-- alerting：`rules.yml`（五組——①baseline 3 條照搬〔rustapi-down／exporter-down／high-5xx、
-  noDataState 與 `or vector(0)` 防雷⑨〕②壓制中〔loki、`security.throttle` suppressed、窗內任一
-  即紅〕③降級三子〔(a) `throttle_degraded_total` 12 label (b) `security.ipgate` degraded loki
-  (c) `casbin_reload_total` 異常 outcome〕＋島 J2 access-log 寫故障 loki 事件④容量
-  `n_live_tup` 超門檻⑤reaper 心跳 `time()-reaper_last_success_timestamp{mode="execute"}` 大於
-  2×間隔）＋`contact-points.yml`（webhook、`settings.url: $__file{/run/secrets/alert_webhook_url}`）
-  ＋`notification-policies.yml`（單一 policy 全規則路由）。
+- alerting：`rules.yml`（五組——①baseline 3 條照搬〔rustapi-down／exporter-down／high-5xx
+  預設 5%、noDataState 與 `or vector(0)` 防雷⑨〕②壓制中〔loki、`security.throttle` suppressed、
+  窗內任一即紅〕③降級**四子 ③a~③d**〔(a) `throttle_degraded_total` 12 label (b) `security.ipgate`
+  degraded loki (c) `casbin_reload_total` 異常 outcome (d) 島 J2 access-log 寫故障 loki 事件〕
+  ④容量 `n_live_tup` 超門檻⑤reaper 心跳**雙規則**〔超時 rule：
+  `time()-reaper_last_success_timestamp{mode="execute"}` 大於 2×間隔、noDataState=OK；誤配
+  rule：dry-run 序列在而 execute 缺席即紅〕）＋`contact-points.yml`（webhook、
+  `settings.url: $__file{/run/secrets/alert_webhook_url}`）＋`notification-policies.yml`
+  （單一 policy 全規則路由）。
 - dashboards：provider.yaml＋json 七片＝master-overview／rust-api（＋HLL 兩格＋denylist＋軟區＋
   settings 頻次）／postgres（rev3 9628 rev8 改造版直移、0.20.1 改名格 grep 處理）／redis／
   audit-log（LogQL project 名改 `rev4-admin`＋容量趨勢格）／reaper（cleanup-job 板改造：心跳

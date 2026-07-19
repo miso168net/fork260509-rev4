@@ -22,16 +22,21 @@
 - `--profile metrics up -d` → prometheus 四件起。
 - 判準①：`curl -s 127.0.0.1:42079/metrics` 含 data-model §1 全部 pre-register 序列（顯式 0；
   restart rust-api 後首刮即在）。
-- 判準②（「出圖」機判形）：grafana API 列 dashboards＝七片全 provision；對每片核心格之
-  datasource query（grafana `/api/ds/query`）回非空 frame。
+- 判準②（「出圖」機判形）：grafana API 列 dashboards＝七片全 provision；對**有 datasource 之
+  六片**逐板以核心格 query（T018 施工時逐板列舉 panel 名＋query、落本節執行清單）打
+  `/api/ds/query` 回非空 frame——reaper 板延至 US3 後補驗、字典板判準＝provision 成功＋S6
+  diff 零；postgres 板另斷言恆空篩選格清單＝零。
 
 ## S4 告警→webhook 閉環
 
 - 起 dev 收器容器（同 network、落證到檔）；設 `alert_webhook_url` 指向之。
 - 觸發：連續失敗登入至壓制事件出現（`security.throttle` suppressed）。
 - 判準：告警②於評估窗內轉紅（grafana API state=Alerting）＋收器檔內有一則通知；通知內容
-  含規則名／計數、**不含原始 log 行**（grep 斷言）。降級／容量／心跳規則各以人工注入訊號
-  抽驗一次可轉紅（③a 可用 test 常數觸發、④ 暫調門檻、⑤ 停 sidecar 等 2×間隔）。
+  含規則名／計數、**不含原始 log 行**（grep 斷言）。降級四子與容量規則各以人工注入訊號抽驗
+  一次可轉紅：③a test 訊號觸發 degraded counter、③b 停 redis 觸發 ipgate 降級事件、③c 注入
+  異常 policy 觸發 casbin 重載失敗、③d 暫停 postgres 觸發 access-log 寫入故障、④暫調門檻；
+  ⑤本階段僅驗零序列 no-data 不誤紅（正向超時與誤配 rule 全驗歸 US3／S5、屆時暫調
+  REAPER_INTERVAL_SECS 縮短等待）。驗畢全數還原。
 
 ## S5 reaper：dry-run→execute→守恆＋心跳
 
@@ -59,5 +64,6 @@
 ## S8 觀測件全滅零影響
 
 - 全 profile 啟用後 `docker kill` 全部觀測容器（含 proxy）→ 對業務 API 打一輪冒煙
-  （login＋受保護請求）：成功率與 S1 基線一致（零 5xx 增量、延遲無可觀測差異）；
+  （login＋受保護請求）：成功率與 S1 基線一致＋零 5xx 增量（機判）；延遲觀察性記錄、不設
+  容差判準；
   restart 策略生效（容器自行回復、面板資料續流）。

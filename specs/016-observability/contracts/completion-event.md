@@ -1,7 +1,8 @@
 # Contract — completion log 事件（B-054）
 
 - **形**: JSON log 單行事件、`target="http.request"`、level=INFO、message=`請求完成`。
-- **欄位**: `method`（大寫動詞）／`path`（route path、非含 query）／`status`（HTTP 數值）／
+- **欄位**: `method`（大寫動詞）／`path`＝**原始 URI path 去 query**（非 axum route 模板——
+  被 ipgate 擋下或無匹配路由之請求同樣可得、單一語意零退化值）／`status`（HTTP 數值）／
   `latency_ms`（u64）／`trace_id`（sanitize 後值；標頭缺席或被棄用＝欄缺席）。
 - **發射點**: 顯式 `tracing::info!`（非 span-close 依賴——/health 類無 in-span event 請求也有）；
   掛點＝request span 之內、ipgate 之外——被 ipgate 擋下（403）的請求亦發、閘門判定序零改動。

@@ -30,8 +30,8 @@ sys_token 無全域回收路徑（prune_expired_rotated 僅同 chain refresh 時
   denylist PG fallback（has_active_in_chain）只濾 status 不濾 expires_at、不可倚賴；revoked／
   rotated 未過期列的運行時依賴在 refresh 端點（reuse 偵測、kicked 分支、session_event 稽核）。
 - **B-040**：專屬 reaper DB user 權限僅 sys_token 之 SELECT＋DELETE；secrets 新增
-  `reaper_database_url` leaf；role 建立與設密機制 plan 期拍、原則定死＝**密碼絕不進
-  migration、絕不進 git**。
+  `reaper_password` leaf＋`reaper_database_url` composite（由 leaf 組合、沿 generate-secrets
+  慣例）；role 建立與設密機制 plan 期拍、原則定死＝**密碼絕不進 migration、絕不進 git**。
 
 ## 後果
 

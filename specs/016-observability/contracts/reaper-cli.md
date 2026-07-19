@@ -24,4 +24,6 @@
   dry-run 推候刪數）；PUT `http://pushgateway:9091/metrics/job/reaper`——ureq 3.3.0 df=false
   （防雷②：絕不 reqwest::blocking）；推送 best-effort（失敗僅 error log、不改退出碼）。
 - 告警⑤契約：`time() - reaper_last_success_timestamp{mode="execute"} > 2×間隔` 轉紅——
-  **只認 execute**；門檻與 `REAPER_INTERVAL_SECS` 同源產出（防失步）。
+  **只認 execute**、noDataState=OK；另有誤配 rule（dry-run 在而 execute 缺席即紅）。同源機制
+  ＝門檻（172800）與間隔（86400）**雙邊寫死＋互設註解錨**；調整間隔 MUST 同步改 rules.yml
+  （契約明文、防失步）。

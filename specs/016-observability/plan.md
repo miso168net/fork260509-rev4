@@ -69,8 +69,9 @@ HLL 讀取每 scrape 2×PFCOUNT；稽核容量零掃描（`pg_stat_user_tables` 
 5. **§I.5 前代拷貝**：✅ 合規——rust 側（recorder／completion event／HLL／reaper）全新寫；
    rev3 provisioning yaml/json 與 compose 段＝部署設定檔、不在 RUSTAPI-SOURCE-ISOLATION 射程
    （該紀律錨定 rust-api 樹），移植＝逐檔適配重打（project 名、埠、版本、面板改造）非盲拷；
-   防回歸條款：rev3 已被 rev4 推翻的形（cleanup-job 掛 prod profile→rev4 拍 `jobs` profile、
-   9628 板→12485）不帶回。
+   防回歸條款：rev3 已被 rev4 推翻的形（cleanup-job 掛 prod profile→rev4 拍 `jobs` profile）
+   不帶回；postgres 板＝rev3 9628 rev8 as-built 直移（12485 經 research R6 查證否決、brainstorm
+   防雷⑧候選不成立——analyze M7 更正）。
 6. **§II 拍板**：✅ 不牴觸——#3 `/api/metrics` 擋塊沿用；#1/#2 不涉；§II 排程性拍板註記之
    「obs 逐筆立 ADR」義務由 ADR 0069~0075 兌現（0069 含映射表）。
 7. **§III ★ 軌道**：✅ 不觸及（零 base-web 改動）。
@@ -80,7 +81,8 @@ HLL 讀取每 scrape 2×PFCOUNT；稽核容量零掃描（`pg_stat_user_tables` 
 9. **§I.7 行為島**：✅ 全數保持、零新島——
    - 島 E1/F3/G1/J2：告警訊號**純消費**（loki／prometheus 規則讀取）、發送語意零改動；
    - 島 E3：HLL PFADD 恰為「量級訊號走觀測層麵包屑（非稽核表、best-effort）」明文範疇；
-     壓制短路仍零稽核列；
+     壓制短路仍零稽核列；★HLL 非判定鏈成員、其操作失敗不在島 E1「每一次降級 MUST 發結構化
+     告警」義務射程（僅 fail counter 能見度——ADR 0073 後果節義務句兌現）；
    - 島 F1：completion log 掛點＝request span 之內、ipgate 之外——閘門固定判定序零改動
      （①健康/觀測放行不動）；
    - 島 B/C：reaper 判準守恆「未過期列不分 status 絕不刪」——revoked/rotated 未過期列之
