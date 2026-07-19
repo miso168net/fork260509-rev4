@@ -221,6 +221,9 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
     secrets:
       - grafana_admin_password
+      # 016-observability T012：alerting contact point webhook URL（provisioning yaml 內
+      # $__file{/run/secrets/alert_webhook_url} 讀取；URL 永不明文進版本庫）
+      - alert_webhook_url
     volumes:
       - grafana_data:/var/lib/grafana
     mem_limit: 512m
@@ -337,3 +340,6 @@ secrets:
   # 016-observability T009：grafana 管理密碼（GF_SECURITY_ADMIN_PASSWORD $__file{} provider 注入）
   grafana_admin_password:
     file: ./deploy/secrets/grafana_admin_password.txt
+  # 016-observability T012：告警 webhook URL（alerting/contact-points.yml $__file{} provider 注入）
+  alert_webhook_url:
+    file: ./deploy/secrets/alert_webhook_url.txt
