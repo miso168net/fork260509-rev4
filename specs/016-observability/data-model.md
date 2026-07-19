@@ -57,6 +57,9 @@ provisioning 實體（as-code 檔）＋reaper 對既有 `sys_token` 的讀刪語
 - up：DO 塊 `CREATE ROLE reaper NOLOGIN`（duplicate_object 容錯）＋
   `GRANT SELECT, DELETE ON sys_token TO reaper`；**零密碼**。
 - down：`REVOKE ALL ON sys_token FROM reaper`＋`DROP ROLE IF EXISTS reaper`。
+- as-built 增量（U7 施工實測、48f7551）：up 另含 `GRANT USAGE ON SCHEMA public TO reaper`——
+  postgres:18 板本庫 public schema ACL 為空（僅 owner 可及），缺穿越權查任何表皆報
+  relation does not exist；僅 USAGE 不含 CREATE、不放寬資料面；down 對稱 REVOKE USAGE。
 - 設密另走部署腳本（`ALTER ROLE reaper LOGIN PASSWORD ...`、psql stdin heredoc）。
 - 未來重建 sys_token 之 migration MUST 同場重掛 GRANT（PG 權限綁 object、DROP 不回掛）——
   註解錨進 m012。
