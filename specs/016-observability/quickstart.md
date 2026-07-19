@@ -26,6 +26,39 @@
   六片**逐板以核心格 query（T018 施工時逐板列舉 panel 名＋query、落本節執行清單）打
   `/api/ds/query` 回非空 frame——reaper 板延至 US3 後補驗、字典板判準＝provision 成功＋S6
   diff 零；postgres 板另斷言恆空篩選格清單＝零。
+- **判準② 執行清單**（T018 as-built；機判時 dashboard 變數代入規則：`$instance`→`.+`、
+  `$datname`→`.+`、`$__interval`／`$interval`→`5m`；postgres 板 `instance="$instance"` 精確匹配
+  格→以 `query_result(pg_up)` 取現場唯一 instance 值代入）：
+  - master-overview：「目標 up 狀態 (up by job)」`up`｜「5xx 錯誤率 (5xx ratio)」
+    `(sum(rate(axum_http_requests_total{status=~"5.."}[5m])) or vector(0)) / clamp_min(sum(rate(axum_http_requests_total[5m])) or vector(0), 1)`
+    （「上次回收成功距今 (Reaper age)」序列屆 US3 才有、同 reaper 板延後）。
+  - rust-api：「判決計數 allow / deny (累計)」`sum by (decision) (casbin_enforce_total)`｜
+    「本窗受壓制 distinct 帳號數 (HLL)」`throttle_hll_distinct{dim="user"}`｜
+    「本窗受壓制 distinct 來源 IP 數 (HLL)」`throttle_hll_distinct{dim="ip"}`｜
+    「撤銷名單命中 (denylist_hit_total by source)」`sum by (source) (denylist_hit_total)`｜
+    「軟區命中 (throttle_soft_zone_total)」`throttle_soft_zone_total`｜
+    「設定讀取頻次 (enforce_settings_select_total rate)」`rate(enforce_settings_select_total[5m])`｜
+    「請求率 by status (rate)」`sum by (status) (rate(axum_http_requests_total[5m]))`（axum 系列
+    隨首請求出現——S2 流量後非空）。
+  - postgres：「Transactions」`irate(pg_stat_database_xact_commit{instance="$instance", datname=~"$datname"}[5m])`｜
+    「Cache Hit Rate」`pg_stat_database_blks_hit{instance="$instance", datname=~"$datname"} / (pg_stat_database_blks_read{instance="$instance", datname=~"$datname"} + pg_stat_database_blks_hit{instance="$instance", datname=~"$datname"})`｜
+    「Buffers (bgwriter)」`irate(pg_stat_bgwriter_buffers_alloc_total{instance="$instance"}[5m])`｜
+    「Max Connections」`pg_settings_max_connections{instance="$instance"}`；
+    恆空篩選格斷言＝templating 變數集合恰為 {interval, instance, datname, mode} 且三個
+    query 型變數之查詢對 prometheus 皆回非空（k8s 之 namespace／release 已移除）。
+  - redis：「Clients」`sum(redis_connected_clients{instance=~"$instance"})`｜
+    「Total Memory Usage」`redis_memory_used_bytes{instance=~"$instance"}`｜
+    「Max Uptime」`max(max_over_time(redis_uptime_in_seconds{instance=~"$instance"}[$__interval]))`。
+  - audit-log（loki；range query 窗取 now-1h）：「rust-api 結構化 log（JSON guard）」
+    `{compose_project="rev4-admin", service="rust-api"} |~ ^{ | json`（行首 JSON guard 之 regex
+    以反引號包裹、同板內 as-built 形）｜「log 量速率 by service」
+    `sum by (service) (rate({compose_project="rev4-admin"}[5m]))`｜「稽核容量趨勢 (n_live_tup 四表)」
+    （prometheus）`pg_stat_user_tables_n_live_tup{relname=~"sys_operation_log|sys_access_log|sys_login_attempt|session_event"}`。
+  - reaper（US3 後補驗）：「上次 execute 成功距今 (age)」
+    `time() - reaper_last_success_timestamp{mode="execute"}`｜「上次刪除列數 by mode (rows deleted)」
+    `reaper_deleted_total`（legend `{{mode}}`）｜「pushgateway up」`up{job="pushgateway"}`
+    （此格現即非空、可先驗）。
+  - backend-msg-dict：零 datasource（text panel）——判準＝provision 成功＋S6 diff 零。
 
 ## S4 告警→webhook 閉環
 
