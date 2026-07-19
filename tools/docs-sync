@@ -605,6 +605,13 @@ REFERENCE_LIVE = {
 }
 # ports 對照表來源（base 層設計鐵律禁 host ports、映射只住 dev/example）
 COMPOSE_FILES = ("docker-compose.yml", "docker-compose.dev.yml", "docker-compose.example.yml")
+# backend 拒因字典鏈（B-007／FR-014）常數——生成器本體見下方「backend 拒因字典鏈」節
+MSG_DICT_LOCALES = (("zh-TW", "base-web/src/locales/langs/zh-tw.ts"),
+                    ("en-US", "base-web/src/locales/langs/en-us.ts"))
+MSG_DICT_MD = f"{GENERATED_DIR}/reference/backend-msg-dict.md"
+MSG_DICT_PANEL = "deploy/grafana-provisioning/dashboards/json/backend-msg-dict.json"
+MSG_DICT_HINT = ("機器生成：tools/docs-sync generate（來源＝base-web locale backend.* 兩語）"
+                 "——嚴禁手改；差異由 pre-commit check 攔下")
 
 
 DEFAULT_BRANCH = "rev4-admin-root"
@@ -809,6 +816,12 @@ L2_SOURCES = {
     f"{GENERATED_DIR}/reference/screens.md":
         "screens 正典表與 routes.ts 重算結果不一致——"
         "base-web/src/router/elegant/routes.ts 的 generatedRoutes 改動後未跑 tools/docs-sync generate",
+    MSG_DICT_MD:
+        "backend 拒因字典與 locale 重算結果不一致——base-web/src/locales/langs/"
+        "{zh-tw,en-us}.ts 的 backend.* 改動後未跑 tools/docs-sync generate",
+    MSG_DICT_PANEL:
+        "字典面板 json 與 locale 重算結果不一致——deploy 側生成物嚴禁手改；"
+        "locale 改動後跑 tools/docs-sync generate（FR-014 守門）",
 }
 
 
@@ -821,6 +834,9 @@ def check_generated(root, computed):
         for name in names:
             rel = os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
             on_disk.add(rel)
+    # deploy 側字典面板＝生成物治外飛地（僅此一檔納管；同目錄手寫面板不受掃描）
+    if os.path.exists(os.path.join(root, MSG_DICT_PANEL)):
+        on_disk.add(MSG_DICT_PANEL)
     for rel in sorted(set(computed) | on_disk):
         if rel not in computed:
             out.append(finding(ERROR, "L1", rel, "多出的檔案（generated/ 嚴禁手加；請移除）"))
@@ -882,8 +898,8 @@ def tracked_files(root):
 
 
 def unstaged_generated(root):
-    """generated/ 的 working tree 與 index 落差（跑了 generate 忘了 git add）。"""
-    out = git_out(["diff", "--name-only", "--", GENERATED_DIR], root)
+    """生成物的 working tree 與 index 落差（跑了 generate 忘了 git add）。"""
+    out = git_out(["diff", "--name-only", "--", GENERATED_DIR, MSG_DICT_PANEL], root)
     return [l for l in (out or "").splitlines() if l]
 
 
@@ -1345,6 +1361,122 @@ def gen_reference_screens(rows):
 
 
 # ---------------------------------------------------------------------------
+# backend 拒因字典鏈（B-007／FR-014、016-observability T019）：base-web locale 兩語
+# `backend.*` 鍵樹（單一真相源、唯讀）→ ①reference/backend-msg-dict.md 對照表
+# ②deploy 側 grafana text panel json（零 datasource）。比照 ports/routes 直解範式
+# （窄假設行級解析＋fail-loud）；兩語鍵集不相等＝fail-loud（字典缺譯即紅、非靜默缺列）。
+# ---------------------------------------------------------------------------
+
+# backend 樹內唯二合法行形（stripped 後 fullmatch；註解行另行跳過）：
+RE_DICT_OPEN = re.compile(r"^([A-Za-z_$][A-Za-z0-9_$]*):\s*\{$")
+RE_DICT_LEAF = re.compile(
+    r"^([A-Za-z_$][A-Za-z0-9_$]*):\s*(['\"`])((?:\\.|(?!\2).)*)\2,?$")
+RE_DICT_ESCAPE = re.compile(r"\\(.)")
+
+
+class BackendDictError(Exception):
+    """locale backend 樹解析失敗（fail-loud：寧可擋下、不靜默漏一鍵或收殘值）。"""
+
+
+def parse_locale_backend(text, rel):
+    """自 locale TS 擷取頂層 backend: { … } 樹。回 {扁平鍵: 值}（鍵＝a.b.c）。
+
+    窄假設：樹內每行恰為 註解（//…）／子樹開（key: {）／葉（key: '值',）／閉（} 或 },）
+    之一；值同行閉合、三種引號皆收、跳脫以 \\x → x 還原；重複鍵＝fail-loud。
+    """
+    lines = text.splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if re.fullmatch(r"\s*backend:\s*\{", line):
+            start = i
+            break
+    if start is None:
+        raise BackendDictError(f"{rel}｜找不到頂層 backend: {{ 樹——字典無法重算")
+    out, stack = {}, []
+    for n, raw in enumerate(lines[start + 1:], start=start + 2):
+        s = raw.strip()
+        if not s or s.startswith("//"):
+            continue
+        m = RE_DICT_OPEN.fullmatch(s)
+        if m:
+            stack.append(m.group(1))
+            continue
+        m = RE_DICT_LEAF.fullmatch(s)
+        if m:
+            key = ".".join(stack + [m.group(1)])
+            if key in out:
+                raise BackendDictError(f"{rel}:行 {n}｜重複鍵 {key}")
+            out[key] = RE_DICT_ESCAPE.sub(r"\1", m.group(3))
+            continue
+        if s in ("}", "},"):
+            if not stack:
+                if not out:
+                    raise BackendDictError(f"{rel}｜backend 樹為空——字典無法重算")
+                return out
+            stack.pop()
+            continue
+        raise BackendDictError(f"{rel}:行 {n}｜backend 樹內無法解析的行形：{s[:80]}")
+    raise BackendDictError(f"{rel}｜backend 樹未閉合（EOF）")
+
+
+def compute_msg_dict_rows(root):
+    """讀兩語 locale → 鍵集斷言相等 → 回 [(key, zh, en)]（鍵序確定性）。"""
+    trees = []
+    for lang, rel in MSG_DICT_LOCALES:
+        text = _read(root, rel)
+        if text is None:
+            raise BackendDictError(f"{rel}｜locale 來源檔不存在——字典無法重算")
+        trees.append(parse_locale_backend(text, rel))
+    zh, en = trees
+    if set(zh) != set(en):
+        diff = "、".join(sorted(set(zh) ^ set(en)))
+        raise BackendDictError(f"兩語 backend 鍵集不相等（缺譯即紅）：{diff}")
+    return [(k, zh[k], en[k]) for k in sorted(zh)]
+
+
+def _msg_dict_table(rows):
+    return ("| key | zh-TW | en-US |\n|---|---|---|\n"
+            + "\n".join(f"| {_md_cell(k)} | {_md_cell(z)} | {_md_cell(e)} |"
+                        for k, z, e in rows) + "\n")
+
+
+def gen_msg_dict_md(rows):
+    """reference/backend-msg-dict ← locale backend.* 兩語對照表（D9 拍板＝兩語）。"""
+    head = (f"{GEN_HEADER}\n# reference/backend-msg-dict — 拒因字典（機器生成）\n\n"
+            f"來源＝{'＋'.join(rel for _, rel in MSG_DICT_LOCALES)} 之 backend.* 鍵樹"
+            f"（generate 重算；B-007／FR-014、全鏈零手維）。\n\n")
+    return head + _msg_dict_table(rows)
+
+
+def gen_msg_dict_panel(rows):
+    """deploy 側字典面板 json ← 同 rows（text panel markdown 嵌入、零 datasource）。"""
+    dash = {
+        "uid": "obs-backend-msg-dict",
+        "title": "拒因字典 (backend-msg-dict)",
+        "description": MSG_DICT_HINT,
+        "tags": ["obs", "rev4-admin", "backend-msg-dict"],
+        "schemaVersion": 39,
+        "editable": False,
+        "graphTooltip": 0,
+        "time": {"from": "now-6h", "to": "now"},
+        "refresh": "",
+        "timezone": "browser",
+        "templating": {"list": []},
+        "annotations": {"list": []},
+        "panels": [{
+            "id": 1,
+            "type": "text",
+            "title": "backend.* 拒因鍵 → zh-TW／en-US 對照",
+            "description": MSG_DICT_HINT,
+            "gridPos": {"h": 30, "w": 24, "x": 0, "y": 0},
+            "options": {"mode": "markdown", "code": {"language": "plaintext"},
+                        "content": f"{MSG_DICT_HINT}\n\n{_msg_dict_table(rows)}"},
+        }],
+    }
+    return json.dumps(dash, ensure_ascii=False, indent=2) + "\n"
+
+
+# ---------------------------------------------------------------------------
 # 快照管線：refresh（需 stack）→ reference-src 兩快照（契約 specs/002-schema-baseline/
 # contracts/snapshot-reference.md §1）。generate／check 只讀快照、絕不碰 docker。
 # ---------------------------------------------------------------------------
@@ -1640,6 +1772,9 @@ def compute_generated(root):
     files[f"{GENERATED_DIR}/reference/ports.md"] = gen_reference_ports(compute_ports_rows(root))
     files[f"{GENERATED_DIR}/reference/routes.md"] = gen_reference_routes(compute_router_rows(root))
     files[f"{GENERATED_DIR}/reference/screens.md"] = gen_reference_screens(compute_screen_rows(root))
+    msg_rows = compute_msg_dict_rows(root)
+    files[MSG_DICT_MD] = gen_msg_dict_md(msg_rows)
+    files[MSG_DICT_PANEL] = gen_msg_dict_panel(msg_rows)
     files.update(compute_snapshot_reference(root))
     return files
 
@@ -1938,6 +2073,10 @@ def cmd_generate():
     files = compute_generated(ROOT)
     for rel, content in sorted(files.items()):
         path = os.path.join(ROOT, rel)
+        if rel == MSG_DICT_PANEL:
+            # grafana provider 每 30s 掃描該目錄——原子替換防讀到半成品（T003 staging 紀律）
+            _atomic_write(path, content)
+            continue
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(content)
@@ -2787,6 +2926,151 @@ class TestElegantRoutes(unittest.TestCase):
             self.assertEqual(len(f), 1)
             self.assertEqual(f[0]["code"], "L2")
             self.assertIn("screens", f[0]["msg"])
+
+
+MSG_DICT_TS_SAMPLE = (
+    "const local: App.I18n.Schema = {\n"
+    "  backend: {\n"
+    "    common: {\n"
+    "      // 行內註解（跳過）\n"
+    "      listSeparator: '、',\n"
+    "      success: '操作成功'\n"
+    "    },\n"
+    "    biz: {\n"
+    "      user: {\n"
+    "        inUse: '掛有 {userCount} 個使用者',\n"
+    "        quoted: \"雙引號值\",\n"
+    "        ticked: `反引號值`,\n"
+    "        escaped: 'It\\'s ok'\n"
+    "      }\n"
+    "    }\n"
+    "  },\n"
+    "  system: {\n"
+    "    title: 'not-backend'\n"
+    "  }\n"
+    "};\n"
+)
+
+
+class TestBackendMsgDict(unittest.TestCase):
+    def test_parse_normal_nested(self):
+        d = parse_locale_backend(MSG_DICT_TS_SAMPLE, "f.ts")
+        self.assertEqual(d, {
+            "common.listSeparator": "、",
+            "common.success": "操作成功",
+            "biz.user.inUse": "掛有 {userCount} 個使用者",
+            "biz.user.quoted": "雙引號值",
+            "biz.user.ticked": "反引號值",
+            "biz.user.escaped": "It's ok",
+        })
+
+    def test_missing_backend_fails(self):
+        with self.assertRaises(BackendDictError) as cm:
+            parse_locale_backend("const local = {\n  other: {}\n};\n", "f.ts")
+        self.assertIn("backend", str(cm.exception))
+
+    def test_bad_line_fails_with_file_and_line(self):
+        for bad in ("key: unquoted,",        # 無引號值
+                    "key: ['a'],",           # 陣列值
+                    "key: '跨行未閉",         # 值未閉合
+                    "'quoted-key': 'v',"):   # 引號鍵（backend 樹現無、窄假設擋下）
+            text = f"  backend: {{\n    {bad}\n  }},\n"
+            with self.assertRaises(BackendDictError, msg=bad) as cm:
+                parse_locale_backend(text, "f.ts")
+            self.assertIn("f.ts:行 2", str(cm.exception), msg=bad)
+
+    def test_unclosed_tree_fails(self):
+        with self.assertRaises(BackendDictError) as cm:
+            parse_locale_backend("  backend: {\n    a: {\n      b: 'v'\n", "f.ts")
+        self.assertIn("未閉合", str(cm.exception))
+
+    def test_duplicate_key_fails(self):
+        text = "  backend: {\n    a: 'x',\n    a: 'y'\n  },\n"
+        with self.assertRaises(BackendDictError) as cm:
+            parse_locale_backend(text, "f.ts")
+        self.assertIn("重複鍵 a", str(cm.exception))
+
+    def test_empty_tree_fails(self):
+        with self.assertRaises(BackendDictError):
+            parse_locale_backend("  backend: {\n  },\n", "f.ts")
+
+    def _root_with_locales(self, zh, en):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        d = os.path.join(tmp.name, "base-web/src/locales/langs")
+        os.makedirs(d)
+        for name, text in (("zh-tw.ts", zh), ("en-us.ts", en)):
+            with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+                fh.write(text)
+        return tmp.name
+
+    def test_compute_rows_two_locales(self):
+        root = self._root_with_locales(
+            "  backend: {\n    auth: {\n      failed: '帳密錯誤'\n    }\n  },\n",
+            "  backend: {\n    auth: {\n      failed: 'Bad credentials'\n    }\n  },\n")
+        self.assertEqual(compute_msg_dict_rows(root),
+                         [("auth.failed", "帳密錯誤", "Bad credentials")])
+
+    def test_keyset_mismatch_fails(self):
+        root = self._root_with_locales(
+            "  backend: {\n    a: 'x'\n  },\n",
+            "  backend: {\n    b: 'y'\n  },\n")
+        with self.assertRaises(BackendDictError) as cm:
+            compute_msg_dict_rows(root)
+        self.assertIn("鍵集不相等", str(cm.exception))
+        self.assertIn("a", str(cm.exception))
+
+    def test_missing_locale_file_fails(self):
+        root = self._root_with_locales("  backend: {\n    a: 'x'\n  },\n", "")
+        os.remove(os.path.join(root, "base-web/src/locales/langs/en-us.ts"))
+        with self.assertRaises(BackendDictError) as cm:
+            compute_msg_dict_rows(root)
+        self.assertIn("en-us.ts", str(cm.exception))
+
+    def test_gen_md_form(self):
+        md = gen_msg_dict_md([("auth.failed", "帳密|錯誤", "Bad credentials")])
+        self.assertTrue(md.startswith(GEN_HEADER))
+        self.assertIn("| auth.failed | 帳密\\|錯誤 | Bad credentials |", md)
+
+    def test_gen_panel_form(self):
+        text = gen_msg_dict_panel([("auth.failed", "帳密錯誤", "Bad credentials")])
+        dash = json.loads(text)
+        self.assertEqual(dash["uid"], "obs-backend-msg-dict")
+        self.assertNotIn("datasource", text)         # 零 datasource
+        self.assertIn("嚴禁手改", dash["description"])  # 檔頭 hint
+        panel = dash["panels"][0]
+        self.assertEqual(panel["type"], "text")
+        self.assertIn("auth.failed", panel["options"]["content"])
+        self.assertIn("帳密錯誤", panel["options"]["content"])
+
+    def test_check_intercepts_tampered_panel(self):
+        # 手改攔截形：deploy 側面板被手改一字元 → check 紅（L2 指名來源）
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = tmp.name
+        os.makedirs(os.path.join(root, GENERATED_DIR))
+        panel_path = os.path.join(root, MSG_DICT_PANEL)
+        os.makedirs(os.path.dirname(panel_path))
+        good = gen_msg_dict_panel([("a", "甲", "A")])
+        computed = {MSG_DICT_PANEL: good}
+        with open(panel_path, "w", encoding="utf-8") as fh:
+            fh.write(good)
+        self.assertEqual(check_generated(root, computed), [])   # 一致＝綠
+        with open(panel_path, "w", encoding="utf-8") as fh:
+            fh.write(good.replace("甲", "乙", 1))               # 手改一字元
+        f = check_generated(root, computed)
+        self.assertEqual(len(f), 1)
+        self.assertEqual(f[0]["code"], "L2")
+        self.assertIn("backend-msg-dict.json", f[0]["where"])
+
+    def test_check_missing_panel_reported(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = tmp.name
+        os.makedirs(os.path.join(root, GENERATED_DIR))
+        f = check_generated(root, {MSG_DICT_PANEL: "x"})
+        self.assertEqual(len(f), 1)
+        self.assertIn("缺生成檔", f[0]["msg"])
 
 
 class TestLintLinks(unittest.TestCase):
