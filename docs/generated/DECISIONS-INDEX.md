@@ -71,3 +71,10 @@
 | 0066 | accepted | 2026-07-17 | global-content 頁面切換 Transition 去 out-in＋fade-slide leave absolute——上游 isLeaving 卡死 workaround | — | — | — |
 | 0067 | accepted | 2026-07-17 | 密碼經手表 sys_pwd_custody＋首登強制換密（鎖態 token 硬閘）——B-030 兌現選型 | — | — | — |
 | 0068 | accepted | 2026-07-19 | 校正 ADR 0050 字面——protectedRevoke 拒因命名空間 as-built＝biz.role.* | — | — | — |
+| 0069 | draft | 2026-07-19 | 016 觀測層總綱——rev3 018 全套移植為底＋rev4 增項（obs 排程逐筆重審之映射表） | — | — | — |
+| 0070 | draft | 2026-07-19 | 後端 log 全環境 JSON 化＋trace_id 進 log＋completion log（B-054／B-045 子項配套） | — | — | — |
+| 0071 | draft | 2026-07-19 | 告警通知投遞 channel 首發＝webhook（B-031 兌現） | — | — | — |
+| 0072 | draft | 2026-07-19 | 背景 job 底座三紀律＋首發 reaper（B-063 sys_token 回收、B-040 最小權限憑證預設） | — | — | — |
+| 0073 | draft | 2026-07-19 | 節流攻擊廣度估計＝HLL 最小落地（B-033 殘項、翻案 rev3「不做 v1」） | — | — | — |
+| 0074 | draft | 2026-07-19 | 觀測側拒因可讀性＝機生字典＋grafana 對照（B-007 兌現、ADR 0001 第 8 題配套結案） | — | — | — |
+| 0075 | draft | 2026-07-19 | session_event 膨脹治理＝能見度閉環（不自動刪、不寫端去重）——B-067 by-design 收單 | — | — | — |
