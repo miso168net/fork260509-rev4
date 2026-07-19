@@ -2103,7 +2103,7 @@ def cmd_check():
                                 "supersedes 對稱回填待跑（tools/docs-sync generate）"))
     for rel in unstaged_generated(ROOT):
         findings.append(finding(ERROR, "L1", rel,
-                                "generated/ 有未 staged 變更（跑了 generate 忘了 git add——"
+                                "生成物有未 staged 變更（跑了 generate 忘了 git add——"
                                 "staged 內容過期，入版即漂移）"))
     print_findings(findings)
     print(f"check：{'不一致 ' + str(len(findings)) + ' 處' if findings else '一致'}")
