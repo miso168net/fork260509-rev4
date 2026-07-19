@@ -16,8 +16,9 @@
 - **015-pwd-custody 已收刀**（2026-07-18、B-030 兌現）：密碼經手表 sys_pwd_custody（變體 C m011）＋首登強制
   換密（pwd_gate_mw 硬閘＋強制改密頁＋route guard）＋設密冷卻＋產密浮層三掛載點；憲法 v1.14.0((k)＋島 I6)
   ＋ADR 0067；收尾 UI 微調（偏離 US2 AC4）＋★U8 捏造工具呼叫事故 workflow 隔離重做全翻正（L-150）。詳 events/STATE。
-- **下一步（user 拍板 2026-07-19：B-060/B-103 移滯後卷 BACKLOG-DEFERRED＝正式 release 前清理批）**：
-  auth 延伸組（B-027/028/102）vs prod 組（B-013/037/038/042/080/081）擇定。
+- **下一步（user 拍板 2026-07-19 翻案：下一波＝obs 組觀測層刀、auth/prod 組後移；brainstorm 於
+  context 壓縮後原 session 起手＝user 拍板）**：016 obs 範圍輸入＝B-007/031/033殘(grafana＋HLL)/041/053/
+  054/063/065/067；首個背景 job 設計期觸發 B-040；B-033 之 IP TTL 拆分屬 IP 閘刀不入本波。
 - 014 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；
   B-103（→滯後卷）。013 前遺留：B-098（ip_rule enrich 測試
   清理段不耐 panic）；B-099（契約層對 query 形零判別力）；B-100（系統軟刪掃描通用刀）；
