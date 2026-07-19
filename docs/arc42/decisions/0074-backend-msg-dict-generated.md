@@ -2,7 +2,7 @@
 id: "0074"
 title: 觀測側拒因可讀性＝機生字典＋grafana 對照（B-007 兌現、ADR 0001 第 8 題配套結案）
 date: 2026-07-19
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-19 016-observability brainstorm——user 親決 D9；ADR 0001 第 8 題掛 B-007 之配套；審查 B3 材質歸家拍定"

@@ -15,6 +15,7 @@
 | /auth/resetPwd | POST | Public | auth-reset-pwd | 否 |
 | /auth/sendCaptcha | POST | Public | auth-send-captcha | 否 |
 | /health | GET | Public | health | 是 |
+| /metrics | GET | Public | metrics | 是 |
 | /route/getConstantRoutes | GET | Public | route-get-constant-routes | 否 |
 | /route/getUserRoutes | GET | Authed | route-get-user-routes | 否 |
 | /route/isRouteExist | GET | Authed | route-is-route-exist | 否 |

@@ -2,7 +2,7 @@
 id: "0071"
 title: 告警通知投遞 channel 首發＝webhook（B-031 兌現）
 date: 2026-07-19
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-19 016-observability brainstorm——user 親決 D2；rev3 K2-15（FR-017 v1 rules-only 明拍不投遞）承襲翻補；審查 D4 secrets 衝突拍原則"
@@ -19,9 +19,11 @@ rev3 018 只 provision 三條 baseline alert rule（條件成立僅 grafana 介�
 
 - **channel＝webhook 型**單一 contact point＋單一 notification policy 全規則路由（落選：
   email SMTP〔需四憑證〕、Telegram bot〔綁生態〕）；憑證僅一條 URL、走 deploy/secrets 慣例。
-- **URL 絕不明文入 provisioning yaml**（yaml 屬 as-code 進 git）：機制 plan 期擇一拍——
-  grafana env 插值（`$VAR` 展開）＋secret 檔經 entrypoint 注入 env、或該 yaml 歸 gitignore
-  材質。原則先定死、比照 B-040「密碼絕不進 migration／git」姿態。
+- **URL 絕不明文入 provisioning yaml**（yaml 屬 as-code 進 git）：機制已於 plan 期拍定＝
+  **`$__file` provider 直用**（`settings.url: $__file{/run/secrets/alert_webhook_url}`；grafana
+  v13 源碼三段實證＝016 research R4）；env 插值＋entrypoint wrapper 降為備案（僅當冒煙實測
+  失敗啟用）、yaml 歸 gitignore 案否決（犧牲 as-code 審計性）。原則不變、比照 B-040「密碼
+  絕不進 migration／git」姿態。
 - 告警 annotation 不得內嵌原始 log 行（外送 PII 防手滑；本刀設計之五組規則內容皆為計數與
   時戳、審查 D 查證零 PII）。
 - dev 驗收＝本機輕量收器容器真收到一則（不依賴外網）、驗完即撤。

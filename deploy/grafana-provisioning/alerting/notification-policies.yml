@@ -1,0 +1,14 @@
+# 016-observability T012：通知策略 provisioning（契約＝contracts/alerting-delivery.md；FR-011）。
+# 單一 root policy 全規則路由至 rev4-webhook 接觸點（contact-points.yml）——零分流、零 mute；
+# 投遞失敗語意＝grafana 自行重試、不影響規則狀態與業務（alerting-delivery.md 失敗語意節）。
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: rev4-webhook
+    group_by:
+      - grafana_folder
+      - alertname
+    group_wait: 30s
+    group_interval: 1m
+    repeat_interval: 4h

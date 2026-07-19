@@ -1,0 +1,19 @@
+# 016-observability T012：webhook 接觸點 provisioning（契約＝contracts/alerting-delivery.md；FR-011）。
+# ★secret 注入＝$__file provider 直讀 /run/secrets/alert_webhook_url（research R4 主案、源碼三段
+#   閉合實證；歷史 issue 56437 已判定已修——T013 冒煙驗 contact point 實值非字面 $__file、
+#   失敗才切 env-wrapper 備案）。
+# ★寫法坑（R4）：本 yaml 經 volume 掛載進容器、不經 compose 插值——單 $ 即可；
+#   只有 compose environment 值才需 $$ 雙寫（docker-compose.yml grafana 段 GF_SECURITY_ADMIN_PASSWORD 即彼形）。
+# URL 永不明文進版本庫：真值住 deploy/secrets/alert_webhook_url.txt（gitignored、generate-secrets
+#   placeholder 形＋preflight REQUIRED；T002 as-built）。
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: rev4-webhook
+    receivers:
+      - uid: rev4-webhook
+        type: webhook
+        settings:
+          url: $__file{/run/secrets/alert_webhook_url}
+          httpMethod: POST

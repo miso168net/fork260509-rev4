@@ -2,7 +2,7 @@
 id: "0069"
 title: 016 觀測層總綱——rev3 018 全套移植為底＋rev4 增項（obs 排程逐筆重審之映射表）
 date: 2026-07-19
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-19 016-observability brainstorm——六路偵察（wf_fe1b8a64）＋user 親決 10 題（D1/D10）＋四鏡頭對抗式審查（wf_c872e8fd、15 blockers 全修）"

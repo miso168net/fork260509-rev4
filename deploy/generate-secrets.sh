@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
-# deploy/generate-secrets.sh — rev4-admin 七機密一鍵生成（001-compose-stack；007 增 captcha_secret）
+# deploy/generate-secrets.sh — rev4-admin 十一機密一鍵生成（001-compose-stack；007 增 captcha_secret；
+# 016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password）
 # 用法：./deploy/generate-secrets.sh [--force]
 #
-# 七機密（deploy/secrets/*.txt）：
+# 十一機密（deploy/secrets/*.txt）：
 #   leaf      postgres_password（hex 24、URL-safe）／redis_password（hex 24、URL-safe）
 #   leaf      jwt_secret（base64 48）／refresh_token_secret（base64 48）
 #   leaf      captcha_secret（base64 48；007-login-throttle challenge HS256）
+#   leaf      reaper_password（hex 24、URL-safe；016 reaper 最小權限 DB 身分、設密另走部署腳本）
+#   leaf      grafana_admin_password（base64 24；016 grafana GF $__file{} 檔注入、非 URL）
 #   composite database_url ＝ postgres://soybean:<postgres_password>@postgres:5432/soybean_admin_rust
 #   composite redis_url    ＝ redis://:<redis_password>@redis:6379
+#   composite reaper_database_url ＝ postgres://reaper:<reaper_password>@postgres:5432/soybean_admin_rust
+#   佔位      alert_webhook_url（顯眼佔位 URL；真值 user 自填、--force 不重置——重置法＝刪檔重跑）
 #
 # 設計：
 #   - openssl 全跑 alpine/openssl 容器——host 除 docker 外零依賴。
@@ -18,14 +23,15 @@
 #
 # 冪等語意：
 #   - 零參數：已存在跳過（SKIPPED）、缺則補（GENERATED）。
-#   - --force：七支全重生。
+#   - --force：亂數生成的十支全重生；alert_webhook_url 屬 user 自填設定值、
+#     不在 --force 範圍（重生佔位無輪替價值、反毀 user 已填真值）。
 #   - dual-write 連動：composite 以「期望值 vs 檔案現值」逐位元組比對判定——涵蓋
 #     ①leaf 本次重生 ②leaf 曾單獨改動（比 composite 新） ③僅缺 composite
 #     三種情境，任何不一致一律重寫 composite、絕不留兩處不一致。
 #   - 摘要只印檔名＋狀態（GENERATED／SKIPPED）、絕不印機密值。
 
 set -euo pipefail
-# 機密檔出生即 600（原生 Linux 檔系統生效；Step 3 的 chmod 變成雙保險）
+# 機密檔出生即 600（原生 Linux 檔系統生效；Step 4 的 chmod 變成雙保險）
 umask 077
 
 FORCE=0
@@ -62,7 +68,7 @@ clear_dir_placeholder() {
 }
 
 # ============================================================
-# Step 1: leaf secret ×5
+# Step 1: leaf secret ×6
 # ============================================================
 echo "=== Step 1: 生成 leaf secret ==="
 
@@ -85,9 +91,15 @@ gen_leaf "redis_password"       -hex 24
 gen_leaf "jwt_secret"           -base64 48
 gen_leaf "refresh_token_secret" -base64 48
 gen_leaf "captcha_secret"       -base64 48
+# reaper_password（016 obs）：reaper 最小權限 DB 身分之密碼；hex＝URL-safe（嵌入
+# reaper_database_url 不被 + / = 破壞）；ALTER ROLE 設密走部署腳本、密碼絕不進 migration。
+gen_leaf "reaper_password"      -hex 24
+# grafana_admin_password（016 obs）：僅經 GF_SECURITY_ADMIN_PASSWORD=$__file{...} 檔注入、
+# 非 URL → base64 安全（rev3 018 同形）。
+gen_leaf "grafana_admin_password" -base64 24
 
 # ============================================================
-# Step 2: composite secret ×2（由 leaf 組合、dual-write 連動）
+# Step 2: composite secret ×3（由 leaf 組合、dual-write 連動）
 # ============================================================
 echo "=== Step 2: 生成 composite secret（dual-write 由 leaf 組合）==="
 
@@ -112,23 +124,49 @@ gen_composite() {
 
 PG_PASS="$(cat "$SECRETS_DIR/postgres_password.txt")"
 RD_PASS="$(cat "$SECRETS_DIR/redis_password.txt")"
+RP_PASS="$(cat "$SECRETS_DIR/reaper_password.txt")"
 
 gen_composite "database_url" "postgres://soybean:${PG_PASS}@postgres:5432/soybean_admin_rust"
 gen_composite "redis_url"    "redis://:${RD_PASS}@redis:6379"
+gen_composite "reaper_database_url" "postgres://reaper:${RP_PASS}@postgres:5432/soybean_admin_rust"
 
 # ============================================================
-# Step 3: 權限收緊
+# Step 3: 佔位 secret ×1（user 自填、--force 不重置）
+# ============================================================
+echo "=== Step 3: 佔位 secret（真值 user 自填）==="
+
+# alert_webhook_url（016 obs）：grafana contact point 經 $__file{/run/secrets/alert_webhook_url}
+# 讀取；僅缺檔才寫入顯眼佔位 URL（.invalid TLD 保留域、必不可達）、既有檔（含 user 已填
+# 真值）一律不動——--force 也不重置；要重置＝刪檔重跑。
+gen_placeholder() {
+    local name="$1"
+    local value="$2"
+    local file="$SECRETS_DIR/${name}.txt"
+    clear_dir_placeholder "$file"
+    if [ -f "$file" ]; then
+        STATUS["$name"]="SKIPPED"
+    else
+        printf '%s' "$value" > "$file"
+        STATUS["$name"]="GENERATED"
+    fi
+}
+
+gen_placeholder "alert_webhook_url" "https://CHANGE-ME.invalid/alert-webhook-placeholder"
+
+# ============================================================
+# Step 4: 權限收緊
 # ============================================================
 # WSL2 drvfs（/mnt/*）上 chmod 為 no-op、仍照做（原生 Linux 檔系統正確生效）
 chmod 600 "$SECRETS_DIR"/*.txt
 
 # ============================================================
-# Step 4: 摘要（只印檔名＋狀態、絕不印值）
+# Step 5: 摘要（只印檔名＋狀態、絕不印值）
 # ============================================================
 echo ""
 echo "=== Secret 生成摘要 ==="
 for name in postgres_password redis_password jwt_secret refresh_token_secret \
-            captcha_secret database_url redis_url; do
+            captcha_secret reaper_password grafana_admin_password database_url \
+            redis_url reaper_database_url alert_webhook_url; do
     printf "  %-26s %s\n" "${name}.txt" "${STATUS[$name]}"
 done
 echo ""

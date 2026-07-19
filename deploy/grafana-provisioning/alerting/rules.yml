@@ -1,0 +1,639 @@
+# 016-observability T011：告警五組 11 條 as-code（契約＝specs/016-observability/contracts/alerting-delivery.md）。
+# 母版＝rev3 as-built baseline 三條（rustapi-down／exporter-down／high-5xx）＋016 新增八條。
+#
+# 通則：
+# - 評估鏈一律 A（datasource instant query）→ B（reduce last）→ C（threshold、condition）——
+#   annotation 可引用 $values.B（reduce 節點保證在 $values 可見；純 A→C 形對 range query 不保證）。
+# - noDataState 分族：down 類＝Alerting（無 up 資料＝target 沒了）；事件/比率/心跳類＝OK
+#   （無資料＝健康；防雷⑨ idle 誤紅——spec US1-AC5 零 idle 誤報）。
+# - execErrState=Alerting（rule 評估錯誤值得標示）；datasourceUid 對齊 datasources/ 顯式 uid
+#   （prometheus／loki）；prometheus job 名（rust-api/postgres/redis）＝up selector 錨、不可漂。
+# - ★annotation 契約（FR-011／US1-AC6）：僅規則名／計數（$values.B）／時戳類——絕不內嵌
+#   原始 log 行、不含個資（loki 類 query 全為 count_over_time 數值聚合、結構上不可能帶出 log 行）。
+# - LogQL 形（②③b③d）：rust-api 為 tracing-subscriber JSON log（T006）——loki `| json` 攤平後
+#   事件欄位以 fields_ 前綴露出（fields_suppressed／fields_degraded）、target 頂層露出；
+#   `__error__=""` 守門排除攤平失敗行。selector 錨＝{service="rust-api", compose_project="rev4-admin"}
+#   （alloy relabel KEEP rev4-admin、T010 as-built 實查 stream label）。
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: rev4-obs-alerts
+    folder: rev4-obs
+    interval: 1m
+    rules:
+      # ══ ①a rustapi-down：up{job="rust-api"} < 1、for 2m（rev3 baseline 照搬）══
+      - uid: obs016-rustapi-down
+        title: rustapi-down
+        condition: C
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels:
+          severity: critical
+        annotations:
+          summary: 'rustapi-down：rust-api 後端服務 down（up{job=rust-api} 現值 {{ $values.B }}、判準 < 1）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: up{job="rust-api"}
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ①b exporter-down：up{job=~"postgres|redis"} < 1、for 2m（rev3 baseline 照搬）══
+      - uid: obs016-exporter-down
+        title: exporter-down
+        condition: C
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels:
+          severity: critical
+        annotations:
+          summary: 'exporter-down：依賴採集端 down（up{job=~postgres|redis} 現值 {{ $values.B }}、判準 < 1）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: up{job=~"postgres|redis"}
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ①c high-5xx：5xx 比率 > 5%（預設、承 rev3 as-built）、for 5m ══
+      # ★防雷⑨：noDataState=OK＋`or vector(0)`＋clamp_min——idle/零 5xx 時 ratio 回空向量、
+      #   若 noData=Alerting 會誤升 Firing（false positive）；rev3 baseline 原樣照搬（指標名
+      #   axum_http_requests_total 與 rev4 T008 axum-prometheus 層同名、零適配）。
+      - uid: obs016-high-5xx
+        title: high-5xx
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'high-5xx：rust-api 伺服端 5xx 比率過高（現值 {{ $values.B }}、判準 > 0.05）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: (sum(rate(axum_http_requests_total{status=~"5.."}[5m])) or vector(0)) / clamp_min(sum(rate(axum_http_requests_total[5m])) or vector(0), 1)
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.05
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ② throttle-suppressed 節流壓制中：loki、security.throttle suppressed 量級事件、
+      #    評估窗內任一即紅（spec Clarifications 拍板）══
+      # ★窗長＝5m（T014 施工冒煙定值；定值依據：①壓制麵包屑節奏 ≤1 warn/60s/key（throttle/mod.rs
+      #   suppressed_breadcrumb）＋rule 評估 interval 1m＋alloy→loki 攝取延遲、5m 窗保證事件不落隙；
+      #   ②轉紅後維持紅 ≥4m、維運者可見窗充足；③query 嚴格 >0 判紅、idle 空向量走 noDataState=OK
+      #   ＝零誤紅。冒煙實測：事件落 loki 後下一輪評估即 Firing（延遲 <1m）。）
+      # 事件錨＝rust-api/server/src/throttle/mod.rs 之 warn!(target:"security.throttle", suppressed=N, reason)（不用行號、防同檔插入漂移）。
+      - uid: obs016-throttle-suppressed
+        title: throttle-suppressed
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'throttle-suppressed：登入節流壓制中（評估窗 5m 內壓制量級事件 {{ $values.B }} 筆、判準 > 0）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              refId: A
+              editorMode: code
+              expr: 'sum(count_over_time({service="rust-api", compose_project="rev4-admin"} | json | __error__="" | target="security.throttle" | fields_suppressed > 0 [5m]))'
+              queryType: instant
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ③a throttle-degraded 節流降級：throttle_degraded_total 任一 label 增長即紅（島 E1）══
+      # ★12 label 全覆蓋：帳號維七源（redis_lock/redis_captcha/db_count/db_write/redis_unlock_marker/
+      #   settings_default/redis_lock_set）＋IP 維五源（redis_lock_ip/redis_unlock_marker_ip/db_count_ip/
+      #   redis_lock_set_ip/settings_default_ip）——obs.rs pre_register_metrics 全數 pre-register 0、
+      #   本 rule 不設 source selector＝任何值（含未來新增）增長皆命中；sum by (source) 保留降級源維度。
+      - uid: obs016-throttle-degraded
+        title: throttle-degraded
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'throttle-degraded：登入節流降級（source={{ $labels.source }}、5m 增量 {{ $values.B }}、判準 > 0）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: sum by (source) (increase(throttle_degraded_total[5m]))
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ③b ipgate-degraded：loki、security.ipgate degraded 事件（島 F3、純 log 訊號）══
+      # 事件錨＝rust-api/server/src/ipgate/mod.rs（degraded ∈ reload_failed/publish_failed/
+      #   publish_unavailable/watcher_disabled）——fields_degraded 任一值即紅。
+      - uid: obs016-ipgate-degraded
+        title: ipgate-degraded
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'ipgate-degraded：IP 閘降級（評估窗 5m 內 degraded 事件 {{ $values.B }} 筆、判準 > 0）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              refId: A
+              editorMode: code
+              expr: 'sum(count_over_time({service="rust-api", compose_project="rev4-admin"} | json | __error__="" | target="security.ipgate" | fields_degraded=~".+" [5m]))'
+              queryType: instant
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ③c casbin-reload-anomaly：casbin_reload_total 異常 outcome（retry/exhausted）增長（島 G1）══
+      # 事件錨＝rust-api/server/src/auth/enforce.rs 之 casbin_reload_total 發射點（retry／exhausted 兩 outcome）；outcome=ok 不告警。
+      - uid: obs016-casbin-reload-anomaly
+        title: casbin-reload-anomaly
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'casbin-reload-anomaly：casbin 判定面重載異常（outcome={{ $labels.outcome }}、5m 增量 {{ $values.B }}、判準 > 0）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: sum by (outcome) (increase(casbin_reload_total{outcome=~"retry|exhausted"}[5m]))
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ③d accesslog-write-fail：loki、存取軌跡寫入故障事件（島 J2）══
+      # 事件錨＝rust-api/server/src/middleware/mod.rs 之 access_log_mw insert Err 分支
+      #   warn!(target:"audit.access_log", degraded="access_log_write")——target 與 degraded 字面雙錨。
+      - uid: obs016-accesslog-write-fail
+        title: accesslog-write-fail
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'accesslog-write-fail：存取軌跡寫入故障（評估窗 5m 內事件 {{ $values.B }} 筆、判準 > 0）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              refId: A
+              editorMode: code
+              expr: 'sum(count_over_time({service="rust-api", compose_project="rev4-admin"} | json | __error__="" | target="audit.access_log" | fields_degraded="access_log_write" [5m]))'
+              queryType: instant
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ④ audit-capacity 稽核容量：pg_stat_user_tables_n_live_tup 四表 > 1,000,000（B-016；規則內可調）══
+      # ★四表實名＝purge 四表封閉白名單（rust-api/server/src/handler/audit.rs 之 entity_table：
+      #   sys_operation_log/sys_access_log/sys_login_attempt/session_event）；datname 錨定業務庫。
+      # for: 0s（n_live_tup 慢變量、無 flapping 風險、即紅即投遞）。
+      - uid: obs016-audit-capacity
+        title: audit-capacity
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'audit-capacity：稽核表容量超門檻（relname={{ $labels.relname }}、現值 {{ $values.B }} 列、判準 > 1000000）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: pg_stat_user_tables_n_live_tup{datname="soybean_admin_rust", relname=~"sys_operation_log|sys_access_log|sys_login_attempt|session_event"}
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 1000000
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ⑤ reaper-heartbeat-timeout：time() - reaper_last_success_timestamp{mode="execute"} > 172800 ══
+      # ★門檻 172800 = 2 × 86400（REAPER_INTERVAL_SECS 預設一日）——雙邊寫死＋互設註解錨：
+      #   調 REAPER_INTERVAL_SECS（T025 compose reaper 段）MUST 同步改此門檻（維持 2× 關係）；
+      #   T025 compose 側同錨本行。健康判定僅認 mode="execute"（FR-010⑤：dry-run 心跳不算數）。
+      # ★noDataState=OK：未部署 jobs profile＝零序列＝視為健康、不誤紅（spec US1-AC4；
+      #   「僅 dry-run 在而 execute 缺席」的誤配案由 ⑤b 承載、本 rule 不管）。
+      - uid: obs016-reaper-heartbeat-timeout
+        title: reaper-heartbeat-timeout
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'reaper-heartbeat-timeout：reaper 心跳超時（execute 心跳距今 {{ $values.B }} 秒、判準 > 172800 = 2×86400）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: time() - reaper_last_success_timestamp{mode="execute"}
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 172800
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ⑤b reaper-mode-misconfig：dry-run 序列存在且 execute 序列缺席即紅 ══
+      # 堵「常駐空轉假健康」（spec US1-AC4 誤配案）：`unless ignoring(mode)`——dry-run 心跳在而
+      #   execute 心跳不在→回傳 dry-run 序列（timestamp 恆 > 0）→轉紅；execute 在（正常）或
+      #   兩者皆無（未部署）→空向量→noDataState=OK＝綠。mode 字面錨＝contracts/reaper-cli.md
+      #   （mode=dry-run／mode=execute）。正向與誤配全驗歸 US3/T026。
+      - uid: obs016-reaper-mode-misconfig
+        title: reaper-mode-misconfig
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'reaper-mode-misconfig：reaper 誤配偵測——僅 dry-run 心跳存在、execute 心跳缺席（dry-run 心跳時戳 {{ $values.B }}、判準 > 0）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: reaper_last_success_timestamp{mode="dry-run"} unless ignoring(mode) reaper_last_success_timestamp{mode="execute"}
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query

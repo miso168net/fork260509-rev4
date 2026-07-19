@@ -1,0 +1,52 @@
+// 016-observability T010：grafana Alloy docker-SD log 採集（rev3 018 as-built 逐檔適配）。
+// 改名／改形點：① compose project rev3-admin→rev4-admin；② docker API host 由
+//   unix:///var/run/docker.sock 改 tcp://socket-proxy:2375（FR-015：alloy 非 root、
+//   不掛 sock、僅經 deny-by-default 白名單代理）。其餘防雷姿態照搬。
+// ★ relabel KEEP rule 限本工作區（compose project=rev4-admin）、漏 keep ⇒ 採到並存其他
+//   workspace 的容器 log（FR-007 違反；本機 rev3-admin 全套並行運行＝活對照）。
+
+// 從 socket-proxy 發現所有容器（proxy 白名單放行 containers/json＋networks 等唯讀端點）。
+discovery.docker "containers" {
+	host = "tcp://socket-proxy:2375"
+}
+
+// relabel：① KEEP 限 compose project=rev4-admin（FR-007）；② 抽 service／container／compose_project 標籤。
+discovery.relabel "containers" {
+	targets = discovery.docker.containers.targets
+
+	// ★ KEEP：僅本工作區容器（compose project label==rev4-admin），其餘 drop。
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+		regex         = "rev4-admin"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label  = "container"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+		target_label  = "compose_project"
+	}
+}
+
+// 讀容器 log（經 proxy 之 containers/{id}/logs 端點）、targets 取 relabel 輸出、forward 至 loki.write。
+loki.source.docker "containers" {
+	host       = "tcp://socket-proxy:2375"
+	targets    = discovery.relabel.containers.output
+	forward_to = [loki.write.default.receiver]
+}
+
+// 推送至 loki push API。
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

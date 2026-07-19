@@ -110,6 +110,72 @@ services:
     ports:
       - "127.0.0.1:46379:6379"
 
+  # ═══ 016-observability T009 dev override（host port 綁 127.0.0.1、配號＝ADR 0019；config
+  #     bind-mount 沿 rev3 姿態住 dev 層）═══
+  #   networks／profiles／mem_limit 繼承 base（不重列）；alloy／socket-proxy／兩 exporter
+  #   零 host port（FR-008 僅四件配號）。
+  loki:
+    ports:
+      - "127.0.0.1:43100:3100"
+    volumes:
+      - ./deploy/loki-config.yml:/etc/loki/loki-config.yml:ro
+
+  alloy:
+    volumes:
+      - ./deploy/alloy/alloy-config.alloy:/etc/alloy/config.alloy:ro
+
+  grafana:
+    ports:
+      - "127.0.0.1:43000:3000"
+    volumes:
+      - ./deploy/grafana-provisioning:/etc/grafana/provisioning:ro
+
+  prometheus:
+    ports:
+      - "127.0.0.1:49090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  pushgateway:
+    ports:
+      - "127.0.0.1:49091:9091"
+
+  # ═══ 016-observability T025 reaper dev override（比照 migrate：target＋共用 mask 卷＋
+  #     entrypoint 整段 override——dev 映像 ENTRYPOINT＝watchexec、只改 command 會被當
+  #     watcher 參數）═══
+  reaper:
+    build:
+      target: dev
+    image: rev4-admin-rust-api:dev
+    # sh while-loop 不宜當 PID 1（無 trap 的 shell 忽略 SIGTERM→stop 撐滿 grace 才 SIGKILL）：
+    # tini 接管 PID 1 轉發信號、stop 秒退（同 rust-api watcher 姿態）
+    init: true
+    volumes:
+      # 與 rust-api／migrate 共 mask 卷：cargo 檔案鎖自然序列化、loop 週期性短跑無長佔
+      - ./rust-api:/app
+      - rust_api_cargo_cache:/usr/local/cargo/registry
+      - rust_api_target:/app/target
+    # 姿態分派（contracts/reaper-cli.md；quickstart S5）：
+    #   up（sidecar 常駐）→ command=loop → 每 REAPER_INTERVAL_SECS 跑一次★明文帶 --execute
+    #     （dry-run 屬手動驗證姿態、杜絕常駐空轉）；bin 跑完即退、while-loop 週期重跑
+    #     （transient 失敗不中斷 loop、sleep 後重試——rev3 cleanup-job 母版形）。
+    #   docker compose run --rm reaper dry-run → 一次性 dry-run（零變動、推 mode=dry-run 心跳）。
+    #   docker compose run --rm reaper --execute → 一次性真刪（run args 蓋 command、* 分支透傳 bin）。
+    # ★REAPER_INTERVAL_SECS fallback 86400——與 rules.yml 告警⑤門檻 172800 互為 2× 錨
+    #   （雙邊寫死；調整互相 MUST 同步、契約＝contracts/reaper-cli.md）。
+    # $$ → compose 不 interpolate、留給容器內 sh；$0=reaper-dispatch、$1 起＝command／run args。
+    entrypoint:
+      - sh
+      - -c
+      - |
+        case "$${1:-}" in
+          loop) while true; do cargo run --bin reaper -- --execute; sleep "$${REAPER_INTERVAL_SECS:-86400}"; done ;;
+          dry-run) exec cargo run --bin reaper ;;
+          *) exec cargo run --bin reaper -- "$$@" ;;
+        esac
+      - reaper-dispatch
+    command: ["loop"]
+
 # dev 專用 mask 卷（卷跟著使用它的層走；無顯式 name:、繼承 project 前綴）
 volumes:
   base_web_node_modules:

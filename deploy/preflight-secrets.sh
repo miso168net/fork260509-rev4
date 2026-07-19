@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/preflight-secrets.sh — up 前七機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列）
+# deploy/preflight-secrets.sh — up 前十一機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列；016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password）
 # 用法：./deploy/preflight-secrets.sh
 #
 # 為何：docker compose secrets 用 `file: ./deploy/secrets/*.txt` bind；source 檔缺時
@@ -11,8 +11,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SECRETS_DIR="$SCRIPT_DIR/secrets"
 
-# 與 generate-secrets.sh 同一份七機密清單
-REQUIRED=(postgres_password redis_password jwt_secret refresh_token_secret database_url redis_url captcha_secret)
+# 與 generate-secrets.sh 同一份十一機密清單（grafana_admin_password 僅 grafana[profiles:obs,metrics]
+# 消費、但一律生成納入預檢——免 --profile obs 時 compose 對缺檔自動建空目錄、grafana $__file{}
+# 讀到空密碼、admin 登入靜默壞）
+REQUIRED=(postgres_password redis_password jwt_secret refresh_token_secret database_url redis_url captcha_secret reaper_password reaper_database_url alert_webhook_url grafana_admin_password)
 
 missing=()
 for name in "${REQUIRED[@]}"; do
@@ -31,4 +33,4 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 1
 fi
 
-echo "OK：七個必須 secret 檔齊備（deploy/secrets/）。可 up。"
+echo "OK：十一個必須 secret 檔齊備（deploy/secrets/）。可 up。"

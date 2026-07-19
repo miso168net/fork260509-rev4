@@ -2,7 +2,7 @@
 id: "0073"
 title: 節流攻擊廣度估計＝HLL 最小落地（B-033 殘項、翻案 rev3「不做 v1」）
 date: 2026-07-19
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-19 016-observability brainstorm——user 親決 D3；rev3 021 clarify Q1 明拍 HLL 不做 v1（forensic 增益非硬需求）、016 改判最小落地"

@@ -2,7 +2,7 @@
 id: "0072"
 title: 背景 job 底座三紀律＋首發 reaper（B-063 sys_token 回收、B-040 最小權限憑證預設）
 date: 2026-07-19
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-19 016-observability brainstorm——user 親決 D8/D10；NOTES 既定「首個背景 job 設計期觸發 B-040」兌現；審查 C2 兩讀堵死＋審查 D2 安全論證更正版"
@@ -30,8 +30,8 @@ sys_token 無全域回收路徑（prune_expired_rotated 僅同 chain refresh 時
   denylist PG fallback（has_active_in_chain）只濾 status 不濾 expires_at、不可倚賴；revoked／
   rotated 未過期列的運行時依賴在 refresh 端點（reuse 偵測、kicked 分支、session_event 稽核）。
 - **B-040**：專屬 reaper DB user 權限僅 sys_token 之 SELECT＋DELETE；secrets 新增
-  `reaper_database_url` leaf；role 建立與設密機制 plan 期拍、原則定死＝**密碼絕不進
-  migration、絕不進 git**。
+  `reaper_password` leaf＋`reaper_database_url` composite（由 leaf 組合、沿 generate-secrets
+  慣例）；role 建立與設密機制 plan 期拍、原則定死＝**密碼絕不進 migration、絕不進 git**。
 
 ## 後果
 
