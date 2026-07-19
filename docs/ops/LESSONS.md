@@ -1,4 +1,4 @@
-<!-- next: L-152 -->
+<!-- next: L-153 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -181,3 +181,9 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   防法：①每次工具結果回來先比對「實發 command」與意圖、不符即察覺；②同一指令連兩次結果不變
   ＝停手逐字重打整條 command、勿再靠慣性續發；③關鍵 state-change 指令（cd／reset／rm）單發
   單收、不夾雜其他動作。｜出處：2026-07-19 B-086 發射前 CWD 修正段實證（第 5 次才自我戳破）。
+- **L-152**｜pin bump 簿記 commit 的 generate 順序坑：tools/docs-sync generate 之 STATE pin 取自
+  git index（staged gitlink）而非 submodule worktree HEAD——先跑 generate 再 git add rust-api，
+  STATE 落舊 pin、pre-commit check 即紅。防法：pin bump 簿記一律「git add rust-api → generate →
+  git add docs/generated → commit」順序；順序反了就地重跑 generate 再 commit 即癒。
+  ｜出處：2026-07-19 016 U5 收單 commit 首次嘗試被 L1 攔（U2 同形僥倖通過＝前次失敗 commit
+  已把 gitlink 留在 index）。

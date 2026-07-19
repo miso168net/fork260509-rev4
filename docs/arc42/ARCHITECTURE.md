@@ -225,10 +225,11 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   server）、rust-api（axum）、migrate（one-shot）、postgres、redis。migrate 是啟動閘門：
   postgres 健康後先跑 migration、成功結束 rust-api 才起——schema 就緒先於 API；migration
   失敗＝整體啟動失敗（up --wait 非零退出），不存在半初始化環境。
-- **機密**：六支檔案型 secrets（deploy/secrets/、實值 gitignored）；生成腳本冪等、leaf
-  重生連動 composite 重寫（dual-write 不變式）；preflight 預檢缺檔即指名攔截；`CHANGE-ME`
-  開頭佔位值被 server boot 拒收（panic 指名該機密）。對照表與不變式明細住
-  deploy/secrets/README.md。
+- **機密**：十一支檔案型 secrets（deploy/secrets/、實值 gitignored；含觀測層 grafana 管理
+  密碼／alert webhook URL〔佔位形、真值 user 自填且 `--force` 不重置〕／reaper 憑證組）；
+  生成腳本冪等、leaf 重生連動 composite 重寫（dual-write 不變式）；preflight 預檢缺檔即
+  指名攔截；`CHANGE-ME` 開頭佔位值被 server boot 拒收（panic 指名該機密）。對照表與
+  不變式明細住 deploy/secrets/README.md。
 - **熱重載**：後端 watchexec 重編重啟、前端 vite 熱更新，兩者皆輪詢偵測檔案變更——WSL2
   9p 掛載不產生 fs 事件、事件制 watcher 失效。原始碼 bind-mount 進容器、依賴與編譯產物
   以 named volume mask。
@@ -253,6 +254,23 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 - **nginx 信任層契約（008、front-nginx／001 拓樸）**：三 `/api` 塊注入 `X-Request-Id: $request_id`；
   CF 驗證閘以 map 值**無條件覆寫**注入 `X-CF-Verified`〔非 CF 流量→移除、client 自帶不倖存〕；
   refreshToken／logout 端點掛獨立 `limit_req`〔補足此二寫入端限流、原裸奔〕。
+- **觀測層 opt-in profiles（016）**：`obs`（loki＋alloy＋grafana＋socket-proxy）／`metrics`
+  （prometheus＋postgres/redis exporter＋pushgateway 具名持久卷）／`jobs`（reaper sidecar）
+  三組全 opt-in——不帶 profile 之 up 恆得六服務原樣；觀測件全設 mem_limit＋restart
+  unless-stopped、全滅不影響業務（旁觀者原則；`docker kill` 屬手動停止 restart 不套用、
+  真故障〔PID 1 自死〕才自回復）。面板／datasource／告警／通知全 as-code provisioning
+  （deploy/grafana-provisioning：七面板＋11 條告警規則全覆蓋四島義務＋webhook 接觸點
+  `$__file` 讀 secret）；拒因字典板＝機器生成物（tools/docs-sync 守門、嚴禁手改）。
+- **sock 窄化拓樸（016、FR-015）**：docker.sock 僅 `:ro` 掛 socket-proxy（deny-by-default
+  白名單、恰 log 採集實需六端點；archive／export／attach 類天然拒絕）；proxy 住專用
+  internal 網段、成員恰 proxy＋alloy；alloy 非 root 經 tcp 取 docker API；業務網段對
+  proxy 不可達。
+- **reaper 背景 job（016、B-040 首案）**：獨立 one-shot bin（預設 dry-run、`--execute` 才
+  真刪；判準＝expires_at 逾寬限期 G、status 不入判準）走 `jobs` profile sidecar（sleep-loop
+  明文帶 `--execute`；間隔與告警⑤門檻 2× 互設註解錨）；專屬最小權限 DB role（m012：
+  sys_token SELECT+DELETE＋schema USAGE、零密碼進 migration、設密走
+  deploy/setup-reaper-role.sh stdin heredoc）；心跳推 pushgateway（mode label、失敗不推
+  成功心跳）。
 
 ## §8 橫切概念
 
@@ -270,6 +288,8 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 | soft-delete | 軟刪欄成對寫入（`deleted_at`＋`deleted_by` 同寫）；讀端預設過濾已刪列；軟刪表唯一鍵用 partial-uniq `WHERE deleted_at IS NULL` | partial-uniq 約束本身（DB 層直接擋重複）；facade 讀端過濾測試（隨對應 entity 刀建立）；刪除連動行為（如角色刪除清授權）隨對應刀立 ADR 入憲 |
 | 欄序 | 欄序＝基線刀 user 定稿、後續加欄一律 append（ADR 0021） | 加欄／動 schema 的刀於單元邊界跑 `tools/schema-gate gate2` 逐欄驗實庫欄序＝定稿（可重跑、需運行中 stack、不進 pre-commit） |
 | 快照新鮮度 | 加 migration 的刀必於單元邊界重跑 `python3 tools/docs-sync refresh`→`generate` 並隨該 commit 入庫 | pre-commit `docs-sync check` 攔快照↔生成物漂移（離線秒級）；快照↔實庫一致由本紀律＋收官重跑 refresh 驗 diff 空收斂 |
+| logging | 後端 log 全環境 JSON 單行事件（dev/prod 單一形）；每請求一 request span 掛 sanitize 後 `trace_id`（白名單 `[0-9a-zA-Z._-]`＋64 上限、單一 seam＝log↔稽核 join 鍵）；completion event（`target=http.request`、path 級過濾 `APP_LOG_EXCLUDE_PATHS` 預設空＝全記） | test_support JsonLogCapture 與 production 同形 subscriber、非 JSON 行即 panic＋sanitize 矩陣測＋completion 契約測（容器內 `cargo test --lib`、016 首建） |
+| metrics | 自訂 counter 宣告即於 obs.rs 單點 pre-register 顯式 0（服務重啟首刮即在；label 值集與發射點同錨）；新增 counter 的刀必同步擴 pre-register＝慣例；HTTP 層 endpoint label 未命中路由收斂常數 `unmatched`（防無界基數） | obs.rs pre-register 測＋`/metrics` scrape 斷言（容器內 `cargo test --lib`）＋quickstart S3 判準①全序列收口（016 首建） |
 
 route 全集等快變事實住 generated/reference/routes。
 

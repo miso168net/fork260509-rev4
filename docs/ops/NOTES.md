@@ -1,29 +1,20 @@
 # NOTES — 當前意圖／下一步
 
-- 波 0（001~003）＋波 1（004~008 auth family 五刀）＋admin 管理面家族五刀（009~013）＋B-059 輕量刀
-  全收。**014-user-center 已收刀**（個人中心自助頁、B-090 兌現＋rev3 025 全頁承襲）：US1 自助改密
-  全鏈（固定驗證序五拒因＋keep-sid 撤他裝置 8888＋島 I1/I2/I5 合規時序）／US2 profile 三卡部分更新
-  （三態折疊不洩 operator）／US3 getUserRoutes self-service 白名單（ADR 0065、人人可達＋零 policy
-  角色 home 兜底新行為）／US4 三語 31＋3 鍵（D2 統一單句 pwdPolicyNotMet＝實作期盤點缺口 user 親決
-  補鍵、量詞勘誤 30→31）。核心＝憲法 v1.12.0（(g) 擴 i18n key＋島 I2 keep-sid 釋義）＋ADR 0065；
-  零 migration／零 schema／零新錯誤碼／零新依賴／零新島。全量閘綠＋CDP S1~S6 全 PASS（U9 抓獲
-  D4 比對源錯位並修——authStore.userName＝nick_name 別名〔憲法 L45〕、改走 getProfile 真帳號 prop）＋
-  final review 雙 Opus 零 merge-blocker。merge --no-ff 0a3f790＋push（user 同意 2026-07-17）。詳 events/STATE。
-- **B-104 Transition 卡死 workaround 已收刀**（2026-07-17、輕量軌第二例——user 拍板提前施工；
-  憲法 v1.13.0 新用途 (j) 首案＋ADR 0066；詳 events/STATE）。**維護批三條已收刀**（2026-07-17、
-  輕量軌第三例——B-098 測試 RAII guard＋B-092 TOCTOU 補縫＋B-096 daterange composable；
-  三支 Workflow 序列、各自獨立 commit；詳 events/STATE）。
-- **015-pwd-custody 已收刀**（2026-07-18、B-030 兌現）：密碼經手表 sys_pwd_custody（變體 C m011）＋首登強制
-  換密（pwd_gate_mw 硬閘＋強制改密頁＋route guard）＋設密冷卻＋產密浮層三掛載點；憲法 v1.14.0((k)＋島 I6)
-  ＋ADR 0067；收尾 UI 微調（偏離 US2 AC4）＋★U8 捏造工具呼叫事故 workflow 隔離重做全翻正（L-150）。詳 events/STATE。
-- **下一步（user 拍板 2026-07-19 翻案：下一波＝obs 組觀測層刀、auth/prod 組後移；brainstorm 於
-  context 壓縮後原 session 起手＝user 拍板）**：016 obs 範圍輸入＝B-007/031/033殘(grafana＋HLL)/041/053/
-  054/063/065/067；首個背景 job 設計期觸發 B-040；B-033 之 IP TTL 拆分屬 IP 閘刀不入本波。
-- 014 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；
-  B-103（→滯後卷）。013 前遺留：B-098（ip_rule enrich 測試
-  清理段不耐 panic）；B-099（契約層對 query 形零判別力）；B-100（系統軟刪掃描通用刀）；
-  B-101（casbin 按鈕碼與 buttons 聯集漂移）；B-096（稽核 daterange 重複×4）；B-086（010
-  restorePolicy）；B-085（protectedRevoke 命名）。
+- 波 0（001~003）＋波 1（004~008）＋admin 家族（009~013）＋014-user-center＋015-pwd-custody＋
+  輕量軌三例（B-059／B-104／維護批）全收；憲法現版 v1.14.0。詳 events/STATE、git 即史。
+- **016-observability 已收刀**（2026-07-19、013 級大刀）：rev3 018 觀測底座全套移植（obs/metrics
+  兩段 opt-in profiles、八映像最新穩定釘版）＋全環境 JSON log＋trace_id sanitize 單一 seam＋
+  completion event＋/metrics 與 HTTP 層（pre-register 慣例首發）＋新埋點（B-065/HLL 兩維/軟區）＋
+  告警 11 條全覆蓋四島義務＋webhook $__file 投遞＋reaper sidecar（m012 最小權限 role＝B-040 首案、
+  九格判準）＋機生兩語拒因字典＋sock 窄化。ADR 0069~0075 accepted、零 Amendment；U1~U8 雙審＋
+  final review 雙 Opus 零 merge-blocker；S1~S8 全機判單通、FR18/SC10 勾稽全 PASS。★維運注意：
+  deploy/secrets/alert_webhook_url.txt 現值＝dev 收器 URL（收器已撤、投遞失敗重試無害）、正式
+  接收端 URL 待 user 自填；obs＋metrics 觀測件現全 up、jobs sidecar 屬 opt-in 未常駐。詳 events/STATE。
+- **下一步：待 user 拍板下一波範圍**（先前拍板 auth/prod 組後移；BACKLOG 候選：B-102 changePassword
+  節流、B-027/B-028 auth 家族、B-037/B-042/B-081/B-013 prod 部署組、B-016 retention 本體等）。
+- 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；B-103（滯後卷）；
+  B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；B-101（casbin
+  按鈕碼與 buttons 聯集漂移）；B-094（未刪選單分頁截斷）。
 - base-web 改動走 fork-delta 原行紀律（★lint 一律 `python3 tools/fork-delta-lint` 直跑——bash 跑假紅
   ＝L-143；以 example 為基線機器強制、掛 pre-commit 於 base-web pin 變動時擋）；base-web worktree
   commit 一律 `--no-verify`；★`.vue` template 標記用 `<!-- -->`（L-119）。
