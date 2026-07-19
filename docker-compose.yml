@@ -132,12 +132,192 @@ services:
     networks:
       - rev4_net
 
+  # ═══ 016-observability T009 obs（log 軌、profiles:[obs] opt-in、一般 up 不啟）═══
+  # ★ 每個觀測 service MUST networks:[rev4_net]（無 default network、漏接＝service DNS 靜默
+  #   不通／prometheus scrape 靜默 down）；socket-proxy 唯一例外＝僅掛 socket_proxy_net
+  #   （FR-015：業務網段內容器對 proxy 不可達）。
+  # ★ 全件 mem_limit（FR-007；rev3 as-built 未設＝rev4 新增紀律）＋restart: unless-stopped
+  #   （S8 觀測件被 kill 後自行回復；rev3 obs 段未設 restart、rev4 依 S8 驗收補上）。
+  #   config bind-mount 住 dev override（沿 rev3 姿態）。
+  loki:
+    profiles: [obs]
+    image: grafana/loki:3.7.3
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    volumes:
+      - loki_data:/loki
+    mem_limit: 768m
+    restart: unless-stopped
+    networks:
+      - rev4_net
+
+  alloy:
+    profiles: [obs]
+    image: grafana/alloy:v1.17.1
+    # ★ FR-015 非 root：473＝映像內建 alloy user（docker image inspect 實查：映像預設 USER
+    #   為空＝root、故必須顯式指定）；/var/lib/alloy/data 映像內 473:473 mode 770、named
+    #   volume 首建繼承 ownership → 非 root 可寫。docker.sock 絕不掛本容器——docker-SD 與
+    #   log 採集一律經 socket-proxy tcp 白名單端點（見 deploy/alloy/alloy-config.alloy）。
+    user: "473:473"
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - alloy_data:/var/lib/alloy/data
+    mem_limit: 512m
+    restart: unless-stopped
+    depends_on:
+      - loki
+      - socket-proxy
+    networks:
+      - rev4_net
+      - socket_proxy_net
+
+  socket-proxy:
+    profiles: [obs]
+    # wollomatic socket-proxy＝deny-by-default docker.sock 代理（research R3 選型；tecnativa
+    # 前綴放行整棵 /containers 子樹、結構上無法滿足 FR-015 遂翻案）。
+    # ★ tag 無 v 前綴：上游 GitHub tag 與 Docker Hub tag 一律 1.12.3（R1 表記 v1.12.3 之 v
+    #   屬 release 慣稱、registry 實查無此 tag；版本數字逐字同 R1 拍板）。
+    image: wollomatic/socket-proxy:1.12.3
+    # 65534＝映像預設 user（nobody）；1001＝本機 /var/run/docker.sock 之 docker 群組 gid
+    #   （stat -c %g 實查）——sock 為 root:docker 660、需掛 docker gid 才可讀寫 socket。
+    #   ★ 可攜性：gid 隨機器而異、換機須以 stat 實查後改此值（硬編碼換 fail-loud、不引入
+    #   env 間接層）。
+    user: "65534:1001"
+    command:
+      # 白名單＝alloy 實需端點恰好集（R3 原始碼實證：docker-SD 用 containers/json＋networks、
+      # inspect 用 containers/{id}/json、採集用 containers/{id}/logs、版本協商用 _ping／version）。
+      # ★ 錨定行為源碼實證（1.12.3 internal/config/config.go:597）：regexp.Compile("^"+regex+"$")
+      #   ＝自動整串錨定；比對對象＝r.URL.Path（不含 query string）——故 logs?stdout=1 之類
+      #   query 不影響匹配。其餘 path 落 deny-by-default（403）、method 不在名單（405）——
+      #   archive／export／attach 天然被拒（S7 四負二正實測歸 T027）。
+      - '-listenip=0.0.0.0'
+      # allowfrom 預設 127.0.0.1/32 必須放寬；hostname 形每請求經 docker DNS 解析、不快取
+      # （源碼實證）——僅 alloy 容器 IP 放行、與專用網段雙層防護。
+      - '-allowfrom=alloy'
+      - '-allowGET=(/v[0-9.]+)?/(_ping|version|networks|containers/json|containers/[A-Za-z0-9_.-]+/(json|logs))'
+      - '-allowHEAD=(/v[0-9.]+)?/_ping'
+    volumes:
+      # :ro 掛載＝防 unlink／重建；unix socket 之 connect/write 不受 ro bind 影響（正常放行）
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+    restart: unless-stopped
+    networks:
+      - socket_proxy_net
+
+  grafana:
+    # 跨掛兩 profile：僅 obs（看 log）或僅 metrics（看指標）單獨啟用時 grafana 都在
+    profiles: [obs, metrics]
+    image: grafana/grafana:13.1.0
+    environment:
+      # $$__file → compose 不 interpolate、grafana 收到 $__file{...}（file provider 讀 secret；
+      # rev3 as-built 慣例照搬）
+      GF_SECURITY_ADMIN_PASSWORD: "$$__file{/run/secrets/grafana_admin_password}"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    secrets:
+      - grafana_admin_password
+    volumes:
+      - grafana_data:/var/lib/grafana
+    mem_limit: 512m
+    restart: unless-stopped
+    depends_on:
+      # 僅 metrics profile 啟用時 loki 不在集合內——required:false 容忍缺席（rev3 同形）
+      loki:
+        condition: service_started
+        required: false
+    networks:
+      - rev4_net
+
+  # ═══ 016-observability T009 metrics（指標軌、profiles:[metrics] opt-in、一般 up 不啟）═══
+  prometheus:
+    profiles: [metrics]
+    image: prom/prometheus:v3.13.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # retention 15d 走 command flag（deploy/prometheus/prometheus.yml 標頭已錨定此分工）
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - prometheus_data:/prometheus
+    mem_limit: 512m
+    restart: unless-stopped
+    networks:
+      - rev4_net
+
+  postgres_exporter:
+    profiles: [metrics]
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      # DB 名＝soybean_admin_rust（對齊 postgres POSTGRES_DB）；reuse postgres_password、
+      # 絕不明文密碼（rev3 as-built 形）。0.20.1 breaking＝replication_slot 系指標改名，
+      # 單機 dev 該組資料本為空、面板受影響格歸 T018 grep 處理（R1）。
+      DATA_SOURCE_URI: postgres:5432/soybean_admin_rust?sslmode=disable
+      DATA_SOURCE_USER: soybean
+      DATA_SOURCE_PASS_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    mem_limit: 128m
+    restart: unless-stopped
+    networks:
+      - rev4_net
+
+  redis_exporter:
+    profiles: [metrics]
+    # ★ 必 -alpine 變體（bare＝FROM scratch 無 sh、下方 sh-wrapper 會掛；rev3 hindsight）
+    image: oliver006/redis_exporter:v1.87.0-alpine
+    environment:
+      # rev4 redis 服務名＝redis（rev3 redis-stack 改名點）
+      REDIS_ADDR: redis://redis:6379
+    entrypoint:
+      - sh
+      - -c
+      # $$ → 留給容器內 sh 做 command substitution（reuse redis_password、絕不明文密碼）
+      - 'export REDIS_PASSWORD="$$(cat /run/secrets/redis_password)"; exec /redis_exporter'
+    secrets:
+      - redis_password
+    mem_limit: 64m
+    restart: unless-stopped
+    networks:
+      - rev4_net
+
+  pushgateway:
+    profiles: [metrics]
+    image: prom/pushgateway:v1.11.3
+    # FR-008 持久卷＋重啟不失憶（rev3 in-memory 形＝有意識偏離修正）。
+    # ★ 掛載點＝/pushgateway（映像 WORKDIR、nobody:nobody 775）——named volume 首建繼承
+    #   ownership、映像預設 user 65534 可寫；掛映像不存在的路徑＝docker 以 root 建目錄、
+    #   nobody 寫不進 persistence 檔。
+    command:
+      - --persistence.file=/pushgateway/pushgateway.data
+    volumes:
+      - pushgateway_data:/pushgateway
+    mem_limit: 128m
+    restart: unless-stopped
+    networks:
+      - rev4_net
+
 networks:
   rev4_net:
+  # 016-obs FR-015：socket-proxy 專用網段——成員恰為 proxy＋alloy 兩件；internal＝無對外
+  # NAT 出口（proxy 只需被 alloy 達、自身只連 docker.sock）
+  socket_proxy_net:
+    internal: true
 
 volumes:
   postgres_data:
   redis_data:
+  # 016-observability obs 卷（profiles:[obs] opt-in、一般 up 不建）
+  loki_data:
+  alloy_data:
+  grafana_data:
+  # 016-observability metrics 卷（profiles:[metrics] opt-in、一般 up 不建）
+  prometheus_data:
+  pushgateway_data:
 
 secrets:
   postgres_password:
@@ -154,3 +334,6 @@ secrets:
     file: ./deploy/secrets/redis_url.txt
   captcha_secret:
     file: ./deploy/secrets/captcha_secret.txt
+  # 016-observability T009：grafana 管理密碼（GF_SECURITY_ADMIN_PASSWORD $__file{} provider 注入）
+  grafana_admin_password:
+    file: ./deploy/secrets/grafana_admin_password.txt

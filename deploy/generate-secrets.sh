@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# deploy/generate-secrets.sh — rev4-admin 十機密一鍵生成（001-compose-stack；007 增 captcha_secret；
-# 016 增 reaper_password／reaper_database_url／alert_webhook_url）
+# deploy/generate-secrets.sh — rev4-admin 十一機密一鍵生成（001-compose-stack；007 增 captcha_secret；
+# 016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password）
 # 用法：./deploy/generate-secrets.sh [--force]
 #
-# 十機密（deploy/secrets/*.txt）：
+# 十一機密（deploy/secrets/*.txt）：
 #   leaf      postgres_password（hex 24、URL-safe）／redis_password（hex 24、URL-safe）
 #   leaf      jwt_secret（base64 48）／refresh_token_secret（base64 48）
 #   leaf      captcha_secret（base64 48；007-login-throttle challenge HS256）
 #   leaf      reaper_password（hex 24、URL-safe；016 reaper 最小權限 DB 身分、設密另走部署腳本）
+#   leaf      grafana_admin_password（base64 24；016 grafana GF $__file{} 檔注入、非 URL）
 #   composite database_url ＝ postgres://soybean:<postgres_password>@postgres:5432/soybean_admin_rust
 #   composite redis_url    ＝ redis://:<redis_password>@redis:6379
 #   composite reaper_database_url ＝ postgres://reaper:<reaper_password>@postgres:5432/soybean_admin_rust
@@ -22,7 +23,7 @@
 #
 # 冪等語意：
 #   - 零參數：已存在跳過（SKIPPED）、缺則補（GENERATED）。
-#   - --force：亂數生成的九支全重生；alert_webhook_url 屬 user 自填設定值、
+#   - --force：亂數生成的十支全重生；alert_webhook_url 屬 user 自填設定值、
 #     不在 --force 範圍（重生佔位無輪替價值、反毀 user 已填真值）。
 #   - dual-write 連動：composite 以「期望值 vs 檔案現值」逐位元組比對判定——涵蓋
 #     ①leaf 本次重生 ②leaf 曾單獨改動（比 composite 新） ③僅缺 composite
@@ -93,6 +94,9 @@ gen_leaf "captcha_secret"       -base64 48
 # reaper_password（016 obs）：reaper 最小權限 DB 身分之密碼；hex＝URL-safe（嵌入
 # reaper_database_url 不被 + / = 破壞）；ALTER ROLE 設密走部署腳本、密碼絕不進 migration。
 gen_leaf "reaper_password"      -hex 24
+# grafana_admin_password（016 obs）：僅經 GF_SECURITY_ADMIN_PASSWORD=$__file{...} 檔注入、
+# 非 URL → base64 安全（rev3 018 同形）。
+gen_leaf "grafana_admin_password" -base64 24
 
 # ============================================================
 # Step 2: composite secret ×3（由 leaf 組合、dual-write 連動）
@@ -161,8 +165,8 @@ chmod 600 "$SECRETS_DIR"/*.txt
 echo ""
 echo "=== Secret 生成摘要 ==="
 for name in postgres_password redis_password jwt_secret refresh_token_secret \
-            captcha_secret reaper_password database_url redis_url \
-            reaper_database_url alert_webhook_url; do
+            captcha_secret reaper_password grafana_admin_password database_url \
+            redis_url reaper_database_url alert_webhook_url; do
     printf "  %-26s %s\n" "${name}.txt" "${STATUS[$name]}"
 done
 echo ""
