@@ -190,7 +190,7 @@ groups:
       #   suppressed_breadcrumb）＋rule 評估 interval 1m＋alloy→loki 攝取延遲、5m 窗保證事件不落隙；
       #   ②轉紅後維持紅 ≥4m、維運者可見窗充足；③query 嚴格 >0 判紅、idle 空向量走 noDataState=OK
       #   ＝零誤紅。冒煙實測：事件落 loki 後下一輪評估即 Firing（延遲 <1m）。）
-      # 事件錨＝rust-api/server/src/throttle/mod.rs:625 warn!(target:"security.throttle", suppressed=N, reason)。
+      # 事件錨＝rust-api/server/src/throttle/mod.rs 之 warn!(target:"security.throttle", suppressed=N, reason)（不用行號、防同檔插入漂移）。
       - uid: obs016-throttle-suppressed
         title: throttle-suppressed
         condition: C
@@ -358,7 +358,7 @@ groups:
                   type: query
 
       # ══ ③c casbin-reload-anomaly：casbin_reload_total 異常 outcome（retry/exhausted）增長（島 G1）══
-      # 事件錨＝rust-api/server/src/auth/enforce.rs:103（retry）/:119（exhausted）；outcome=ok 不告警。
+      # 事件錨＝rust-api/server/src/auth/enforce.rs 之 casbin_reload_total 發射點（retry／exhausted 兩 outcome）；outcome=ok 不告警。
       - uid: obs016-casbin-reload-anomaly
         title: casbin-reload-anomaly
         condition: C
@@ -412,7 +412,7 @@ groups:
                   type: query
 
       # ══ ③d accesslog-write-fail：loki、存取軌跡寫入故障事件（島 J2）══
-      # 事件錨＝rust-api/server/src/middleware/mod.rs:327-334 access_log_mw insert Err 分支
+      # 事件錨＝rust-api/server/src/middleware/mod.rs 之 access_log_mw insert Err 分支
       #   warn!(target:"audit.access_log", degraded="access_log_write")——target 與 degraded 字面雙錨。
       - uid: obs016-accesslog-write-fail
         title: accesslog-write-fail
@@ -468,7 +468,7 @@ groups:
                   type: query
 
       # ══ ④ audit-capacity 稽核容量：pg_stat_user_tables_n_live_tup 四表 > 1,000,000（B-016；規則內可調）══
-      # ★四表實名＝purge 四表封閉白名單（rust-api/server/src/handler/audit.rs:519-524 entity_table：
+      # ★四表實名＝purge 四表封閉白名單（rust-api/server/src/handler/audit.rs 之 entity_table：
       #   sys_operation_log/sys_access_log/sys_login_attempt/session_event）；datname 錨定業務庫。
       # for: 0s（n_live_tup 慢變量、無 flapping 風險、即紅即投遞）。
       - uid: obs016-audit-capacity
