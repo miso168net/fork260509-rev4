@@ -137,7 +137,9 @@ services:
   #   不通／prometheus scrape 靜默 down）；socket-proxy 唯一例外＝僅掛 socket_proxy_net
   #   （FR-015：業務網段內容器對 proxy 不可達）。
   # ★ 全件 mem_limit（FR-007；rev3 as-built 未設＝rev4 新增紀律）＋restart: unless-stopped
-  #   （S8 觀測件被 kill 後自行回復；rev3 obs 段未設 restart、rev4 依 S8 驗收補上）。
+  #   （S8 觀測件故障自死〔crash／OOM、PID 1 消亡〕後自行回復；★docker kill/stop 屬 Docker
+  #   「手動停止」語意、restart policy 明文不套用〔防重啟迴圈〕——手動 kill 之復原路徑＝
+  #   compose up -d；S8 實測兩腿分證。rev3 obs 段未設 restart、rev4 依 S8 驗收補上）。
   #   config bind-mount 住 dev override（沿 rev3 姿態）。
   loki:
     profiles: [obs]

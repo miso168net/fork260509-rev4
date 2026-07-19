@@ -103,4 +103,8 @@
 - 全 profile 啟用後 `docker kill` 全部觀測容器（含 proxy）→ 對業務 API 打一輪冒煙
   （login＋受保護請求）：成功率與 S1 基線一致＋零 5xx 增量（機判）；延遲觀察性記錄、不設
   容差判準；
-  restart 策略生效（容器自行回復、面板資料續流）。
+  restart 策略兩腿分證（T028 as-built 適配）：①`docker kill` 屬 Docker「手動停止」語意、
+  restart policy 明文不套用（防重啟迴圈；kill 後實測觀察窗零自回復＝預期行為）——手動 kill
+  之復原路徑＝`compose up -d`；②policy 效力以真故障形驗證：容器內對 PID 1 送 SIGTERM
+  （自死、非 stop/kill API）→ unless-stopped 自回復、`RestartCount` 增量＝機證；恢復後
+  面板資料續流（loki／prometheus 查詢非空）。
