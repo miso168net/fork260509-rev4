@@ -133,7 +133,7 @@ cat <<EOF
 cert 生成完成，fullchain 結構：$CHAIN_MSG
    $CERT_DIR/ca.pem        （$([ "$EXTERNAL_CA" -eq 1 ] && echo "外部 CA、未動" || echo "自簽 root、要 trust")）
    $CERT_DIR/ca.key        （SECRET，別洩漏）
-   $CERT_DIR/fullchain.pem （nginx 用／$CHAIN_MSG）
+   $CERT_DIR/fullchain.pem （nginx 用／${CHAIN_MSG}）
    $CERT_DIR/privkey.pem   （SECRET，別洩漏）
 
 EOF

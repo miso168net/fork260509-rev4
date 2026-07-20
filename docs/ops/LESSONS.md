@@ -1,4 +1,4 @@
-<!-- next: L-153 -->
+<!-- next: L-155 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -11,6 +11,7 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   防：base-web 所有 commit 一律 `--no-verify`（驗證已於容器內 typecheck+lint load-bearing 完成）；node_modules 壞了在容器內 `pnpm install --prefer-offline`（CI=true frozen-lockfile、走 /pnpm-store、lock 不漂移）修復。｜出處：004 單元④/⑤ 實測
 - **L-107**｜base-web `pnpm gen-route`（sa gen-route）是互動式新增-route 精靈、`-T` 無 TTY 會卡在 `please enter route name`，非 headless 重生成器；route 實際由運行中 dev 容器的 ElegantVueRouter vite plugin 於 .vue file-add 事件自動生成。
   防：base-web 驗收只跑容器內 `pnpm typecheck`＋`pnpm lint`（勿在腳本串 `pnpm gen-route`——會卡）；route 生成靠 dev 容器 plugin 自動觸發、手填 meta（roles/icon/order）regen 保留。｜出處：004 單元④ 實測
+- **L-153**｜macOS 於 UTF-8 locale 下，bash 把「$var 緊鄰全形字元」的全形首 byte 吞進變數名（libc 字元分類差異；set -u 下炸 unbound variable、無 -u 則靜默展開空；系統 bash 3.2 與 homebrew 5.3 同炸；WSL2/glibc 不受影響）——shell 腳本 $var 緊鄰非 ASCII 一律寫 ${var} 形；臨時繞法 LC_ALL=C（L-142 同族）。2026-07-19 tools/bootstrap:30 實證（RUNBOOK 驗證輪 macOS）。
 
 ## 〔git／worktree／submodule〕
 
@@ -35,6 +36,8 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   防：修改型標記必含 `// [rev4-inline <軌道>] 原行: <example 原碼逐字>`（憲法 §III L114）；`tools/fork-delta-lint` 以 `fork260509-soybean-admin-base@example` 為基線 diff base-web、修改型缺原行即紅（含 self-test 防 vacuous、掛 pre-commit 於 base-web pin 變動時自動跑）——機器強制、不靠人工 review。｜出處：004-system-settings（user review 抓出）
 
 ## 〔後端／DB／redis〕
+
+- **L-154**｜postgres 官方映像容器內 psql -h 127.0.0.1 走 pg_hba 預設 trust＝密碼不參與認證（錯密也回成功）——容器內密碼自驗必走 -h <服務名> 容器網段（scram-sha-256）才真驗密；任何依 loopback 的密碼自驗設計都是假驗。2026-07-19 deploy/setup-reaper-role.sh 自驗實證（RUNBOOK 驗證輪 macOS）。
 
 ## 〔前端／UI〕
 

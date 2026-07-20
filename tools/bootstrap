@@ -27,8 +27,8 @@ die()  { echo "[bootstrap] ✗ $*" >&2; exit 2; }
 git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$ROOT 不是 git repo"
 origin_url="$(git -C "$ROOT" remote get-url origin 2>/dev/null || echo '')"
 case "$origin_url" in
-  *fork260509-rev4*) ok "外層 repo 身分（origin＝$origin_url）" ;;
-  *) die "外層 origin（$origin_url）不含 fork260509-rev4——請在 rev4 傘狀 repo 根下跑" ;;
+  *fork260509-rev4*) ok "外層 repo 身分（origin＝${origin_url}）" ;;
+  *) die "外層 origin（${origin_url}）不含 fork260509-rev4——請在 rev4 傘狀 repo 根下跑" ;;
 esac
 
 # ── 1. hooks ─────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ if [ "$cur" != "$BASELINE" ]; then
   git -C "$BASEWEB_SRC" checkout "$BASELINE" \
     || die "最原始源 checkout $BASELINE 失敗（origin/$BASELINE 不存在？）"
 fi
-ok "最原始源基線＝$BASELINE（$(git -C "$BASEWEB_SRC" rev-parse --short "$BASELINE")）"
+ok "最原始源基線＝${BASELINE}（$(git -C "$BASEWEB_SRC" rev-parse --short "$BASELINE")）"
 if ! git -C "$BASEWEB_SRC" remote get-url upstream >/dev/null 2>&1; then
   git -C "$BASEWEB_SRC" remote add upstream "$UPSTREAM_URL"
 fi
@@ -86,7 +86,7 @@ ensure_worktree() { # $1=源倉 $2=目錄名 $3=分支
     git -C "$src" worktree add --track -b "$br" "$tgt" "origin/$br" \
       || die "$2 worktree 掛載失敗（origin/$br 不存在？）"
   fi
-  ok "$2 worktree 掛載（$br）"
+  ok "$2 worktree 掛載（${br}）"
 }
 ensure_worktree "$BASEWEB_SRC" "base-web" "rev4-admin-base-web"
 ensure_worktree "$RUSTAPI_SRC" "rust-api" "rev4-admin-rust-api"

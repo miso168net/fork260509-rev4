@@ -25,12 +25,14 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait` | 起（冪等、只補缺件）；--wait 等 healthcheck |
 | `docker compose -f docker-compose.yml -f docker-compose.dev.yml stop [service]` | 停容器、保留容器與卷；可指名單件 |
 | `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart [service]` | 重啟；leaf 機密改後消費端讀新值的一般路徑（例外見 §7） |
-| `docker compose -f docker-compose.yml -f docker-compose.dev.yml down` | 拆全部容器＋網段、**保留**named volume |
-| `docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v` | 連 named volume 一併刪——★不可逆、無備份工具（見 §6） |
+| `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --profile metrics --profile jobs down` | 拆全部容器＋網段（含觀測件與 reaper）、**保留**named volume |
+| `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --profile metrics --profile jobs down -v` | 連 named volume（全 11 卷）一併刪——★不可逆、無備份工具（見 §6） |
 
-- ★`down` 忽略 profile、按 project 標籤拆「所有正在跑的容器」——含已起的觀測件；
-  只想撤觀測件絕不可用 down（見 §3）。
-- ★`down -v` 逐卷後果：postgres_data（全 DB＋soybean/reaper 兩 role 密碼同滅→重跑 migrate
+- ★down／down -v 只及「已啟用 profile」的服務與其卷（compose v5.1.1、2026-07-19 macOS 實測）：
+  裸雙 -f down 只拆無 profile 的六業務件——觀測件與 reaper 原地續跑、網段 in use 拆除失敗；
+  裸 down -v 只刪 6 卷（業務 2＋dev mask 4）、觀測 5 卷殘留。全拆／全刪一律照上表帶三 profile 旗標。
+  只想撤觀測件仍絕不可用 down（殺業務件）——走 §3 安全撤除。
+- ★`down -v` 逐卷後果（帶三 profile 旗標之全射程）：postgres_data（全 DB＋soybean/reaper 兩 role 密碼同滅→重跑 migrate
   ＋`setup-reaper-role.sh`）；redis_data（session/快取清空）；grafana_data（UI 手改＋告警評估
   狀態＋admin 密碼記錄清空）；prometheus/loki/pushgateway_data（時序、log、reaper 心跳歷史
   清空）；4 支 dev mask 卷（下次 up 全量 pnpm install＋cargo 冷編）。
@@ -68,6 +70,10 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
    進版本庫），必須跑本腳本設密＋LOGIN 才能起 jobs profile；時序＝完整 up（migrate 跑完）
    →本腳本→`--profile jobs up`。漏跑＝reaper 連線失敗、要等告警⑤（2 天）才暴露。
 3. **dev cert 信任**：自簽 ca.pem trust 進 OS（§1 步 4）——否則瀏覽器 42443 憑證警告。
+4. **socket-proxy sock gid**（起 obs profile 前）：容器內實查
+   `docker run --rm -v /var/run/docker.sock:/s alpine stat -c %g /s` → repo 根 `.env` 寫
+   `SOCKET_PROXY_GID=<gid>`（gitignored）。不設＝退 compose 預設 1001（WSL2 實查值）——
+   gid 不合則 socket-proxy crash loop（permission denied、fail-loud；macOS Desktop VM 實查=0）。
 
 ## 5. named volume（11 卷；卷名帶 project 前綴 `rev4-admin_`）
 
@@ -81,10 +87,10 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
 | loki_data | loki:/loki | log 塊＋索引（72h） | 重新採集 |
 | alloy_data | alloy:/var/lib/alloy/data | 採集游標/WAL | 游標重置、可能重讀 log 尾 |
 
-dev mask 卷 ×4。清法一律三步：`docker compose -f docker-compose.yml -f docker-compose.dev.yml down` → `docker volume rm rev4-admin_<卷>` → `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait`；完整範例（以 rust_api_target 為例）：
+dev mask 卷 ×4。清法一律三步：`docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --profile metrics --profile jobs down` → `docker volume rm rev4-admin_<卷>` → `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait`（down 必帶三 profile 旗標——rust_api_target 等 mask 卷被 jobs 件 reaper 共掛、裸 down 不停 profile 件→卷 in use 刪除失敗）；完整範例（以 rust_api_target 為例）：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --profile metrics --profile jobs down
 docker volume rm rev4-admin_rust_api_target
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 ```

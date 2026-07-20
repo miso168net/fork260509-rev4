@@ -183,11 +183,12 @@ services:
     # ★ tag 無 v 前綴：上游 GitHub tag 與 Docker Hub tag 一律 1.12.3（R1 表記 v1.12.3 之 v
     #   屬 release 慣稱、registry 實查無此 tag；版本數字逐字同 R1 拍板）。
     image: wollomatic/socket-proxy:1.12.3
-    # 65534＝映像預設 user（nobody）；1001＝本機 /var/run/docker.sock 之 docker 群組 gid
-    #   （stat -c %g 實查）——sock 為 root:docker 660、需掛 docker gid 才可讀寫 socket。
-    #   ★ 可攜性：gid 隨機器而異、換機須以 stat 實查後改此值（硬編碼換 fail-loud、不引入
-    #   env 間接層）。
-    user: "65534:1001"
+    # 65534＝映像預設 user（nobody）；gid＝本機 /var/run/docker.sock 之群組 gid——sock 660、
+    #   需掛該 gid 才可讀寫 socket。★gid 隨機器而異（WSL2 docker 群組=1001、macOS Docker
+    #   Desktop VM=0；2026-07-19 macOS 實測硬編碼 1001 起檔即 crash loop exit 2）：值改走
+    #   repo 根 .env 之 SOCKET_PROXY_GID（實查步驟＝RUNBOOK §4）、預設 1001——錯機起檔照樣
+    #   crash loop＝fail-loud 精神保留、僅值的來源本地化（.env gitignored、不逼人改追蹤檔）。
+    user: "65534:${SOCKET_PROXY_GID:-1001}"
     command:
       # 白名單＝alloy 實需端點恰好集（R3 原始碼實證：docker-SD 用 containers/json＋networks、
       # inspect 用 containers/{id}/json、採集用 containers/{id}/logs、版本協商用 _ping／version）。
@@ -328,7 +329,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # dev cargo run 連結峰值餘裕（prod 換預編譯二進位後可下修）；sidecar 跑 loop 非 server。
+    # ★768m 不足 dev cargo run 連結峰值（2026-07-19 macOS 實測 ld 遭 cgroup OOM 殺 signal 9）
+    #   ——dev override 提至 2g；本值供 prod 預編二進位姿態（跑 binary 非編譯）。sidecar 跑
+    #   loop 非 server。
     mem_limit: 768m
     restart: unless-stopped
     networks:

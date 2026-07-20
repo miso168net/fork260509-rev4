@@ -29,13 +29,15 @@ ALTER ROLE reaper LOGIN PASSWORD '${PW}';
 SQL
 echo "ok: role reaper 已設 LOGIN＋密碼（值不回顯）"
 
-# 自驗：以 reaper 憑證（TCP 密碼認證、走與 reaper_database_url 同認證路徑）SELECT 1。
-# 密碼經 stdin 管線交給容器內 read→PGPASSWORD env（env 不進 process list）。
+# 自驗：以 reaper 憑證 SELECT 1——★必走 -h postgres 容器網段（scram 真驗密）；容器內
+# 127.0.0.1 在 pg_hba 屬 trust、密碼不參與認證＝驗不到密碼（L-154）。與 reaper_database_url
+# 同認證路徑（host=postgres、scram-sha-256）。密碼經 stdin 管線交給容器內 read→PGPASSWORD
+# env（env 不進 process list）。
 RESULT="$(printf '%s\n' "$PW" | "${COMPOSE[@]}" exec -T postgres sh -c \
-  'read -r RPW; PGPASSWORD="$RPW" psql -h 127.0.0.1 -U reaper -d soybean_admin_rust -Atc "SELECT 1"')"
+  'read -r RPW; PGPASSWORD="$RPW" psql -h postgres -U reaper -d soybean_admin_rust -Atc "SELECT 1"')"
 if [ "$RESULT" = "1" ]; then
   echo "ok: reaper 憑證連線驗證通過（SELECT 1）"
 else
-  echo "錯誤：reaper 憑證連線驗證失敗（回值：$RESULT）" >&2
+  echo "錯誤：reaper 憑證連線驗證失敗（回值：${RESULT}）" >&2
   exit 1
 fi

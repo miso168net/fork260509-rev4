@@ -150,6 +150,8 @@ services:
     # sh while-loop 不宜當 PID 1（無 trap 的 shell 忽略 SIGTERM→stop 撐滿 grace 才 SIGKILL）：
     # tini 接管 PID 1 轉發信號、stop 秒退（同 rust-api watcher 姿態）
     init: true
+    # dev cargo run 連結峰值需 >768m（base 值、macOS 冷編實測 OOM）——dev 冷編提至 2g
+    mem_limit: 2g
     volumes:
       # 與 rust-api／migrate 共 mask 卷：cargo 檔案鎖自然序列化、loop 週期性短跑無長佔
       - ./rust-api:/app
