@@ -1,4 +1,4 @@
-<!-- next: B-109 -->
+<!-- next: B-111 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -31,3 +31,5 @@
 - B-101｜casbin 按鈕碼與 sys_menu.buttons 聯集漂移追蹤：m008 user 四碼（reset-pwd/kick/restore/unlock）中 buttons 欄未同步回填之 011 缺口＋013 ip-rule 四碼已同步——兩源（casbin 政策 vs buttons 面板候選）無機器一致性檢查、會靜默漂移｜下次動按鈕碼 seed 或角色頁按鈕面板時｜出處：013 tasks T033＋ADR 0063
 - B-102｜changePassword 舊密暴力試節流（攻擊前提＝已劫持 session、舊密 gate 即既有防線＝風險有限；007/008 throttle 狀態機綁死 login 流程〔sys_login_attempt 計數＋captcha gate〕不可直掛、需另做 per-user 節流 seam）｜auth 安全補強刀或與 B-027/B-028 同刀｜出處：014 spec 設計取捨（自拍 9、2026-07-17）
 - B-107｜備份自動化：pg_dump 排程＋卷快照＋還原演練（現況零工具、僅手動命令形＝RUNBOOK §6；secrets 檔與 postgres_data 卷配對備份一併納入）｜資料價值升高或 prod 部署刀前｜出處：RUNBOOK 落地盤點（2026-07-19）
+- B-109｜rust-api 編譯迴圈量測與 dev profile 評估刀：容器內 cargo build --timings 建基線（macOS＋WSL2 各冷編＋單檔增量一輪；動機＝L-004 冷編約 240s〔rev3 數據、絕對值以重測為準〕＋macOS link 峰值 OOM 實載＋serial TDD 每輪 fix 付一次增量 build），數據支持才加 profile.dev debuginfo 裁剪（line-tables-only＋依賴 debug=false 兩行、可逆、不動 release 重現性）；linker（mold/lld）與映像變更排除在預設範圍、須量測證明 macOS link 段為主要瓶頸後另拍板並連動 L-005 雙機清卷；Cranelift（nightly-only、與 stable 1.96.1 釘版衝突）與 subsecond（實驗性＋需引入 dx 工具鏈；經查可 hot-patch 任意 Rust 專案含 axum、排除理由勿寫「純前端」）排除據實簿記｜下次 rust-api 施工波起手順跑，或增量編譯體感惡化／healthcheck start_period 120s 被突破（up --wait 假失敗形）時｜出處：JetBrains Rust Web 2026 文章研究輪 m07 裁決 partial（2026-07-21）
+- B-110｜sea-orm Entity First 評估刀：sea-orm 2.x 沉澱後評估「entity 對實庫僅驗不生成的漂移檢查＋additive DDL 草稿生成輔助」（動機＝entity 與 migration 同一 schema 事實雙手寫、現無機器互驗——m001 gate1 抓漏 2 索引為既遂案例、型別手滑僅 runtime 炸開；草稿可省未來新表 toil）；邊界＝產物入庫人審過三閘、raw SQL 逃生門與 up/down 對稱不動、casbin_rule 入 skip-list（ADR 0015）、欄序仍 user 定稿（ADR 0021）、絕不開 runtime schema-sync｜sea-orm 2.x 數個 patch 版沉澱＋vendored sea-orm-adapter 2.0 相容路徑 ADR 拍板、或 1.1 維護窗關閉、或單一 feature 內出現兩支以上新表 DDL（高頻建表期——此況可先做零升級的草稿工具階段 0、無人用即停損）｜出處：JetBrains Rust Web 2026 文章研究輪 m03 裁決 defer（2026-07-21）
