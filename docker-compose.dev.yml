@@ -173,7 +173,7 @@ services:
       - -c
       - |
         case "$${1:-}" in
-          loop) while true; do cargo run --bin reaper -- --execute; sleep "$${REAPER_INTERVAL_SECS:-86400}"; done ;;
+          loop) while true; do cargo run --bin reaper -- --execute; cargo run --bin reaper -- --job audit-retention --execute; sleep "$${REAPER_INTERVAL_SECS:-86400}"; done ;;
           dry-run) exec cargo run --bin reaper ;;
           *) exec cargo run --bin reaper -- "$$@" ;;
         esac
