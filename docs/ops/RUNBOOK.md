@@ -68,7 +68,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
    不影響規則狀態與業務）。`--force` 不重置此檔；重置＝刪檔重跑 generate-secrets.sh。
 2. **reaper role 設密**：`bash deploy/setup-reaper-role.sh`——m012 只建 NOLOGIN role（零密碼
    進版本庫），必須跑本腳本設密＋LOGIN 才能起 jobs profile；時序＝完整 up（migrate 跑完）
-   →本腳本→`--profile jobs up`。漏跑＝reaper 連線失敗、要等告警⑤（2 天）才暴露。
+   →本腳本→`--profile jobs up`。漏跑＝reaper 連線失敗（兩 job 同連線雙滅）、要等告警⑤/⑥（2 天）才暴露。
 3. **dev cert 信任**：自簽 ca.pem trust 進 OS（§1 步 4）——否則瀏覽器 42443 憑證警告。
 4. **socket-proxy sock gid**（起 obs profile 前）：容器內實查
    `docker run --rm -v /var/run/docker.sock:/s alpine stat -c %g /s` → repo 根 `.env` 寫
@@ -94,7 +94,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
 | redis_data | redis:/data | session／快取（可拋棄） | 自動重建為空 |
 | grafana_data | grafana:/var/lib/grafana | UI 手改＋告警狀態＋admin 密碼 | provisioning 資產重啟自動回灌；手改資產滅失 |
 | prometheus_data | prometheus:/prometheus | 指標 TSDB（15d） | 重新累積 |
-| pushgateway_data | pushgateway:/pushgateway | reaper 心跳 | 跑一次 reaper --execute 回補（否則告警⑤可能誤判一輪） |
+| pushgateway_data | pushgateway:/pushgateway | reaper 兩 job 心跳（token-reap／audit-retention 分組） | 兩 job 各跑一輪 execute 重建健康心跳（§8 一次性真刪雙命令）——只補 token-reap 則 audit-retention 心跳缺席、告警⑥失去逾時偵測 |
 | loki_data | loki:/loki | log 塊＋索引（72h） | 重新採集 |
 | alloy_data | alloy:/var/lib/alloy/data | 採集游標/WAL | 游標重置、可能重讀 log 尾 |
 
