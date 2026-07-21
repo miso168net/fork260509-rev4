@@ -322,8 +322,11 @@ services:
       RUST_LOG: "info"
       # REAPER_GRACE_DAYS 不設＝bin fail-default 7 天（FR-018）；
       # REAPER_INTERVAL_SECS 不設＝dev override loop 內 fallback 86400（每日一輪）——
-      # ★與 deploy/grafana-provisioning/alerting/rules.yml 告警⑤門檻 172800 互為 2× 錨：
-      #   調本間隔 MUST 同步改 rules.yml 門檻（契約＝specs/016-observability/contracts/reaper-cli.md）。
+      # ★與 deploy/grafana-provisioning/alerting/rules.yml 告警⑤/⑥門檻 172800 互為 2× 錨
+      #   （172800 = 2 × 86400；涵蓋 token-reap 之⑤與 audit-retention 之⑥）：調 REAPER_INTERVAL_SECS
+      #   MUST 同步改⑤/⑥兩門檻——三檔同步：本檔＋docker-compose.dev.yml＋rules.yml
+      #   （契約＝specs/016-observability/contracts/reaper-cli.md＋
+      #   specs/017-audit-retention/contracts/alerting-retention.md）。
     secrets:
       - reaper_database_url
     depends_on:

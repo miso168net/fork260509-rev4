@@ -1,4 +1,6 @@
-# 016-observability T011：告警五組 11 條 as-code（契約＝specs/016-observability/contracts/alerting-delivery.md）。
+# 016-observability T011 起造：告警 as-code（契約＝specs/016-observability/contracts/alerting-delivery.md）。
+# 現況＝告警六組 13 條：016 五組 11 條＋017-audit-retention T010 第六組 2 條（⑥/⑥b 新增、
+# ⑤/⑤b expr 收斂 reaper_job matcher；契約＝specs/017-audit-retention/contracts/alerting-retention.md）。
 # 母版＝rev3 as-built baseline 三條（rustapi-down／exporter-down／high-5xx）＋016 新增八條。
 #
 # 通則：
@@ -523,10 +525,13 @@ groups:
                     params: []
                   type: query
 
-      # ══ ⑤ reaper-heartbeat-timeout：time() - reaper_last_success_timestamp{mode="execute"} > 172800 ══
-      # ★門檻 172800 = 2 × 86400（REAPER_INTERVAL_SECS 預設一日）——雙邊寫死＋互設註解錨：
-      #   調 REAPER_INTERVAL_SECS（T025 compose reaper 段）MUST 同步改此門檻（維持 2× 關係）；
-      #   T025 compose 側同錨本行。健康判定僅認 mode="execute"（FR-010⑤：dry-run 心跳不算數）。
+      # ══ ⑤ reaper-heartbeat-timeout：time() - reaper_last_success_timestamp{mode="execute", reaper_job="token-reap"} > 172800 ══
+      # ★門檻 172800 = 2 × 86400（REAPER_INTERVAL_SECS 預設一日）——寫死＋互設註解錨（三檔同步：
+      #   本檔＋compose 兩檔 reaper 段）：調 REAPER_INTERVAL_SECS MUST 同步改⑤/⑥兩門檻（維持 2×
+      #   關係）。健康判定僅認 mode="execute"（FR-010⑤：dry-run 心跳不算數）。
+      # ★017 T010 射程收斂：expr 補 reaper_job="token-reap" matcher——與⑥（audit-retention 組）
+      #   射程互斥；舊組殘留序列（無 reaper_job label）不 match＝不誤紅
+      #   （契約＝specs/017-audit-retention/contracts/alerting-retention.md）。
       # ★noDataState=OK：未部署 jobs profile＝零序列＝視為健康、不誤紅（spec US1-AC4；
       #   「僅 dry-run 在而 execute 缺席」的誤配案由 ⑤b 承載、本 rule 不管）。
       - uid: obs016-reaper-heartbeat-timeout
@@ -548,7 +553,7 @@ groups:
             model:
               refId: A
               editorMode: code
-              expr: time() - reaper_last_success_timestamp{mode="execute"}
+              expr: time() - reaper_last_success_timestamp{mode="execute", reaper_job="token-reap"}
               instant: true
               range: false
               intervalMs: 1000
@@ -581,11 +586,13 @@ groups:
                     params: []
                   type: query
 
-      # ══ ⑤b reaper-mode-misconfig：dry-run 序列存在且 execute 序列缺席即紅 ══
+      # ══ ⑤b reaper-mode-misconfig：dry-run 序列存在且 execute 序列缺席即紅（token-reap 組）══
       # 堵「常駐空轉假健康」（spec US1-AC4 誤配案）：`unless ignoring(mode)`——dry-run 心跳在而
       #   execute 心跳不在→回傳 dry-run 序列（timestamp 恆 > 0）→轉紅；execute 在（正常）或
       #   兩者皆無（未部署）→空向量→noDataState=OK＝綠。mode 字面錨＝contracts/reaper-cli.md
       #   （mode=dry-run／mode=execute）。正向與誤配全驗歸 US3/T026。
+      # ★017 T010 射程收斂：expr 兩側補 reaper_job="token-reap"——`ignoring(mode)` 對 reaper_job
+      #   參與匹配＝per-job 配對、與⑥b 射程互斥。
       - uid: obs016-reaper-mode-misconfig
         title: reaper-mode-misconfig
         condition: C
@@ -605,7 +612,120 @@ groups:
             model:
               refId: A
               editorMode: code
-              expr: reaper_last_success_timestamp{mode="dry-run"} unless ignoring(mode) reaper_last_success_timestamp{mode="execute"}
+              expr: reaper_last_success_timestamp{mode="dry-run", reaper_job="token-reap"} unless ignoring(mode) reaper_last_success_timestamp{mode="execute", reaper_job="token-reap"}
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ⑥ audit-retention-heartbeat-timeout：time() - reaper_last_success_timestamp{mode="execute", reaper_job="audit-retention"} > 172800 ══
+      # ★017 T010 新增（契約＝specs/017-audit-retention/contracts/alerting-retention.md）：鏡像⑤全結構。
+      # ★門檻 172800 = 2 × 86400（REAPER_INTERVAL_SECS 預設一日）——與⑤共用同一互錨（三檔同步：
+      #   本檔＋compose 兩檔 reaper 段）：調 REAPER_INTERVAL_SECS MUST 同步改⑤/⑥兩門檻（維持 2× 關係）。
+      # ★noDataState=OK：未起 jobs profile／零序列＝視為健康、不誤紅（⑤ 拍板沿用）。
+      - uid: obs017-audit-retention-heartbeat-timeout
+        title: audit-retention-heartbeat-timeout
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'audit-retention-heartbeat-timeout：retention 心跳逾時（現值 {{ $values.B }} 秒、判準 > 172800）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: time() - reaper_last_success_timestamp{mode="execute", reaper_job="audit-retention"}
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 172800
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+
+      # ══ ⑥b audit-retention-mode-misconfig：dry-run 序列存在且 execute 序列缺席即紅（audit-retention 組）══
+      # ★017 T010 新增：鏡像⑤b 全結構、matcher 收斂 reaper_job="audit-retention"——`ignoring(mode)`
+      #   對 reaper_job 參與匹配＝per-job 配對、與⑤b 射程互斥。復歸機制＝execute 心跳 PUT 整組
+      #   替換汰換本組 dry-run 序列（契約＝specs/017-audit-retention/contracts/alerting-retention.md）。
+      - uid: obs017-audit-retention-mode-misconfig
+        title: audit-retention-mode-misconfig
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+        annotations:
+          summary: 'audit-retention-mode-misconfig：retention 誤配偵測——僅 dry-run 心跳存在、execute 心跳缺席（dry-run 心跳時戳 {{ $values.B }}、判準 > 0）'
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              editorMode: code
+              expr: reaper_last_success_timestamp{mode="dry-run", reaper_job="audit-retention"} unless ignoring(mode) reaper_last_success_timestamp{mode="execute", reaper_job="audit-retention"}
               instant: true
               range: false
               intervalMs: 1000

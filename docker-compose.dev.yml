@@ -163,8 +163,10 @@ services:
     #     （transient 失敗不中斷 loop、sleep 後重試——rev3 cleanup-job 母版形）。
     #   docker compose run --rm reaper dry-run → 一次性 dry-run（零變動、推 mode=dry-run 心跳）。
     #   docker compose run --rm reaper --execute → 一次性真刪（run args 蓋 command、* 分支透傳 bin）。
-    # ★REAPER_INTERVAL_SECS fallback 86400——與 rules.yml 告警⑤門檻 172800 互為 2× 錨
-    #   （雙邊寫死；調整互相 MUST 同步、契約＝contracts/reaper-cli.md）。
+    # ★REAPER_INTERVAL_SECS fallback 86400——與 rules.yml 告警⑤/⑥門檻 172800 互為 2× 錨
+    #   （寫死；涵蓋 token-reap 之⑤與 audit-retention 之⑥；調整 MUST 同步改⑤/⑥兩門檻——
+    #   三檔同步：本檔＋docker-compose.yml＋rules.yml；契約＝specs/016-observability/contracts/
+    #   reaper-cli.md＋specs/017-audit-retention/contracts/alerting-retention.md）。
     # $$ → compose 不 interpolate、留給容器內 sh；$0=reaper-dispatch、$1 起＝command／run args。
     entrypoint:
       - sh
