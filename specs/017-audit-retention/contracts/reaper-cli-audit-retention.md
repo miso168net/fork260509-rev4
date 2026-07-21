@@ -67,5 +67,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 ## sidecar loop（dev override、唯一 dispatcher 改點）
 
 `loop` 分支：`cargo run --bin reaper -- --execute; cargo run --bin reaper -- --job audit-retention --execute; sleep ${REAPER_INTERVAL_SECS:-86400}`
-——兩命令 `;` 分隔＝失敗互不阻斷（FR-009）；INTERVAL 與告警⑤/⑥門檻 172800 互為 2× 錨
-（調整 MUST 三檔同步：compose 兩檔註解＋rules.yml）。
+——兩命令 `;` 分隔＝失敗互不阻斷（FR-009；shell 語意構造承載、對照 `&&` 形）；INTERVAL 與
+告警⑤/⑥門檻 172800 互為 2× 錨（調整 MUST 三檔同步：compose 兩檔註解＋rules.yml）。
+★本行為**語意形非檔面字面**：compose 檔面 `$` MUST 寫作 `$$` 逸出（現檔既有慣例——
+`sleep "$${REAPER_INTERVAL_SECS:-86400}"`）、照貼單 `$` 會被 compose interpolate 吃掉變數。

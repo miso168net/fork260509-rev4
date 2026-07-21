@@ -31,8 +31,9 @@ op-log INSERT＋sequence USAGE）；心跳按 job 分組（`reaper_job` grouping
 
 **Project Type**: 後端背景作業擴充＋部署設定（無前端、無 HTTP wire 變更）
 
-**Performance Goals**: 無用戶面延遲語意；水平線 DELETE 走四表既有 created_at btree 索引；
-v1 單語句大交易（沿 016 慣例、prod 前重估批次化＝spec 明文範圍外）
+**Performance Goals**: 無用戶面延遲語意；水平線 DELETE 於三 log 表走 created_at 前導索引、
+session_event 僅 (user_id, created_at) 複合索引＝退全表掃描（dev 量級接受、不補索引守
+「零表結構 DDL」）；v1 單語句大交易（沿 016 慣例、prod 前與批次化一併重估＝spec 明文範圍外）
 
 **Constraints**: 憲法島 J3 全條款遵循（水平線唯一形狀／同交易自記／0 列照落／PURGE 豁免）；
 reaper role 最小權限恰好集；env 三分語意（缺席 90／畸形 warn+90／<30 前置全拒）；
@@ -82,7 +83,7 @@ specs/017-audit-retention/
 ├── plan.md              # 本檔（/speckit-plan 產出）
 ├── research.md          # Phase 0 產出（R1~R8 接地決策）
 ├── data-model.md        # Phase 1 產出（無新表；水平線/自記列/政策/心跳/權限五模型）
-├── quickstart.md        # Phase 1 產出（S1~S6 驗證劇本）
+├── quickstart.md        # Phase 1 產出（S1~S7 驗證劇本）
 ├── contracts/
 │   ├── reaper-cli-audit-retention.md   # bin 契約擴充（--job audit-retention）
 │   └── alerting-retention.md           # ⑥/⑥b 新規則＋⑤/⑤b matcher 收斂契約

@@ -41,7 +41,8 @@ prometheus scrape pushgateway `honor_labels: true`＝push 端 grouping key label
 ## 交付與驗收約束
 
 - rules.yml 規則總數 11→**13**；四條變更（⑤/⑤b 改＋⑥/⑥b 新）同 commit 原子交付
-  （分批＝射程重疊窗）。
+  （分批＝射程重疊窗）；★rules.yml 檔頭「告警五組 11 條」註解 MUST 同步改（11→13、
+  組數帳同步）。
 - 部署順序無害性：新規則先載而新心跳未推期間、matcher 查無序列→noDataState=OK 不誤紅；
   舊組殘留序列（無 reaper_job label）不 match 任何收斂後規則→不誤紅（清舊組＝衛生步驟）。
 - 驗收（quickstart S6）：13 條全載 health=ok；⑥/⑥b 正負向實轉紅＋復歸；⑤/⑤b 對

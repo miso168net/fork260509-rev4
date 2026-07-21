@@ -47,6 +47,9 @@ Alternatives。
   →結構化 error＋exit 1＋零 DB 連線動作＋不推心跳。下限常數複用
   `server::handler::audit::PURGE_MIN_DAYS`（pub(crate)→需評估：改引 or 鏡像常數＋契約測試
   鎖等值——採**鏡像常數＋等值測試**，避免 bin 依賴 handler 模組的 pub 面擴張）。
+  ★等值鎖實作形（pub(crate) 對 bin 與 server/tests/ 皆不可見、跨 crate 無單點可比）＝
+  **雙側字面斷言**：handler 側與 bin 側各斷言常數＝30＋兩處註解互指；T008 之 29/30
+  邊界案再行為面釘死下限值。
 - **Rationale**：與 016 reaper env 慣例同房式；「畸形退預設、違規全拒」不對稱已由 spec
   FR-003/004 凍結；0 值天然落「<30 全拒」分支（安全）。
 - **Alternatives**：進 `config::env_or_file`（panic 形、違 bin 結構化 error 契約）落選；
@@ -75,7 +78,9 @@ Alternatives。
   **op-log 版含 `AND operation <> 'PURGE'`**（與 `purge_before` 豁免對稱——dry-run 候刪數
   MUST 等於 execute 實刪數）。
 - **Rationale**：dry-run 契約＝「候刪數」＝execute 將刪數的忠實預告；豁免不對稱會使
-  dry-run 高報。走 created_at btree 索引（四表皆有、schema 實證）。
+  dry-run 高報。索引現況（migration 實證更正）：三 log 表有 created_at 前導索引（m001）、
+  **session_event 僅 (user_id, created_at) 複合索引**（m004、created_at 非前導）——其水平線
+  謂詞退全表掃描；dev 量級接受、不補索引（守「零表結構 DDL」拍板）、prod 前與批次化一併重估。
 - **Alternatives**：sea-orm query builder count——與同檔 raw-SQL 房式不一致，落選。
 
 ## R6 dispatcher／loop 修改形
@@ -109,7 +114,9 @@ Alternatives。
 - **Decision**：自動自記 `payload_after`＝`{"table": <wire值>, "before_days": <天數>,
   "deleted_count": <實刪數>, "job": "audit-retention"}`——前三欄與手動 purge 逐字同形、
   **末欄 `job` 為自動列獨有**；`operator: None`→`created_by NULL`；`entity_table`＝標的
-  DB 表名（複用 `PurgeTable::entity_table()` 映射語彙）。區分徑三重：PURGE 類型＋操作者空
+  DB 表名（與 handler `PurgeTable::entity_table()` **同值——bin 側自帶鏡像映射常數、
+  不 import handler**：PurgeTable 為 handler/audit.rs 模組私有 enum、bin 跨 crate 不可及，
+  比照 R3 鏡像慣例；等值鎖＝T005 對自記列 entity_table 與 payload table 值之逐字斷言）。區分徑三重：PURGE 類型＋操作者空
   ＋payload `job` 欄（clarify Q1 拍板：讀端零改動、操作者欄空白呈現）。
 - **Rationale**：與手動列同形前綴＝稽核中心查詢語彙一致；`job` 欄為未來多 job（B-100）
   預留同形擴充位。★`operator=None` 經 `write_in_txn` 落 `created_by NULL` 屬機制推定

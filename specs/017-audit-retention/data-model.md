@@ -25,7 +25,9 @@
 ## §2 水平線刪除模型
 
 - cutoff＝SQL 側 `now() - make_interval(days => N)`（單一時鐘權威、同 016 reaper 慣例）。
-- 四表刪除謂詞＝`created_at < cutoff`（走各表既有 created_at btree 索引）；
+- 四表刪除謂詞＝`created_at < cutoff`（三 log 表走 created_at 前導索引〔m001〕；
+  **session_event 僅 (user_id, created_at) 複合索引〔m004〕＝退全表掃描**——dev 量級接受、
+  不補索引守「零表結構 DDL」、prod 前與批次化一併重估）；
   **op-log 版恆帶 `AND operation <> 'PURGE'`**（固定豁免、島 J3）。
 - 構造禁挑列：參數僅「表（封閉四值）×天數」——複用 012 `purge_before` facade、無任意條件面。
 - dry-run 計數謂詞 MUST 與刪除謂詞逐字同形（含豁免）——候刪數＝將刪數（research R5）。
@@ -35,7 +37,7 @@
 | 欄 | 手動 purge（012 既有） | 自動 retention（本刀） |
 |---|---|---|
 | operation | `PURGE` | `PURGE`（★同詞彙——豁免以 `operation='PURGE'` 字面錨定、異詞即失豁免保護） |
-| entity_table | 標的 DB 表名 | 同（複用 `PurgeTable::entity_table()` 語彙） |
+| entity_table | 標的 DB 表名 | 同值（bin 側鏡像映射常數、不 import handler——PurgeTable 屬 handler 私有 enum；research R8） |
 | entity_id | NULL | NULL |
 | created_by | 操作者 uid（非空） | **NULL**（`AuditEvent.operator=None`；schema nullable 實證） |
 | operator_*_ip／xff／confidence | 還原值 | NULL |
@@ -82,7 +84,9 @@ grouping key：`PUT /metrics/job/reaper/reaper_job/<job>`（`honor_labels: true`
 | SEQUENCE sys_operation_log_id_seq | — | USAGE（自記 INSERT 之 nextval） |
 
 - down 對稱 REVOKE（不動 m012 射程）；★重掛錨：重建上表任一物件之 migration MUST 同場重掛。
-- 越權拒絕面（SC-006 判準）：四表 UPDATE／白名單外任表 SELECT・INSERT → permission denied。
+- 越權拒絕面（SC-006 判準、以 m013 增量射程為界）：四表 UPDATE／白名單外代表表
+  （如 sys_user）SELECT・INSERT → permission denied；m012 既有 sys_token SELECT,DELETE
+  除外（token 回收職責、非本刀射程——上表現況欄即載）。
 
 ## §6 載重不變式
 
