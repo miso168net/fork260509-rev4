@@ -31,4 +31,3 @@
 - B-101｜casbin 按鈕碼與 sys_menu.buttons 聯集漂移追蹤：m008 user 四碼（reset-pwd/kick/restore/unlock）中 buttons 欄未同步回填之 011 缺口＋013 ip-rule 四碼已同步——兩源（casbin 政策 vs buttons 面板候選）無機器一致性檢查、會靜默漂移｜下次動按鈕碼 seed 或角色頁按鈕面板時｜出處：013 tasks T033＋ADR 0063
 - B-102｜changePassword 舊密暴力試節流（攻擊前提＝已劫持 session、舊密 gate 即既有防線＝風險有限；007/008 throttle 狀態機綁死 login 流程〔sys_login_attempt 計數＋captcha gate〕不可直掛、需另做 per-user 節流 seam）｜auth 安全補強刀或與 B-027/B-028 同刀｜出處：014 spec 設計取捨（自拍 9、2026-07-17）
 - B-107｜備份自動化：pg_dump 排程＋卷快照＋還原演練（現況零工具、僅手動命令形＝RUNBOOK §6；secrets 檔與 postgres_data 卷配對備份一併納入）｜資料價值升高或 prod 部署刀前｜出處：RUNBOOK 落地盤點（2026-07-19）
-- B-108｜RUNBOOK 驗證 WSL2 環境輪（macOS 輪 2026-07-19 已完＝docs/reviews/20260719-RUNBOOK-verify-mac.md；重點：E1 locale／D3 gid／D4 OOM 三項 macOS 特有發現之 WSL2 對照＋三處覆蓋缺口）｜回 WSL2 機工作時
