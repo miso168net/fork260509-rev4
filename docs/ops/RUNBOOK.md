@@ -68,12 +68,23 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
    不影響規則狀態與業務）。`--force` 不重置此檔；重置＝刪檔重跑 generate-secrets.sh。
 2. **reaper role 設密**：`bash deploy/setup-reaper-role.sh`——m012 只建 NOLOGIN role（零密碼
    進版本庫），必須跑本腳本設密＋LOGIN 才能起 jobs profile；時序＝完整 up（migrate 跑完）
-   →本腳本→`--profile jobs up`。漏跑＝reaper 連線失敗、要等告警⑤（2 天）才暴露。
+   →本腳本→`--profile jobs up`。漏跑＝reaper 連線失敗（兩 job 同連線雙滅）、要等告警⑤/⑥（2 天）才暴露。
 3. **dev cert 信任**：自簽 ca.pem trust 進 OS（§1 步 4）——否則瀏覽器 42443 憑證警告。
 4. **socket-proxy sock gid**（起 obs profile 前）：容器內實查
    `docker run --rm -v /var/run/docker.sock:/s alpine stat -c %g /s` → repo 根 `.env` 寫
    `SOCKET_PROXY_GID=<gid>`（gitignored）。不設＝退 compose 預設 1001（WSL2 實查值）——
    gid 不合則 socket-proxy crash loop（permission denied、fail-loud；macOS Desktop VM 實查=0）。
+5. **audit-retention 保留天數 env 四鍵**（選填、缺席即以預設跑——調整屬部署面人工設定、
+   腳本不代辦）：注入面＝reaper 容器 environment（compose override 或 `run -e` 帶入）。
+   三分語意＝缺席→90 照跑／畸形（無法解析為非負整數）→warn＋90 照跑／在場低於 30（含 0）
+   →前置全拒（結構化 error＋exit 1＋四表零刪除＋不推心跳）。
+
+   | env 鍵 | 標的表 | 預設 | 下限 |
+   |---|---|---|---|
+   | `AUDIT_RETENTION_OPERATION_LOG_DAYS` | sys_operation_log | 90 | 30 |
+   | `AUDIT_RETENTION_ACCESS_LOG_DAYS` | sys_access_log | 90 | 30 |
+   | `AUDIT_RETENTION_LOGIN_ATTEMPT_DAYS` | sys_login_attempt | 90 | 30 |
+   | `AUDIT_RETENTION_SESSION_EVENT_DAYS` | session_event | 90 | 30 |
 
 ## 5. named volume（11 卷；卷名帶 project 前綴 `rev4-admin_`）
 
@@ -83,7 +94,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
 | redis_data | redis:/data | session／快取（可拋棄） | 自動重建為空 |
 | grafana_data | grafana:/var/lib/grafana | UI 手改＋告警狀態＋admin 密碼 | provisioning 資產重啟自動回灌；手改資產滅失 |
 | prometheus_data | prometheus:/prometheus | 指標 TSDB（15d） | 重新累積 |
-| pushgateway_data | pushgateway:/pushgateway | reaper 心跳 | 跑一次 reaper --execute 回補（否則告警⑤可能誤判一輪） |
+| pushgateway_data | pushgateway:/pushgateway | reaper 兩 job 心跳（token-reap／audit-retention 分組） | 兩 job 各跑一輪 execute 重建健康心跳（§8 一次性真刪雙命令）——只補 token-reap 則 audit-retention 心跳缺席、告警⑥失去逾時偵測 |
 | loki_data | loki:/loki | log 塊＋索引（72h） | 重新採集 |
 | alloy_data | alloy:/var/lib/alloy/data | 採集游標/WAL | 游標重置、可能重讀 log 尾 |
 
@@ -140,21 +151,27 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
   `error while creating mount source path`（Docker Desktop bind-mount 快照失效、L-016 同根因
   族）——改跑 `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-recreate <svc>` 即成。
 
-## 8. reaper 操作（sys_token 過期憑證回收）
+## 8. reaper 操作（sys_token 過期憑證回收＋audit-retention 稽核清理）
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs run --rm reaper dry-run     # 一次性 dry-run：候刪數、DB 零變動（唯一安全觀察姿態）
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs run --rm reaper dry-run     # 一次性 dry-run：候刪數、DB 零變動（token-reap 安全觀察姿態）
 docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs run --rm reaper --execute   # 一次性真刪：單語句 DELETE＋mode=execute 心跳
-docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs up -d reaper                # 常駐 sidecar：每 REAPER_INTERVAL_SECS 帶 --execute 真刪
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs up -d reaper                # 常駐 sidecar：每輪兩 job 先後 --execute（token-reap→audit-retention、失敗互不阻斷）
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs run --rm reaper --job audit-retention             # 一次性 dry-run：逐表候刪數、零變動零自記
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs run --rm reaper --job audit-retention --execute   # 一次性真刪：逐表單交易 DELETE＋PURGE 自記＋mode=execute 心跳
 ```
 
 - ★裸 `run --rm reaper`（不帶分派字）繼承 `command:[loop]`＝**常駐真刪**、不是 dry-run。
-- 前置鏈：完整 up（m012 已套）→ `setup-reaper-role.sh`（§4）→ 才可起 jobs。reaper 的
+- 前置鏈：完整 up（m012/m013 已套）→ `setup-reaper-role.sh`（§4）→ 才可起 jobs。reaper 的
   depends_on 只 gate postgres healthy、不 gate migrate。
-- 判準＝`expires_at < now() - G 天`（`REAPER_GRACE_DAYS` 缺席退 7）、status 不入判準；連線
-  走最小權限 reaper role（僅 sys_token SELECT+DELETE）。失敗（非零退出）不推成功心跳。
+- token-reap 判準＝`expires_at < now() - G 天`（`REAPER_GRACE_DAYS` 缺席退 7）、status 不入
+  判準；audit-retention 判準＝`created_at` 早於「now − 保留天數」水平線（env 四鍵→§4、
+  op-log 源恆豁免 PURGE 列）。連線走最小權限 reaper role（恰好集＝sys_token SELECT,DELETE
+  〔m012〕＋四稽核表 SELECT,DELETE、其中 sys_operation_log 另加 INSERT、
+  SEQUENCE sys_operation_log_id_seq USAGE〔m013〕）。失敗（非零退出）不推成功心跳。
 - ★`REAPER_INTERVAL_SECS`（預設 86400）與 `deploy/grafana-provisioning/alerting/rules.yml`
-  告警⑤門檻 172800 互為 2× 錨、雙邊寫死——調任一必同步改另一。
+  告警⑤/⑥門檻 172800 互為 2× 錨、雙邊寫死——調任一必同步改另一（三檔同步：compose 兩檔
+  ＋rules.yml）。
 
 ## 9. 維運端點與 DB 直連
 
@@ -169,8 +186,13 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs up
 - **health**：`curl http://127.0.0.1:42080/health` → `ok`（公開、純文字）。
 - **metrics**：`curl http://127.0.0.1:42079/metrics`（公開、Prometheus text）。★nginx 對
   `/api/metrics` 有 404 擋塊——不經 /api 對外、只走 debug 埠直連或內網 scrape。
-- **pushgateway 清組**（告警⑤驗收/誤配復位用；狀態變更、慎用）：
-  `curl -X DELETE http://127.0.0.1:49091/metrics/job/reaper`
+- **pushgateway 清組**（告警⑤/⑤b/⑥/⑥b 驗收/誤配復位用；狀態變更、慎用）——心跳按 job
+  分組（017 起）、兩 grouping key 各清各的：
+  `curl -X DELETE http://127.0.0.1:49091/metrics/job/reaper/reaper_job/token-reap`
+  `curl -X DELETE http://127.0.0.1:49091/metrics/job/reaper/reaper_job/audit-retention`
+- **★一次性清舊組遷移**（升級自心跳未分組版本後執行恰一次；FR-010 人工步驟）：
+  `curl -X DELETE http://127.0.0.1:49091/metrics/job/reaper`（清無 reaper_job label 之舊組、
+  不及上列兩分組）→ 兩 job 各跑一輪 execute 重建健康心跳（§8 一次性真刪雙命令）。
 - **psql 直連**（debug 埠 45432）：
   `PGPASSWORD="$(cat deploy/secrets/postgres_password.txt)" psql -h 127.0.0.1 -p 45432 -U soybean -d soybean_admin_rust`
   ；容器內免密形＝`docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres psql -U soybean -d soybean_admin_rust`
@@ -187,8 +209,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs up
 - ★dev 熱套含 casbin 授權列的 migration 後：
   `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart rust-api`＋前端重新登入——enforcer
   記憶體快照不自動重載、否則 hasAuth 全 false（L-145）。
-- ★未來任何重建 sys_token 的 migration 必同場重掛 `GRANT SELECT,DELETE ON sys_token TO reaper`
-  ——PG 權限綁 object、DROP TABLE 不回掛，漏掛＝reaper 靜默失權（m012 註解錨）。
+- ★未來任何重建 sys_token、四稽核表（sys_operation_log／sys_access_log／sys_login_attempt／
+  session_event）任一或 sys_operation_log_id_seq 序列的 migration 必同場重掛對應 reaper GRANT
+  （sys_token＝`SELECT,DELETE`〔m012〕；四稽核表＝`SELECT,DELETE`、sys_operation_log 另加
+  `INSERT`、序列＝`USAGE`〔m013〕）——PG 權限綁 object、DROP 不回掛，漏掛＝reaper 靜默失權
+  （m012/m013 註解錨）。
 
 ## 11. 觀測層維運
 

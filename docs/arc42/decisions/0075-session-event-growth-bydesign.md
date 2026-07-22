@@ -2,9 +2,9 @@
 id: "0075"
 title: session_event 膨脹治理＝能見度閉環（不自動刪、不寫端去重）——B-067 by-design 收單
 date: 2026-07-19
-status: accepted
+status: superseded
 supersedes: []
-superseded_by: []
+superseded_by: [0076]
 provenance: "rev4:2026-07-19 016-observability brainstorm——user 親決 D8（與 D5 B-016 搭車聯動）；006 final review minor 遺留項結案"
 tags: [obs, audit, session, by-design]
 ---

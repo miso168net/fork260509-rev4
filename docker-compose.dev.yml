@@ -157,21 +157,25 @@ services:
       - ./rust-api:/app
       - rust_api_cargo_cache:/usr/local/cargo/registry
       - rust_api_target:/app/target
-    # 姿態分派（contracts/reaper-cli.md；quickstart S5）：
-    #   up（sidecar 常駐）→ command=loop → 每 REAPER_INTERVAL_SECS 跑一次★明文帶 --execute
-    #     （dry-run 屬手動驗證姿態、杜絕常駐空轉）；bin 跑完即退、while-loop 週期重跑
-    #     （transient 失敗不中斷 loop、sleep 後重試——rev3 cleanup-job 母版形）。
+    # 姿態分派（contracts/reaper-cli.md＋reaper-cli-audit-retention.md sidecar 節；quickstart S5／S7）：
+    #   up（sidecar 常駐）→ command=loop → 每輪先後跑兩 job（皆★明文帶 --execute）：先 token-reap
+    #     （--execute）、後 audit-retention（--job audit-retention --execute），兩命令以 `;` 分隔
+    #     ＝失敗互不阻斷（FR-009；shell 語意承載、對照 `&&` 形）；兩 job 跑完 sleep
+    #     REAPER_INTERVAL_SECS 週期重跑（dry-run 屬手動驗證姿態、杜絕常駐空轉；bin 跑完即退、
+    #     transient 失敗不中斷 loop——rev3 cleanup-job 母版形）。
     #   docker compose run --rm reaper dry-run → 一次性 dry-run（零變動、推 mode=dry-run 心跳）。
     #   docker compose run --rm reaper --execute → 一次性真刪（run args 蓋 command、* 分支透傳 bin）。
-    # ★REAPER_INTERVAL_SECS fallback 86400——與 rules.yml 告警⑤門檻 172800 互為 2× 錨
-    #   （雙邊寫死；調整互相 MUST 同步、契約＝contracts/reaper-cli.md）。
+    # ★REAPER_INTERVAL_SECS fallback 86400——與 rules.yml 告警⑤/⑥門檻 172800 互為 2× 錨
+    #   （寫死；涵蓋 token-reap 之⑤與 audit-retention 之⑥；調整 MUST 同步改⑤/⑥兩門檻——
+    #   三檔同步：本檔＋docker-compose.yml＋rules.yml；契約＝specs/016-observability/contracts/
+    #   reaper-cli.md＋specs/017-audit-retention/contracts/alerting-retention.md）。
     # $$ → compose 不 interpolate、留給容器內 sh；$0=reaper-dispatch、$1 起＝command／run args。
     entrypoint:
       - sh
       - -c
       - |
         case "$${1:-}" in
-          loop) while true; do cargo run --bin reaper -- --execute; sleep "$${REAPER_INTERVAL_SECS:-86400}"; done ;;
+          loop) while true; do cargo run --bin reaper -- --execute; cargo run --bin reaper -- --job audit-retention --execute; sleep "$${REAPER_INTERVAL_SECS:-86400}"; done ;;
           dry-run) exec cargo run --bin reaper ;;
           *) exec cargo run --bin reaper -- "$$@" ;;
         esac
