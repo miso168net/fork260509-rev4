@@ -2,7 +2,7 @@
 id: "0076"
 title: 稽核 retention 自動清理——遵憲 J3 自記＋reaper 權限最小擴張（B-016 本體、兌現 0075 預留條款）
 date: 2026-07-21
-status: draft
+status: accepted
 supersedes: ["0075"]
 superseded_by: []
 provenance: "rev4:2026-07-21 017-audit-retention brainstorm——user 親決 Q1（env 四鍵無 UI）/Q2（遵憲自記、經批判複審翻案重拍）＋批判複審 4 調整全收；research R1（告警射程收斂新發現）/R8（自記 payload 形）落定；上游＝ADR 0075（預留條款「retention 刀再議」即本刀）"

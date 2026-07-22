@@ -10,8 +10,14 @@
   final review 雙 Opus 零 merge-blocker；S1~S8 全機判單通、FR18/SC10 勾稽全 PASS。★維運注意：
   deploy/secrets/alert_webhook_url.txt 現值＝dev 收器 URL（收器已撤、投遞失敗重試無害）、正式
   接收端 URL 待 user 自填；obs＋metrics 觀測件現全 up、jobs sidecar 屬 opt-in 未常駐。詳 events/STATE。
+- **017-audit-retention 已收刀**（2026-07-22）：B-016 本體——reaper 第二 job audit-retention
+  （env 四鍵三分語意〔缺席 90／畸形 warn+90／低於 30 前置全拒〕、execute 逐表單交易遵憲自記
+  〔島 J3、0 列照落、PURGE 豁免、operator None〕、dry-run 零變動、心跳 reaper_job 分組＋告警
+  11→13〔⑥/⑥b 新增＋⑤/⑤b matcher 收斂〕、m013 純 GRANT 恰好集、dev loop 兩 job 接線）；
+  U1~U7 雙審＋final review 雙 Opus 零 merge-blocker；S1~S7 全機判、SC-001~008 全 PASS；
+  ADR 0076 accepted（supersede 0075）。詳 events/STATE。
 - **下一步：待 user 拍板下一波範圍**（先前拍板 auth/prod 組後移；BACKLOG 候選：B-102 changePassword
-  節流、B-027/B-028 auth 家族、B-037/B-042/B-081/B-013 prod 部署組、B-016 retention 本體等）。
+  節流、B-027/B-028 auth 家族、B-037/B-042/B-081/B-013 prod 部署組等）。
 - 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；B-103（滯後卷）；
   B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；B-101（casbin
   按鈕碼與 buttons 聯集漂移）；B-094（未刪選單分頁截斷）。

@@ -210,7 +210,8 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   固定序①表白名單〔四表封閉枚舉、外→`invalidTable`〕→②`beforeDays≥PURGE_MIN_DAYS=30`〔違→`purgeBelowFloor`＋
   `{minDays}`〕→③單交易{`purge_before` DELETE＋op-log `PURGE` 自記〔`{table,before_days,deleted_count}`、0 列照
   落〕}；構造禁挑列〔僅表×天數〕＋op-log 固定豁免 `operation<>'PURGE'`＋自記與 DELETE 同交易〔刪了沒記/記了沒刪皆
-  不可達〕。**品質補強**：unlock PG-first（J5；`throttle.rs` op-log→SET→DEL、op-log 失敗即 5000 Redis 全不動＝生
+  不可達〕。**自動 retention**（017/B-016、ADR 0076 supersede 0075）＝同執行面進 reaper 第二 job〔env 四鍵、預設
+  90 下限 30、operator None 自記＋payload `job` 欄、謂詞同形候刪＝將刪；詳 §7〕。**品質補強**：unlock PG-first（J5；`throttle.rs` op-log→SET→DEL、op-log 失敗即 5000 Redis 全不動＝生
   效但零稽核列不可達、B-077）＋idle 冪等（`auth.rs` `set_nx_ex(session:idle-emitted:{sid})` 守門、同 sid 恰一
   列、傾向少記、B-093）。m009＝`pg_trgm`＋GIN×2〔attempted_user_name/http_path〕＋casbin 2 列＋B-089 孤兒清理；零
   表結構變更／零新錯誤碼〔2222 reuse〕／零按鈕級授權〔整頁 manage_audit 選單政策供裝、5003 兜底〕。
@@ -259,18 +260,21 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   三組全 opt-in——不帶 profile 之 up 恆得六服務原樣；觀測件全設 mem_limit＋restart
   unless-stopped、全滅不影響業務（旁觀者原則；`docker kill` 屬手動停止 restart 不套用、
   真故障〔PID 1 自死〕才自回復）。面板／datasource／告警／通知全 as-code provisioning
-  （deploy/grafana-provisioning：七面板＋11 條告警規則全覆蓋四島義務＋webhook 接觸點
+  （deploy/grafana-provisioning：七面板＋13 條告警規則全覆蓋四島義務＋webhook 接觸點
   `$__file` 讀 secret）；拒因字典板＝機器生成物（tools/docs-sync 守門、嚴禁手改）。
 - **sock 窄化拓樸（016、FR-015）**：docker.sock 僅 `:ro` 掛 socket-proxy（deny-by-default
   白名單、恰 log 採集實需六端點；archive／export／attach 類天然拒絕）；proxy 住專用
   internal 網段、成員恰 proxy＋alloy；alloy 非 root 經 tcp 取 docker API；業務網段對
   proxy 不可達。
-- **reaper 背景 job（016、B-040 首案）**：獨立 one-shot bin（預設 dry-run、`--execute` 才
-  真刪；判準＝expires_at 逾寬限期 G、status 不入判準）走 `jobs` profile sidecar（sleep-loop
-  明文帶 `--execute`；間隔與告警⑤門檻 2× 互設註解錨）；專屬最小權限 DB role（m012：
-  sys_token SELECT+DELETE＋schema USAGE、零密碼進 migration、設密走
-  deploy/setup-reaper-role.sh stdin heredoc）；心跳推 pushgateway（mode label、失敗不推
-  成功心跳）。
+- **reaper 背景 job（016 建座、B-040 首案；017 擴第二 job）**：獨立 one-shot bin、`--job` 分派
+  〔token-reap 預設｜audit-retention、未知值 exit 1〕、預設 dry-run、`--execute` 才真刪。token-reap
+  ＝sys_token 判準 expires_at 逾寬限 G、status 不入判準。audit-retention（B-016、ADR 0076）＝四稽核表
+  按 env 四鍵天數〔缺席 90／畸形 warn+90／低於 30 含 0 開跑前全拒、先於一切 DB 動作〕水平線清理——
+  execute 每表單交易{DELETE＋PURGE 自記}＝島 J3（詳 §6）、dry-run 零變動報候刪數。`jobs` sidecar loop
+  兩 job 先後 `--execute`（`;` 分隔失敗互不阻斷；間隔與告警⑤/⑥門檻 2× 互設註解錨）。最小權限 DB role
+  （m012＝sys_token SELECT,DELETE＋schema USAGE；m013＝四稽核表 SELECT,DELETE＋sys_operation_log
+  INSERT＋序列 USAGE 恰好集；零密碼進 migration、設密走 deploy/setup-reaper-role.sh stdin heredoc）；
+  心跳推 pushgateway 按 `reaper_job` 分組（mode label、失敗不推成功心跳）。
 
 ## §8 橫切概念
 
