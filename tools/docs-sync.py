@@ -649,10 +649,22 @@ def cred_self_test():
 
 
 def cred_diff_hits(diff_text):
-    """unified diff（-U0）新增行過樣式集；回 [(檔路徑, label)]（`+++` 標頭排除）。"""
-    out, path = [], "?"
+    """unified diff（-U0）新增行過樣式集；回 [(檔路徑, label)]。
+
+    ★以 hunk 狀態機判檔頭、不以前綴猜測：-U0 的內容行本身帶一個 `+` 前綴，故檔案內任何
+    以「兩個加號加空白」起首的行，在 diff 裡就長成三個加號加空白——單看前綴會把它當檔頭
+    整行吞掉（該行漏掃），且把行內容寫進路徑欄（其後真命中被指名到不存在的檔）。狀態機
+    界線嚴密：檔頭必在該檔首個 `@@` 之前、內容行必在 `@@` 之後。
+    """
+    out, path, in_hunk = [], "?", False
     for line in diff_text.splitlines():
-        if line.startswith("+++ "):
+        if line.startswith("diff --git "):
+            path, in_hunk = "?", False
+            continue
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        if not in_hunk and line.startswith("+++ "):
             raw = line[4:].strip()
             path = raw[2:] if raw.startswith(("a/", "b/")) else raw
             continue
@@ -2077,30 +2089,64 @@ def tracked_blobs(root):
 
 
 def _cred_read_text(path):
-    """回檔案全文；二進位（前 8KB 含 NUL）或不可讀→None。"""
+    """回 (全文, 意外跳過原因)。
+
+    二進位（前 8KB 含 NUL）＝刻意 skip（R2：憑證必為文字），回 (None, None)；讀不到
+    （缺席／目錄／權限）＝意外，回 (None, 原因)——呼叫端必須留信號，「沒掃到」靜默
+    當成乾淨即 fail-open。
+    """
     try:
         with open(path, "rb") as fh:
             probe = fh.read(CRED_BINARY_PROBE)
             if b"\x00" in probe:
-                return None
-            return (probe + fh.read()).decode("utf-8", errors="replace")
-    except OSError:
-        return None            # 缺席／目錄／權限——掃描面缺一檔不擋 commit（tracked 清單另有守衛）
+                return None, None
+            return (probe + fh.read()).decode("utf-8", errors="replace"), None
+    except OSError as exc:
+        return None, f"讀取失敗（{exc.__class__.__name__}）"
+
+
+def _cred_staged_added(root):
+    """staged 新增行（index vs HEAD）過樣式集；回 [(rel, label)]。
+
+    ★判定面不得只有工作樹快照：閘要護的是「這次要進版控的內容」。實證兩態——`git add`
+    後把工作樹檔 rm、或 `git add` 後把工作樹版本洗白——工作樹都是乾淨的、index blob 卻
+    仍帶憑證。改讀全 index blob 語意最純但實測 414 blob 走 `cat-file` 需 2.2s（工作樹讀
+    僅 1.3s），故只補「本次新增內容」這條增量：成本正比 staged 變更量，與 FR-008 同哲學。
+    """
+    diff = git_out(["diff", "--cached", "-U0"], root)
+    return cred_diff_hits(diff) if diff else []
 
 
 def lint_cred_outer(root):
-    """L16 外層面：全 tracked 文字檔過樣式集（data-model §2 第 1 列）。"""
-    out = []
+    """L16 外層面：全 tracked 文字檔過樣式集（data-model §2 第 1 列）＋staged 新增行補掃。
+
+    兩面聯集去重（同一 rel×label 只報一次；工作樹面帶行號、優先）。
+    """
+    out, seen = [], set()
     for rel in tracked_blobs(root):
         if rel in CRED_WHITELIST:
             continue
-        text = _cred_read_text(os.path.join(root, rel))
+        text, unread = _cred_read_text(os.path.join(root, rel))
+        if unread:
+            out.append(finding(WARN, "L16", rel,
+                               f"工作樹{unread}——該檔工作樹面未掃、非判定為乾淨"
+                               "（staged 內容另由 index 面補掃）"))
         if text is None:
             continue
         for label, n in scan_cred_text(text):
+            if (rel, label) in seen:
+                continue
+            seen.add((rel, label))
             out.append(finding(ERROR, "L16", f"{rel}:行 {n}",
                                f"憑證內容命中（label={label}）——移除內容並輪替該憑證；"
                                "無 inline 豁免，確需豁免走 CRED_WHITELIST＋ADR（0077）"))
+    for rel, label in _cred_staged_added(root):
+        if rel in CRED_WHITELIST or (rel, label) in seen:
+            continue
+        seen.add((rel, label))
+        out.append(finding(ERROR, "L16", f"{rel}:staged",
+                           f"staged 內容憑證命中（label={label}）——工作樹版本已無此內容、"
+                           "但 index 這份即將進版控；移除並輪替後重新 git add"))
     return out
 
 
@@ -4095,6 +4141,17 @@ class TestCredScan(unittest.TestCase):
     def _stage_gitlink(self, d, name, sha):
         self._g(d, "update-index", "--add", "--cacheinfo", f"160000,{sha},{name}")
 
+    def _real_diff(self, d, first, second):
+        """以真 git 產出 `app.ts` 的 -U0 diff（手寫 diff 會與 git 實際輸出漂移）。"""
+        self._g(d, "init", "-q", "-b", "main")
+        self._write(d, "app.ts", first)
+        self._g(d, "add", "app.ts")
+        self._g(d, "commit", "-qm", "A")
+        self._write(d, "app.ts", second)
+        self._g(d, "add", "app.ts")
+        self._g(d, "commit", "-qm", "B")
+        return self._g(d, "diff", "HEAD~1", "HEAD", "-U0")
+
     # -- 樣式集（data-model §1） -------------------------------------------
     def test_red_samples_hit_each_label(self):
         for label, sample in self.RED.items():
@@ -4125,6 +4182,36 @@ class TestCredScan(unittest.TestCase):
             self.assertEqual([x["level"] for x in f], [ERROR])
             self.assertIn("deploy/key.conf", f[0]["where"])
             self.assertIn("pem-private-key", f[0]["msg"])
+
+    def test_outer_scan_catches_staged_when_worktree_file_removed(self):
+        """★staged 含憑證但工作樹檔已 rm：只看工作樹＝零信號放行（index blob 仍要進版控）。
+
+        連帶驗「沒掃到必留信號」：工作樹讀不到一律落 WARN、不得靜默當乾淨。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            self._write(d, "key.conf", "k='" + self.RED["aws-akia"] + "'\n")
+            self._g(d, "add", "key.conf")
+            os.remove(os.path.join(d, "key.conf"))
+            f = lint_cred_outer(d)
+            errs = [x for x in f if x["level"] == ERROR]
+            self.assertEqual(len(errs), 1, msg=str(f))
+            self.assertIn("key.conf", errs[0]["where"])
+            self.assertIn("aws-akia", errs[0]["msg"])
+            self.assertTrue(any(x["level"] == WARN and "key.conf" == x["where"] for x in f),
+                            msg=str(f))
+
+    def test_outer_scan_catches_staged_when_worktree_cleaned(self):
+        """staged 髒、工作樹版本已洗白：判定面取自 index 才對得上「這次 commit 的內容」。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            self._write(d, "key.conf", "k='" + self.RED["github-token"] + "'\n")
+            self._g(d, "add", "key.conf")
+            self._write(d, "key.conf", "k='已移除'\n")
+            f = lint_cred_outer(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("key.conf", f[0]["where"])
+            self.assertIn("github-token", f[0]["msg"])
 
     def test_outer_scan_clean_repo_is_green(self):
         with tempfile.TemporaryDirectory() as d:
@@ -4163,6 +4250,23 @@ class TestCredScan(unittest.TestCase):
             self.assertIn("base-web", errs[0]["where"])
             self.assertIn("app.ts", errs[0]["where"])
             self.assertIn("aws-akia", errs[0]["msg"])
+
+    def test_diff_hits_scans_content_line_starting_with_double_plus(self):
+        """★檔案內以「兩個加號加空白」起首的行，在 -U0 diff 長成三個加號——不得當檔頭吞掉。"""
+        with tempfile.TemporaryDirectory() as d:
+            diff = self._real_diff(
+                d, "x = 1\n",
+                "x = 1\n++ 文件裡的 diff 片段 " + self.RED["aws-akia"] + "\n")
+            self.assertIn("\n+++ 文件裡", diff)      # 前提：git 確實把它輸出成三個加號起首
+            self.assertEqual(cred_diff_hits(diff), [("app.ts", "aws-akia")])
+
+    def test_diff_hits_double_plus_line_does_not_pollute_path(self):
+        """誤判成檔頭時 path 會被寫成該行內容，其後真命中即指名一個不存在的檔。"""
+        with tempfile.TemporaryDirectory() as d:
+            diff = self._real_diff(
+                d, "x = 1\n",
+                "x = 1\n++ 文件裡的 diff 片段\nconst k = '" + self.RED["github-token"] + "'\n")
+            self.assertEqual(cred_diff_hits(diff), [("app.ts", "github-token")])
 
     def test_submodule_not_staged_means_no_scan(self):
         """未 stage gitlink＝不觸發增量面（成本正比變更量）。"""
@@ -4227,6 +4331,22 @@ class TestCredScan(unittest.TestCase):
             f = lint_cred_submodules(d)
             self.assertEqual([x["level"] for x in f], [WARN])
             self.assertIn("跳過", f[0]["msg"])
+
+    # -- run_lint 接線（contracts G1「觸發＝每次 lint」） ---------------------
+    def test_run_lint_wires_credential_gate(self):
+        """★接線層：`lint_credentials` 從 run_lint 掉線＝G1 整條下線，單元測試卻不會有反應。
+
+        突變實證：刪掉 run_lint 內該接線行後全套測試仍全綠——本案即補那張網
+        （U5 T020 要重組 run_lint，重組時掉線必須當場紅）。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            self._write(d, "deploy/key.conf", "cert:\n" + self.RED["pem-private-key"] + "\n")
+            self._g(d, "add", "deploy/key.conf")
+            f = run_lint(d)
+            self.assertTrue(
+                any(x["code"] == "L16" and x["level"] == ERROR
+                    and "deploy/key.conf" in x["where"] for x in f), msg=str(f))
 
     # -- self-test 防恆綠（contracts G1） -----------------------------------
     def test_self_test_green_on_healthy_engine(self):
