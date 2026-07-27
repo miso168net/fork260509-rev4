@@ -2163,6 +2163,9 @@ def _cred_grep_tree(subdir, tree):
 
     ★`-e` 不可省：樣式集含以連字號開頭者（PEM 頭），省略時 git 會把樣式當成未知選項、
     以退出碼 129 中止，「非零＝零命中」的寫法即把它吞成乾淨＝fail-open。
+    ★`-I` 不可省：二進位檔命中時 git 改輸出「Binary file <tree>:<path> matches」——該行
+    逐冒號切欄後路徑欄變成「<path> matches」殘餘文字（指名一個不存在的檔），且與外層面
+    「前 8KB 含 NUL 即 skip」的二進位規則（R2）不一致。統一以 `-I` 跳過二進位。
     ★退出碼三分而非二分：0＝有命中、1＝確無命中、其餘（129 引數錯、128 物件不在該庫……）
     ＝掃描根本沒跑成，一律回失敗說明給呼叫端升 ERROR——退化面的語意是 fail-closed 向完整掃，
     把執行失敗解讀成乾淨會做出比不掃更危險的假保證（FR-008）。
@@ -2170,7 +2173,7 @@ def _cred_grep_tree(subdir, tree):
     out = []
     for label, pat in CRED_PATTERNS:
         try:
-            r = subprocess.run(["git", "-c", "core.quotepath=off", "grep", "-nE",
+            r = subprocess.run(["git", "-c", "core.quotepath=off", "grep", "-nEI",
                                 "-e", pat.pattern, tree], cwd=subdir,
                                capture_output=True, encoding="utf-8", errors="replace")
         except OSError as exc:
@@ -4099,6 +4102,10 @@ class TestCredScan(unittest.TestCase):
         "AKIA" + "SHORT12345",                               # AKIA 形但長度不足 16
         "gh" + "p_" + "ab12",                                # token 形但長度不足 36
         "github" + "_pat_" + "tooShort",                     # PAT 形但長度不足 22
+        # ★下界邊界樣本（恰比下界少一位）：無此兩筆時「把下界放寬」型突變（36→20、22→10）
+        # 全套仍全綠——長度不足很多的樣本擋不住小幅放寬（U2 審查突變實證）。
+        "gh" + "p_" + "Zq7" * 11 + "AB",                     # token 形、35 位＝下界 36 少一
+        "github" + "_pat_" + "K3m" * 7,                      # PAT 形、21 位＝下界 22 少一
         "密碼欄 password=hunter2 屬刻意排除面（誤報成本高於殘餘風險）",
     )
 
@@ -4316,6 +4323,24 @@ class TestCredScan(unittest.TestCase):
             self.assertEqual(len(errs), 1, msg=str(f))
             self.assertIn("退化全樹掃執行失敗", errs[0]["msg"])
 
+    def test_fallback_full_tree_skips_binary(self):
+        """★退化全樹掃須與外層面同規則跳過二進位（R2）。
+
+        缺 `-I` 時 git grep 對二進位檔改輸出「Binary file <tree>:<path> matches」——逐冒號
+        切欄後路徑欄變成「<path> matches」殘餘文字，命中被指名到一個不存在的檔；且二進位
+        面的判定與外層面（前 8KB 含 NUL 即 skip）不一致。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            sd = os.path.join(d, "base-web")
+            os.makedirs(sd)
+            self._g(sd, "init", "-q", "-b", "main")
+            with open(os.path.join(sd, "logo.bin"), "wb") as fh:
+                fh.write(b"\x00\x01" + self.RED["aws-akia"].encode() + b"\x00")
+            self._g(sd, "add", "logo.bin")
+            self._g(sd, "commit", "-qm", "bin")
+            sha = self._g(sd, "rev-parse", "HEAD").strip()
+            self.assertEqual(_cred_grep_tree(sd, sha), ([], None))
+
     def test_grep_tree_reports_no_hit_without_error(self):
         """乾淨 tree：git grep 退出碼 1＝確無命中，MUST NOT 誤判成掃描失敗。"""
         with tempfile.TemporaryDirectory() as d:
@@ -4391,6 +4416,31 @@ class TestCredScan(unittest.TestCase):
             return fn()
         finally:
             globals()["CRED_PATTERNS"] = original
+
+    def _with_whitelist(self, whitelist, fn):
+        original = globals()["CRED_WHITELIST"]
+        globals()["CRED_WHITELIST"] = whitelist
+        try:
+            return fn()
+        finally:
+            globals()["CRED_WHITELIST"] = original
+
+    def test_whitelist_suppresses_both_outer_faces(self):
+        """★`CRED_WHITELIST` 零測試覆蓋＝豁免路徑（ADR 0077 第 3 項）壞掉無信號。
+
+        突變實證：外層面兩處白名單略過分支（工作樹面與 staged 面）整段刪除後全套仍全綠。
+        本案一次釘住兩處——白名單生效時兩面皆須零 finding，任一分支被刪即有一面重新報紅。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            self._write(d, "docs/sample.md", "k='" + self.RED["aws-akia"] + "'\n")
+            self._g(d, "add", "docs/sample.md")
+            before = [x for x in lint_cred_outer(d) if x["level"] == ERROR]
+            self.assertEqual(len(before), 1, msg=str(before))   # 白名單外＝報紅
+            self.assertEqual(
+                self._with_whitelist(("docs/sample.md",), lambda: lint_cred_outer(d)), [])
+            after = [x for x in lint_cred_outer(d) if x["level"] == ERROR]
+            self.assertEqual(len(after), 1, msg=str(after))     # 還原後恢復報紅
 
     def test_self_test_catches_dead_patterns(self):
         """樣式集被改壞成永不命中（恆綠）→self-test 逐 label 報 ERROR。"""

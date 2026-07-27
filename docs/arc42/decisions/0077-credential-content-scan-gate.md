@@ -27,6 +27,10 @@ lint 新增條款 **L16 憑證內容掃描**（contracts G1），命中即 ERROR
 1. **掃描範圍＝外層 tracked 全量＋pin bump 時 submodule 增量，不回掃歷史**。
    外層面：每次 lint 對 `git ls-files` 全部 tracked 檔（扣除 gitlink 條目）逐檔讀，前 8KB
    含 NUL byte 判二進位跳過，其餘以 UTF-8（`errors="replace"`）全文過樣式集。
+   ★外層面的判定基準同時取 index、不只取工作樹快照：`git diff --cached` 的新增行亦過同一
+   樣式集，涵蓋「`git add` 後把工作樹檔刪掉」與「`git add` 後把工作樹版本洗白」兩態——閘
+   要護的是這次要進版控的內容，工作樹乾淨不等於 index blob 乾淨；且工作樹讀不到（檔缺席、
+   權限、目錄）一律落 WARN 留信號，不得靜默視同乾淨（「沒掃到」與「掃過沒命中」必須分得開）。
    submodule 面：staged 含 `base-web`／`rust-api` gitlink 變動時才啟動，掃「舊 pin→新 pin」
    diff 的新增行——成本正比於本次帶進來的變更量，不是每次 commit 掃兩個大庫全樹。
    舊 pin 不可解（base-web upstream rebase 後首次 bump 是常態）或 diff 失敗→**退化為掃新
