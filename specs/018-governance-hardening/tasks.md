@@ -31,7 +31,7 @@
 **Independent Test**: spec US1——pre-commit 全鏈＋三 test 全綠；活引用負向 grep 零舊名；
 §2 三件文字在檔；歷史檔零改動。
 
-- [ ] T002 [US1] 改名原子 commit（單 commit、research R13 序）：`git mv` 四支
+- [x] T002 [US1] 改名原子 commit（單 commit、research R13 序）：`git mv` 四支
   （tools/docs-sync→docs-sync.py、schema-gate→schema-gate.py、fork-delta-lint→
   fork-delta-lint.py、wire-schema→wire-schema.py）＋同 commit 更新全部活引用——
   `.githooks/pre-commit`（三處呼叫）、`CLAUDE.md`、`README.md`、`docs/ops/RUNBOOK.md`、
@@ -40,17 +40,17 @@
   `python3 tools/docs-sync.py generate` 重算＋刪 `tools/__pycache__`＋`git ls-files -s tools/`
   mode 斷言（缺→`git update-index --chmod=+x`）＋commit 前煙測（check／lint／三 test）
   ——該 commit 之 pre-commit 即以新名執行＝首個活體驗證；遷移三欄表 Guard 全數落地
-- [ ] T003 [US1] S1 劇本機判（quickstart S1 逐步）：活引用範圍（.githooks／.claude/hooks／
+- [x] T003 [US1] S1 劇本機判（quickstart S1 逐步）：活引用範圍（.githooks／.claude/hooks／
   CLAUDE.md／README／RUNBOOK／NOTES／tools 自身）負向 grep `tools/(docs-sync|schema-gate|
   fork-delta-lint|wire-schema)(?!\.py)` 零命中＋歷史檔（specs／brainstorms／reviews／events）
   `git diff` 零改動證＋`python3 tools/fork-delta-lint.py` 直跑綠（self-test 連帶）
-- [ ] T004 [P] [US1] `CLAUDE.md` §2 範本三件（data-model §9 行文基準）：防呆件套標題
+- [x] T004 [P] [US1] `CLAUDE.md` §2 範本三件（data-model §9 行文基準）：防呆件套標題
   「五件套」→「六件套」＋新增⑥空間邊界（允許檔案清單＝tasks 涉檔＋findings 指涉檔聯集、
   寫死 script 常數；越界→blocked 升級；次輪只縮不擴）＋fix 迴圈句尾前饋句（次輪 review
   prompt 附前輪駁回清單、勿沿用被駁論據、再報須新證據否則計入收斂）＋隨做隨記段三欄表
   慣例句（一次性遷移之 brainstorm／spec 附 Risk／Guard／Rollback 表）；①~⑤零改動、
   行數複驗 ≤250
-- [ ] T005 [US1] 單元收尾：G10 紅線（改後引擎 `python3 tools/docs-sync.py check`＋`lint`
+- [x] T005 [US1] 單元收尾：G10 紅線（改後引擎 `python3 tools/docs-sync.py check`＋`lint`
   對全 repo 現況全綠）＋工作樹收斂
 
 ## Phase 4: US2 — 憑證內容掃描閘（P2）
