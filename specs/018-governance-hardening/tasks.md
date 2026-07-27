@@ -59,20 +59,20 @@
 ERROR、無 inline 豁免、self-test 防恆綠。
 **Independent Test**: spec US2——合成紅樣本兩路徑必紅、現庫全綠、self-test 每跑必驗。
 
-- [ ] T006 [US2] 紅測 `tools/docs-sync.py` 自帶 unittest 新增（contracts G1＋data-model
+- [x] T006 [US2] 紅測 `tools/docs-sync.py` 自帶 unittest 新增（contracts G1＋data-model
   §1/§2 逐字）：四 label 紅樣本逐一命中案＋綠樣本不中案＋二進位 skip 案（NUL 前 8KB）＋
   增量掃命中案（fixture repo 構造 old..new diff 新增行）＋退化 fallback 案（old 不可解→
   new 全樹掃＋WARN 註記）＋worktree 缺席 skip 案＋self-test 防恆綠案（樣本必紅必綠）；
   ★全部紅樣本執行期串接構造、檔內零完整命中字面（防 G1 自命中＝analyze U1）——先紅
-- [ ] T007 [US2] 實作 G1 於 `tools/docs-sync.py`：`CRED_PATTERNS` 常數（R1 四類五 regex）＋
+- [x] T007 [US2] 實作 G1 於 `tools/docs-sync.py`：`CRED_PATTERNS` 常數（R1 四類五 regex）＋
   外層 `git ls-files` 全量文字掃（R2 判定）＋staged gitlink 觸發增量掃（R3：old＝
   `rev-parse HEAD:<sub>`、new＝`ls-files -s`、`git -C <sub> diff -U0` 新增行；fallback
   `git -C <sub> grep` 全樹＋WARN；worktree 缺席 skip）＋每次 lint 連帶紅綠 self-test
   （樣本同守執行期串接紀律）→T006 轉綠
-- [ ] T008 [P] [US2] ADR 0077 立檔 `docs/arc42/decisions/0077-credential-content-scan-gate.md`
+- [x] T008 [P] [US2] ADR 0077 立檔 `docs/arc42/decisions/0077-credential-content-scan-gate.md`
   （draft；掃描範圍／窄樣式集哲學／豁免路徑＝工具常數白名單＋ADR、無 inline marker——
   brainstorm §4＋research R1 落定形；隨收刀轉 accepted）
-- [ ] T009 [US2] S2 劇本機判（quickstart S2：外層注入紅→還原綠／scratch clone 增量紅／
+- [x] T009 [US2] S2 劇本機判（quickstart S2：外層注入紅→還原綠／scratch clone 增量紅／
   現庫全量綠／self-test 案綠）＋G10 紅線＋收尾
 
 ## Phase 5: US3 — pin 與 events 帳本機器自證（P3）

@@ -1,4 +1,4 @@
-<!-- next: L-155 -->
+<!-- next: L-156 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -190,3 +190,9 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   git add docs/generated → commit」順序；順序反了就地重跑 generate 再 commit 即癒。
   ｜出處：2026-07-19 016 U5 收單 commit 首次嘗試被 L1 攔（U2 同形僥倖通過＝前次失敗 commit
   已把 gitlink 留在 index）。
+- **L-155**｜WSL2 drvfs 上「整鏈前後差量」量不出秒級增量：pre-commit 全鏈約 45s 的牆鐘變異達
+  ±1.5s 量級、大於被測新條款的實際成本（018 U2 以 `run_lint` 整跑做差量甚至量出負值）。
+  防法：量單一條款／函式的成本一律用 `perf_counter` 直接包該函式、連跑數次取穩定值
+  （L16 外層全量掃實測 1.47~1.54s、併入 `run_lint` 僅 +0.3s＝頁快取效應）；整鏈 `time`
+  只用於「有無數量級劣化」的粗判，不可用於秒級增量驗收。
+  ｜出處：2026-07-28 018 U2（G1 憑證掃描）效能驗收；連帶＝T001 基線 46.4／47.4s 的離散度即證據。
