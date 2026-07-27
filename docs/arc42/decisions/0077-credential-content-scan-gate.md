@@ -32,6 +32,10 @@ lint 新增條款 **L16 憑證內容掃描**（contracts G1），命中即 ERROR
    舊 pin 不可解（base-web upstream rebase 後首次 bump 是常態）或 diff 失敗→**退化為掃新
    pin 全樹並附 WARN 註記**（fail-closed 方向：寧可多掃、不可漏窗）；submodule worktree
    缺席（唯讀快速看碼模式）→跳過並落跳過明細。
+   ★退化掃**本身跑不成**（例如新 pin 物件不在該庫、切分支後尚未 fetch）→**ERROR**，不得
+   當成零命中放行：那會在 WARN 已宣稱「已退化為全樹掃」的同時做出假保證，比不掃更危險。
+   「無命中」與「沒跑成」必須在實作上分得開——退化面唯一走 git 自己的 regex 引擎（其餘面
+   走 python），該路徑的紅綠射程靠自帶測試逐 label 實跑保證，不靠單一樣本抽驗。
    **明文不做**：不回掃 submodule 既有歷史——已推遠端的內容撤不回來，掃出來只能製造無法
    處置的紅；歷史面的處置歸憑證輪替，不歸 commit 閘。
    落選：只掃外層（submodule 新進內容永遠是盲區）；每次 commit 掃 submodule 全樹（重複掃

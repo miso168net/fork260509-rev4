@@ -2113,15 +2113,31 @@ def _cred_index_gitlink(root, sub):
 
 
 def _cred_grep_tree(subdir, tree):
-    """退化全樹掃：逐樣式 git grep 該 tree；回 [(檔路徑, label)]。"""
+    """退化全樹掃：逐樣式 `git grep -nE -e <樣式> <tree>`；回 (命中清單, 失敗說明或 None)。
+
+    ★`-e` 不可省：樣式集含以連字號開頭者（PEM 頭），省略時 git 會把樣式當成未知選項、
+    以退出碼 129 中止，「非零＝零命中」的寫法即把它吞成乾淨＝fail-open。
+    ★退出碼三分而非二分：0＝有命中、1＝確無命中、其餘（129 引數錯、128 物件不在該庫……）
+    ＝掃描根本沒跑成，一律回失敗說明給呼叫端升 ERROR——退化面的語意是 fail-closed 向完整掃，
+    把執行失敗解讀成乾淨會做出比不掃更危險的假保證（FR-008）。
+    """
     out = []
     for label, pat in CRED_PATTERNS:
-        # git grep 無命中時退出碼 1（git_out 回 None）＝視同無命中；退化面已另附 WARN 註記
-        for line in (git_out(["grep", "-nE", pat.pattern, tree], subdir) or "").splitlines():
+        try:
+            r = subprocess.run(["git", "-c", "core.quotepath=off", "grep", "-nE",
+                                "-e", pat.pattern, tree], cwd=subdir,
+                               capture_output=True, encoding="utf-8", errors="replace")
+        except OSError as exc:
+            return out, f"樣式 {label} 之 git grep 無法執行（{exc.__class__.__name__}）"
+        if r.returncode not in (0, 1):
+            head = ((r.stderr or "").strip().splitlines() or [""])[0]
+            return out, (f"樣式 {label} 之 git grep 退出碼 {r.returncode}"
+                         + (f"：{head}" if head else ""))
+        for line in r.stdout.splitlines():
             parts = line.split(":", 3)          # <tree>:<path>:<行號>:<內容>
             if len(parts) >= 2 and (parts[1], label) not in out:
                 out.append((parts[1], label))
-    return out
+    return out, None
 
 
 def lint_cred_submodules(root):
@@ -2147,7 +2163,11 @@ def lint_cred_submodules(root):
             out.append(finding(WARN, "L16", sub,
                                f"舊 pin（{old[:12] or '無'}）不可解或 diff 失敗——"
                                "退化為新 pin 全樹掃描（fail-closed 向完整掃）"))
-            hits = _cred_grep_tree(subdir, new)
+            hits, err = _cred_grep_tree(subdir, new)
+            if err:
+                out.append(finding(ERROR, "L16", sub,
+                                   f"退化全樹掃執行失敗（{err}）——掃描面未建立、不得視同乾淨；"
+                                   "補齊該 pin 物件（回該庫 fetch）後重跑"))
         else:
             hits = cred_diff_hits(diff)
         for path, label in hits:
@@ -4057,8 +4077,8 @@ class TestCredScan(unittest.TestCase):
         with open(path, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
 
-    def _subrepo(self, d, name):
-        """子 repo：commit A 乾淨、commit B 新增行含紅樣本；回 (shaA, shaB)。"""
+    def _subrepo(self, d, name, label="aws-akia"):
+        """子 repo：commit A 乾淨、commit B 新增行含指定 label 紅樣本；回 (shaA, shaB)。"""
         sd = os.path.join(d, name)
         os.makedirs(sd)
         self._g(sd, "init", "-q", "-b", "main")
@@ -4067,7 +4087,7 @@ class TestCredScan(unittest.TestCase):
         self._g(sd, "commit", "-qm", "A")
         sha_a = self._g(sd, "rev-parse", "HEAD").strip()
         self._write(sd, "app.ts",
-                    "export const a = 1\nconst k = '" + self.RED["aws-akia"] + "'\n")
+                    "export const a = 1\nconst k = '" + self.RED[label] + "'\n")
         self._g(sd, "add", "app.ts")
         self._g(sd, "commit", "-qm", "B")
         return sha_a, self._g(sd, "rev-parse", "HEAD").strip()
@@ -4154,19 +4174,50 @@ class TestCredScan(unittest.TestCase):
             self.assertEqual(lint_cred_submodules(d), [])
 
     def test_submodule_fallback_full_tree_when_old_pin_unresolvable(self):
-        """舊 pin 不可解→退化為新 pin 全樹掃＋WARN 註記（fail-closed 向完整掃）。"""
+        """舊 pin 不可解→退化為新 pin 全樹掃＋WARN 註記（fail-closed 向完整掃）。
+
+        ★逐 label 參數化不可省：退化面是唯一走 git 自己 ERE 引擎的路徑（其餘面走
+        python re），兩套引擎對同一份樣式集未必等價；只測單一 label 會漏掉引擎歧異——
+        實證即以連字號開頭的 PEM 樣式在缺 `-e` 時被 git 當未知選項吞成零命中。
+        """
+        for label in self.RED:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as d:
+                self._outer(d)
+                _, sha_b = self._subrepo(d, "base-web", label)
+                self._stage_gitlink(d, "base-web", "0" * 39 + "1")   # 子庫不存在之物件
+                self._g(d, "commit", "-qm", "pin 不可解")
+                self._stage_gitlink(d, "base-web", sha_b)
+                f = lint_cred_submodules(d)
+                self.assertTrue(any(x["level"] == WARN and "退化" in x["msg"] for x in f),
+                                msg=str(f))
+                errs = [x for x in f if x["level"] == ERROR]
+                self.assertEqual(len(errs), 1, msg=str(f))
+                self.assertIn(label, errs[0]["msg"])
+                self.assertIn("app.ts", errs[0]["where"])
+
+    def test_submodule_fallback_scan_failure_is_fail_closed(self):
+        """★退化掃本身跑不成（新 pin 物件不在該庫，如切分支後未 fetch）→ERROR 不放行。
+
+        「非零退出即零命中」會把執行失敗讀成乾淨，同時 WARN 還宣稱已退化為全樹掃——
+        形成比不掃更危險的假保證（FR-008 fail-closed）。
+        """
         with tempfile.TemporaryDirectory() as d:
             self._outer(d)
-            _, sha_b = self._subrepo(d, "base-web")
-            self._stage_gitlink(d, "base-web", "0" * 39 + "1")   # 子庫不存在之物件
+            self._subrepo(d, "base-web")
+            self._stage_gitlink(d, "base-web", "0" * 39 + "1")   # 舊 pin 不可解→走退化
             self._g(d, "commit", "-qm", "pin 不可解")
-            self._stage_gitlink(d, "base-web", sha_b)
+            self._stage_gitlink(d, "base-web", "0" * 39 + "2")   # 新 pin 物件亦不在該庫
             f = lint_cred_submodules(d)
-            self.assertTrue(any(x["level"] == WARN and "退化" in x["msg"] for x in f), msg=str(f))
             errs = [x for x in f if x["level"] == ERROR]
-            self.assertTrue(errs, msg=str(f))
-            self.assertIn("aws-akia", errs[0]["msg"])
-            self.assertIn("app.ts", errs[0]["where"])
+            self.assertEqual(len(errs), 1, msg=str(f))
+            self.assertIn("退化全樹掃執行失敗", errs[0]["msg"])
+
+    def test_grep_tree_reports_no_hit_without_error(self):
+        """乾淨 tree：git grep 退出碼 1＝確無命中，MUST NOT 誤判成掃描失敗。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            sha_a, _ = self._subrepo(d, "base-web")
+            self.assertEqual(_cred_grep_tree(os.path.join(d, "base-web"), sha_a), ([], None))
 
     def test_submodule_absent_worktree_skips(self):
         """worktree 缺席（唯讀看碼模式）→跳過、不落 ERROR。"""
