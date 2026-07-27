@@ -5,8 +5,9 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 對賬）
-  lint            L3～L16（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
-                  L16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量）
+  lint            L3～L18（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
+                  L16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
+                  L17 pin↔worktree HEAD 互證；L18 events 帳本 SHA 逐列向 git 實證）
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
   test            跑自帶測試（unittest）
@@ -35,6 +36,8 @@ BACKLOG = "docs/ops/BACKLOG.md"
 STATE = "docs/generated/STATE.md"
 ADR_DIR = "docs/arc42/decisions"
 GENERATED_DIR = "docs/generated"
+# events 帳本 pins 鍵名 ↔ submodule 目錄之固定映射（帳本實形；contracts G2/G3 共用單一真值）
+PIN_KEYS = (("web", "base-web"), ("api", "rust-api"))
 
 
 def token_count(text):
@@ -88,7 +91,8 @@ def finding(level, code, where, msg):
 
 RE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 RE_FEATURE = re.compile(r"^\d{3}-[a-z0-9][a-z0-9-]*$")
-RE_SHA = re.compile(r"^[0-9a-f]{7,40}$")
+# 全域 40 位、無史料豁免分支（FR-010／FR-011；前置＝T010 四筆短 SHA 正規化勘誤 commit）
+RE_SHA = re.compile(r"^[0-9a-f]{40}$")
 RE_SECTION = re.compile(r"^§\d{1,2}$")
 RE_ADR_ID = re.compile(r"^\d{4}$")
 RE_BID = re.compile(r"^B-\d{3,}$")
@@ -978,7 +982,7 @@ def index_pins(root):
     for line in out.splitlines():
         parts = line.split()
         if len(parts) >= 4 and parts[0] == "160000":
-            pins[{"base-web": "web", "rust-api": "api"}.get(parts[3], "")] = parts[1]
+            pins[dict((sub, key) for key, sub in PIN_KEYS).get(parts[3], "")] = parts[1]
     pins.pop("", None)
     return {"web": pins.get("web"), "api": pins.get("api")}
 
@@ -2150,7 +2154,8 @@ def lint_cred_outer(root):
     return out
 
 
-def _cred_index_gitlink(root, sub):
+def index_gitlink(root, sub):
+    """index 內該 submodule 的 gitlink SHA（無 160000 條目→None）；L16 增量面與 L17 共用。"""
     for line in (git_out(["ls-files", "-s", "--", sub], root) or "").splitlines():
         parts = line.split()
         if len(parts) >= 2 and parts[0] == "160000":
@@ -2201,7 +2206,7 @@ def lint_cred_submodules(root):
             out.append(finding(WARN, "L16", sub,
                                "submodule worktree 缺席——憑證增量掃跳過（唯讀看碼模式）"))
             continue
-        new = _cred_index_gitlink(root, sub)
+        new = index_gitlink(root, sub)
         if new is None:
             out.append(finding(WARN, "L16", sub,
                                "staged gitlink SHA 讀不到——憑證增量掃跳過"))
@@ -2231,9 +2236,167 @@ def lint_credentials(root):
     return cred_self_test() + lint_cred_outer(root) + lint_cred_submodules(root)
 
 
+# ---------------------------------------------------------------------------
+# L17 pin↔worktree HEAD 互證／L18 events SHA 逐列實證（contracts G2/G3；FR-009~FR-011）
+# ---------------------------------------------------------------------------
+
+RE_EVENT_CLOSE = re.compile(r'"type"\s*:\s*"feature_close"')
+GIT_OBJECT_TYPES = ("blob", "tree", "commit", "tag")
+
+
+def is_closing_commit(root):
+    """本次 commit 是否為收刀簿記：staged events 新增行含 feature_close（R7、與 L6b 同資料源）。
+
+    ★以 hunk 狀態機界定新增行、不以前綴猜測：`+++ b/…` 檔頭在該檔首個 `@@` 之前，內容行
+    在其後（同 `cred_diff_hits` 紀律）。
+    """
+    diff = git_out(["diff", "--cached", "-U0", "--", EVENTS], root)
+    if not diff:
+        return False
+    in_hunk = False
+    for line in diff.splitlines():
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        if in_hunk and line.startswith("+") and RE_EVENT_CLOSE.search(line[1:]):
+            return True
+    return False
+
+
+def lint_pin_crosscheck(root):
+    """L17：staged gitlink ↔ submodule worktree HEAD 互證（contracts G2／data-model §3）。
+
+    嚴重度由收刀偵測決定：平時 WARN（兩段式 commit 的合法中間態）、收刀簿記 commit ERROR
+    （最終 pin 必須齊）；worktree 缺席＝跳過。
+    """
+    out, closing = [], None
+    for _key, sub in PIN_KEYS:
+        staged = index_gitlink(root, sub)
+        if staged is None:
+            continue                       # index 無該 gitlink（純外層 repo）＝條款不適用
+        subdir = os.path.join(root, sub)
+        head = ""
+        if os.path.exists(os.path.join(subdir, ".git")):
+            head = (git_out(["rev-parse", "HEAD"], subdir) or "").strip()
+        if not head:
+            out.append(finding(WARN, "L17", sub,
+                               "submodule worktree 缺席或 HEAD 讀不到——pin 互證跳過"
+                               "（唯讀看碼模式；跳過≠通過）"))
+            continue
+        if head == staged:
+            continue
+        if closing is None:
+            closing = is_closing_commit(root)
+        tail = (f"本次屬收刀簿記 commit（staged events 新增行含 feature_close）——最終 pin "
+                f"必須齊：回外層 bump pin（git add {sub}）後重試"
+                if closing else
+                f"兩段式 commit 的合法中間態——worktree 內 commit 後記得回外層 bump pin"
+                f"（git add {sub}）")
+        out.append(finding(ERROR if closing else WARN, "L17", sub,
+                           f"pin 與 worktree HEAD 分歧（staged={staged[:12]}／"
+                           f"HEAD={head[:12]}）——{tail}"))
+    return out
+
+
+def git_object_types(shas, cwd):
+    """一發 `git cat-file --batch-check` 問多個 SHA；回 {sha: 物件型別}（不可解者不入 dict）。
+
+    輸出與輸入逐行對位（不可解者輸出 `<輸入> missing`），故以 zip 配對而非解析回顯 SHA。
+    逐筆 rev-parse 需 ~87 次 subprocess（約 1s），批次為毫秒級（contracts G3 效能契約）。
+    """
+    types = {}
+    # 含空白者會破壞逐行對位（batch-check 一行一問），一律排除＝視同不可解
+    uniq = [s for s in dict.fromkeys(shas) if s and not re.search(r"\s", s)]
+    if not uniq:
+        return types
+    try:
+        r = subprocess.run(["git", "cat-file", "--batch-check"], cwd=cwd,
+                           input="\n".join(uniq) + "\n", capture_output=True,
+                           encoding="utf-8", errors="replace")
+    except OSError:
+        return types
+    if r.returncode != 0:
+        return types
+    for sha, line in zip(uniq, r.stdout.splitlines()):
+        parts = line.split()
+        if len(parts) >= 3 and parts[1] in GIT_OBJECT_TYPES:
+            types[sha] = parts[1]
+    return types
+
+
+def lint_events_sha(root):
+    """L18：events 帳本逐列 SHA 向 git 實證（contracts G3／data-model §4 判定表）。
+
+    merge 驗於外層（不可解／非 commit＝ERROR）；pins 依 PIN_KEYS 映射驗於各 submodule
+    worktree（不可解＝WARN——upstream rebase 卷史後合法失聯；可解而非 commit＝ERROR；
+    worktree 缺席＝該庫整批跳過）。含 pins 之列另做鍵集斷言（防查空集合恆綠）。
+    """
+    out, rows = [], []
+    for n, line in enumerate(_jsonl_lines(_read(root, EVENTS) or ""), start=1):
+        if not line.strip():
+            continue
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError:
+            continue                       # 格式面歸 L3、此處不重複報
+        if isinstance(e, dict):
+            rows.append((n, e))
+
+    merges = [(n, e["merge"]) for n, e in rows if isinstance(e.get("merge"), str)]
+    mtypes = git_object_types([s for _n, s in merges], root)
+    for n, sha in merges:
+        t = mtypes.get(sha)
+        if t is None:
+            out.append(finding(ERROR, "L18", f"{EVENTS}:行 {n}",
+                               f"merge SHA {sha[:12]} 在外層不可解析——帳本每列 SHA 須對得上"
+                               " git 物件（抄錯／造假／事後改史即紅）"))
+        elif t != "commit":
+            out.append(finding(ERROR, "L18", f"{EVENTS}:行 {n}",
+                               f"merge SHA {sha[:12]} 解得物件型別 {t}、非 commit"))
+
+    keys = {key for key, _sub in PIN_KEYS}
+    per_key = {key: [] for key in keys}
+    for n, e in rows:
+        if "pins" not in e:
+            continue
+        pins = e["pins"]
+        if not isinstance(pins, dict) or set(pins) != keys:
+            got = ("、".join(sorted(pins)) or "空") if isinstance(pins, dict) \
+                else type(pins).__name__
+            out.append(finding(ERROR, "L18", f"{EVENTS}:行 {n}",
+                               f"pins 鍵集須恰為 web／api（現為 {got}）——缺鍵或未知鍵會讓"
+                               "逐列實證查到空集合而恆綠"))
+            continue
+        for key in keys:
+            if isinstance(pins[key], str):
+                per_key[key].append((n, pins[key]))
+    for key, sub in PIN_KEYS:
+        items = per_key[key]
+        if not items:
+            continue
+        subdir = os.path.join(root, sub)
+        if not os.path.exists(os.path.join(subdir, ".git")):
+            out.append(finding(WARN, "L18", sub,
+                               f"submodule worktree 缺席——pins.{key} 共 {len(items)} 筆 SHA"
+                               "實證跳過（唯讀看碼模式；跳過≠通過）"))
+            continue
+        ptypes = git_object_types([s for _n, s in items], subdir)
+        for n, sha in items:
+            t = ptypes.get(sha)
+            if t is None:
+                out.append(finding(WARN, "L18", f"{EVENTS}:行 {n}",
+                                   f"pins.{key} SHA {sha[:12]} 在 {sub} 不可解析——"
+                                   "upstream rebase 卷史後合法失聯，故僅警告"))
+            elif t != "commit":
+                out.append(finding(ERROR, "L18", f"{EVENTS}:行 {n}",
+                                   f"pins.{key} SHA {sha[:12]} 在 {sub} 解得物件型別 {t}、"
+                                   "非 commit"))
+    return out
+
+
 def run_lint(root):
-    """組裝 L3～L16（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描）全套。回 findings。
-    git 不可用＝fail-closed 單發 ERROR。"""
+    """組裝 L3～L18（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
+    實證）全套。回 findings。git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
         return [finding(ERROR, "L1", ".",
                         "git 不可用——HEAD 基線與掃描語料無法建立，lint fail-closed（修復 git 後重跑）")]
@@ -2268,6 +2431,8 @@ def run_lint(root):
     findings += lint_volatile_deep_links(md_texts)
     findings += lint_memory_refs(md_texts)
     findings += lint_credentials(root)
+    findings += lint_pin_crosscheck(root)
+    findings += lint_events_sha(root)
     return findings
 
 
@@ -2376,10 +2541,12 @@ def cmd_errata(keyword):
 # 自帶測試
 # ---------------------------------------------------------------------------
 
+# SHA 欄一律 40 位（RE_SHA 全域收 40、無史料豁免）；值為合成十六進位、不對應真物件——
+# schema 面只驗格式，向 git 實證屬 L18（各案自建 fixture repo 取真 SHA）。
 VALID_CLOSE = {
     "type": "feature_close", "feature": "001-system-settings",
-    "merge": "abc1234", "date": "2026-07-10", "summary": "打樣刀收刀",
-    "pins": {"web": "deadbee", "api": "cafe123"}, "adrs": ["0007"],
+    "merge": "a1b2c3d4" * 5, "date": "2026-07-10", "summary": "打樣刀收刀",
+    "pins": {"web": "deadbeef" * 5, "api": "cafe1230" * 5}, "adrs": ["0007"],
     "arch_impact": ["§6"], "backlog_add": [], "backlog_done": ["B-003"],
 }
 VALID_MISC = {"type": "misc", "date": "2026-07-02", "summary": "bootstrap 完成"}
@@ -3485,6 +3652,25 @@ class TestLintEvents(unittest.TestCase):
         m = dict(VALID_MISC); m["backlog_done"] = ["B-010"]
         self.assertEqual(_backlog_done_ids([VALID_CLOSE, m]), {"B-003", "B-010"})
 
+    # -- RE_SHA 全域收 40 位（contracts G3；前置＝T010 四筆正規化勘誤） ----------
+    def test_merge_short_sha_rejected(self):
+        """新列 7 位短 SHA→schema 拒（史料已正規化、無格式豁免分支）。"""
+        e = dict(VALID_CLOSE); e["merge"] = "abc1234"
+        f = lint_events(_jl(e))
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertIn("merge", f[0]["msg"])
+
+    def test_pin_short_sha_rejected(self):
+        e = json.loads(json.dumps(VALID_CLOSE)); e["pins"]["web"] = "deadbee"
+        f = lint_events(_jl(e))
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertIn("pins", f[0]["msg"])
+
+    def test_merge_41_hex_rejected(self):
+        """上界同守：41 位亦非合法（收 40 是等號、不是下界）。"""
+        e = dict(VALID_CLOSE); e["merge"] = "a" * 41
+        self.assertEqual(len(lint_events(_jl(e))), 1)
+
 
 class TestLintCloseExistence(unittest.TestCase):
     """L4：收刀事件引用之 ADR／backlog／specs 目錄存在性。"""
@@ -4457,6 +4643,229 @@ class TestCredScan(unittest.TestCase):
         self.assertTrue(f)
         self.assertTrue(all(x["level"] == ERROR for x in f))
         self.assertTrue(any("綠樣本" in x["msg"] for x in f))
+
+
+# --- L17／L18 測試共用 fixture 工具（★一律自建 repo，絕不觸碰真 submodule worktree）---
+
+def _git(cwd, *args):
+    """測試用 git 呼叫：作者身分固定（無 global config 亦可 commit）、非零退出即拋。"""
+    env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+               GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True,
+                       encoding="utf-8", errors="replace", env=env)
+    if r.returncode != 0:
+        raise AssertionError(f"git {args}｜{r.stderr}")
+    return r.stdout
+
+
+def _wfile(d, rel, text):
+    path = os.path.join(d, rel)
+    os.makedirs(os.path.dirname(path) or d, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+
+
+def _init_outer(d):
+    _git(d, "init", "-q", "-b", "main")
+    _wfile(d, "README.md", "說明\n")
+    _git(d, "add", "README.md")
+    _git(d, "commit", "-qm", "init")
+    return _git(d, "rev-parse", "HEAD").strip()
+
+
+def _init_sub(d, name, n=1):
+    """建子 repo（n 個 commit）；回 SHA list（由舊到新）。"""
+    sd = os.path.join(d, name)
+    os.makedirs(sd)
+    _git(sd, "init", "-q", "-b", "main")
+    shas = []
+    for i in range(n):
+        _wfile(sd, "app.ts", f"export const a = {i}\n")
+        _git(sd, "add", "app.ts")
+        _git(sd, "commit", "-qm", f"c{i}")
+        shas.append(_git(sd, "rev-parse", "HEAD").strip())
+    return shas
+
+
+def _stage_gitlink(d, name, sha):
+    _git(d, "update-index", "--add", "--cacheinfo", f"160000,{sha},{name}")
+
+
+class TestPinCrosscheck(unittest.TestCase):
+    """L17 pin↔worktree HEAD 互證（contracts G2／data-model §3 狀態表逐格）。
+
+    ★staged 情境一律於自建 fixture repo 內構造——真 base-web／rust-api worktree 零觸碰。
+    """
+
+    def test_pin_matches_head_passes(self):
+        """狀態表第 1 列：staged gitlink＝worktree HEAD→pass（零 finding）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            sha, = _init_sub(d, "base-web")
+            _stage_gitlink(d, "base-web", sha)
+            self.assertEqual(lint_pin_crosscheck(d), [])
+
+    def test_divergence_on_ordinary_commit_is_warn(self):
+        """狀態表第 2 列：分歧×一般 commit→WARN（兩段式中間態合法、不擋）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            old, new = _init_sub(d, "base-web", 2)
+            _stage_gitlink(d, "base-web", old)
+            f = lint_pin_crosscheck(d)
+            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertEqual(f[0]["where"], "base-web")
+            self.assertIn(old[:12], f[0]["msg"])
+            self.assertIn(new[:12], f[0]["msg"])
+            self.assertIn("bump pin", f[0]["msg"])
+
+    def test_divergence_with_staged_feature_close_is_error(self):
+        """狀態表第 3 列：分歧×收刀簿記 commit（staged events 新增行含 feature_close）→ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            old, _new = _init_sub(d, "base-web", 2)
+            _stage_gitlink(d, "base-web", old)
+            _wfile(d, EVENTS, json.dumps(VALID_CLOSE, ensure_ascii=False) + "\n")
+            _git(d, "add", EVENTS)
+            f = lint_pin_crosscheck(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("bump pin", f[0]["msg"])
+
+    def test_divergence_with_staged_non_close_event_stays_warn(self):
+        """收刀偵測須認事件型別、不是「有 staged events 就 ERROR」（misc 新增行→仍 WARN）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            old, _new = _init_sub(d, "base-web", 2)
+            _stage_gitlink(d, "base-web", old)
+            _wfile(d, EVENTS, json.dumps(VALID_MISC, ensure_ascii=False) + "\n")
+            _git(d, "add", EVENTS)
+            f = lint_pin_crosscheck(d)
+            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+
+    def test_absent_worktree_skips(self):
+        """狀態表第 4 列：worktree 缺席（唯讀看碼模式）→跳過、不落 ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _stage_gitlink(d, "rust-api", "1" * 40)
+            f = lint_pin_crosscheck(d)
+            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertEqual(f[0]["where"], "rust-api")
+            self.assertIn("跳過", f[0]["msg"])
+
+    def test_no_gitlink_in_index_is_no_op(self):
+        """index 無該 gitlink（純外層 repo）→不適用、零 finding。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            self.assertEqual(lint_pin_crosscheck(d), [])
+
+    def test_run_lint_wires_pin_crosscheck(self):
+        """★接線層：`lint_pin_crosscheck` 從 run_lint 掉線＝G2 整條靜默下線。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            old, _new = _init_sub(d, "base-web", 2)
+            _stage_gitlink(d, "base-web", old)
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "L17" and x["level"] == WARN
+                                and x["where"] == "base-web" for x in f), msg=str(f))
+
+
+class TestEventsShaProof(unittest.TestCase):
+    """L18 events 逐列 SHA 實證（contracts G3／data-model §4 判定表逐列）。"""
+
+    def _fixture(self, d, subs=("base-web", "rust-api")):
+        """外層 repo＋指定 submodule worktree；回 (外層 SHA, {鍵: 子庫 SHA})。"""
+        outer = _init_outer(d)
+        shas = {}
+        for key, name in PIN_KEYS:
+            if name in subs:
+                shas[key], = _init_sub(d, name)
+        return outer, shas
+
+    def _events(self, d, **over):
+        e = json.loads(json.dumps(VALID_CLOSE))
+        e.update(over)
+        _wfile(d, EVENTS, json.dumps(e, ensure_ascii=False) + "\n")
+
+    def test_all_resolvable_is_green(self):
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._events(d, merge=outer, pins=pins)
+            self.assertEqual(lint_events_sha(d), [])
+
+    def test_merge_unresolvable_is_error(self):
+        """判定表第 1 列：merge 不可解＝ERROR（抄錯／造假／事後改史）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _outer, pins = self._fixture(d)
+            self._events(d, merge="0" * 39 + "1", pins=pins)
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("merge", f[0]["msg"])
+            self.assertIn("行 1", f[0]["where"])
+
+    def test_merge_resolvable_but_not_commit_is_error(self):
+        """判定表第 1 列右欄：可解但非 commit 物件（此處為 blob）＝ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            _outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            self._events(d, merge=blob, pins=pins)
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("blob", f[0]["msg"])
+
+    def test_pins_unresolvable_is_warn(self):
+        """判定表第 2／3 列：pins 不可解＝WARN（upstream rebase 卷史後合法失聯）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            pins = dict(pins, web="0" * 39 + "1")
+            self._events(d, merge=outer, pins=pins)
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertIn("pins.web", f[0]["msg"])
+
+    def test_pins_resolvable_but_not_commit_is_error(self):
+        """判定表第 2／3 列右欄：pins 可解但非 commit 物件＝ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(os.path.join(d, "rust-api"), "rev-parse", "HEAD:app.ts").strip()
+            self._events(d, merge=outer, pins=dict(pins, api=blob))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("pins.api", f[0]["msg"])
+
+    def test_pins_missing_key_is_error(self):
+        """★鍵集斷言：缺鍵＝ERROR（防「查一個不存在的鍵得空集合」型恆綠）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._events(d, merge=outer, pins={"web": pins["web"]})
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("pins", f[0]["msg"])
+
+    def test_pins_unknown_key_is_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._events(d, merge=outer, pins=dict(pins, mobile="2" * 40))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("pins", f[0]["msg"])
+
+    def test_absent_submodule_worktree_skips_its_pins(self):
+        """判定表第 4 列：worktree 缺席＝該庫清單整批 skip（不逐列誤報 WARN）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d, subs=("base-web",))
+            self._events(d, merge=outer, pins=dict(pins, api="3" * 40))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertEqual(f[0]["where"], "rust-api")
+            self.assertIn("跳過", f[0]["msg"])
+
+    def test_run_lint_wires_events_sha(self):
+        """★接線層：`lint_events_sha` 從 run_lint 掉線＝G3 整條靜默下線。"""
+        with tempfile.TemporaryDirectory() as d:
+            _outer, pins = self._fixture(d)
+            self._events(d, merge="0" * 39 + "1", pins=pins)
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "L18" and x["level"] == ERROR
+                                for x in f), msg=str(f))
 
 
 SNAP_COLS = [
