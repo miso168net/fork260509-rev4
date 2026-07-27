@@ -22,7 +22,7 @@ PW="$(cat "$PW_FILE")"
 
 COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.dev.yml)
 
-# 設密＋LOGIN（psql 沿 tools/schema-gate exec -T 慣例；SQL 走 stdin heredoc、密碼不進 argv）。
+# 設密＋LOGIN（psql 沿 tools/schema-gate.py exec -T 慣例；SQL 走 stdin heredoc、密碼不進 argv）。
 "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U soybean -d soybean_admin_rust \
   --quiet --no-align --tuples-only <<SQL
 ALTER ROLE reaper LOGIN PASSWORD '${PW}';

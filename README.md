@@ -24,9 +24,9 @@ fork260509-rev4/
 │   ├── reviews/                     review 報告史料
 │   └── generated/                   機器生成、嚴禁手改：STATE（現況帳）／MILESTONES（全事件表）
 │                                      ／DECISIONS-INDEX（ADR 索引）／reference/（全量正典表）
-├── tools/docs-sync                  生成器＋lint（generate／check／lint／errata／test）
+├── tools/docs-sync.py               生成器＋lint（generate／check／lint／errata／test）
 ├── tools/bootstrap                  新機器環境重建／舊機體檢（源倉＋worktree＋基線＋hooks）
-├── tools/fork-delta-lint            base-web fork-delta「原行」紀律機器強制（基線＝最原始源 @ example）
+├── tools/fork-delta-lint.py         base-web fork-delta「原行」紀律機器強制（基線＝最原始源 @ example）
 ├── docker-compose.yml               dev stack base 層（六 service 共通定義；敘事見活書 §7）
 ├── docker-compose.dev.yml           dev override（host port／bind-mount／熱重載）
 ├── docker-compose.example.yml       example 視覺參照實例（獨立 project、與 dev stack 無關）
@@ -45,7 +45,7 @@ fork260509-rev4/
 - **三種材質**：人寫（規則與敘事）／事件源（`docs/ops/events.jsonl` 半自動 append）／機器生成（`docs/generated/`、嚴禁手改）。
 - **時態分離**：活書只寫「現在」；未來住 ops/（NOTES、BACKLOG）；過去住 git 史＋events。
 - **每個事實只有一個家**：找不到的東西不是沒記、是住在權威的那一份裡——鏡像要嘛機器生成、要嘛不存在。
-- 以上規則由 pre-commit lint 強制（`tools/docs-sync`）；違規在 commit 當下被擋。
+- 以上規則由 pre-commit lint 強制（`tools/docs-sync.py`）；違規在 commit 當下被擋。
 
 ## 第一次來，照這個順序讀（約 30 分鐘）
 
@@ -90,6 +90,6 @@ fork260509-rev4/
 - **`git submodule status` 行首有「-」**：worktree 模式的正常現象、不是壞掉；
   **絕不要跑 `git submodule update`**（會 reset worktree）。
 - **想改 `docs/generated/` 裡的東西**：不要手改——改它的來源（events／ADR／BACKLOG…）
-  再跑 `python3 tools/docs-sync generate`。
+  再跑 `python3 tools/docs-sync.py generate`。
 - **新機器初始化**：clone 本 repo 後跑 `bash tools/bootstrap`（自動補齊 gitignored 源倉
   `fork260509-*`＋worktree＋hooks、斷言最原始源基線；詳 CLAUDE.md §3）。

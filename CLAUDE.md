@@ -20,7 +20,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   分支＝本機源倉 `fork260509-soybean-admin-base/`（恆切在 `example` tip；lint 首步斷言、不在即紅）。
   base-web 修改型 inline（動到基線既有行）標記必含 `原行: <基線該行逐字原文>`；我方新檔／純新增行
   （基線沒有的行）不標原行、走新增型圈界——紀律上位＝constitution §III。機器強制＝
-  `tools/fork-delta-lint`（每次執行先 self-test 防恆綠；每次 base-web 改動即跑、pre-commit 於
+  `tools/fork-delta-lint.py`（每次執行先 self-test 防恆綠；每次 base-web 改動即跑、pre-commit 於
   base-web pin 變動時自動擋，不靠人工 review）。
 - 外層只記 gitlink SHA（pin）；worktree 模式下 `git submodule status` 行首「-」永遠出現、屬正常。
 
@@ -69,7 +69,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - **隨做隨記**：新拍板→ADR draft→accepted；架構影響→活書對應節【就在 feature branch 內改】；
   踩坑→LESSONS append；衍生工作→BACKLOG append；per-unit pin 即時 bump。
 - **收刀**：`merge --no-ff` 回 default（保留 feature branch 不清理）→
-  ①`docs/ops/events.jsonl` append feature_close ②NOTES 改下一步 ③`tools/docs-sync generate`
+  ①`docs/ops/events.jsonl` append feature_close ②NOTES 改下一步 ③`tools/docs-sync.py generate`
   → 一筆簿記 commit、lint 全綠放行。簿記一律排在 merge 之後（merge SHA 與最終 pin 才確定）。
 - **review 輪**（不定期）：報告存 `docs/reviews/YYYYMMDD-<scope>.md`（front-matter 必含
   `findings_total`）；findings 三分流：修／轉 B-NNN／won't-fix ADR；＋append 一筆 review 事件。
@@ -106,7 +106,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   （拍板歸 ADR、實作結果歸收刀事件、實作推翻拍板＝新 ADR）。
 - **lint 運作模式**：pre-commit 一次跑完、秒級；被擋的是 Claude、同回合修復（錯誤訊息附去處）；
   純碼 commit 幾乎全 skip。user 僅介入：lint 抓到真決策、或 lint 調規拍板。
-- **勘誤**：`tools/docs-sync errata <關鍵詞>` 機器枚舉全 repo 同語意命中、逐處處置後才 commit——
+- **勘誤**：`tools/docs-sync.py errata <關鍵詞>` 機器枚舉全 repo 同語意命中、逐處處置後才 commit——
   禁止只修被點名那一處。
 - **ID 配號**（B-NNN／L-NNN）：取檔頭 next-id 後 bump；號碼永不回收；ADR 編號＝檔名、永不重用。
 - **constitution**：`.specify/memory/constitution.md` 唯一權威、不設鏡像快查表；

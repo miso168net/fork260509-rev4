@@ -1,4 +1,4 @@
-<!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->
+<!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->
 # MILESTONES — 全事件表（2026）
 
 | date | type | 標的 | summary | merge | adrs | arch |

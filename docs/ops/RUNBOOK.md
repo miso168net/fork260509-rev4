@@ -229,7 +229,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
   `{service="rust-api", compose_project="rev4-admin"}`）。
 - **retention**：loki 72h（`deploy/loki-config.yml`）／prometheus 15d（compose command flag）。
 - **字典板重算**：`deploy/grafana-provisioning/dashboards/json/backend-msg-dict.json`＝機器
-  生成物——改 locale 後跑 `python3 tools/docs-sync generate`、嚴禁手改。
+  生成物——改 locale 後跑 `python3 tools/docs-sync.py generate`、嚴禁手改。
 - **dev webhook 收器**（告警投遞驗收專用）：`sh deploy/dev-webhook-sink.sh start|cat|stop`
   ＋alert_webhook_url.txt 填 `http://rev4-dev-webhook-sink:8080/alert`＋restart grafana；
   驗畢必 stop＋還原 URL（§4）。
@@ -238,14 +238,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
-| `python3 tools/docs-sync generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync check` / `lint` | pre-commit 兩道（staged 過期／L3~L15） | 否 |
-| `python3 tools/docs-sync refresh` | 自實庫撈 schema/accounts 快照 | **是** |
-| `python3 tools/docs-sync errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
-| `python3 tools/schema-gate gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
-| `python3 tools/schema-gate test` | 自測 | 否 |
-| `python3 tools/wire-schema extract` / `test` | 容器內抽 typings→wire-schema.json 快照／自測 | extract **是** |
-| `python3 tools/fork-delta-lint` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
+| `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／L3~L15） | 否 |
+| `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
+| `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
+| `python3 tools/schema-gate.py gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
+| `python3 tools/schema-gate.py test` | 自測 | 否 |
+| `python3 tools/wire-schema.py extract` / `test` | 容器內抽 typings→wire-schema.json 快照／自測 | extract **是** |
+| `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `bash tools/bootstrap` | 新機重建／舊機體檢 | 否 |
 
 退出碼注意：schema-gate/wire-schema＝差異 1、環境不可用 2、用法錯 64；docs-sync refresh
@@ -273,4 +273,4 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 - 真相源：埠全表→`docs/generated/reference/ports.md`（機器生成）；帳號／角色→
   `docs/generated/reference/accounts.md`。本檔命令帶字面埠（42080/42443/42079/43000/43100/
   45432/46379/49090/49091）純為可複製執行；動埠的刀照 errata 紀律
-  （`python3 tools/docs-sync errata <埠>`）機器枚舉全 repo 同步、含本檔。
+  （`python3 tools/docs-sync.py errata <埠>`）機器枚舉全 repo 同步、含本檔。

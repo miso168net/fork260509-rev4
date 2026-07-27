@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""tools/docs-sync — rev4 文件系統生成器＋lint（python 標準庫、單檔、自帶測試）
+"""tools/docs-sync.py — rev4 文件系統生成器＋lint（python 標準庫、單檔、自帶測試）
 
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
@@ -590,7 +590,7 @@ def lint_memory_refs(md_texts):
 # generate／check／errata
 # ---------------------------------------------------------------------------
 
-GEN_HEADER = "<!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->"
+GEN_HEADER = "<!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->"
 REFERENCE_TABLES = ("routes", "ports", "schema", "accounts", "screens")
 # stub 轉真的表：STATE 對賬行改列真來源描述（其餘表維持 gen_reference_stub）
 REFERENCE_LIVE = {
@@ -610,7 +610,7 @@ MSG_DICT_LOCALES = (("zh-TW", "base-web/src/locales/langs/zh-tw.ts"),
                     ("en-US", "base-web/src/locales/langs/en-us.ts"))
 MSG_DICT_MD = f"{GENERATED_DIR}/reference/backend-msg-dict.md"
 MSG_DICT_PANEL = "deploy/grafana-provisioning/dashboards/json/backend-msg-dict.json"
-MSG_DICT_HINT = ("機器生成：tools/docs-sync generate（來源＝base-web locale backend.* 兩語）"
+MSG_DICT_HINT = ("機器生成：tools/docs-sync.py generate（來源＝base-web locale backend.* 兩語）"
                  "——嚴禁手改；差異由 pre-commit check 攔下")
 
 
@@ -803,25 +803,25 @@ def errata_scan(texts, keyword):
 L2_SOURCES = {
     f"{GENERATED_DIR}/reference/routes.md":
         "routes 對照表與 router.rs 重算結果不一致——"
-        "rust-api/server/src/router.rs ROUTES 改動後未跑 tools/docs-sync generate",
+        "rust-api/server/src/router.rs ROUTES 改動後未跑 tools/docs-sync.py generate",
     f"{GENERATED_DIR}/reference/ports.md":
         "ports 對照表與 compose 重算結果不一致——compose 三檔"
-        " ports: 段改動後未跑 tools/docs-sync generate",
+        " ports: 段改動後未跑 tools/docs-sync.py generate",
     f"{GENERATED_DIR}/reference/schema.md":
         "schema 正典表與快照重算結果不一致——docs/ops/reference-src/schema-snapshot.json"
-        "（或 archetype-map.json）改動後未跑 tools/docs-sync generate",
+        "（或 archetype-map.json）改動後未跑 tools/docs-sync.py generate",
     f"{GENERATED_DIR}/reference/accounts.md":
         "accounts 正典表與快照重算結果不一致——docs/ops/reference-src/"
-        "accounts-snapshot.json 改動後未跑 tools/docs-sync generate",
+        "accounts-snapshot.json 改動後未跑 tools/docs-sync.py generate",
     f"{GENERATED_DIR}/reference/screens.md":
         "screens 正典表與 routes.ts 重算結果不一致——"
-        "base-web/src/router/elegant/routes.ts 的 generatedRoutes 改動後未跑 tools/docs-sync generate",
+        "base-web/src/router/elegant/routes.ts 的 generatedRoutes 改動後未跑 tools/docs-sync.py generate",
     MSG_DICT_MD:
         "backend 拒因字典與 locale 重算結果不一致——base-web/src/locales/langs/"
-        "{zh-tw,en-us}.ts 的 backend.* 改動後未跑 tools/docs-sync generate",
+        "{zh-tw,en-us}.ts 的 backend.* 改動後未跑 tools/docs-sync.py generate",
     MSG_DICT_PANEL:
         "字典面板 json 與 locale 重算結果不一致——deploy 側生成物嚴禁手改；"
-        "locale 改動後跑 tools/docs-sync generate（FR-014 守門）",
+        "locale 改動後跑 tools/docs-sync.py generate（FR-014 守門）",
 }
 
 
@@ -841,13 +841,13 @@ def check_generated(root, computed):
         if rel not in computed:
             out.append(finding(ERROR, "L1", rel, "多出的檔案（generated/ 嚴禁手加；請移除）"))
         elif rel not in on_disk:
-            out.append(finding(ERROR, "L1", rel, "缺生成檔（跑 tools/docs-sync generate）"))
+            out.append(finding(ERROR, "L1", rel, "缺生成檔（跑 tools/docs-sync.py generate）"))
         elif _read(root, rel) != computed[rel]:
             if rel in L2_SOURCES:
                 out.append(finding(ERROR, "L2", rel, L2_SOURCES[rel]))
             else:
                 out.append(finding(ERROR, "L1", rel,
-                                   "與重算結果不一致（忘跑 generate 或手改；跑 tools/docs-sync generate）"))
+                                   "與重算結果不一致（忘跑 generate 或手改；跑 tools/docs-sync.py generate）"))
     return out
 
 
@@ -1694,7 +1694,7 @@ def gen_reference_accounts(snap):
         if b["role_id"] not in role_code:
             raise SnapshotError(
                 f"accounts 快照綁定指向不存在的 role id {b['role_id']}"
-                f"（user id {b['user_id']}）——重跑 tools/docs-sync refresh")
+                f"（user id {b['user_id']}）——重跑 tools/docs-sync.py refresh")
         bound.setdefault(b["user_id"], []).append(role_code[b["role_id"]])
     user_rows = "".join(
         f"| {_md_cell(u['user_name'])} | {_md_cell(u['nick_name'])} "
@@ -1714,7 +1714,7 @@ def gen_reference_accounts(snap):
 
 def compute_snapshot_reference(root):
     """兩快照＋archetype-map → reference/{schema,accounts}.md。回 {rel: content}。"""
-    refresh_hint = "先跑 tools/docs-sync refresh（需 dev stack 在跑）"
+    refresh_hint = "先跑 tools/docs-sync.py refresh（需 dev stack 在跑）"
     schema_snap = _load_reference_src(root, SCHEMA_SNAPSHOT, refresh_hint)
     accounts_snap = _load_reference_src(root, ACCOUNTS_SNAPSHOT, refresh_hint)
     amap = _load_reference_src(
@@ -2100,7 +2100,7 @@ def cmd_check():
     pending = backfill_supersessions(load_adrs(ROOT))
     for fn in sorted(pending):
         findings.append(finding(ERROR, "L1", f"{ADR_DIR}/{fn}",
-                                "supersedes 對稱回填待跑（tools/docs-sync generate）"))
+                                "supersedes 對稱回填待跑（tools/docs-sync.py generate）"))
     for rel in unstaged_generated(ROOT):
         findings.append(finding(ERROR, "L1", rel,
                                 "生成物有未 staged 變更（跑了 generate 忘了 git add——"

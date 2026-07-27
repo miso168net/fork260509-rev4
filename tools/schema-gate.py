@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""tools/schema-gate — 基線 schema 驗證閘（python 標準庫、單檔、自帶測試）
+"""tools/schema-gate.py — 基線 schema 驗證閘（python 標準庫、單檔、自帶測試）
 
 子命令：
   gate1 [--live-rev3]   閘 1：結構零漂移——實庫 vs 凍結基準（contracts/gates.md §2）
@@ -1029,7 +1029,7 @@ def cmd_audit():
 
 
 # ---------------------------------------------------------------------------
-# 自帶測試（離線；tools/schema-gate test）
+# 自帶測試（離線；tools/schema-gate.py test）
 # ---------------------------------------------------------------------------
 
 class TestRenameMap(unittest.TestCase):

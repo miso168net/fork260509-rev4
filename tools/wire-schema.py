@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""tools/wire-schema — 契約機器化：typings→JSON Schema 快照抽取（python 標準庫、單檔、自帶測試）
+"""tools/wire-schema.py — 契約機器化：typings→JSON Schema 快照抽取（python 標準庫、單檔、自帶測試）
 
 子命令：
   extract   base-web 容器內 npx 抽取 typings → draft-07 JSON Schema 快照，

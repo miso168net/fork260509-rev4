@@ -1,10 +1,10 @@
 #!/bin/sh
 # rev4 pre-commit：docs-sync check（L1 生成一致）＋lint（L3／L7~L15）
 # 被擋時：錯誤訊息附去處；同回合修復後重試。--no-verify 只延後、狀態型檢查不消失。
-python3 tools/docs-sync check || exit 1
-python3 tools/docs-sync lint || exit 1
+python3 tools/docs-sync.py check || exit 1
+python3 tools/docs-sync.py lint || exit 1
 # fork-delta 原行 紀律（憲法 §III L114）：base-web gitlink 變動（pin bump）時、機器比對 base-web vs
 # example 上游、修改型缺 `原行:` 即擋——不靠人工 review。fork 源倉須在 example 分支（lint 首步斷言）。
 if git diff --cached --name-only | grep -qx 'base-web'; then
-  python3 tools/fork-delta-lint || exit 1
+  python3 tools/fork-delta-lint.py || exit 1
 fi

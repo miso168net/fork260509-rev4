@@ -1,6 +1,6 @@
 {
   "lineage": "specs/002-schema-baseline/data-model.md §1（002 初始逐表轉錄；憲法 §I.6 審計守門基準）",
-  "usage": "tools/schema-gate audit 的變體矩陣與表清單守門來源；docs-sync generate 的 reference/schema 歸屬欄同源消費。後續刀新表隨建表登記（先補 data-model §1 歸屬、再登記此檔，否則 audit 攔）。",
+  "usage": "tools/schema-gate.py audit 的變體矩陣與表清單守門來源；docs-sync generate 的 reference/schema 歸屬欄同源消費。後續刀新表隨建表登記（先補 data-model §1 歸屬、再登記此檔，否則 audit 攔）。",
   "tables": [
     {
       "table": "sys_user",
