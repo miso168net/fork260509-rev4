@@ -1,4 +1,4 @@
-<!-- next: B-111 -->
+<!-- next: B-112 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -32,3 +32,4 @@
 - B-107｜備份自動化：pg_dump 排程＋卷快照＋還原演練（現況零工具、僅手動命令形＝RUNBOOK §6；secrets 檔與 postgres_data 卷配對備份一併納入）｜資料價值升高或 prod 部署刀前｜出處：RUNBOOK 落地盤點（2026-07-19）
 - B-109｜rust-api 編譯迴圈量測與 dev profile 評估刀：容器內 cargo build --timings 建基線（macOS＋WSL2 各冷編＋單檔增量一輪；動機＝L-004 冷編約 240s〔rev3 數據、絕對值以重測為準〕＋macOS link 峰值 OOM 實載＋serial TDD 每輪 fix 付一次增量 build），數據支持才加 profile.dev debuginfo 裁剪（line-tables-only＋依賴 debug=false 兩行、可逆、不動 release 重現性）；linker（mold/lld）與映像變更排除在預設範圍、須量測證明 macOS link 段為主要瓶頸後另拍板並連動 L-005 雙機清卷；Cranelift（nightly-only、與 stable 1.96.1 釘版衝突）與 subsecond（實驗性＋需引入 dx 工具鏈；經查可 hot-patch 任意 Rust 專案含 axum、排除理由勿寫「純前端」）排除據實簿記｜下次 rust-api 施工波起手順跑，或增量編譯體感惡化／healthcheck start_period 120s 被突破（up --wait 假失敗形）時｜出處：JetBrains Rust Web 2026 文章研究輪 m07 裁決 partial（2026-07-21）
 - B-110｜sea-orm Entity First 評估刀：sea-orm 2.x 沉澱後評估「entity 對實庫僅驗不生成的漂移檢查＋additive DDL 草稿生成輔助」（動機＝entity 與 migration 同一 schema 事實雙手寫、現無機器互驗——m001 gate1 抓漏 2 索引為既遂案例、型別手滑僅 runtime 炸開；草稿可省未來新表 toil）；邊界＝產物入庫人審過三閘、raw SQL 逃生門與 up/down 對稱不動、casbin_rule 入 skip-list（ADR 0015）、欄序仍 user 定稿（ADR 0021）、絕不開 runtime schema-sync｜sea-orm 2.x 數個 patch 版沉澱＋vendored sea-orm-adapter 2.0 相容路徑 ADR 拍板、或 1.1 維護窗關閉、或單一 feature 內出現兩支以上新表 DDL（高頻建表期——此況可先做零升級的草稿工具階段 0、無人用即停損）｜出處：JetBrains Rust Web 2026 文章研究輪 m03 裁決 defer（2026-07-21）
+- B-111｜tools/ 四支 python 工具補 .py 副檔名（docs-sync／schema-gate／fork-delta-lint／wire-schema；bootstrap／wf-watchdog 屬 bash 不在範圍；候選 A＝直接改名＋僅更新活引用〔.githooks／.claude hooks／CLAUDE.md／README／RUNBOOK／NOTES／memory；歷史 specs／brainstorms／reviews 屬過去式不改〕、候選 B＝原名留薄殼轉發＋本體改 .py 零引用更新；引用面實測 323 處散佈約 100 檔、多數屬歷史檔；改名後 drvfs exec bit 用 git update-index --chmod=+x 落索引）｜下次動 tools/ 任一支時同刀、或獨立小刀｜出處：user 指示（2026-07-28）
