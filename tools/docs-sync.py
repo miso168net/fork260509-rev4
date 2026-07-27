@@ -2377,8 +2377,8 @@ def lint_events_sha(root):
         subdir = os.path.join(root, sub)
         if not os.path.exists(os.path.join(subdir, ".git")):
             out.append(finding(WARN, "L18", sub,
-                               f"submodule worktree 缺席——pins.{key} 共 {len(items)} 筆 SHA"
-                               "實證跳過（唯讀看碼模式；跳過≠通過）"))
+                               f"submodule worktree 缺席——pins.{key} 共 {len(items)} 筆 "
+                               "SHA 實證跳過（唯讀看碼模式；跳過≠通過）"))
             continue
         ptypes = git_object_types([s for _n, s in items], subdir)
         for n, sha in items:
