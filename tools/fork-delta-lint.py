@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fork-delta-lint — 機器式驗 base-web fork-delta「原行」紀律（constitution §III L114）。
+"""tools/fork-delta-lint.py — 機器式驗 base-web fork-delta「原行」紀律（constitution §III L114）。
 
 最原始源-基線＝`fork260509-soybean-admin-base/` @ `example` 分支 tip（實體目錄、須先切到）。
 判定：base-web 若改動 example 既有 inline 行（該行不再逐字存在於我方版）→ 我方檔內**必須**有

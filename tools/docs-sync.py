@@ -5,7 +5,8 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 對賬）
-  lint            L3～L15（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向）
+  lint            L3～L16（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
+                  L16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量）
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
   test            跑自帶測試（unittest）
@@ -367,7 +368,7 @@ def lint_adrs(adrs, head_adrs, amend=False):
             if my_id and my_id not in (_adr_list(tmeta, "superseded_by") or []):
                 out.append(finding(ERROR, "L8", where,
                                    f"supersedes 對稱缺口：ADR {x} 的 superseded_by 未回填"
-                                   f"「{my_id}」（跑 docs-sync generate 回填）"))
+                                   f"「{my_id}」（跑 tools/docs-sync.py generate 回填）"))
             if tmeta.get("status") != "superseded":
                 out.append(finding(ERROR, "L8", where,
                                    f"被翻案的 ADR {x} status 須為 superseded"))
@@ -583,6 +584,83 @@ def lint_memory_refs(md_texts):
             for m in RE_MEMORY_PATH.finditer(line):
                 out.append(finding(ERROR, "L15", f"{rel}:行 {n}",
                                    f"禁引 per-machine 路徑「{m.group(0)}」；先提取進 repo 文件再引用"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# L16 憑證內容掃描（contracts G1／data-model §1§2；ADR 0077）
+# ---------------------------------------------------------------------------
+
+# 窄集合高確信樣式：刻意**不含**泛熵值與 password= 類（誤報成本高於殘餘風險——漏報面有意識
+# 接受）。擴充或豁免一律動本常數＋立 ADR；無 inline 豁免 marker（防偽）。
+CRED_PATTERNS = (
+    ("pem-private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY( BLOCK)?-----")),
+    ("aws-akia", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("github-token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,255}\b")),
+    ("github-pat", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{22,255}\b")),
+)
+CRED_WHITELIST = ()            # 豁免白名單（現空集；擴充須同時立 ADR——ADR 0077 豁免路徑）
+CRED_SUBMODULES = ("base-web", "rust-api")
+CRED_BINARY_PROBE = 8192       # 前 8KB 含 NUL byte 即判二進位（近似 git 的偵測、憑證必為文字）
+
+
+def scan_cred_text(text):
+    """全文過樣式集；回 [(label, 行號)]（同 label 只回首命中，訊息不爆量）。"""
+    hits = []
+    for label, pat in CRED_PATTERNS:
+        m = pat.search(text)
+        if m:
+            hits.append((label, text.count("\n", 0, m.start()) + 1))
+    return hits
+
+
+def _cred_samples():
+    """self-test 紅綠樣本。
+
+    ★執行期字串串接構造：本檔屬 tracked，落任何完整命中字面即被外層全量掃自命中自紅。
+    """
+    red = [
+        ("pem-private-key", "-----BEGIN " + "RSA PRIVATE" + " KEY" + "-----"),
+        ("aws-akia", "AKIA" + "0123456789ABCDEF"),
+        ("github-token", "gh" + "p_" + "s3lfT3st" * 4 + "Samp"),
+        ("github-pat", "github" + "_pat_" + "s3lfT3stSampl3Str1ng0k"),
+    ]
+    green = ["普通說明文字、無憑證內容。", "-----BEGIN CERTIFICATE-----",
+             "AKIA" + "TOOSHORT", "gh" + "p_" + "short"]
+    return red, green
+
+
+def cred_self_test():
+    """防恆綠：每次 lint 連帶驗紅樣本必紅、綠樣本必綠；失效即 ERROR（contracts G1）。"""
+    out = []
+    red, green = _cred_samples()
+    for label, sample in red:
+        if label not in [l for l, _ in scan_cred_text(sample)]:
+            out.append(finding(ERROR, "L16", "tools/docs-sync.py",
+                               f"憑證掃描 self-test 失效：紅樣本 {label} 未被攔下"
+                               "——條款已恆綠，修復 CRED_PATTERNS 後重跑"))
+    for sample in green:
+        hit = scan_cred_text(sample)
+        if hit:
+            out.append(finding(ERROR, "L16", "tools/docs-sync.py",
+                               f"憑證掃描 self-test 失效：綠樣本誤報 {hit[0][0]}"
+                               "——樣式集過寬，收窄後重跑"))
+    return out
+
+
+def cred_diff_hits(diff_text):
+    """unified diff（-U0）新增行過樣式集；回 [(檔路徑, label)]（`+++` 標頭排除）。"""
+    out, path = [], "?"
+    for line in diff_text.splitlines():
+        if line.startswith("+++ "):
+            raw = line[4:].strip()
+            path = raw[2:] if raw.startswith(("a/", "b/")) else raw
+            continue
+        if not line.startswith("+"):
+            continue
+        for label, _n in scan_cred_text(line[1:]):
+            if (path, label) not in out:
+                out.append((path, label))
     return out
 
 
@@ -1987,8 +2065,106 @@ def lint_arch_impact(root):
     return out
 
 
+def tracked_blobs(root):
+    """tracked 檔清單扣掉 gitlink（160000）條目——憑證掃描的外層面（data-model §2）。"""
+    rels = []
+    for line in (git_out(["ls-files", "-s"], root) or "").splitlines():
+        meta, _, path = line.partition("\t")
+        parts = meta.split()
+        if path and parts and parts[0] != "160000":
+            rels.append(path)
+    return rels
+
+
+def _cred_read_text(path):
+    """回檔案全文；二進位（前 8KB 含 NUL）或不可讀→None。"""
+    try:
+        with open(path, "rb") as fh:
+            probe = fh.read(CRED_BINARY_PROBE)
+            if b"\x00" in probe:
+                return None
+            return (probe + fh.read()).decode("utf-8", errors="replace")
+    except OSError:
+        return None            # 缺席／目錄／權限——掃描面缺一檔不擋 commit（tracked 清單另有守衛）
+
+
+def lint_cred_outer(root):
+    """L16 外層面：全 tracked 文字檔過樣式集（data-model §2 第 1 列）。"""
+    out = []
+    for rel in tracked_blobs(root):
+        if rel in CRED_WHITELIST:
+            continue
+        text = _cred_read_text(os.path.join(root, rel))
+        if text is None:
+            continue
+        for label, n in scan_cred_text(text):
+            out.append(finding(ERROR, "L16", f"{rel}:行 {n}",
+                               f"憑證內容命中（label={label}）——移除內容並輪替該憑證；"
+                               "無 inline 豁免，確需豁免走 CRED_WHITELIST＋ADR（0077）"))
+    return out
+
+
+def _cred_index_gitlink(root, sub):
+    for line in (git_out(["ls-files", "-s", "--", sub], root) or "").splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] == "160000":
+            return parts[1]
+    return None
+
+
+def _cred_grep_tree(subdir, tree):
+    """退化全樹掃：逐樣式 git grep 該 tree；回 [(檔路徑, label)]。"""
+    out = []
+    for label, pat in CRED_PATTERNS:
+        # git grep 無命中時退出碼 1（git_out 回 None）＝視同無命中；退化面已另附 WARN 註記
+        for line in (git_out(["grep", "-nE", pat.pattern, tree], subdir) or "").splitlines():
+            parts = line.split(":", 3)          # <tree>:<path>:<行號>:<內容>
+            if len(parts) >= 2 and (parts[1], label) not in out:
+                out.append((parts[1], label))
+    return out
+
+
+def lint_cred_submodules(root):
+    """L16 增量面：staged 含 gitlink 變動時掃 old..new 新增行（R3；data-model §2 第 2/3 列）。"""
+    out = []
+    staged = set((git_out(["diff", "--cached", "--name-only"], root) or "").splitlines())
+    for sub in CRED_SUBMODULES:
+        if sub not in staged:
+            continue
+        subdir = os.path.join(root, sub)
+        if not os.path.exists(os.path.join(subdir, ".git")):
+            out.append(finding(WARN, "L16", sub,
+                               "submodule worktree 缺席——憑證增量掃跳過（唯讀看碼模式）"))
+            continue
+        new = _cred_index_gitlink(root, sub)
+        if new is None:
+            out.append(finding(WARN, "L16", sub,
+                               "staged gitlink SHA 讀不到——憑證增量掃跳過"))
+            continue
+        old = (git_out(["rev-parse", f"HEAD:{sub}"], root) or "").strip()
+        diff = git_out(["diff", old, new, "-U0"], subdir) if old else None
+        if diff is None:
+            out.append(finding(WARN, "L16", sub,
+                               f"舊 pin（{old[:12] or '無'}）不可解或 diff 失敗——"
+                               "退化為新 pin 全樹掃描（fail-closed 向完整掃）"))
+            hits = _cred_grep_tree(subdir, new)
+        else:
+            hits = cred_diff_hits(diff)
+        for path, label in hits:
+            out.append(finding(ERROR, "L16", f"{sub}/{path}",
+                               f"submodule 新進內容憑證命中（label={label}）——"
+                               "回該庫移除並輪替後重 bump pin"))
+    return out
+
+
+def lint_credentials(root):
+    """L16 組裝：self-test 防恆綠＋外層全量＋submodule 增量（contracts G1）。"""
+    return cred_self_test() + lint_cred_outer(root) + lint_cred_submodules(root)
+
+
 def run_lint(root):
-    """組裝 L3～L15（含 L4/L5/L6 收刀完整性閘）全套。回 findings。git 不可用＝fail-closed 單發 ERROR。"""
+    """組裝 L3～L16（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描）全套。回 findings。
+    git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
         return [finding(ERROR, "L1", ".",
                         "git 不可用——HEAD 基線與掃描語料無法建立，lint fail-closed（修復 git 後重跑）")]
@@ -2022,6 +2198,7 @@ def run_lint(root):
     findings += lint_line_refs(md_texts)
     findings += lint_volatile_deep_links(md_texts)
     findings += lint_memory_refs(md_texts)
+    findings += lint_credentials(root)
     return findings
 
 
@@ -3835,6 +4012,200 @@ class TestGitIntegration(unittest.TestCase):
             self.assertEqual(unstaged_generated(d), ["docs/generated/STATE.md"])
 
 
+class TestCredScan(unittest.TestCase):
+    """L16 憑證內容掃描（contracts G1／data-model §1§2）：樣式集、外層全量、增量、退化、self-test。
+
+    ★本類全部紅樣本一律以執行期字串串接構造——本檔屬 tracked，落任何完整命中字面即會被 L16
+    掃自己時自命中自紅（analyze 對 U1 的預警）；`test_tool_source_has_no_credential_literal`
+    即該紀律的反證案。
+    """
+
+    # 與 `_cred_samples()`（產線 self-test 樣本）刻意各自獨立：樣本產生器壞掉時測試仍抓得到
+    RED = {
+        "pem-private-key": "-----BEGIN " + "OPENSSH PRIVATE" + " KEY" + "-----",
+        "aws-akia": "AKIA" + "Z7Q3M8K2P5R9T4W6",
+        "github-token": "gh" + "o_" + "Zq7" * 12,
+        "github-pat": "github" + "_pat_" + "K3m" * 8,
+    }
+    GREEN = (
+        "普通說明文字，無任何憑證內容。",
+        "-----BEGIN CERTIFICATE-----",                       # 憑證公開部分、非私鑰
+        "AKIA" + "SHORT12345",                               # AKIA 形但長度不足 16
+        "gh" + "p_" + "ab12",                                # token 形但長度不足 36
+        "github" + "_pat_" + "tooShort",                     # PAT 形但長度不足 22
+        "密碼欄 password=hunter2 屬刻意排除面（誤報成本高於殘餘風險）",
+    )
+
+    # -- fixture 工具 ------------------------------------------------------
+    def _g(self, cwd, *args):
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 0, msg=f"git {args}｜{r.stderr}")
+        return r.stdout
+
+    def _outer(self, d):
+        """外層 fixture repo（L16 只需 tracked 清單與 staged 面、毋需 docs 骨架）。"""
+        self._g(d, "init", "-q", "-b", "main")
+        self._write(d, "README.md", "普通說明\n")
+        self._g(d, "add", "README.md")
+        self._g(d, "commit", "-qm", "init")
+
+    def _write(self, d, rel, text):
+        path = os.path.join(d, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+
+    def _subrepo(self, d, name):
+        """子 repo：commit A 乾淨、commit B 新增行含紅樣本；回 (shaA, shaB)。"""
+        sd = os.path.join(d, name)
+        os.makedirs(sd)
+        self._g(sd, "init", "-q", "-b", "main")
+        self._write(sd, "app.ts", "export const a = 1\n")
+        self._g(sd, "add", "app.ts")
+        self._g(sd, "commit", "-qm", "A")
+        sha_a = self._g(sd, "rev-parse", "HEAD").strip()
+        self._write(sd, "app.ts",
+                    "export const a = 1\nconst k = '" + self.RED["aws-akia"] + "'\n")
+        self._g(sd, "add", "app.ts")
+        self._g(sd, "commit", "-qm", "B")
+        return sha_a, self._g(sd, "rev-parse", "HEAD").strip()
+
+    def _stage_gitlink(self, d, name, sha):
+        self._g(d, "update-index", "--add", "--cacheinfo", f"160000,{sha},{name}")
+
+    # -- 樣式集（data-model §1） -------------------------------------------
+    def test_red_samples_hit_each_label(self):
+        for label, sample in self.RED.items():
+            with self.subTest(label=label):
+                self.assertEqual([l for l, _ in scan_cred_text(sample)], [label])
+
+    def test_green_samples_no_hit(self):
+        for sample in self.GREEN:
+            with self.subTest(sample=sample[:24]):
+                self.assertEqual(scan_cred_text(sample), [])
+
+    def test_scan_reports_line_number(self):
+        text = "第一行\n第二行\n" + self.RED["pem-private-key"] + "\n"
+        self.assertEqual(scan_cred_text(text), [("pem-private-key", 3)])
+
+    def test_tool_source_has_no_credential_literal(self):
+        """★A8 反證：本工具原始碼（tracked）零完整命中字面——否則 G1 掃自己即自紅。"""
+        with open(os.path.abspath(__file__), encoding="utf-8", errors="replace") as fh:
+            self.assertEqual(scan_cred_text(fh.read()), [])
+
+    # -- 外層全量面（data-model §2 第 1 列） --------------------------------
+    def test_outer_scan_reports_tracked_hit(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            self._write(d, "deploy/key.conf", "cert:\n" + self.RED["pem-private-key"] + "\n")
+            self._g(d, "add", "deploy/key.conf")
+            f = lint_cred_outer(d)
+            self.assertEqual([x["level"] for x in f], [ERROR])
+            self.assertIn("deploy/key.conf", f[0]["where"])
+            self.assertIn("pem-private-key", f[0]["msg"])
+
+    def test_outer_scan_clean_repo_is_green(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            self.assertEqual(lint_cred_outer(d), [])
+
+    def test_outer_scan_skips_binary(self):
+        """前 8KB 含 NUL＝二進位、不掃（R2）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            blob = b"\x00\x01" + self.RED["pem-private-key"].encode() + b"\x00"
+            with open(os.path.join(d, "logo.bin"), "wb") as fh:
+                fh.write(blob)
+            self._g(d, "add", "logo.bin")
+            self.assertEqual(lint_cred_outer(d), [])
+
+    def test_outer_scan_excludes_gitlink_entry(self):
+        """gitlink 條目屬目錄、不入外層掃描面（其內容歸增量面）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            _, sha_b = self._subrepo(d, "base-web")
+            self._stage_gitlink(d, "base-web", sha_b)
+            self.assertEqual(lint_cred_outer(d), [])
+
+    # -- submodule 增量面（data-model §2 第 2/3 列、R3） ---------------------
+    def test_submodule_incremental_hit(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            sha_a, sha_b = self._subrepo(d, "base-web")
+            self._stage_gitlink(d, "base-web", sha_a)
+            self._g(d, "commit", "-qm", "pin A")
+            self._stage_gitlink(d, "base-web", sha_b)
+            f = lint_cred_submodules(d)
+            errs = [x for x in f if x["level"] == ERROR]
+            self.assertEqual(len(errs), 1, msg=str(f))
+            self.assertIn("base-web", errs[0]["where"])
+            self.assertIn("app.ts", errs[0]["where"])
+            self.assertIn("aws-akia", errs[0]["msg"])
+
+    def test_submodule_not_staged_means_no_scan(self):
+        """未 stage gitlink＝不觸發增量面（成本正比變更量）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            sha_a, _ = self._subrepo(d, "base-web")
+            self._stage_gitlink(d, "base-web", sha_a)
+            self._g(d, "commit", "-qm", "pin A")
+            self.assertEqual(lint_cred_submodules(d), [])
+
+    def test_submodule_fallback_full_tree_when_old_pin_unresolvable(self):
+        """舊 pin 不可解→退化為新 pin 全樹掃＋WARN 註記（fail-closed 向完整掃）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            _, sha_b = self._subrepo(d, "base-web")
+            self._stage_gitlink(d, "base-web", "0" * 39 + "1")   # 子庫不存在之物件
+            self._g(d, "commit", "-qm", "pin 不可解")
+            self._stage_gitlink(d, "base-web", sha_b)
+            f = lint_cred_submodules(d)
+            self.assertTrue(any(x["level"] == WARN and "退化" in x["msg"] for x in f), msg=str(f))
+            errs = [x for x in f if x["level"] == ERROR]
+            self.assertTrue(errs, msg=str(f))
+            self.assertIn("aws-akia", errs[0]["msg"])
+            self.assertIn("app.ts", errs[0]["where"])
+
+    def test_submodule_absent_worktree_skips(self):
+        """worktree 缺席（唯讀看碼模式）→跳過、不落 ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            self._stage_gitlink(d, "rust-api", "1" * 40)
+            f = lint_cred_submodules(d)
+            self.assertEqual([x["level"] for x in f], [WARN])
+            self.assertIn("跳過", f[0]["msg"])
+
+    # -- self-test 防恆綠（contracts G1） -----------------------------------
+    def test_self_test_green_on_healthy_engine(self):
+        self.assertEqual(cred_self_test(), [])
+
+    def _with_patterns(self, patterns, fn):
+        original = globals()["CRED_PATTERNS"]
+        globals()["CRED_PATTERNS"] = patterns
+        try:
+            return fn()
+        finally:
+            globals()["CRED_PATTERNS"] = original
+
+    def test_self_test_catches_dead_patterns(self):
+        """樣式集被改壞成永不命中（恆綠）→self-test 逐 label 報 ERROR。"""
+        dead = (("pem-private-key", re.compile(r"ZZZ-NEVER-MATCH-ZZZ")),)
+        f = self._with_patterns(dead, cred_self_test)
+        self.assertEqual(len(f), 4)
+        self.assertTrue(all(x["level"] == ERROR for x in f))
+        self.assertEqual({lbl for lbl in self.RED for x in f if lbl in x["msg"]}, set(self.RED))
+
+    def test_self_test_catches_overbroad_patterns(self):
+        """樣式集被改到過寬→綠樣本誤報、self-test 同樣報 ERROR。"""
+        wide = (("pem-private-key", re.compile(r".")),)
+        f = self._with_patterns(wide, cred_self_test)
+        self.assertTrue(f)
+        self.assertTrue(all(x["level"] == ERROR for x in f))
+        self.assertTrue(any("綠樣本" in x["msg"] for x in f))
+
+
 SNAP_COLS = [
     {"table": "sys_user", "column": "id", "ordinal": 1, "type": "bigint",
      "nullable": False, "default": None},
@@ -4136,7 +4507,7 @@ def main(argv):
             return cmd_refresh()
         if cmd == "errata":
             if len(argv) < 3:
-                print("用法：docs-sync errata <關鍵詞>", file=sys.stderr)
+                print("用法：tools/docs-sync.py errata <關鍵詞>", file=sys.stderr)
                 return 2
             return cmd_errata(argv[2])
     except UnicodeDecodeError as ex:
