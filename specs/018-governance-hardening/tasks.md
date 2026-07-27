@@ -8,10 +8,17 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 基線快照（供 SC-008/SC-009 對照、數字記回本行備註）：`python3 tools/docs-sync test`
+- [x] T001 基線快照（供 SC-008/SC-009 對照、數字記回本行備註）：`python3 tools/docs-sync test`
   ／`python3 tools/schema-gate test`／`python3 tools/wire-schema test` 三套件案數（預期
   212/130/7）＋無工具改動 commit 之 pre-commit 實跑耗時 `time` 基線（舊名末次實測、改名後
   S8 對照）
+  - **實測（2026-07-28、WSL2 drvfs、舊名末次）**：docs-sync **212** 案／2.53s｜schema-gate
+    **130** 案／0.05s｜wire-schema **7** 案／0.002s——三者與預期一致（合計 2.58s）。
+  - **pre-commit 全鏈基線**（無 staged、無工具改動、`sh .githooks/pre-commit`）：兩次實跑
+    **46.4s／47.4s**（real；user 0.9s、sys 5.1s——牆鐘由 drvfs I/O 主導、非 CPU）。
+  - ★**SC-008 措辭校正（接地發現）**：SC-008「含工具改動時總耗時仍秒級」在本機不可能成立
+    ——基線本身即 ~47s。S8 驗收一律以**同機同形制之增量**為準：平時增量 ≈0、工具全改動時
+    新增動作合計 <10s（spec 括號內數字即此語意）。
 
 ## Phase 2: Foundational
 
