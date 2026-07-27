@@ -43,9 +43,11 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 讀 specs/<NNN>-<feature-name>/tasks.md → act-on-code 接地、依實際相依把 tasks 分執行單元；驗收對照 spec.md。
 ★編排用 Workflow 工具：每執行單元一支，內部 serial 跑
 　implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality review → fix 迴圈。
+　★fix 後次輪 review prompt 必附前輪已駁回 findings 清單（file×summary＋駁回理由）、明令勿沿用
+　被駁論據重報；同一 finding 再報須附新證據，否則直接計入⑤收斂判定。
 　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW（L-113）、
 　rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge。
-★workflow script 防呆五件套（缺一不發射；根因與實證＝L-103）：
+★workflow script 防呆六件套（缺一不發射；根因與實證＝L-103）：
 　①agent prompt 全數烤進 script 本體模板字串；args 只傳短純量、script 首段逐欄斷言
 　　（型別＋非空），不符→零派發即 throw——防 args 以 JSON 字串抵達、屬性讀出 undefined。
 　②派發前斷言渲染後 prompt 非空、長度合理、開頭不含字面 "undefined"／"null"、★必含 "zh-TW"
@@ -55,6 +57,9 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　④implementer／fix 一律 schema 回傳 {status, report}；status≠ok→立即 return 升級主線、不進 review。
 　⑤收斂偵測：review 連兩輪 blocker 集合（file×summary 結構化比較、勿比自由文字）相同、
 　　或 fix 連兩輪零改動→return 判不收斂；unresolved 一律帶 findings 回主線。
+　⑥空間邊界：fix agent prompt 烤進允許檔案清單（＝該執行單元 tasks 涉檔＋review findings
+　　指涉檔的聯集、寫死 script 常數不取自 args）；清單外檔案需要動→status 回 blocked 附原因
+　　升級主線、絕不擅改；次輪清單只縮不擴。
 ★主線看門狗（非終止型故障不會有完成通知；L-104）：★Workflow launch 與 Monitor 看門狗
 　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（實證 L-112）。
 　Monitor command＝`bash tools/wf-watchdog <冒煙token>`（自動發現最新 wf 目錄、毋需 launch
@@ -68,6 +73,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 
 - **隨做隨記**：新拍板→ADR draft→accepted；架構影響→活書對應節【就在 feature branch 內改】；
   踩坑→LESSONS append；衍生工作→BACKLOG append；per-unit pin 即時 bump。
+  一次性遷移（改名／搬移／基線前進／拓樸調整）之 brainstorm 或 spec 附 Risk／Guard／Rollback
+  三欄表（首例＝018 之 B-111 四支工具改名）。
 - **收刀**：`merge --no-ff` 回 default（保留 feature branch 不清理）→
   ①`docs/ops/events.jsonl` append feature_close ②NOTES 改下一步 ③`tools/docs-sync.py generate`
   → 一筆簿記 commit、lint 全綠放行。簿記一律排在 merge 之後（merge SHA 與最終 pin 才確定）。
