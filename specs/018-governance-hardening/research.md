@@ -11,6 +11,10 @@ clarify 兩拍板＋本輪補查。
   ③`\bgh[pousr]_[A-Za-z0-9]{36,255}\b`（GitHub classic／app token 五前綴）
   ④`\bgithub_pat_[A-Za-z0-9_]{22,255}\b`（GitHub fine-grained PAT）。
 - **Rationale**: 高確信前綴／頭形、誤報近零；固定字面可做 self-test 紅綠樣本。
+- ★**樣本構造紀律**（analyze U1）：self-test／unittest 紅樣本一律**執行期字串串接構造**
+  （如 `"-----BEGIN " + "RSA PRIVATE KEY-----"`）、任何 tracked 檔內不落完整命中字面——
+  否則 G1 外層全量掃自命中自紅；由此零初始白名單（現庫預掃實測零命中、文件 regex 記載
+  不自匹配）。
 - **Alternatives**: gitleaks 整包（新依賴、破 stdlib-only）；泛熵值（誤報面、spec 明文排除）；
   `password=` 類（誤報面；seed 密碼字面已由 L11 詞典承載）。
 
@@ -73,10 +77,12 @@ clarify 兩拍板＋本輪補查。
 
 ## R8 events SHA 實證實作（FR-010）
 
-- **Decision**: 擴 L4 條款：收集全列 merge（外層）與 pins.{base-web,rust-api}（各庫）三份
-  SHA 清單→各以一發 `git cat-file --batch-check`（stdin 批次）驗存在與物件型別；merge 缺席
-  或非 commit→ERROR；pins 缺席→WARN、在而非 commit→ERROR；worktree 缺席→該庫清單 skip。
-  `RE_SHA` 由 `[0-9a-f]{7,40}` 收 `[0-9a-f]{40}`。
+- **Decision**: 擴 L4 條款：收集全列 merge（外層）與 pins（★帳本實形鍵名＝`web`／`api`、
+  analyze 實測各 17 筆全可解；固定映射 web→base-web、api→rust-api 庫）三份 SHA 清單→各以
+  一發 `git cat-file --batch-check`（stdin 批次）驗存在與物件型別；★含 pins 之列鍵集斷言＝
+  恰 {web, api}（缺鍵／未知鍵→ERROR——防查無鍵之空集合恆綠、analyze I1）；merge 不可解或
+  非 commit→ERROR；pins SHA 不可解→WARN、可解而非 commit→ERROR；worktree 缺席→該庫清單
+  skip。`RE_SHA` 由 `[0-9a-f]{7,40}` 收 `[0-9a-f]{40}`。
 - **Rationale**: 批次驗毫秒級（vs 逐筆 ~87 次 subprocess 約 1s）；pins WARN 承載 rebase
   卷史合法失聯。
 - **Alternatives**: 逐筆 rev-parse（慢）；僅驗最新一刀（現狀盲區）。

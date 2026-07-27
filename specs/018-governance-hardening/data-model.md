@@ -13,6 +13,8 @@
 
 - 豁免＝無（inline marker 不存在；未來走工具常數白名單＋ADR＝0077）。
 - self-test：每 label 紅樣本必紅＋綠樣本（普通文字）必綠、每次 lint 執行連帶驗。
+- ★紅樣本構造紀律：執行期字串串接、任何 tracked 檔內不落完整命中字面（防 G1 自命中
+  自紅＝analyze U1）。
 
 ## 2. 憑證掃描範圍模型（R2／R3）
 
@@ -41,10 +43,12 @@
 | 欄 | 驗證庫 | 缺席／不可解 | 在而非 commit 物件 |
 |---|---|---|---|
 | merge | 外層 | **ERROR** | **ERROR** |
-| pins.base-web | base-web worktree | **WARN**（rebase 卷史） | **ERROR** |
-| pins.rust-api | rust-api worktree | **WARN** | **ERROR** |
+| pins.web（→base-web） | base-web worktree | **WARN**（rebase 卷史） | **ERROR** |
+| pins.api（→rust-api） | rust-api worktree | **WARN** | **ERROR** |
 | pins.*（worktree 缺席） | — | skip＋明細 | — |
 
+- ★pins 鍵集斷言：含 pins 之列其鍵集恰 {web, api}（帳本實形、analyze 實測各 17 筆）——
+  缺鍵／未知鍵→ERROR、防查無鍵之空集合恆綠。
 - 實作＝`git cat-file --batch-check` 批次（外層一發＋每 submodule 一發）。
 
 ## 5. lint 輸出／skip 語意模型（R12）

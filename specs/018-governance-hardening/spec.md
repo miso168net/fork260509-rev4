@@ -283,8 +283,10 @@ submodule 在 pin bump 時其新進變更也被同一樣式集掃過。
   全量掃 0 誤報；self-test 紅綠樣本每次執行皆驗（恆綠即刻可見）。
 - **SC-003**: pin 互證：人工造分歧→一般 commit 出 WARN 且放行、收刀形 commit 被 ERROR 擋；
   worktree 缺席→skip 落明細（三態全機器證）。
-- **SC-004**: events 實證：正規化後全列 rev-parse 100% 可解；注入造假 merge SHA →ERROR；
-  新列 7 位短 SHA →schema 拒；正規化勘誤 commit 逐筆附同物件證據。
+- **SC-004**: events 實證：正規化後全列 merge rev-parse 100% 可解；pins 依 FR-010 三態
+  判定（現況基線＝34 筆全可解、2026-07-28 實測；未來 rebase 卷史失聯＝WARN 屬合法）；
+  注入造假 merge SHA →ERROR；新列 7 位短 SHA →schema 拒；正規化勘誤 commit 逐筆附
+  同物件證據。
 - **SC-005**: 誠實輸出：純碼 commit 摘要行含跳過段與明細；臨時造空 ADR 目錄→ERROR
   （fail-closed 機器證）。
 - **SC-006**: 真表：tools-cli 含六支工具全部子命令（與源碼分派表逐一對得上）；三件活手冊

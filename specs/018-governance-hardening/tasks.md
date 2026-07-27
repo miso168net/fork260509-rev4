@@ -55,12 +55,13 @@ ERROR、無 inline 豁免、self-test 防恆綠。
 - [ ] T006 [US2] 紅測 `tools/docs-sync.py` 自帶 unittest 新增（contracts G1＋data-model
   §1/§2 逐字）：四 label 紅樣本逐一命中案＋綠樣本不中案＋二進位 skip 案（NUL 前 8KB）＋
   增量掃命中案（fixture repo 構造 old..new diff 新增行）＋退化 fallback 案（old 不可解→
-  new 全樹掃＋WARN 註記）＋worktree 缺席 skip 案＋self-test 防恆綠案（樣本必紅必綠）——先紅
+  new 全樹掃＋WARN 註記）＋worktree 缺席 skip 案＋self-test 防恆綠案（樣本必紅必綠）；
+  ★全部紅樣本執行期串接構造、檔內零完整命中字面（防 G1 自命中＝analyze U1）——先紅
 - [ ] T007 [US2] 實作 G1 於 `tools/docs-sync.py`：`CRED_PATTERNS` 常數（R1 四類五 regex）＋
   外層 `git ls-files` 全量文字掃（R2 判定）＋staged gitlink 觸發增量掃（R3：old＝
   `rev-parse HEAD:<sub>`、new＝`ls-files -s`、`git -C <sub> diff -U0` 新增行；fallback
   `git -C <sub> grep` 全樹＋WARN；worktree 缺席 skip）＋每次 lint 連帶紅綠 self-test
-  →T006 轉綠
+  （樣本同守執行期串接紀律）→T006 轉綠
 - [ ] T008 [P] [US2] ADR 0077 立檔 `docs/arc42/decisions/0077-credential-content-scan-gate.md`
   （draft；掃描範圍／窄樣式集哲學／豁免路徑＝工具常數白名單＋ADR、無 inline marker——
   brainstorm §4＋research R1 落定形；隨收刀轉 accepted）
@@ -80,12 +81,14 @@ ERROR、無 inline 豁免、self-test 防恆綠。
 - [ ] T011 [US3] 紅測 `tools/docs-sync.py` unittest 新增（contracts G2/G3、data-model
   §3/§4 狀態表逐格）：pin 互證四態案（一致 pass／分歧 WARN／分歧×staged feature_close
   新增行 ERROR／worktree 缺席 skip——fixture git repo 構造 staged 情境）＋events merge
-  缺席 ERROR 案＋pins 缺席 WARN 案＋pins 非 commit 物件 ERROR 案＋RE_SHA 拒 7 位新列案
-  ——先紅
+  不可解 ERROR 案＋pins（★帳本實形鍵名 web／api）SHA 不可解 WARN 案＋pins 可解非 commit
+  物件 ERROR 案＋★pins 鍵集斷言案（缺鍵／未知鍵→ERROR、防空集合恆綠）＋RE_SHA 拒 7 位
+  新列案——先紅
 - [ ] T012 [US3] 實作 G2＋G3 於 `tools/docs-sync.py`：gitlink（`ls-files -s`）vs
   `git -C <sub> rev-parse HEAD` 互證＋收刀偵測（`diff --cached -U0 -- docs/ops/events.jsonl`
-  新增行匹配 feature_close）＋`git cat-file --batch-check` 批次驗（外層＋每 submodule
-  各一發、效能 <200ms）＋`RE_SHA` 收 `[0-9a-f]{40}`→T011 轉綠
+  新增行匹配 feature_close）＋pins 鍵名固定映射（web→base-web、api→rust-api）與鍵集斷言
+  ＋`git cat-file --batch-check` 批次驗（外層＋每 submodule 各一發、效能 <200ms）＋
+  `RE_SHA` 收 `[0-9a-f]{40}`→T011 轉綠
 - [ ] T013 [P] [US3] ADR 0078 立檔 `docs/arc42/decisions/0078-events-format-normalization.md`
   （draft；append-only 例外釋義＝機器可證語意不變之格式修正、獨立勘誤 commit 逐筆附證據；
   首例四筆；隨收刀轉 accepted）

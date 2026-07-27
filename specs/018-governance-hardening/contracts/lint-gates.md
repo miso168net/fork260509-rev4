@@ -10,7 +10,8 @@ lint（除非另註）；severity 語意：ERROR＝exit 1 擋 commit、WARN＝�
 - **判定**：命中 `CRED_PATTERNS` 任一（data-model §1）→ERROR，訊息含檔案（submodule 面
   另含庫名）＋label；退化全樹掃時附 WARN 註記。
 - **豁免**：無 inline 豁免；白名單＝工具常數（現空集）＋ADR（0077）。
-- **self-test**：每次執行連帶紅綠樣本驗證、失敗即 ERROR（防恆綠）。
+- **self-test**：每次執行連帶紅綠樣本驗證、失敗即 ERROR（防恆綠）；★紅樣本執行期串接
+  構造、任何 tracked 檔內零完整命中字面（防自命中自紅）。
 
 ## G2 pin↔worktree HEAD 互證（FR-009）
 
@@ -22,9 +23,10 @@ lint（除非另註）；severity 語意：ERROR＝exit 1 擋 commit、WARN＝�
 ## G3 events SHA 逐列實證（FR-010／FR-011）
 
 - **觸發**：每次 lint（L4 擴充）。
-- **判定**：見 data-model §4——merge 缺席／非 commit＝ERROR；pins 缺席＝WARN、非 commit＝
-  ERROR、worktree 缺席＝skip；schema 層 `RE_SHA` 收 40 位（新舊列一體適用；上線前置＝
-  4 筆正規化勘誤 commit）。
+- **判定**：見 data-model §4——★pins 鍵集恰 {web, api}（帳本實形；固定映射 web→base-web、
+  api→rust-api；缺鍵／未知鍵＝ERROR）；merge 不可解／非 commit＝ERROR；pins SHA 不可解＝
+  WARN、可解而非 commit＝ERROR、worktree 缺席＝skip；schema 層 `RE_SHA` 收 40 位
+  （新舊列一體適用；上線前置＝4 筆正規化勘誤 commit）。
 - **實作形**：`git cat-file --batch-check` 批次（效能契約：全帳本驗證 <200ms）。
 
 ## G4 空集合守衛（FR-013）

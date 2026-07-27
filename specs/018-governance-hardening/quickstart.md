@@ -2,7 +2,9 @@
 
 前提：外層 repo 根、worktree 模式健全（bootstrap 體檢綠）。破壞性劇本（S2 注入、S4 造假、
 S5 造空）一律在 **scratch clone**（`git clone . /tmp/.../018-verify`）或暫存注入＋立即還原
-下執行、絕不留殘留；每案結束 `git status` 淨場驗證。
+下執行、絕不留殘留；每案結束 `git status` 淨場驗證。★例外＝S3 步 1（pin 互證需真 worktree
+——scratch clone 無 worktree 必 skip、驗不到）：於真 base-web worktree 造 `--allow-empty`
+空 commit 後 `reset --hard` 還原——零檔案變更、零 push、零 pin stage、可完全還原。
 
 ## S1 B-111 遷移驗收（SC-001）
 
@@ -26,8 +28,9 @@ S5 造空）一律在 **scratch clone**（`git clone . /tmp/.../018-verify`）�
 
 ## S3 pin 互證三態（SC-003）
 
-1. base-web worktree 空 commit（`--allow-empty`）→外層不 stage pin→lint 出 WARN；
-   還原（worktree reset 回原 HEAD）。
+1. base-web worktree 空 commit（`--allow-empty`；前言例外條款——先記原 HEAD）→外層不
+   stage pin→lint 出 WARN；還原（`git -C base-web reset --hard <原HEAD>`——空 commit
+   零檔案變更、reset 安全）。
 2. 收刀形（scratch clone）：同分歧下 staged events.jsonl 追加一行合成 feature_close→
    lint ERROR；棄置。
 3. skip 態：以單測覆蓋（worktree 缺席）；劇本驗跳過明細輸出形。
