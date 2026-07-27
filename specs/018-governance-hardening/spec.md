@@ -34,6 +34,17 @@ paulsha-conventions 評估產出的九項治理缺口＋B-111（四支 python �
   無條件全跑＋test 失敗即擋 commit。
 - **ADR**：兩枚都立（0077 憑證掃描閘、0078 events 格式正規化例外）。
 
+### Session 2026-07-28（/speckit-clarify）
+
+- Q: 命令形 lint（FR-014）的語料範圍？ → A: **三件活手冊**（CLAUDE.md＋README＋RUNBOOK——
+  現在式活手冊全入語料、同一正則零額外成本、覆蓋 B-111 改名後最易漂點；NOTES 排除＝未來式
+  帳可合法提及尚未存在的子命令、與時態分離紀律同邏輯。落選：僅 RUNBOOK〔原拍、CLAUDE.md／
+  README 漂移不看住〕／四件含 NOTES〔誤紅面〕）。
+- Q: fork-delta-lint 本體改動的 commit 當下要不要驗（現僅 pin bump 時執行、self-test 連帶
+  才跑）？ → A: **納入條件觸發**——staged 含 `fork-delta-lint.py` 本體→pre-commit 直跑它
+  一次（self-test 內建、零新碼），四支守門工具全覆蓋、「工具自己的測試恆不跑」失效類零殘留
+  （落選：維持現狀不接〔窗口期壞掉靜默在庫〕／補 test 子命令〔動工具本體加新介面〕）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 工具改名遷移與編排紀律範本打底 (Priority: P1)
@@ -121,9 +132,10 @@ submodule 在 pin bump 時其新進變更也被同一樣式集掃過。
 
 ### User Story 4 - 守門工具自測自動回歸＋命令表真表 (Priority: P4)
 
-開發者改動守門工具本體（docs-sync／schema-gate／wire-schema）時，該工具的自帶測試套件
-自動跑——「守門引擎自己的測試恆不跑」的失效類被堵死；新機重建／體檢一併全跑三支。RUNBOOK
-裡宣稱的工具子命令由機器對源碼派生的真表驗證——文件宣稱的子命令改名或移除即紅。
+開發者改動守門工具本體（docs-sync／schema-gate／wire-schema／fork-delta-lint）時，該工具的
+自帶測試自動跑——「守門引擎自己的測試恆不跑」的失效類四支全堵死；新機重建／體檢一併全跑。活手冊
+（CLAUDE.md／README／RUNBOOK）裡宣稱的工具子命令由機器對源碼派生的真表驗證——文件宣稱的
+子命令改名或移除即紅。
 
 **Why this priority**: 評估兩條 high 之一（自測零自動觸發點）；真表同時長期看住 US1 改名後
 的文件一致性。排 P4 係因接線依賴 US1 改名後的檔名與新條款落齊後的套件全貌。
@@ -136,15 +148,18 @@ submodule 在 pin bump 時其新進變更也被同一樣式集掃過。
 
 1. **Given** staged 含 `tools/docs-sync.py` 改動，**When** pre-commit 執行，**Then** 自動跑
    其 `test` 子命令（僅該支）；套件失敗即擋 commit。
-2. **Given** staged 不含任何工具本體，**When** pre-commit 執行，**Then** 零 test 額外開銷
+2. **Given** staged 含 `tools/fork-delta-lint.py` 本體改動（無 pin 變動），**When**
+   pre-commit 執行，**Then** 直跑該工具一次（首步 self-test 連帶執行）；失敗即擋 commit。
+3. **Given** staged 不含任何工具本體，**When** pre-commit 執行，**Then** 零 test 額外開銷
    （條件觸發、平時免費）。
-3. **Given** 新機重建或舊機體檢，**When** bootstrap 執行，**Then** 三支 test 子命令全跑、
+4. **Given** 新機重建或舊機體檢，**When** bootstrap 執行，**Then** 三支 test 子命令全跑、
    任一失敗即體檢紅。
-4. **Given** generate 執行，**When** 檢視 `docs/generated/reference/` 之 tools-cli 真表，
+5. **Given** generate 執行，**When** 檢視 `docs/generated/reference/` 之 tools-cli 真表，
    **Then** 內容為六支工具的子命令分派表掃源結果（python 四支之子命令集＋bash 兩支之
    存在與引數形）。
-5. **Given** RUNBOOK 中出現真表不存在的 `tools/<工具>.py <子命令>` 命令形，**When** lint
-   執行，**Then** ERROR 指名該行（文件宣稱漂移）。
+6. **Given** 三件活手冊（CLAUDE.md／README／RUNBOOK）任一中出現真表不存在的
+   `tools/<工具>.py <子命令>` 命令形，**When** lint 執行，**Then** ERROR 指名該檔該行
+   （文件宣稱漂移）；NOTES 中同形文字不受檢（未來式豁免）。
 
 ---
 
@@ -180,7 +195,8 @@ submodule 在 pin bump 時其新進變更也被同一樣式集掃過。
   帳本已乾淨、不自紅。
 - **文件中示範假鑰字面**：窄樣式集下形似真鑰的完整 PEM 頭不應出現在任何文件；真有教學需要
   →工具常數白名單＋ADR（無 inline 豁免、防偽）。
-- **同 commit 改多支工具**：條件觸發全部命中、合計仍 <4s（實測 3.2s）秒級紅線內。
+- **同 commit 改多支工具**：條件觸發全部命中、合計仍秒級（test 三支實測 3.2s、加計
+  fork-delta-lint 直跑 <10s）紅線內。
 - **docs-sync 自改動**：staged 含其本體即自動跑其 212 測；另每單元收尾以「改後引擎跑全 repo
   現況全綠」為放行紅線（引擎變更不得把既有現況打紅，除非該紅屬本刀故意新增且已修）。
 - **憑證掃描與 fork-delta-lint 的觸發同型**：兩者皆掛「staged 含 gitlink 變動」條件——先後
@@ -232,10 +248,13 @@ submodule 在 pin bump 時其新進變更也被同一樣式集掃過。
   工具子命令分派表）於 plan 定稿。
 - **FR-014**: generate MUST 新增 tools-cli reference 真表（`docs/generated/reference/`）：
   來源＝六支工具掃源（python 四支之子命令分派表＋bash 兩支之存在與引數形）；lint MUST 驗
-  RUNBOOK 中 `tools/<工具>.py <子命令>` 命令形存在於真表（不存在＝ERROR）。
-- **FR-015**: pre-commit MUST 條件觸發工具自測：staged 含某支工具本體→跑該工具 test 子命令
-  （僅該支）、失敗即擋；bootstrap 體檢 MUST 無條件全跑三支 test；fork-delta-lint 既有
-  每跑必 self-test 慣例 MUST 不動（不重複接）。
+  三件活手冊（CLAUDE.md／README／RUNBOOK）中 `tools/<工具>.py <子命令>` 命令形存在於真表
+  （不存在＝ERROR）；NOTES 屬未來式帳、MUST NOT 入語料（clarify 拍板）。
+- **FR-015**: pre-commit MUST 條件觸發工具自測、四支全覆蓋：staged 含 docs-sync.py／
+  schema-gate.py／wire-schema.py 本體→跑該工具 test 子命令（僅該支）；staged 含
+  fork-delta-lint.py 本體→直跑該工具一次（self-test 內建、不新增 test 介面；clarify 拍板）；
+  任一失敗即擋。bootstrap 體檢 MUST 無條件全跑三支 test（fork-delta-lint 既在體檢清單、
+  不重複）；fork-delta-lint 既有 pin bump 觸發條件 MUST 不動。
 - **FR-016**: 本刀每執行單元收尾 MUST 以「改後引擎跑全 repo 現況全綠」為放行條件——引擎
   變更不得把既有現況打紅（本刀故意新增且已修者除外）。
 - **FR-017**: 本刀 MUST 零 submodule 程式碼改動、零 pin bump（純外層 tools／hooks／
@@ -249,8 +268,8 @@ submodule 在 pin bump 時其新進變更也被同一樣式集掃過。
   空集合守衛）＋摘要三段式輸出——pre-commit 的判定面。
 - **events.jsonl 帳本**: append-only 事件源；本刀後 SHA 全域 40 位、逐列機器對 git 實證；
   格式正規化例外由 ADR 0078 治理。
-- **tools-cli 真表**: 機器生成 reference——工具×子命令存在性之源碼派生真值；RUNBOOK 命令形
-  的比對基準。
+- **tools-cli 真表**: 機器生成 reference——工具×子命令存在性之源碼派生真值；三件活手冊
+  （CLAUDE.md／README／RUNBOOK）命令形的比對基準。
 - **編排範本六件套**: CLAUDE.md §2 之 workflow script 防呆邊界——本刀補齊空間邊界（⑥）
   與 review 前饋，018 自身後續單元自食。
 
@@ -268,12 +287,12 @@ submodule 在 pin bump 時其新進變更也被同一樣式集掃過。
   新列 7 位短 SHA →schema 拒；正規化勘誤 commit 逐筆附同物件證據。
 - **SC-005**: 誠實輸出：純碼 commit 摘要行含跳過段與明細；臨時造空 ADR 目錄→ERROR
   （fail-closed 機器證）。
-- **SC-006**: 真表：tools-cli 含六支工具全部子命令（與源碼分派表逐一對得上）；RUNBOOK 注入
-  假子命令→lint ERROR 指名該行。
+- **SC-006**: 真表：tools-cli 含六支工具全部子命令（與源碼分派表逐一對得上）；三件活手冊
+  任一（如 RUNBOOK）注入假子命令→lint ERROR 指名該檔該行；NOTES 注入同形→不紅。
 - **SC-007**: 範本自食：本刀自身 U2 起每支 workflow script 含⑥允許檔案清單與次輪前饋句
   （script 文本機器可查）。
 - **SC-008**: 接線成本：pre-commit 平時（不含工具改動）耗時增量 0；含工具改動時總耗時
-  仍秒級（三支全觸發合計 <5s）。
+  仍秒級（test 三支全觸發合計 <5s、加計 fork-delta-lint 直跑合計 <10s）。
 - **SC-009**: 零回歸：docs-sync 212／schema-gate 130／wire-schema 7 既有測試零轉紅；
   既有 lint 條款對現庫判定零變化（改後引擎跑現況全綠）。
 
