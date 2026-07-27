@@ -4332,7 +4332,39 @@ class TestCredScan(unittest.TestCase):
             self.assertEqual([x["level"] for x in f], [WARN])
             self.assertIn("跳過", f[0]["msg"])
 
-    # -- run_lint 接線（contracts G1「觸發＝每次 lint」） ---------------------
+    # -- 組裝與 run_lint 接線（contracts G1「觸發＝每次 lint」） ---------------
+    def test_credentials_assembly_wires_submodule_face(self):
+        """★組裝層：`lint_cred_submodules` 從 `lint_credentials` 掉線＝US2 情境 2 靜默下線。
+
+        突變實證：組裝行改成只回 self-test＋外層面後，全套測試仍全綠——各面單元測試都直呼
+        函式本體、繞過組裝層，故「函式活著、接線斷掉」零信號。本案即補那張網。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            sha_a, sha_b = self._subrepo(d, "base-web")
+            self._stage_gitlink(d, "base-web", sha_a)
+            self._g(d, "commit", "-qm", "pin A")
+            self._stage_gitlink(d, "base-web", sha_b)
+            f = lint_credentials(d)
+            self.assertTrue(
+                any(x["code"] == "L16" and x["level"] == ERROR
+                    and "base-web" in x["where"] and "app.ts" in x["where"] for x in f),
+                msg=str(f))
+
+    def test_credentials_assembly_wires_self_test(self):
+        """★組裝層：`cred_self_test` 掉線＝US2 情境 5 防恆綠靜默下線（同上突變實證）。
+
+        乾淨 fixture＋永不命中之 dead 樣式集：外層面與增量面必然零 ERROR，故任何 ERROR
+        只可能來自 self-test——信號純淨。
+        """
+        dead = (("pem-private-key", re.compile(r"ZZZ-NEVER-MATCH-ZZZ")),)
+        with tempfile.TemporaryDirectory() as d:
+            self._outer(d)
+            f = self._with_patterns(dead, lambda: lint_credentials(d))
+            self.assertTrue(
+                any(x["code"] == "L16" and x["level"] == ERROR
+                    and "self-test 失效" in x["msg"] for x in f), msg=str(f))
+
     def test_run_lint_wires_credential_gate(self):
         """★接線層：`lint_credentials` 從 run_lint 掉線＝G1 整條下線，單元測試卻不會有反應。
 
