@@ -81,27 +81,36 @@ ERROR、無 inline 豁免、self-test 防恆綠。
 （cat-file 批次、merge ERROR／pins WARN）＋RE_SHA 收 40（前置＝4 筆正規化）。
 **Independent Test**: spec US3——造分歧 WARN／收刀形 ERROR；造假 SHA 紅；正規化後全列綠。
 
-- [ ] T010 [US3] 正規化勘誤 commit（★前置、先於一切條款——research R9 序）：
+- [x] T010 [US3] 正規化勘誤 commit（★前置、先於一切條款——research R9 序）：
   `docs/ops/events.jsonl` 列 12/14/15/17 merge 欄短→全（71c68bb／e7c2daf／9d4b47c／
   0a3f790、2026-07-28 已預核全可解）＋`python3 tools/docs-sync.py generate` 對賬＋
   commit message 逐筆「短→全」對照（機器證據、git 即史）
-- [ ] T011 [US3] 紅測 `tools/docs-sync.py` unittest 新增（contracts G2/G3、data-model
+- [x] T011 [US3] 紅測 `tools/docs-sync.py` unittest 新增（contracts G2/G3、data-model
   §3/§4 狀態表逐格）：pin 互證四態案（一致 pass／分歧 WARN／分歧×staged feature_close
   新增行 ERROR／worktree 缺席 skip——fixture git repo 構造 staged 情境）＋events merge
   不可解 ERROR 案＋pins（★帳本實形鍵名 web／api）SHA 不可解 WARN 案＋pins 可解非 commit
   物件 ERROR 案＋★pins 鍵集斷言案（缺鍵／未知鍵→ERROR、防空集合恆綠）＋RE_SHA 拒 7 位
   新列案——先紅
-- [ ] T012 [US3] 實作 G2＋G3 於 `tools/docs-sync.py`：gitlink（`ls-files -s`）vs
+- [x] T012 [US3] 實作 G2＋G3 於 `tools/docs-sync.py`：gitlink（`ls-files -s`）vs
   `git -C <sub> rev-parse HEAD` 互證＋收刀偵測（`diff --cached -U0 -- docs/ops/events.jsonl`
   新增行匹配 feature_close）＋pins 鍵名固定映射（web→base-web、api→rust-api）與鍵集斷言
   ＋`git cat-file --batch-check` 批次驗（外層＋每 submodule 各一發、效能 <200ms）＋
   `RE_SHA` 收 `[0-9a-f]{40}`→T011 轉綠
-- [ ] T013 [P] [US3] ADR 0078 立檔 `docs/arc42/decisions/0078-events-format-normalization.md`
+- [x] T013 [P] [US3] ADR 0078 立檔 `docs/arc42/decisions/0078-events-format-normalization.md`
   （draft；append-only 例外釋義＝機器可證語意不變之格式修正、獨立勘誤 commit 逐筆附證據；
   首例四筆；隨收刀轉 accepted）
-- [ ] T014 [US3] S3＋S4 劇本機判（quickstart：worktree 空 commit 造分歧→WARN→還原／
+- [x] T014 [US3] S3＋S4 劇本機判（quickstart：worktree 空 commit 造分歧→WARN→還原／
   scratch clone 收刀形 ERROR／造假 merge 紅／新列短 SHA schema 紅／`git log` 驗正規化
   對照）＋G10 紅線＋收尾
+  - **U3 實測備查（2026-07-28）**：條款代號實作為 **L17**（pin 互證）與 **L18**（events SHA
+    實證）兩支新號，非 contracts G3 括號所述之「L4 擴充」——理由＝L4 判定面單一 ERROR，
+    L18 有 WARN（rebase 卷史合法失聯）與 skip（worktree 缺席）三態，混號會使 RUNBOOK
+    按代號索引無法分別描述退出碼；**收刀時令 contracts 或 RUNBOOK 其一對齊**。
+  - **G3 效能契約達標**：`lint_events_sha` 直量中位 **135.5ms**（agent）／**162.9ms**（主線
+    複量），< 200ms。達標關鍵＝三個物件庫的 `cat-file --batch-check` 併發派發（序列版中位
+    260.1ms、drvfs 每次 git spawn 稅約 73ms vs native 1.8ms），該必要性已由 barrier 案機器
+    釘住。★S3 三態改以 fixture repo 等價驗證（不可違反項禁動真 worktree），非 quickstart
+    原文的 base-web 空 commit 路徑；等價性論證見 U3 report。
 
 ## Phase 6: US4 — 守門工具自測接線＋命令表真表（P4）
 

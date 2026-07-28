@@ -43,8 +43,9 @@ review 的簿記全落在這裡，機器生成的 MILESTONES／STATE 都由它�
      不可以改的是事實本身（哪一刀、哪一天、收了哪些 ADR、消化了哪些 BACKLOG 條目）。事實
      錯了不走本例外——那是新事件、或勘誤事件，不是格式修正。
    - **獨立勘誤 commit、逐筆附證據**：正規化必須自己一個 commit（內容純粹、零條款碼、零
-     其他文件改動），commit message 逐筆列「舊值 → 新值」與所屬 feature，並說明機器證據
-     怎麼取得。證據住 commit message＝住 git 史，日後任何人做 `git log` 或 `git blame`
+     其他**人寫**文件改動；`generate` 連帶重算的機器生成物同 commit 落地——`check` 閘要求
+     生成物與來源一致，分開落反而製造紅窗），commit message 逐筆列「舊值 → 新值」與所屬
+     feature，並說明機器證據怎麼取得。證據住 commit message＝住 git 史，日後任何人做 `git log` 或 `git blame`
      都直接看得到「這一列為什麼被動過」。
 
 3. **首例＝本刀 T010 的四筆短 SHA 展開**（列 12／14／15／17 的 `merge` 欄，7 位 → 40 位）。
