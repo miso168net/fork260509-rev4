@@ -158,14 +158,25 @@ ERROR、無 inline 豁免、self-test 防恆綠。
 **Independent Test**: spec US5——造空 ADR 目錄紅；純碼 commit 跳過明細顯示；合法 skip
 落明細不落 ERROR。
 
-- [ ] T019 [US5] 紅測 `tools/docs-sync.py` unittest 新增（contracts G4/G6、data-model
+- [x] T019 [US5] 紅測 `tools/docs-sync.py` unittest 新增（contracts G4/G6、data-model
   §5/§6）：空集合守衛七組逐組造空案（fixture 環境）→ERROR＋摘要行三段式字面斷言案＋
   合法 skip 落明細案（worktree 缺席等）＋`check` 輸出形不變案——先紅
-- [ ] T020 [US5] 實作 G4＋G6 於 `tools/docs-sync.py`：`skipped` 累積器＋既有 silent-skip
+- [x] T020 [US5] 實作 G4＋G6 於 `tools/docs-sync.py`：`skipped` 累積器＋既有 silent-skip
   點盤點 route（R12：L6b 無 git／worktree 缺席／amend 豁免等）＋七組守衛（R4；#5 掛
   T016 掃源函式）＋摘要行改版（僅 X>0 非零退出）→T019 轉綠
-- [ ] T021 [US5] S5 劇本機判（quickstart：scratch clone 造空紅／純碼情境跳過明細／
+- [x] T021 [US5] S5 劇本機判（quickstart：scratch clone 造空紅／純碼情境跳過明細／
   摘要字面驗）＋G10 紅線＋收尾
+  - **U5 實測備查（2026-07-28）**：G4 條款代號＝**L20**；★守衛#5 依實證收斂——data-model
+    §6 字面「工具子命令集×4 空即 ERROR」照做會自紅（fork-delta-lint.py 源碼零分派表、
+    子命令集恆空且屬正確事實），實作改為「名冊非空＋**有分派表者**其子命令集非空」，
+    以獨立弱探針（偵測 cmd 比較形之存在、不看引號內容）判「有無分派表」、與嚴格掃源
+    正則互相獨立故非套套邏輯（嚴格正則改壞→三支有表工具紅、fork-delta-lint 不誤紅，
+    突變 KILLED）。skip 語意遷移＝L16/L17/L18 共用 submodule_head 探針歸一＋8 類
+    silent-skip 點 route 進 skipped 累積器；既有 11 案斷言更新（預期遷移非迴歸）。
+    現庫終態＝lint：0 錯誤／0 警告／3 條款跳過（L6 簿記基準不對應＋L16 兩庫未 staged）。
+    U3/U4 遺留十修全落（A6 二選一＝刪未驗證死防線＋補契約案；A8＝樹狀圖行排版形制
+    判準、代價入註解與測試 docstring）。quality 共 74 突變體、71 殺、2 等價、3 訊息面；
+    殘餘 1 blocker（L19 續值誤收完整命令形）由主線修畢（5c06af9、反向突變 KILLED）。
 
 ## Phase 8: Polish & Cross-Cutting
 
