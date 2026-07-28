@@ -1,4 +1,4 @@
-<!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->
+<!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->
 # STATE — 現況機器帳
 
 ## git
@@ -9,9 +9,9 @@
 - 版本：1.14.0
 
 ## 帳面統計
-- ADR：76（accepted 70、superseded 6）
-- BACKLOG 待辦：30（next：B-112）｜滯後：2
-- LESSONS：154 筆（next：L-155）
+- ADR：78（accepted 70、draft 2、superseded 6）
+- BACKLOG 待辦：32（next：B-114）｜滯後：2
+- LESSONS：155 筆（next：L-156）
 - events：29 筆（feature_close 17、misc 9、review 3）
 
 ## 最近事件（尾 3 筆、新在前）

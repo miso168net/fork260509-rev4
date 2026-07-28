@@ -20,7 +20,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 - **技術棧**：前端＝soybean-admin fork（Vue3／TypeScript／naive-ui／vite／pnpm）；
   後端＝Rust（axum／sea-orm／PostgreSQL／Redis／casbin）；容器化 docker compose；
-  工作區工具＝python3 標準庫（tools/docs-sync）。
+  工作區工具＝python3 標準庫（tools/docs-sync.py）。
 - **repo 拓樸**：傘狀 repo（本 repo、default branch `rev4-admin-root`）＋兩個雙身分子體
   （本機 git worktree／外層 submodule gitlink）：`base-web/`（分支 `rev4-admin-base-web`、
   自 upstream example 最新 HEAD 衍生）與 `rust-api/`（分支 `rev4-admin-rust-api`、自源倉
@@ -48,7 +48,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 - **wire 契約機器化**：前端 typings 為裁判、contract test＋coverage gate 守恆
   （constitution §I.3）。
 - **機器優先文件觀**：文件為機器與人共讀而設計；每個事實一個人寫的家、鏡像一律機器生成
-  （tools/docs-sync）、契約 lint 在 commit 當下強制。
+  （tools/docs-sync.py）、契約 lint 在 commit 當下強制。
 
 ## §5 Building blocks
 
@@ -261,7 +261,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   unless-stopped、全滅不影響業務（旁觀者原則；`docker kill` 屬手動停止 restart 不套用、
   真故障〔PID 1 自死〕才自回復）。面板／datasource／告警／通知全 as-code provisioning
   （deploy/grafana-provisioning：七面板＋13 條告警規則全覆蓋四島義務＋webhook 接觸點
-  `$__file` 讀 secret）；拒因字典板＝機器生成物（tools/docs-sync 守門、嚴禁手改）。
+  `$__file` 讀 secret）；拒因字典板＝機器生成物（tools/docs-sync.py 守門、嚴禁手改）。
 - **sock 窄化拓樸（016、FR-015）**：docker.sock 僅 `:ro` 掛 socket-proxy（deny-by-default
   白名單、恰 log 採集實需六端點；archive／export／attach 類天然拒絕）；proxy 住專用
   internal 網段、成員恰 proxy＋alloy；alloy 非 root 經 tcp 取 docker API；業務網段對
@@ -286,12 +286,12 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 | datetime | DB 時間欄一律 `timestamptz` 存 UTC；wire 一律 ISO-8601 帶時區偏移、禁 naive datetime；前端唯一 formatter util、以瀏覽器時區顯示＋帶時區標示（使用者偏好時區留參數位、消費點只有 formatter 一處） | wire 時間欄 offset 守門隨首個帶 wire 時間欄的端點建立（曾以 demo 為載體、demo 移除後暫無 wire 時間欄消費者→守門移除、隨首個顯示時間欄的刀重建、git 即史）；前端 formatter lint 隨首個顯示時間欄的前端刀建立（settings 頁無時間欄消費→續延、不宣稱就位） |
 | i18n | primary locale＝zh-TW（預設 UI／開發驗收基準）；zh-cn 字典保留維護＝上游 rebase 同步錨點；語言選單「簡體／繁體／English」；業務錯誤 msg＝i18n key、前端 $t 翻譯（詳 constitution §I.3 與 I18N-WIRING 軌道） | locale 對等 lint：zh-cn／zh-tw／en-us 三語鍵集一致——`App.I18n.Schema`（`Record<LangType,Schema>`）容器內 vue-tsc typecheck 使「加鍵漏語言」直接紅（base-web 首刀 004 建立；base-web host husky 主機無 node toolchain→驗證走容器 typecheck 非 pre-commit） |
 | 錯誤碼 | 13 碼矩陣整組凍結、新需求優先 reuse 既有碼；碼→HTTP 映射、保留碼規則、msg=key 詳 constitution §I.3 | 碼表 table-driven contract test＋「保留碼後端永不發出」斷言（`cargo test --workspace` error.rs 13 碼矩陣＋保留碼列舉完整性，003-wire 落地）；後端錯誤型→業務碼映射收單一來源 |
-| wire 契約 | 前端 typings 為裁判、統一信封／分頁通用形對其驗證；動 typings／加 route 的刀必於單元邊界重跑 `python3 tools/wire-schema extract` 並隨 commit（快照住 server/tests/fixtures/wire-schema.json） | 契約裁判（快照 vs 序列化：通用形＋per-route 業務型受審接上，如 `SettingItem` vs `Api.SystemManage.SystemSetting`）＋路由↔case 雙向覆蓋閘（`cargo test --workspace`）；快照↔typings 一致由本紀律＋再抽 byte 冪等 |
+| wire 契約 | 前端 typings 為裁判、統一信封／分頁通用形對其驗證；動 typings／加 route 的刀必於單元邊界重跑 `python3 tools/wire-schema.py extract` 並隨 commit（快照住 server/tests/fixtures/wire-schema.json） | 契約裁判（快照 vs 序列化：通用形＋per-route 業務型受審接上，如 `SettingItem` vs `Api.SystemManage.SystemSetting`）＋路由↔case 雙向覆蓋閘（`cargo test --workspace`）；快照↔typings 一致由本紀律＋再抽 byte 冪等 |
 | facade 分層 | 資料存取全走 `model/facade`（每 entity 一模組＝存取唯一管道）；handler／auth 層零 path-root `entity::`；業務寫＋op-log 走 `mutate_in_txn` 同 txn | `entity_access_lint`（源碼掃描 handler 零 path-root `entity::`＋防-vacuous self-test，`cargo test --workspace`，004 首建） |
-| 審計欄 | 業務表建表即帶 archetype 全欄；四變體歸屬與無 retrofit 條款詳 constitution §I.6 | `tools/schema-gate audit`（對實庫逐表驗變體矩陣、清單外業務表攔截；需運行中 stack、不進 pre-commit）；`/speckit-plan` 自查第 8 題每刀必答 |
+| 審計欄 | 業務表建表即帶 archetype 全欄；四變體歸屬與無 retrofit 條款詳 constitution §I.6 | `tools/schema-gate.py audit`（對實庫逐表驗變體矩陣、清單外業務表攔截；需運行中 stack、不進 pre-commit）；`/speckit-plan` 自查第 8 題每刀必答 |
 | soft-delete | 軟刪欄成對寫入（`deleted_at`＋`deleted_by` 同寫）；讀端預設過濾已刪列；軟刪表唯一鍵用 partial-uniq `WHERE deleted_at IS NULL` | partial-uniq 約束本身（DB 層直接擋重複）；facade 讀端過濾測試（隨對應 entity 刀建立）；刪除連動行為（如角色刪除清授權）隨對應刀立 ADR 入憲 |
-| 欄序 | 欄序＝基線刀 user 定稿、後續加欄一律 append（ADR 0021） | 加欄／動 schema 的刀於單元邊界跑 `tools/schema-gate gate2` 逐欄驗實庫欄序＝定稿（可重跑、需運行中 stack、不進 pre-commit） |
-| 快照新鮮度 | 加 migration 的刀必於單元邊界重跑 `python3 tools/docs-sync refresh`→`generate` 並隨該 commit 入庫 | pre-commit `docs-sync check` 攔快照↔生成物漂移（離線秒級）；快照↔實庫一致由本紀律＋收官重跑 refresh 驗 diff 空收斂 |
+| 欄序 | 欄序＝基線刀 user 定稿、後續加欄一律 append（ADR 0021） | 加欄／動 schema 的刀於單元邊界跑 `tools/schema-gate.py gate2` 逐欄驗實庫欄序＝定稿（可重跑、需運行中 stack、不進 pre-commit） |
+| 快照新鮮度 | 加 migration 的刀必於單元邊界重跑 `python3 tools/docs-sync.py refresh`→`generate` 並隨該 commit 入庫 | pre-commit `docs-sync check` 攔快照↔生成物漂移（離線秒級）；快照↔實庫一致由本紀律＋收官重跑 refresh 驗 diff 空收斂 |
 | logging | 後端 log 全環境 JSON 單行事件（dev/prod 單一形）；每請求一 request span 掛 sanitize 後 `trace_id`（白名單 `[0-9a-zA-Z._-]`＋64 上限、單一 seam＝log↔稽核 join 鍵）；completion event（`target=http.request`、path 級過濾 `APP_LOG_EXCLUDE_PATHS` 預設空＝全記） | test_support JsonLogCapture 與 production 同形 subscriber、非 JSON 行即 panic＋sanitize 矩陣測＋completion 契約測（容器內 `cargo test --lib`、016 首建） |
 | metrics | 自訂 counter 宣告即於 obs.rs 單點 pre-register 顯式 0（服務重啟首刮即在；label 值集與發射點同錨）；新增 counter 的刀必同步擴 pre-register＝慣例；HTTP 層 endpoint label 未命中路由收斂常數 `unmatched`（防無界基數） | obs.rs pre-register 測＋`/metrics` scrape 斷言（容器內 `cargo test --lib`）＋quickstart S3 判準①全序列收口（016 首建） |
 

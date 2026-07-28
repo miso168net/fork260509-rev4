@@ -1,4 +1,4 @@
-<!-- next: L-155 -->
+<!-- next: L-156 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -33,7 +33,7 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
 ## 〔文件紀律〕
 
 - **L-108**｜base-web fork-delta「修改型」標記只寫描述、漏 `原行:`（緊鄰改動行、含上游那行原碼逐字）——upstream（soybean example 分支）常態更新、rebase 時無「原行」就無法定位/對照上游原本那行，fork-delta 標記核心用途落空；根因＝編排 prompt 條文過鬆（只說「原行加標記」未要求原行內容）、review 亦未驗。
-  防：修改型標記必含 `// [rev4-inline <軌道>] 原行: <example 原碼逐字>`（憲法 §III L114）；`tools/fork-delta-lint` 以 `fork260509-soybean-admin-base@example` 為基線 diff base-web、修改型缺原行即紅（含 self-test 防 vacuous、掛 pre-commit 於 base-web pin 變動時自動跑）——機器強制、不靠人工 review。｜出處：004-system-settings（user review 抓出）
+  防：修改型標記必含 `// [rev4-inline <軌道>] 原行: <example 原碼逐字>`（憲法 §III L114）；`tools/fork-delta-lint.py` 以 `fork260509-soybean-admin-base@example` 為基線 diff base-web、修改型缺原行即紅（含 self-test 防 vacuous、掛 pre-commit 於 base-web pin 變動時自動跑）——機器強制、不靠人工 review。｜出處：004-system-settings（user review 抓出）
 
 ## 〔後端／DB／redis〕
 
@@ -44,7 +44,7 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
 ## 〔CDP／mock 驗收〕
 
 - **L-109**｜新增 seed 的 migration（如 m003 加 system_settings 一列）會靜默破 schema-gate 閘 2——閘 2 契約（ADR 0021）「實庫 seed 集合＝定稿清單、多 0」不容任何後續刀新增 seed；且非 pre-commit 閘、只在波段出口回歸才紅。
-  防：新 seed 隨其 migration 同 commit 於 tools/schema-gate 的 SEED_ADDITIVE_ALLOWLIST 宣告（ADR 0032 additive 白名單、比照閘 1 結構白名單）；002 凍結 fixtures 永不因新增 seed 改寫（保 rev3/定稿 byte-pure）。｜出處：005 D2 拍板
+  防：新 seed 隨其 migration 同 commit 於 tools/schema-gate.py 的 SEED_ADDITIVE_ALLOWLIST 宣告（ADR 0032 additive 白名單、比照閘 1 結構白名單）；002 凍結 fixtures 永不因新增 seed 改寫（保 rev3/定稿 byte-pure）。｜出處：005 D2 拍板
 - **L-110**｜8888（auth.session.reLogin）為 upstream soybean 的 logoutCode——攔截器 onBackendFail 對 logoutCode 是 handleLogout→resetStore→/login、return null、★無任何訊息（只有 modalLogoutCodes 7777 那條走 $t(backend.msg) 顯阻斷式 modal）；spec 想要的「請重新登入」輕量 toast 在攔截器控制流紅線下不可達（upstream 只有「靜默」或「阻斷 modal」兩種）。
   防：as-built＝閒置過期靜默重導 /login（重導即再登入訊號、比 modal 輕合 research R7）；輕量 toast 需攔截器軌道 amendment（B-062、session 刀）。此類 UI 行為只有 CDP 真瀏覽器抓得到（L-053）。｜出處：005 CDP item#5 拍板
 - **L-111**｜base-web dev（pnpm dev＝vite --mode test、compose NODE_ENV=development→DEV=true、VITE_HTTP_PROXY=Y）下，VITE_SERVICE_BASE_URL 不是 axios baseURL、而是「跑在 base-web 容器內的 vite dev-server proxy」的 target；填 host-published port（localhost:42080）容器內連不到、CDP 登入會斷。
@@ -63,7 +63,7 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   防：此性質是「無 unlock marker → 綁 SQL NULL」免 sentinel 的依據（NULL 自然退化為不參與下界）；依賴處以實作註解＋守門測試明載，防誤用 epoch sentinel、防誤判 NULL 毒化整式。｜出處：007 U4（data-model §5.3）
 - **L-118**｜`bad_redis()` 測試 helper 住 `auth/enforce.rs` 的 `#[cfg(test)]` mod、跨模組不可見——`handler::auth` 測試要連壞 Redis 的 client 無法 reuse、只能複製一份。
   防：小型測試 helper 直接複製勝過為它重構可見性；第三處再要用時屆時抽共用 test-util。｜出處：007 U2/U8
-- **L-119**｜`.vue` 檔 template 區不認 `//`／`/* */` 註解，fork-delta 標記在 template 區必須用 HTML 註解形 `<!-- [rev4-inline …] -->`（007 首用；`tools/fork-delta-lint` 已支援該形）。
+- **L-119**｜`.vue` 檔 template 區不認 `//`／`/* */` 註解，fork-delta 標記在 template 區必須用 HTML 註解形 `<!-- [rev4-inline …] -->`（007 首用；`tools/fork-delta-lint.py` 已支援該形）。
   防：base-web 改 template 區照 pwd-login.vue 範式落標記；script 區維持 `//` 形。｜出處：007 U6（pwd-login.vue）
 - **L-120**｜`captcha` crate 1.0.0 內嵌字型僅 57 個 glyph、無 `0`／`o`；`add_char` 對無 glyph 字元**靜默跳過**——字集含 0/o 時產出的圖少字元、題不可解且無任何錯誤訊號。
   防：字集必須先驗字型涵蓋再定案（守門測試 `font_covers_full_charset` 逐字元斷言可渲染）；007 `CAPTCHA_CHARSET` 36→34（去 0/o）即此根因。｜出處：007 U5（captcha/mod.rs）
@@ -81,15 +81,15 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   防：評估任何 per-IP 機制前先查 publish 形式（`docker inspect` 看 HostIp）與 `userland-proxy` 設定；per-IP 分桶正確性需外部機器或非 loopback publish 才驗得到，dev 內只能驗「機制會觸發」不能驗「分桶正確」。｜出處：2026-07-10 反代拓樸偵察（實測 nginx 存取日誌）
 - **L-127**｜rev4 `SessionCache` 是純 `ConnectionManager`（multiplexed）、**不可共用於 Redis pub/sub**——SUBSCRIBE 端須另開專用 `redis::Client`（由 `config.redis_url` re-open）；`on_message()` stream 消費需 `futures_util::StreamExt`。rev4 首個 pub/sub（008 ipgate 門鈴）踩此；rev3 有完整樣板可參照機理。
 - **L-128**｜IPv6 節流計數鍵聚合到 /64 **必須 `Ipv6Network::new(v6,64)?.network()` 截斷 host bits**——不截斷則同一 /64 內不同主機位址值不相等、聚合失效（同 /64 各落新桶、硬門檻永不觸發）。IPv4-mapped IPv6（`::ffff:a.b.c.d`）另須先 `to_canonical()` 折 v4，否則雙棧下全部 v4 流量塌縮進 `::ffff:0:0/64` 單桶（一人觸鎖鎖全體）。
-- **L-129**｜`tools/docs-sync`／`tools/schema-gate`／`tools/fork-delta-lint` 皆 **python3 shebang**——`bash tools/<x>` 會把 python 原始碼當 shell 解譯、噴 `import: command not found`＋syntax error 假失敗；一律直接執行（`tools/<x>`）或 `python3 tools/<x>`。★`schema-gate` 另需子命令 `gate1`／`gate2`／`audit`（無參回 exit 64 EX_USAGE、只印 usage）。
-- **L-130**｜`tools/docs-sync generate` 的 submodule pin（STATE.md `pins:`）**取自 git index 的 gitlink**、非 worktree HEAD——故 submodule pin bump 的兩段式 commit 中，須先 `git add rust-api`（或 base-web）再跑 generate，否則 STATE pin 不更新、check 報不一致（008 U1 起每單元收單實測）。
+- **L-129**｜`tools/docs-sync.py`／`tools/schema-gate.py`／`tools/fork-delta-lint.py` 皆 **python3 shebang**——`bash tools/<x>` 會把 python 原始碼當 shell 解譯、噴 `import: command not found`＋syntax error 假失敗；一律直接執行（`tools/<x>`）或 `python3 tools/<x>`。★`schema-gate` 另需子命令 `gate1`／`gate2`／`audit`（無參回 exit 64 EX_USAGE、只印 usage）。
+- **L-130**｜`tools/docs-sync.py generate` 的 submodule pin（STATE.md `pins:`）**取自 git index 的 gitlink**、非 worktree HEAD——故 submodule pin bump 的兩段式 commit 中，須先 `git add rust-api`（或 base-web）再跑 generate，否則 STATE pin 不更新、check 報不一致（008 U1 起每單元收單實測）。
 - **L-131**｜CDP 驅動 base-web 時 Edge **背景分頁會被凍結**（`document.visibilityState==='hidden'`、任務佇列停擺）→ 頁面發出的 `fetch` 在 `requestWillBeSent` 後**永不 settle**、連 `AbortSignal.timeout` 都不觸發，點擊（如 quick-login）看似完全無反應、症狀與「後端沒回應」無法區分。★驅動前必先 `Page.bringToFront`（visible 後同請求立即完成）；凍結期在途請求會隨 `Page.reload` 一併作廢。
 - **L-132**｜Workflow 看門狗 `RUNAWAY=25`（journal 行數保險絲）對 **fan-out 型 review/偵察 workflow 會誤觸**——每 agent journal 約 2 行，多鏡頭並行（如 6 鏡頭＝12 行＋log、或 21 agent＝42 行）易超 25。★掛錶前估 journal 理論行數（agent 數×2＋log），逼近或超過就改 stall-only 監控、勿反射性 TaskStop 健康 workflow。
 - **L-133**｜WSL2 drvfs 可**整批 clobber worktree 檔案回舊狀態、但 git index（staged）內容倖存**——008 U15 收尾實測：憲法 amendment／五 ADR／spec 承重前提全被 worktree 回退，但 `git add` 過的版本全在 index。★復原＝`git restore --worktree <files>`（worktree ← index，含還原被刪的 `AD` 狀態檔）；中斷/交接後**一律先核 `git status` 的 staged(index) vs worktree 分歧方向**再判斷內容是否遺失——多半沒遺失、只是 worktree 被回退。與 [[drvfs-commit-phantom-success]] 同源（drvfs 對 git 狀態的干擾）。
 - **L-134**｜IPv4-mapped IPv6 家族不符：`::ffff:a.b.c.d` 形的 client_ip 與 v4 規則網段（gate `decide`／`would_self_lock`）、v4 計數桶 inet（`real_ip <<=` 比對）**家族不符恆 false**＝閘門漏判＋per-IP 計數恆 0。★修法＝**單點** canonical：兩 overlay 產出真實來源後、注入 RequestContext 前 `client_ip.to_canonical()` 折 v4（對純 v4/v6 恆等、無副作用），使下游全拿 canonical 形；`peer_ip` 保持原形（不參與桶比對）。008 final review #1 修正 A。
 - **L-135**｜以 CDP 驗「debounce／`watch` 觸發次數」有兩個陷阱：①**Vue `watch` 對同步多次改值只 flush 一次**——在 `Runtime.evaluate` 內同步連改被觀察值 N 次，watcher 僅作動一次、下游（含被測 debounce）只發 1 次請求，**有無 debounce 皆得 1**＝假綠；須以真實延遲分散（各改動間 `await setTimeout`、如 50ms×5＝250ms＜300ms 窗），令每次改動各觸發一次 flush，debounce 的 coalesce 才可觀測（B-075① 實測：軟區開、連改 userName → `/auth/loginCaptcha` 恰 1 發；無 debounce 應 5 發）。②**計數走 CDP `Network.requestWillBeSent`**（瀏覽器側、含 vite proxy 請求）、**非** page-context 的 `fetch`／XHR hook（request 層載入時已捕獲參考、page-context hook 攔不到＝L-122 ②）。狀態注入沿 captcha-inspect 範式（`el.__vueParentComponent` 上溯 `setupState` 設 `captchaVisible`／驅動 `model`）＋驅動前 `Page.bringToFront`（L-131）。
 - **L-136**｜對**凍結基線表加尾欄**（gate2 欄序面覆蓋、data-model §3 十二張欄序表凍結）會破 gate2——既有 ADR 0039 結構 additive 容差**只放寬 gate1**（post-baseline 新表／新索引），**不含 gate2「既有表加欄」**；而 gate2 欄序面對每表 `information_schema.ordinal_position` 逐位比對 §3 欄序表，尾端多一欄即整段位移假紅（且 gate2 非 pre-commit 閘、只波段出口回歸才紅）。009 m007＝`sys_casbin_policy_archive` 加 `role_id`（唯一結構變更）即撞。
-  防：加欄隨其 migration 同 commit 於 `tools/schema-gate` **欄序面 additive 容差白名單**登記（`WHITELIST_TYPE[(table,col)]=期望型別`，如 `("sys_casbin_policy_archive","role_id"):"bigint"`）——gate2 把「實庫尾端多出且登記之欄」剝除後再逐位比對（只放寬尾端新增、不放寬改動/重排）＋gate1 欄面白名單同步登記；§3 定稿與 psql 快照凍結不改（比照 STRUCT_ADDITIVE_ALLOWLIST／SEED_ADDITIVE_ALLOWLIST 範式、逐項註來源刀零萬用字元）。此為欄序面容差首例＝009 m007 archive.role_id。｜出處：009 U1（m007）／schema-gate 欄序面容差擴充
+  防：加欄隨其 migration 同 commit 於 `tools/schema-gate.py` **欄序面 additive 容差白名單**登記（`WHITELIST_TYPE[(table,col)]=期望型別`，如 `("sys_casbin_policy_archive","role_id"):"bigint"`）——gate2 把「實庫尾端多出且登記之欄」剝除後再逐位比對（只放寬尾端新增、不放寬改動/重排）＋gate1 欄面白名單同步登記；§3 定稿與 psql 快照凍結不改（比照 STRUCT_ADDITIVE_ALLOWLIST／SEED_ADDITIVE_ALLOWLIST 範式、逐項註來源刀零萬用字元）。此為欄序面容差首例＝009 m007 archive.role_id。｜出處：009 U1（m007）／schema-gate 欄序面容差擴充
 - **L-137**｜Workflow 編排的機器兜底全走**相對路徑**：`.claude/settings.json` 註冊的 hooks（`sh .claude/hooks/session-start.sh`、`python3 .claude/hooks/pre-workflow-gate.py`、`python3 .claude/hooks/post-workflow-reminder.py`）與 Monitor 看門狗 command（`bash tools/wf-watchdog`）皆相對 repo 根解析；且 pre-workflow-gate 以 `os.path.isfile(scriptPath)` 讀 script 內容、scriptPath 相對而 CWD 非 repo 根時解不到即 **fail-open**（不擋、zh-TW 書面強制令漏驗＝L-113 機器閘靜默失效）。agent thread 的 CWD 於各 bash call 間會 reset，發射時 CWD 若非 repo 根，hooks／watchdog／zh-TW 閘全部靜默落空。
   防：Workflow launch 前確認 CWD＝repo 根（`/mnt/d/AnewSpaces/x_Project/fork260509-rev4`）；防呆②（渲染後 prompt 必含 "zh-TW" 字面、否則零派發 throw）為 **script 本體自檢**、不依賴 hook 兜底（hook fail-open、只當第二防線）；Monitor 沿 `bash tools/wf-watchdog <冒煙token>`（B-070 已改 realpath 自尋最新 wf 目錄、免 cd 前綴）。｜出處：009 編排（hook/watchdog 相對路徑結構核對）
 - **L-138**｜gate2 seed 面「多列」假紅的**首疑對象＝flaky committed-row 測試的孤兒列**、非真 seed 漂移：auth 節流 flaky 併發測（`throttle_no_false_lock…`、`seed_temp_user` `us2_` 前綴）若把 committed 列 cleanup 排在測末、panic 即漏跑→留 committed `sys_user` 孤兒污染 gate2 seed 面；009 U6/U7 各撞一次、各手清一次。症狀與真 seed 漂移難分（皆＝gate2 seed 面比 fixtures 多列）。
@@ -111,7 +111,7 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   `isalnum(0xEF)`＝false 故不發（∴ WSL2/Linux 維護者不會遇到）。
   防：macOS 上一律以 **`LC_ALL=C`**（或 `LC_CTYPE=C`／`POSIX`——純 ASCII ctype 使
   `isalnum(0xEF)`＝false、bash 於多位元組邊界正確停止；中文訊息仍以 raw UTF-8 bytes 正常輸出）
-  前綴執行；腳本若 spawn python 且需讀 UTF-8 檔（如 `tools/fork-delta-lint` 讀 `原行:` 註解）
+  前綴執行；腳本若 spawn python 且需讀 UTF-8 檔（如 `tools/fork-delta-lint.py` 讀 `原行:` 註解）
   再加 **`PYTHONUTF8=1`** 保 python 在 C locale 下仍以 UTF-8 `open()`。定案指令：
   `cd <repo 根>; LC_ALL=C PYTHONUTF8=1 bash tools/bootstrap`；`bash tools/wf-watchdog <token>`
   同理前綴 `LC_ALL=C`（此為 Workflow 編排看門狗、macOS 上不加會靜默壞）。跨平台根治（可選、
@@ -119,10 +119,10 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   （braces 使 bash 不吃後續 byte、macOS/Linux 皆安全），惟涉改多支 committed 工具、非必要。
   ｜出處：2026-07-13 macOS fresh-clone bootstrap 實測（Darwin 25；bash 3.2.57＋Homebrew 5.3.15
   雙證、locale 矩陣＋`LC_ALL=C` 修正實證；交接檔 2026-07-14 以 L-142 收錄——原配號 L-139 已被佔用）
-- **L-143**｜`tools/fork-delta-lint` 以 `bash` 前綴跑＝假紅：該工具為 python 腳本，bash 解析
+- **L-143**｜`tools/fork-delta-lint.py` 以 `bash` 前綴跑＝假紅：該工具為 python 腳本，bash 解析
   即噴語法錯 exit 2（實測 `bash tools/fork-delta-lint`＝exit 2、`python3 tools/fork-delta-lint`
   ＝exit 0 真綠）；文檔曾散佈 `bash` 前綴寫法（quickstart／tasks 已勘誤）。防法：一律
-  `python3 tools/fork-delta-lint` 直跑；編排 agent prompt 明寫 python3。
+  `python3 tools/fork-delta-lint.py` 直跑；編排 agent prompt 明寫 python3。
   ｜出處：2026-07-16 013 U1 主線邊界實測。
 - **L-144**｜wf-watchdog 目錄搶答：Workflow launch 與 Monitor 同回合原子成對發射時，若新
   wf_* transcript 目錄晚於看門狗 sleep 10 的掃描窗才建立（首 agent 起跑慢），`ls -dt` 會選中
@@ -184,9 +184,15 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   防法：①每次工具結果回來先比對「實發 command」與意圖、不符即察覺；②同一指令連兩次結果不變
   ＝停手逐字重打整條 command、勿再靠慣性續發；③關鍵 state-change 指令（cd／reset／rm）單發
   單收、不夾雜其他動作。｜出處：2026-07-19 B-086 發射前 CWD 修正段實證（第 5 次才自我戳破）。
-- **L-152**｜pin bump 簿記 commit 的 generate 順序坑：tools/docs-sync generate 之 STATE pin 取自
+- **L-152**｜pin bump 簿記 commit 的 generate 順序坑：tools/docs-sync.py generate 之 STATE pin 取自
   git index（staged gitlink）而非 submodule worktree HEAD——先跑 generate 再 git add rust-api，
   STATE 落舊 pin、pre-commit check 即紅。防法：pin bump 簿記一律「git add rust-api → generate →
   git add docs/generated → commit」順序；順序反了就地重跑 generate 再 commit 即癒。
   ｜出處：2026-07-19 016 U5 收單 commit 首次嘗試被 L1 攔（U2 同形僥倖通過＝前次失敗 commit
   已把 gitlink 留在 index）。
+- **L-155**｜WSL2 drvfs 上「整鏈前後差量」量不出秒級增量：pre-commit 全鏈約 45s 的牆鐘變異達
+  ±1.5s 量級、大於被測新條款的實際成本（018 U2 以 `run_lint` 整跑做差量甚至量出負值）。
+  防法：量單一條款／函式的成本一律用 `perf_counter` 直接包該函式、連跑數次取穩定值
+  （L16 外層全量掃實測 1.47~1.54s、併入 `run_lint` 僅 +0.3s＝頁快取效應）；整鏈 `time`
+  只用於「有無數量級劣化」的粗判，不可用於秒級增量驗收。
+  ｜出處：2026-07-28 018 U2（G1 憑證掃描）效能驗收；連帶＝T001 基線 46.4／47.4s 的離散度即證據。

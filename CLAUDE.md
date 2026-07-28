@@ -20,7 +20,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   分支＝本機源倉 `fork260509-soybean-admin-base/`（恆切在 `example` tip；lint 首步斷言、不在即紅）。
   base-web 修改型 inline（動到基線既有行）標記必含 `原行: <基線該行逐字原文>`；我方新檔／純新增行
   （基線沒有的行）不標原行、走新增型圈界——紀律上位＝constitution §III。機器強制＝
-  `tools/fork-delta-lint`（每次執行先 self-test 防恆綠；每次 base-web 改動即跑、pre-commit 於
+  `tools/fork-delta-lint.py`（每次執行先 self-test 防恆綠；每次 base-web 改動即跑、pre-commit 於
   base-web pin 變動時自動擋，不靠人工 review）。
 - 外層只記 gitlink SHA（pin）；worktree 模式下 `git submodule status` 行首「-」永遠出現、屬正常。
 
@@ -43,9 +43,11 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 讀 specs/<NNN>-<feature-name>/tasks.md → act-on-code 接地、依實際相依把 tasks 分執行單元；驗收對照 spec.md。
 ★編排用 Workflow 工具：每執行單元一支，內部 serial 跑
 　implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality review → fix 迴圈。
+　★fix 後次輪 review prompt 必附前輪已駁回 findings 清單（file×summary＋駁回理由）、明令勿沿用
+　被駁論據重報；同一 finding 再報須附新證據，否則直接計入⑤收斂判定。
 　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW（L-113）、
 　rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge。
-★workflow script 防呆五件套（缺一不發射；根因與實證＝L-103）：
+★workflow script 防呆六件套（缺一不發射；根因與實證＝L-103）：
 　①agent prompt 全數烤進 script 本體模板字串；args 只傳短純量、script 首段逐欄斷言
 　　（型別＋非空），不符→零派發即 throw——防 args 以 JSON 字串抵達、屬性讀出 undefined。
 　②派發前斷言渲染後 prompt 非空、長度合理、開頭不含字面 "undefined"／"null"、★必含 "zh-TW"
@@ -55,6 +57,9 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　④implementer／fix 一律 schema 回傳 {status, report}；status≠ok→立即 return 升級主線、不進 review。
 　⑤收斂偵測：review 連兩輪 blocker 集合（file×summary 結構化比較、勿比自由文字）相同、
 　　或 fix 連兩輪零改動→return 判不收斂；unresolved 一律帶 findings 回主線。
+　⑥空間邊界：fix agent prompt 烤進允許檔案清單（＝該執行單元 tasks 涉檔＋review findings
+　　指涉檔的聯集、寫死 script 常數不取自 args）；清單外檔案需要動→status 回 blocked 附原因
+　　升級主線、絕不擅改；次輪清單只縮不擴。
 ★主線看門狗（非終止型故障不會有完成通知；L-104）：★Workflow launch 與 Monitor 看門狗
 　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（實證 L-112）。
 　Monitor command＝`bash tools/wf-watchdog <冒煙token>`（自動發現最新 wf 目錄、毋需 launch
@@ -68,8 +73,10 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 
 - **隨做隨記**：新拍板→ADR draft→accepted；架構影響→活書對應節【就在 feature branch 內改】；
   踩坑→LESSONS append；衍生工作→BACKLOG append；per-unit pin 即時 bump。
+  一次性遷移（改名／搬移／基線前進／拓樸調整）之 brainstorm 或 spec 附 Risk／Guard／Rollback
+  三欄表（首例＝018 之 B-111 四支工具改名）。
 - **收刀**：`merge --no-ff` 回 default（保留 feature branch 不清理）→
-  ①`docs/ops/events.jsonl` append feature_close ②NOTES 改下一步 ③`tools/docs-sync generate`
+  ①`docs/ops/events.jsonl` append feature_close ②NOTES 改下一步 ③`tools/docs-sync.py generate`
   → 一筆簿記 commit、lint 全綠放行。簿記一律排在 merge 之後（merge SHA 與最終 pin 才確定）。
 - **review 輪**（不定期）：報告存 `docs/reviews/YYYYMMDD-<scope>.md`（front-matter 必含
   `findings_total`）；findings 三分流：修／轉 B-NNN／won't-fix ADR；＋append 一筆 review 事件。
@@ -106,7 +113,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   （拍板歸 ADR、實作結果歸收刀事件、實作推翻拍板＝新 ADR）。
 - **lint 運作模式**：pre-commit 一次跑完、秒級；被擋的是 Claude、同回合修復（錯誤訊息附去處）；
   純碼 commit 幾乎全 skip。user 僅介入：lint 抓到真決策、或 lint 調規拍板。
-- **勘誤**：`tools/docs-sync errata <關鍵詞>` 機器枚舉全 repo 同語意命中、逐處處置後才 commit——
+- **勘誤**：`tools/docs-sync.py errata <關鍵詞>` 機器枚舉全 repo 同語意命中、逐處處置後才 commit——
   禁止只修被點名那一處。
 - **ID 配號**（B-NNN／L-NNN）：取檔頭 next-id 後 bump；號碼永不回收；ADR 編號＝檔名、永不重用。
 - **constitution**：`.specify/memory/constitution.md` 唯一權威、不設鏡像快查表；

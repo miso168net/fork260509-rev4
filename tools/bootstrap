@@ -102,8 +102,19 @@ check_pin() { # $1=目錄名
 check_pin "base-web"
 check_pin "rust-api"
 
-# ── 5. fork-delta 原行紀律全掃（含 lint 自身 self-test）────────────────
-python3 "$ROOT/tools/fork-delta-lint" || die "fork-delta-lint 未過——見上方指名"
+# ── 5. 守門工具自測（FR-015：體檢無條件全跑；pre-commit 則條件觸發）＋fork-delta 全掃 ──
+run_tool_test() { # $1=工具名（不含 .py）；失敗才吐明細，成功保持體檢輸出乾淨
+  local out
+  if ! out="$(python3 "$ROOT/tools/$1.py" test 2>&1)"; then
+    echo "$out" >&2
+    die "$1.py 自測未過——見上方明細"
+  fi
+  ok "$1.py 自測綠"
+}
+run_tool_test docs-sync
+run_tool_test schema-gate
+run_tool_test wire-schema
+python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
 ok "fork-delta-lint 全綠（self-test＋實掃）"
 
 # ── 6. secrets 體檢（僅檢缺檔、不碰實值）──────────────────────────────

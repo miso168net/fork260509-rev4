@@ -1,4 +1,4 @@
-<!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->
+<!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->
 # reference/backend-msg-dict — 拒因字典（機器生成）
 
 來源＝base-web/src/locales/langs/zh-tw.ts＋base-web/src/locales/langs/en-us.ts 之 backend.* 鍵樹（generate 重算；B-007／FR-014、全鏈零手維）。

@@ -1,4 +1,4 @@
-<!-- 機器生成：tools/docs-sync generate——嚴禁手改；差異由 pre-commit check 攔下 -->
+<!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->
 # DECISIONS-INDEX — ADR 索引
 
 | id | status | date | title | feature | supersedes | superseded_by |
@@ -79,3 +79,5 @@
 | 0074 | accepted | 2026-07-19 | 觀測側拒因可讀性＝機生字典＋grafana 對照（B-007 兌現、ADR 0001 第 8 題配套結案） | — | — | — |
 | 0075 | superseded | 2026-07-19 | session_event 膨脹治理＝能見度閉環（不自動刪、不寫端去重）——B-067 by-design 收單 | — | — | 0076 |
 | 0076 | accepted | 2026-07-21 | 稽核 retention 自動清理——遵憲 J3 自記＋reaper 權限最小擴張（B-016 本體、兌現 0075 預留條款） | — | 0075 | — |
+| 0077 | draft | 2026-07-28 | 憑證內容掃描閘——外層 tracked 全量＋pin bump 增量掃 submodule、窄樣式集高確信、無 inline 豁免 | — | — | — |
+| 0078 | draft | 2026-07-28 | events.jsonl append-only 例外——機器可證語意不變的格式正規化允許動既有列（獨立勘誤 commit 逐筆附證據） | — | — | — |
