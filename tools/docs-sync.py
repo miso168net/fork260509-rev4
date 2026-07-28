@@ -5383,12 +5383,16 @@ HOOK_REL = ".githooks/pre-commit"
 BOOTSTRAP_REL = "tools/bootstrap"
 RE_HOOK_ROSTER = re.compile(r"^for t in ([a-z0-9. -]+); do$", re.M)
 RE_BOOTSTRAP_TEST = re.compile(r"^run_tool_test (\S+)$", re.M)
-# 樁工具：把自己被呼叫的 argv 記進 WIRE_LOG；WIRE_FAIL 命中即非零退出（驗 fail-closed）。
+# 樁工具：把自己被呼叫的 argv 記進 WIRE_LOG；WIRE_FAIL（檔名）＋WIRE_FAIL_SUB（子命令、可空）
+# 同時命中才非零退出（驗 fail-closed）。★需子命令粒度，否則同一支 docs-sync.py 的 check 與 lint
+# 兩分支無法各自單獨失敗、G8 的 lint 分支就驗不到。
 STUB_TOOL = ("#!/usr/bin/env python3\n"
              "import os, sys\n"
              "open(os.environ['WIRE_LOG'], 'a').write(' '.join(sys.argv) + '\\n')\n"
              "fail = os.environ.get('WIRE_FAIL')\n"
-             "sys.exit(1 if fail and sys.argv[0].endswith(fail) else 0)\n")
+             "sub = os.environ.get('WIRE_FAIL_SUB')\n"
+             "hit = bool(fail) and sys.argv[0].endswith(fail)\n"
+             "sys.exit(1 if hit and (not sub or sys.argv[1:2] == [sub]) else 0)\n")
 
 
 def tools_test_roster():
@@ -5402,8 +5406,8 @@ class TestGateWiring(unittest.TestCase):
     刪除或改壞時三套件仍全綠（＝本刀要消滅的失效類「守門動作恆不跑」）。python 面已有
     test_run_lint_wires_cmd_forms／test_compute_generated_wires_tools_cli 同級案，此節補齊
     shell 面：①名冊與真表對賬（把 hook 的手抄名冊降級為受檢副本）②以樁工具乾跑真 hook 檔
-    文、實測觸發次數（非只驗字面在）。沙盒建在系統 tmp（native fs、非 drvfs），七次乾跑
-    合計約 0.5s。"""
+    文、實測觸發次數（非只驗字面在）。沙盒建在系統 tmp（native fs、非 drvfs），十次乾跑
+    合計約 0.7s。"""
 
     BASE = ["tools/docs-sync.py check", "tools/docs-sync.py lint"]
 
@@ -5424,15 +5428,17 @@ class TestGateWiring(unittest.TestCase):
     def tearDownClass(cls):
         cls._tmp.cleanup()
 
-    def _run(self, staged, fail=""):
-        """乾跑真 hook：回（退出碼, 樁工具被呼叫的 argv 行序）。"""
+    def _run(self, staged, fail="", fail_sub=""):
+        """乾跑真 hook：回（退出碼, 樁工具被呼叫的 argv 行序）。fail／fail_sub＝指定哪支
+        工具的哪個子命令要非零退出（fail_sub 留空＝該支任何子命令皆失敗）。"""
         log = os.path.join(self.d, "wire.log")
         open(log, "w").close()
         _git(self.d, "reset", "-q")
         _git(self.d, "add", "--", *staged)
         r = subprocess.run(["sh", HOOK_REL], cwd=self.d, capture_output=True,
                            encoding="utf-8", errors="replace",
-                           env=dict(os.environ, WIRE_LOG=log, WIRE_FAIL=fail))
+                           env=dict(os.environ, WIRE_LOG=log, WIRE_FAIL=fail,
+                                    WIRE_FAIL_SUB=fail_sub))
         with open(log, encoding="utf-8") as fh:
             return r.returncode, fh.read().splitlines()
 
@@ -5474,9 +5480,33 @@ class TestGateWiring(unittest.TestCase):
                              (0, self.BASE + ["tools/fork-delta-lint.py"]), msg=str(staged))
 
     def test_dry_run_non_zero_action_fails_the_hook(self):
-        """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。"""
+        """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。
+        ★四分支逐一驗：hook 首行是 #!/bin/sh 且全檔無 set -e，行尾 `|| exit 1` 被拿掉＝該
+        動作非零時被完全忽略、續跑並以 0 收場（＝全庫閘可被一行編輯靜默關掉）。只驗其中
+        一支＝覆蓋率 1/4，另三支的保護被拆時全套件仍綠。"""
+        # 分支 a：check 非零→立即 exit，lint 與後續全不得跑（log 只有 check 一行）。
+        self.assertEqual(self._run(["docs/ops/NOTES.md"], fail="docs-sync.py"),
+                         (1, ["tools/docs-sync.py check"]))
+        # 分支 b：只讓 lint 非零（同一支工具、以子命令區分）→ check 跑完、hook 仍 exit 1。
+        self.assertEqual(self._run(["docs/ops/NOTES.md"], fail="docs-sync.py", fail_sub="lint"),
+                         (1, self.BASE))
+        # 分支 c：工具自測非零。
         self.assertEqual(self._run(["tools/schema-gate.py"], fail="schema-gate.py"),
                          (1, self.BASE + ["tools/schema-gate.py test"]))
+        # 分支 d：fork-delta-lint 非零。
+        self.assertEqual(self._run(["base-web"], fail="fork-delta-lint.py"),
+                         (1, self.BASE + ["tools/fork-delta-lint.py"]))
+
+    def test_every_gate_action_line_is_guarded(self):
+        """★分支 d 的檔文兜底：fork-delta-lint 是 hook 末個動作，其 `|| exit 1` 被拆掉後、
+        if 語句的退出碼仍等於該命令退出碼（實測 sh 語意），行為與現行完全等價——黑箱乾跑
+        殺不死，只有檔文守衛擋得住。故通則化：每個 python3 動作行都必須帶退出碼保護，
+        將來在其後追加動作、末位優勢消失時，漏保護才不會靜默變成 fail-open。"""
+        lines = [ln for ln in (_read(ROOT, HOOK_REL) or "").splitlines()
+                 if ln.strip().startswith("python3 ")]
+        self.assertGreaterEqual(len(lines), 4, msg=str(lines))   # check／lint／自測／fdl
+        for ln in lines:
+            self.assertTrue(ln.rstrip().endswith("|| exit 1"), msg=f"守門動作漏退出碼保護：{ln}")
 
 
 SNAP_COLS = [
