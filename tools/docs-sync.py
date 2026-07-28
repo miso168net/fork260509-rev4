@@ -5,10 +5,12 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 對賬）
-  lint            L3～L19（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
+  lint            L3～L20（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
                   L16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
                   L17 pin↔worktree HEAD 互證；L18 events 帳本 SHA 逐列向 git 實證；
-                  L19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令）
+                  L19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令；
+                  L20 空集合守衛七組）
+                  輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
   test            跑自帶測試（unittest）
@@ -86,7 +88,9 @@ def parse_front_matter(text):
 # lint 基礎設施
 # ---------------------------------------------------------------------------
 
-ERROR, WARN = "ERROR", "WARN"
+# SKIP＝條款不適用而未執行（FR-012：「不適用」與「通過」必須顯式區分）。三者都是 finding，
+# 只是 SKIP 不進條列區、只在摘要次行的跳過明細出現，且不影響退出碼。
+ERROR, WARN, SKIP = "ERROR", "WARN", "SKIP"
 
 
 def finding(level, code, where, msg):
@@ -2244,6 +2248,11 @@ def lint_arch_impact(root):
             # State 2：簿記已落地為 HEAD（HEAD^＝merge）→ 讀 HEAD 版活書、忽略工作樹後續漂移
             book_now = head_file(BOOK, root)
         # 否則 HEAD 已前進超過簿記／SHA 取不到 → book_now=None → 跳過 (b)（fail-safe）
+        if book_m is None or book_now is None:
+            out.append(finding(SKIP, "L6", where,
+                               "最新刀的 merge 與現況 HEAD 對不上簿記狀態（HEAD 已前進超過"
+                               "簿記，或 merge SHA／該版活書取不到）——arch_impact 雙向"
+                               "比對跳過（fail-safe：現況側無對應基準，比了會誤報）"))
         if book_m is not None and book_now is not None:
             claimed = _arch_impact_nums(latest.get("arch_impact"))
             changed = _arch_changed_sections(book_m, book_now)
@@ -2367,8 +2376,8 @@ def submodule_head(root, sub):
         return None, "submodule worktree 缺席（唯讀看碼模式或尚未跑 bootstrap）"
     head = (git_out(["rev-parse", "HEAD"], subdir) or "").strip()
     if not head:
-        return None, ("submodule worktree 斷裂、庫開不起來（.git gitfile 指向的源倉不在，"
-                      "或 HEAD 讀不到）——跑 bash tools/bootstrap 自癒")
+        return None, ("submodule worktree 斷裂、庫開不起來（.git gitfile 指向的源倉不在"
+                      "或 HEAD 讀不到；跑 bash tools/bootstrap 自癒）")
     return head, None
 
 
@@ -2409,15 +2418,18 @@ def lint_cred_submodules(root):
     staged = set((git_out(["diff", "--cached", "--name-only"], root) or "").splitlines())
     for sub in CRED_SUBMODULES:
         if sub not in staged:
+            out.append(finding(SKIP, "L16", sub,
+                               "本次 commit 未 staged 該 gitlink——憑證增量掃不適用"
+                               "（掃描面＝old..new 新增行，成本正比 pin 變更量）"))
             continue
         subdir = os.path.join(root, sub)
         _head, why = submodule_head(root, sub)
         if why:
-            out.append(finding(WARN, "L16", sub, f"{why}——憑證增量掃跳過"))
+            out.append(finding(SKIP, "L16", sub, f"{why}——憑證增量掃跳過"))
             continue
         new, why = index_gitlink(root, sub)
         if new is None:
-            out.append(finding(WARN, "L16", sub, f"{why}——憑證增量掃跳過"))
+            out.append(finding(SKIP, "L16", sub, f"{why}——憑證增量掃跳過"))
             continue
         old = (git_out(["rev-parse", f"HEAD:{sub}"], root) or "").strip()
         diff = git_out(["diff", old, new, "-U0"], subdir) if old else None
@@ -2481,11 +2493,11 @@ def lint_pin_crosscheck(root):
     for _key, sub in PIN_KEYS:
         staged, why = index_gitlink(root, sub)
         if staged is None:
-            out.append(finding(WARN, "L17", sub, f"{why}——pin 互證跳過（跳過≠通過）"))
+            out.append(finding(SKIP, "L17", sub, f"{why}——pin 互證跳過"))
             continue
         head, why = submodule_head(root, sub)
         if head is None:
-            out.append(finding(WARN, "L17", sub, f"{why}——pin 互證跳過（跳過≠通過）"))
+            out.append(finding(SKIP, "L17", sub, f"{why}——pin 互證跳過"))
             continue
         if head == staged:
             continue
@@ -2619,9 +2631,9 @@ def lint_events_sha(root):
         if not items:
             continue
         if key not in ptypes:
-            out.append(finding(WARN, "L18", sub,
+            out.append(finding(SKIP, "L18", sub,
                                f"{absent.get(key, '該庫不可查')}——pins.{key} 共 "
-                               f"{len(items)} 筆 SHA 實證跳過（跳過≠通過）"))
+                               f"{len(items)} 筆 SHA 實證跳過"))
             continue
         for n, sha in items:
             t = ptypes[key].get(sha)
@@ -2636,9 +2648,99 @@ def lint_events_sha(root):
     return out
 
 
+# ---------------------------------------------------------------------------
+# L20 空集合守衛（contracts G4／data-model §6／research R4；FR-013）
+# ---------------------------------------------------------------------------
+
+# 守衛#4 的來源檔全集＝generate 每張 reference 表的輸入。既有行為是各自 fail-loud 拋例外
+# （ComposePortsError／RouterRoutesError／…），歸一化進守衛後 lint 與 generate 兩端同文。
+REFERENCE_SOURCES = (COMPOSE_FILES + (ROUTER_SOURCE, ELEGANT_SOURCE)
+                     + tuple(rel for _lang, rel in MSG_DICT_LOCALES)
+                     + (SCHEMA_SNAPSHOT, ACCOUNTS_SNAPSHOT, ARCHETYPE_MAP))
+
+# 守衛#5 的弱探針：源碼「有沒有分派表」。★刻意與嚴格掃源正則（RE_DISPATCH_EQ／
+# RE_DISPATCH_IN）各自獨立——同一條正則既當判準又當被驗對象＝套套邏輯，改壞它反而全綠。
+RE_DISPATCH_PROBE = re.compile(r"\bcmd\s*==|\bcmd\s+in\s*\(")
+
+
+def lint_reference_sources(root):
+    """守衛#4：generate 各 reference 來源檔存在。lint 與 generate 雙掛（contracts G4）。"""
+    return [finding(ERROR, "L20", rel,
+                    "reference 來源檔不存在——generate 無輸入、對照表無法重算；"
+                    "submodule worktree 未建起（跑 bash tools/bootstrap）或來源被移位")
+            for rel in REFERENCE_SOURCES
+            if not os.path.isfile(os.path.join(root, rel))]
+
+
+def lint_tool_dispatch(root):
+    """守衛#5：①掃源清單本身非空 ②有分派表的 python 工具其子命令集非空。
+
+    ★與 data-model §6 字面（「工具子命令集×4、空或缺即 ERROR」）的差異與理由：U4 真表
+    實測 tools/fork-delta-lint.py 源碼本來就沒有分派表（零等號形、零 in 形），子命令集
+    恆為空集合——而那是**正確的事實**：它是直跑工具，CLAUDE.md／RUNBOOK 都這樣寫、真表
+    也如實記為「無——源碼無分派表、直跑」。照字面實作，lint 對現況直接自紅。
+    故收斂為：以獨立的弱探針（源碼是否出現 `cmd ==`／`cmd in (`）判斷這支工具「有沒有
+    分派表」；有分派表卻掃出空集合＝掃源正則壞了→ERROR，本來就沒有分派表＝合法空集合。
+    守住的仍是 FR-013 要防的那件事——「查到空集合而恆綠」。
+    """
+    try:
+        rows = compute_tools_cli(root)
+    except ToolsCliError as ex:
+        return [finding(ERROR, "L20", "tools",
+                        f"工具掃源失敗（{ex}）——子命令集無從建立，fail-closed")]
+    if not rows:
+        return [finding(ERROR, "L20", "tools",
+                        "工具掃源清單為空（TOOLS_PY／TOOLS_SH 名冊縮水）——"
+                        "真表少節、命令形比對與舊名禁令一併靜默下線")]
+    out = []
+    for row in rows:
+        if row["lang"] != "python" or row["subs"]:
+            continue
+        if RE_DISPATCH_PROBE.search(_read(root, row["rel"]) or ""):
+            out.append(finding(ERROR, "L20", row["rel"],
+                               "源碼有分派表（出現 cmd 比較）卻掃出空子命令集——掃源正則"
+                               "壞了；該工具的命令形比對會查到空集合而恆綠"))
+    return out
+
+
+def lint_empty_sets(root, tracked=None):
+    """L20：空集合守衛七組（data-model §6）。空／缺即 ERROR、訊息指名集合與來源。
+
+    七組皆「結構上恆非空／恆存在」；空了代表掃描器或環境壞了，靜默放行＝假綠。
+    """
+    out = []
+    if not load_adrs(root):
+        out.append(finding(ERROR, "L20", ADR_DIR,
+                           f"ADR 檔集為空（來源＝{ADR_DIR}/*.md）——決策帳本不可能空，"
+                           "目錄被移走或掃描器壞了"))
+    if not [l for l in _jsonl_lines(_read(root, EVENTS) or "") if l.strip()]:
+        out.append(finding(ERROR, "L20", EVENTS,
+                           f"events 列為空（來源＝{EVENTS}）——事件源不可能空，"
+                           "檔被清空或讀不到"))
+    if tracked is None:
+        tracked = tracked_files(root)
+    if not [rel for rel in tracked if rel.endswith(".md")]:
+        out.append(finding(ERROR, "L20", ".",
+                           "外層 tracked md 語料為空（來源＝git ls-files '*.md'）——"
+                           "L12~L15 引用健康條款會查到空語料而恆綠"))
+    out += lint_reference_sources(root)
+    out += lint_tool_dispatch(root)
+    if not tracked_blobs(root):
+        out.append(finding(ERROR, "L20", ".",
+                           "憑證掃描 tracked 檔清單為空（來源＝git ls-files -s 扣 gitlink）"
+                           "——L16 外層全量面會掃了個寂寞而恆綠"))
+    for rel in CMD_FORM_CORPUS:
+        if not os.path.isfile(os.path.join(root, rel)):
+            out.append(finding(ERROR, "L20", rel,
+                               "命令形語料檔不存在（三件活手冊為 L19 的固定語料）——"
+                               "少一件即該檔的命令形漂移與舊名禁令靜默下線"))
+    return out
+
+
 def run_lint(root):
-    """組裝 L3～L19（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
-    實證、L19 命令形真表比對）全套。回 findings。git 不可用＝fail-closed 單發 ERROR。"""
+    """組裝 L3～L20（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
+    實證、L19 命令形真表比對、L20 空集合守衛）全套。回 findings（含 SKIP 級：條款不適用而
+    未執行，由 lint_summary 彙整成跳過明細）。git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
         return [finding(ERROR, "L1", ".",
                         "git 不可用——HEAD 基線與掃描語料無法建立，lint fail-closed（修復 git 後重跑）")]
@@ -2649,6 +2751,10 @@ def run_lint(root):
     findings += lint_arch_impact(root)
     findings += lint_budgets(root)
     amend = os.environ.get("DOCS_SYNC_ADR_AMEND") == "1"
+    if amend:
+        findings.append(finding(SKIP, "L8", ADR_DIR,
+                                "DOCS_SYNC_ADR_AMEND=1 豁免——accepted ADR body 不可變檢查"
+                                "跳過（typo 級修正通道；commit message 須帶 [adr-amend]）"))
     findings += lint_adrs(load_adrs(root), load_head_adrs(root), amend=amend)
     bpaths = backlog_paths(root)
     findings += lint_ids("B", [(_read(root, p) or "") for p in bpaths],
@@ -2676,12 +2782,29 @@ def run_lint(root):
     findings += lint_pin_crosscheck(root)
     findings += lint_events_sha(root)
     findings += lint_cmd_forms(root)
+    findings += lint_empty_sets(root, tracked)
     return findings
 
 
 def print_findings(findings):
+    """條列區只印 ERROR／WARN；SKIP 走摘要次行的跳過明細（重複印一次＝雜訊）。"""
     for f in findings:
-        print(f"[{f['level']}] {f['code']}｜{f['where']}｜{f['msg']}")
+        if f["level"] != SKIP:
+            print(f"[{f['level']}] {f['code']}｜{f['where']}｜{f['msg']}")
+
+
+def lint_summary(findings):
+    """G6 摘要三段式。回 (摘要行, 跳過明細行或 None, 退出碼)。
+
+    退出碼只看 ERROR：警告是放行列示、跳過更不是失敗（FR-012）。
+    """
+    errors = [f for f in findings if f["level"] == ERROR]
+    warns = [f for f in findings if f["level"] == WARN]
+    skips = [f for f in findings if f["level"] == SKIP]
+    line = f"lint：{len(errors)} 錯誤／{len(warns)} 警告／{len(skips)} 條款跳過"
+    detail = ("跳過：" + "；".join(f"{f['code']}｜{f['where']}={f['msg']}" for f in skips)
+              if skips else None)
+    return line, detail, (1 if errors else 0)
 
 
 def book_section_lines(book_text):
@@ -2708,14 +2831,22 @@ def cmd_lint():
         cells = [f"§{s} {n}/{SECTION_QUOTAS.get(s, '—')}"
                  for s, n in sorted(book_section_lines(book).items())]
         print("活書各節行數：" + "｜".join(cells))
-    errors = [f for f in findings if f["level"] == ERROR]
-    print(f"lint：{len(errors)} 錯誤／{len(findings) - len(errors)} 警告")
-    return 1 if errors else 0
+    line, detail, code = lint_summary(findings)
+    print(line)
+    if detail:
+        print(detail)
+    return code
 
 
 def cmd_generate():
     if not git_available(ROOT):
         print("[ERROR] git 不可用——pins 等 git 來源無法讀取，generate 中止（fail-closed）",
+              file=sys.stderr)
+        return 1
+    missing = lint_reference_sources(ROOT)
+    if missing:
+        print_findings(missing)
+        print(f"generate：來源檔守衛擋下 {len(missing)} 筆（contracts G4）——補齊後重跑",
               file=sys.stderr)
         return 1
     adrs = load_adrs(ROOT)
@@ -4138,9 +4269,17 @@ class TestLintArchImpact(unittest.TestCase):
 
     def test_existence_clean_no_git_skips_b(self):
         # 非 git 目錄＋不可解 merge SHA→(b) 跳過；(a) 驗 §2 存在→0
+        # ★U5 語意遷移：(b) 的跳過由靜默改為落跳過明細（FR-012「不適用≠通過」）。
         with tempfile.TemporaryDirectory() as d:
             self._write_book_events(d, ["§2"])
-            self.assertEqual(lint_arch_impact(d), [])
+            self._assert_only_skip_b(lint_arch_impact(d))
+
+    def _assert_only_skip_b(self, findings):
+        """(b) 合法跳過：零 ERROR／WARN、恰一筆 L6 跳過明細。"""
+        self.assertEqual([x for x in findings if x["level"] != SKIP], [], msg=str(findings))
+        skips = [x for x in findings if x["level"] == SKIP]
+        self.assertEqual(len(skips), 1, msg=str(findings))
+        self.assertEqual(skips[0]["code"], "L6")
 
     def test_existence_bad_section(self):
         with tempfile.TemporaryDirectory() as d:
@@ -4222,7 +4361,7 @@ class TestLintArchImpact(unittest.TestCase):
                 fh.write("## §5 A\nNEW5\n## §6 B\nDRIFT6\n")  # 007 動 §6
             g("add", "-A")
             g("commit", "-qm", "007-unit-book")
-            self.assertEqual(lint_arch_impact(d), [])
+            self._assert_only_skip_b(lint_arch_impact(d))
 
     def test_bidirectional_next_feature_uncommitted_reads_head(self):
         # 下一支 feature 活書漂移仍在工作樹未 commit（HEAD 仍＝簿記 B、HEAD^＝merge M）：
@@ -4247,7 +4386,7 @@ class TestLintArchImpact(unittest.TestCase):
                 fh.write("下一步\n")
             g("add", "-A")
             g("commit", "-qm", "007-notes")
-            self.assertEqual(lint_arch_impact(d), [])
+            self._assert_only_skip_b(lint_arch_impact(d))
 
 
 class TestLintBudgets(unittest.TestCase):
@@ -4704,14 +4843,20 @@ class TestCredScan(unittest.TestCase):
                 "x = 1\n++ 文件裡的 diff 片段\nconst k = '" + self.RED["github-token"] + "'\n")
             self.assertEqual(cred_diff_hits(diff), [("app.ts", "github-token")])
 
-    def test_submodule_not_staged_means_no_scan(self):
-        """未 stage gitlink＝不觸發增量面（成本正比變更量）。"""
+    def test_submodule_not_staged_lands_in_skip_detail(self):
+        """未 stage gitlink＝不觸發增量面（成本正比變更量）——落跳過明細、零 ERROR／WARN。
+
+        ★語意遷移（U5）：原斷言零 finding，改為 SKIP 級明細——純碼 commit 的主要跳過來源，
+        「不適用」不顯式可見即 FR-012 要消滅的假綠面。
+        """
         with tempfile.TemporaryDirectory() as d:
             self._outer(d)
             sha_a, _ = self._subrepo(d, "base-web")
             self._stage_gitlink(d, "base-web", sha_a)
             self._g(d, "commit", "-qm", "pin A")
-            self.assertEqual(lint_cred_submodules(d), [])
+            f = lint_cred_submodules(d)
+            self.assertEqual([x["level"] for x in f], [SKIP, SKIP], msg=str(f))
+            self.assertTrue(all("未 staged" in x["msg"] for x in f), msg=str(f))
 
     def test_submodule_fallback_full_tree_when_old_pin_unresolvable(self):
         """舊 pin 不可解→退化為新 pin 全樹掃＋WARN 註記（fail-closed 向完整掃）。
@@ -4782,8 +4927,8 @@ class TestCredScan(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             self._outer(d)
             self._stage_gitlink(d, "rust-api", "1" * 40)
-            f = lint_cred_submodules(d)
-            self.assertEqual([x["level"] for x in f], [WARN])
+            f = [x for x in lint_cred_submodules(d) if x["where"] == "rust-api"]
+            self.assertEqual([x["level"] for x in f], [SKIP], msg=str(f))
             self.assertIn("跳過", f[0]["msg"])
 
     # -- 組裝與 run_lint 接線（contracts G1「觸發＝每次 lint」） ---------------
@@ -5022,7 +5167,7 @@ class TestSubmoduleProbe(unittest.TestCase):
             sha, = _init_sub(d, "base-web")
             _stage_gitlink(d, "base-web", sha)
             _break_worktree(d, "base-web")
-            f = lint_cred_submodules(d)
+            f = [x for x in lint_cred_submodules(d) if x["where"] == "base-web"]
             self.assertEqual(len(f), 1, msg=str(f))
             self.assertIn("開不起來", f[0]["msg"])
 
@@ -5127,7 +5272,7 @@ class TestPinCrosscheck(unittest.TestCase):
             _init_outer(d)
             _stage_gitlink(d, "rust-api", "1" * 40)
             f = _l17(d, "rust-api")
-            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertEqual([x["level"] for x in f], [SKIP], msg=str(f))
             self.assertEqual(f[0]["where"], "rust-api")
             self.assertIn("跳過", f[0]["msg"])
 
@@ -5144,14 +5289,14 @@ class TestPinCrosscheck(unittest.TestCase):
             os.makedirs(os.path.join(d, "base-web"))       # 空目錄、不 init
             _stage_gitlink(d, "base-web", "a" * 40)        # 異於任何真 SHA
             f = _l17(d, "base-web")
-            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertEqual([x["level"] for x in f], [SKIP], msg=str(f))
             self.assertEqual(f[0]["where"], "base-web")
             self.assertIn("跳過", f[0]["msg"])
             # 收刀形：守衛缺席時這格會退化成 ERROR、硬擋合法 commit
             _wfile(d, EVENTS, json.dumps(VALID_CLOSE, ensure_ascii=False) + "\n")
             _git(d, "add", EVENTS)
             f = _l17(d, "base-web")
-            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertEqual([x["level"] for x in f], [SKIP], msg=str(f))
             self.assertIn("跳過", f[0]["msg"])
 
     def test_no_gitlink_in_index_falls_into_skip_detail(self):
@@ -5414,7 +5559,7 @@ class TestEventsShaProof(unittest.TestCase):
             outer, pins = self._fixture(d, subs=("base-web",))
             self._events(d, merge=outer, pins=dict(pins, api="3" * 40))
             f = lint_events_sha(d)
-            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertEqual([x["level"] for x in f], [SKIP], msg=str(f))
             self.assertEqual(f[0]["where"], "rust-api")
             self.assertIn("跳過", f[0]["msg"])
 
@@ -5743,6 +5888,285 @@ class TestCmdFormLint(unittest.TestCase):
             f = run_lint(d)
             self.assertTrue(any(x["code"] == "L19" and x["level"] == ERROR for x in f),
                             msg=str(f))
+
+
+class TestEmptySetGuards(unittest.TestCase):
+    """G4 空集合守衛七組（contracts G4／data-model §6／research R4）：理論上不可能空的
+    枚舉語料空了＝掃描器或環境壞了，一律 fail-closed 報 ERROR、不靜默假綠。
+
+    ★守衛#5 與 data-model §6 字面的差異＝本刀刻意收斂，理由見 lint_tool_dispatch docstring。
+    """
+
+    def _bare(self, d):
+        """最小外層 fixture：一個 tracked 非 md 檔（令各組守衛可逐組獨立造空）。"""
+        _git(d, "init", "-q", "-b", "main")
+        _wfile(d, "note.txt", "純文字\n")
+        _git(d, "add", "note.txt")
+        _git(d, "commit", "-qm", "init")
+
+    def _msgs(self, d):
+        return [f"{x['where']}｜{x['msg']}" for x in lint_empty_sets(d)
+                if x["level"] == ERROR]
+
+    def test_group1_empty_adr_set(self):
+        """①ADR 檔集空／目錄不存在→ERROR，訊息指名集合與來源。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            self.assertTrue(any(ADR_DIR in m and "ADR" in m for m in self._msgs(d)),
+                            msg=str(self._msgs(d)))
+
+    def test_group2_empty_events_ledger(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            _wfile(d, EVENTS, "")
+            self.assertTrue(any(EVENTS in m for m in self._msgs(d)), msg=str(self._msgs(d)))
+
+    def test_group3_empty_tracked_markdown_corpus(self):
+        """③外層 tracked *.md 語料空（本 fixture 只 track 一個 .txt）→ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            self.assertTrue(any("tracked" in m and "md" in m for m in self._msgs(d)),
+                            msg=str(self._msgs(d)))
+
+    def test_group4_missing_reference_sources(self):
+        """④generate 各 reference 來源檔——逐檔缺席即 ERROR（既有散落 fail 行為歸一化）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            msgs = self._msgs(d)
+            for rel in REFERENCE_SOURCES:
+                self.assertTrue(any(rel in m for m in msgs), msg=f"{rel} 未被守衛點名")
+
+    def test_group4_is_also_wired_into_generate(self):
+        """★守衛#4 雙掛（contracts G4「lint／generate 來源檔守衛雙掛」）：generate 端亦須報。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            f = lint_reference_sources(d)
+            self.assertEqual(len(f), len(REFERENCE_SOURCES), msg=str(f))
+            self.assertTrue(all(x["level"] == ERROR for x in f))
+
+    def test_group5_empty_tool_roster(self):
+        """⑤掃源清單本身空（名冊被清空）→ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            _tools_fixture(d)
+            self.assertEqual([x for x in lint_tool_dispatch(d) if x["level"] == ERROR], [])
+            mod = sys.modules[__name__]
+            with mock.patch.object(mod, "TOOLS_PY", ()), \
+                 mock.patch.object(mod, "TOOLS_SH", ()):
+                f = lint_tool_dispatch(d)
+            self.assertTrue(any("掃源清單" in x["msg"] for x in f), msg=str(f))
+
+    def test_group5_dispatch_table_present_but_scanned_empty(self):
+        """★⑤第二半（非套套邏輯的那半）：源碼有分派表、掃出的子命令集卻空＝掃源正則壞了。
+
+        弱探針（源碼是否出現 cmd 比較）與嚴格掃源正則各自獨立，故把 RE_DISPATCH_EQ／
+        RE_DISPATCH_IN 改壞成永不命中時本守衛當場紅——而 fork-delta-lint 這種本來就沒有
+        分派表的工具（真表如實記「無——源碼無分派表、直跑」）仍是合法空集合、不誤紅。
+        """
+        dead = re.compile(r"ZZZ-NEVER-MATCH-ZZZ")
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            _tools_fixture(d)
+            mod = sys.modules[__name__]
+            with mock.patch.object(mod, "RE_DISPATCH_EQ", dead), \
+                 mock.patch.object(mod, "RE_DISPATCH_IN", dead):
+                f = lint_tool_dispatch(d)
+            named = {x["where"] for x in f if x["level"] == ERROR}
+            self.assertIn("tools/docs-sync.py", named, msg=str(f))
+            self.assertNotIn("tools/fork-delta-lint.py", named, msg=str(f))
+
+    def test_group5_real_repo_tools_are_green(self):
+        """★現庫實跑：fork-delta-lint 子命令集為空是正確事實，守衛不得對現況自紅。"""
+        self.assertEqual(lint_tool_dispatch(ROOT), [])
+
+    def test_group6_empty_credential_scan_roster(self):
+        """⑥憑證掃描 tracked 檔清單空（無 index）→ERROR（清單空＝掃了個寂寞）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _git(d, "init", "-q", "-b", "main")
+            self.assertTrue(any("憑證掃描" in m for m in self._msgs(d)),
+                            msg=str(self._msgs(d)))
+
+    def test_group7_command_form_corpus_files(self):
+        """⑦命令形語料三檔存在——逐檔缺席即 ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            msgs = self._msgs(d)
+            for rel in CMD_FORM_CORPUS:
+                self.assertTrue(any(rel in m for m in msgs), msg=f"{rel} 未被守衛點名")
+
+    def test_real_repo_has_no_empty_set(self):
+        """★現況驗收：現庫七組守衛全綠（守衛上線即自紅＝定義錯或接線錯）。"""
+        self.assertEqual(lint_empty_sets(ROOT), [])
+
+    def test_run_lint_wires_empty_set_guards(self):
+        """★接線層：lint_empty_sets 從 run_lint 掉線＝G4 整條靜默下線。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "L20" and x["level"] == ERROR for x in f),
+                            msg=str(f))
+
+
+class TestLintSummary(unittest.TestCase):
+    """G6 lint 摘要三段式（contracts G6／FR-012／data-model §5）。"""
+
+    def _f(self, level, code="L17", where="base-web", msg="原因"):
+        return finding(level, code, where, msg)
+
+    def test_summary_line_is_three_segment(self):
+        """★形制逐字：`lint：X 錯誤／Y 警告／Z 條款跳過`。"""
+        line, detail, code = lint_summary(
+            [self._f(ERROR), self._f(ERROR), self._f(WARN), self._f(SKIP)])
+        self.assertEqual(line, "lint：2 錯誤／1 警告／1 條款跳過")
+        self.assertIsNotNone(detail)
+        self.assertEqual(code, 1)
+
+    def test_skip_detail_line_lists_label_and_reason(self):
+        """Z>0 時次行 `跳過：<標籤>=<原因>；…`（不適用≠通過、顯式可見）。"""
+        _line, detail, _code = lint_summary(
+            [self._f(SKIP, "L17", "base-web", "worktree 缺席"),
+             self._f(SKIP, "L18", "rust-api", "該庫不可查")])
+        self.assertTrue(detail.startswith("跳過："), msg=detail)
+        self.assertIn("L17｜base-web=worktree 缺席", detail)
+        self.assertIn("L18｜rust-api=該庫不可查", detail)
+        self.assertIn("；", detail)
+
+    def test_no_skip_means_no_detail_line(self):
+        line, detail, code = lint_summary([self._f(WARN)])
+        self.assertEqual(line, "lint：0 錯誤／1 警告／0 條款跳過")
+        self.assertIsNone(detail)
+        self.assertEqual(code, 0)
+
+    def test_exit_code_only_tracks_errors(self):
+        """★退出碼僅看 X：Y 或 Z 大於 0 不影響（警告放行列示、跳過更不是失敗）。"""
+        self.assertEqual(lint_summary([])[2], 0)
+        self.assertEqual(lint_summary([self._f(WARN)] * 5)[2], 0)
+        self.assertEqual(lint_summary([self._f(SKIP)] * 9)[2], 0)
+        self.assertEqual(lint_summary([self._f(WARN), self._f(SKIP), self._f(ERROR)])[2], 1)
+
+    def test_warning_count_excludes_skips(self):
+        """★跳過不得混進警告數（原實作以「總數減錯誤數」當警告數，遷移後即失真）。"""
+        line, _d, _c = lint_summary([self._f(WARN), self._f(SKIP), self._f(SKIP)])
+        self.assertEqual(line, "lint：0 錯誤／1 警告／2 條款跳過")
+
+    def test_skip_findings_are_not_printed_as_findings(self):
+        """跳過只在明細行出現一次——條列區重複印一次＝雜訊、且看起來像有問題。"""
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            print_findings([self._f(SKIP, msg="worktree 缺席"), self._f(WARN, msg="w")])
+        self.assertNotIn("worktree 缺席", buf.getvalue())
+        self.assertIn("[WARN]", buf.getvalue())
+
+    def test_cmd_lint_prints_summary_then_skip_detail(self):
+        """★端到端輸出形（S5 步 3 的機判）：摘要行恰一行、次行即跳過明細、明細筆數對得上。
+
+        ★刻意在 fixture repo 上跑而非現庫：現庫 lint 的憑證全量掃在 drvfs 上要 ~47s，
+        放進自帶測試會把 pre-commit 的條件觸發成本從秒級推到分鐘級（SC-008）。現庫全綠
+        屬 G10 紅線、以實跑命令驗收，不由單元測試背。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            for _key, sub in PIN_KEYS:
+                _init_sub(d, sub)
+            buf = io.StringIO()
+            with mock.patch.object(sys.modules[__name__], "ROOT", d):
+                with contextlib.redirect_stdout(buf):
+                    rc = cmd_lint()
+            lines = buf.getvalue().splitlines()
+            idx = [i for i, l in enumerate(lines) if l.startswith("lint：")]
+            self.assertEqual(len(idx), 1, msg=str(lines))
+            i = idx[0]
+            m = re.fullmatch(r"lint：(\d+) 錯誤／(\d+) 警告／(\d+) 條款跳過", lines[i])
+            self.assertIsNotNone(m, msg=lines[i])
+            z = int(m.group(3))
+            self.assertGreater(z, 0, msg=lines[i])       # 本 fixture 必有合法跳過
+            self.assertTrue(lines[i + 1].startswith("跳過："), msg=str(lines[i:]))
+            self.assertEqual(lines[i + 1].count("；"), z - 1, msg=lines[i + 1])
+            self.assertEqual(rc, 1 if int(m.group(1)) else 0)
+
+    def test_cmd_check_output_shape_is_unchanged(self):
+        """★G6 明文只動 lint：`check` 子命令輸出形不變（無三段式、無跳過段）。"""
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = cmd_check()
+        out = buf.getvalue()
+        self.assertEqual(rc, 0, msg=out)
+        self.assertIn("check：一致", out)
+        self.assertNotIn("條款跳過", out)
+        self.assertNotIn("跳過：", out)
+
+
+class TestSkipInventory(unittest.TestCase):
+    """合法 skip 落明細（contracts G2／G3／data-model §5）：不適用≠通過。"""
+
+    def test_absent_worktree_lands_in_skip_not_warning(self):
+        """★語意遷移：worktree 缺席由 WARN finding 改走 skipped 累積器（L16／L17／L18）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer = _init_outer(d)
+            web, = _init_sub(d, "base-web")
+            _wfile(d, EVENTS, json.dumps(
+                dict(VALID_CLOSE, merge=outer, pins={"web": web, "api": "3" * 40}),
+                ensure_ascii=False) + "\n")
+            _stage_gitlink(d, "base-web", web)
+            _stage_gitlink(d, "rust-api", "1" * 40)
+            _git(d, "add", EVENTS)
+            for fn in (lint_pin_crosscheck, lint_events_sha, lint_cred_submodules):
+                f = [x for x in fn(d) if "rust-api" in x["where"]]
+                self.assertEqual([x["level"] for x in f], [SKIP], msg=f"{fn.__name__}｜{f}")
+
+    def test_unstaged_gitlink_lands_in_skip_detail(self):
+        """★純碼 commit 的主要跳過來源：本次未動 pin→L16 增量掃不適用、須顯式可見。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            for _key, sub in PIN_KEYS:
+                _init_sub(d, sub)
+            f = lint_cred_submodules(d)
+            self.assertEqual([x["level"] for x in f], [SKIP, SKIP], msg=str(f))
+            self.assertTrue(all("未 staged" in x["msg"] or "未 stage" in x["msg"] for x in f),
+                            msg=str(f))
+
+    def test_index_without_gitlink_lands_in_skip_detail(self):
+        """★A10：L17 在 index 無 gitlink 條目時落跳過明細（原為零 finding 靜默略過）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            f = lint_pin_crosscheck(d)
+            self.assertEqual([x["level"] for x in f], [SKIP, SKIP], msg=str(f))
+            self.assertTrue(all("index 無該 gitlink" in x["msg"] for x in f), msg=str(f))
+
+    def test_adr_amend_escape_lands_in_skip_detail(self):
+        """★amend 豁免（DOCS_SYNC_ADR_AMEND=1）＝條款被關掉，必須在輸出上看得見。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            with mock.patch.dict(os.environ, {"DOCS_SYNC_ADR_AMEND": "1"}):
+                f = [x for x in run_lint(d) if x["level"] == SKIP and x["code"] == "L8"]
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertIn("DOCS_SYNC_ADR_AMEND", f[0]["msg"])
+            with tempfile.TemporaryDirectory() as d2:
+                _init_outer(d2)
+                self.assertEqual(
+                    [x for x in run_lint(d2) if x["level"] == SKIP and x["code"] == "L8"], [])
+
+    def test_arch_impact_bidirectional_skip_is_visible(self):
+        """★L6(b)：現況側對不上簿記狀態時原為靜默跳過（fail-safe），改落明細。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _wfile(d, BOOK, "## §6 部署\n內容\n")
+            _git(d, "add", BOOK)
+            _git(d, "commit", "-qm", "book")
+            _wfile(d, EVENTS, json.dumps(
+                dict(VALID_CLOSE, arch_impact=["§6"]), ensure_ascii=False) + "\n")
+            f = [x for x in lint_arch_impact(d) if x["level"] == SKIP]
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["code"], "L6")
+
+    def test_skip_reason_is_never_empty(self):
+        """★明細的價值全在原因欄：任何 skip finding 都必須帶得出原因（空字串＝假明細）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            for x in run_lint(d):
+                if x["level"] == SKIP:
+                    self.assertTrue(x["msg"].strip(), msg=str(x))
+                    self.assertTrue(x["where"].strip(), msg=str(x))
 
 
 HOOK_REL = ".githooks/pre-commit"
