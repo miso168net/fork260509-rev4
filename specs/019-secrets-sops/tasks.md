@@ -162,6 +162,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `git fsck --unreachable` 之 blob 集合取交集須為空。②quickstart S1 **收尾**須補「裸值格驗收後
   必 prune 外層物件庫並以 `cat-file -e` 反證」一步（屬裸值格驗收設計的固有副作用、非一次性
   疏忽；踩坑與防法已收錄 L-158）
+  ——**主線結清（2026-07-29）**：①`git prune --expire=now` 實跑後 `git cat-file -e 8a183df0`
+  rc=1、且 11 支現值檔 `git hash-object` 逐支 `cat-file -e` 全數失敗、`jwt_secret.txt` 完好
+  64 bytes、工作樹零行；②quickstart S1 收尾補句已落。兩項機判全綠、殘項就此結清
 
 ## Phase 4: US2 — 機密以密文入版控＋可斷言的解密管線（P2）
 

@@ -24,7 +24,10 @@
 **兩路徑結果必須一致**（`git commit -a` 路徑必測——容器形式的靜默漏報只在此現形）。
 **另**：rust-api 與 base-web 各以樣式形 fixture 實擋至少一案。
 
-**收尾**：fixture 假值當場產生、驗完即刪，不入版控。
+**收尾**：fixture 假值當場產生、驗完即刪，不入版控。★裸值格必用機密現值原文——`git add`
+當下即在外層 `.git/objects` 留下 unreachable loose blob（縱使 commit 被擋）：驗收後**必跑
+`git prune --expire=now`**，機判＝`git hash-object` 逐支現值檔算 SHA 後 `git cat-file -e`
+全數必須失敗（工作樹收乾淨≠物件庫收乾淨；L-158）。
 
 ---
 
