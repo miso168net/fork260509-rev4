@@ -5425,14 +5425,22 @@ class TestEventsShaProof(unittest.TestCase):
             self.assertEqual(lint_events_sha(d), [])
 
     def test_merge_unresolvable_is_error(self):
-        """判定表第 1 列：merge 不可解＝ERROR（抄錯／造假／事後改史）。"""
+        """判定表第 1 列：merge 不可解＝ERROR（抄錯／造假／事後改史），且須指到壞值那列。
+
+        ★fixture 須兩列、壞值落第 2 列：單列 fixture 上「把行號寫死成 1」的突變會存活
+        （實測全套零轉紅），而 merge 面是 ERROR、直接硬擋 commit——行號指錯會把維運者
+        帶去改一列無辜的事件。pins 兩支同型缺口已由 test_pins_… 兩案各自補上。
+        """
         with tempfile.TemporaryDirectory() as d:
-            _outer, pins = self._fixture(d)
-            self._events(d, merge="0" * 39 + "1", pins=pins)
+            outer, pins = self._fixture(d)
+            rows = [dict(VALID_CLOSE, merge=outer, pins=pins),
+                    dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins)]
+            _wfile(d, EVENTS,
+                   "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
             f = lint_events_sha(d)
             self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
             self.assertIn("merge", f[0]["msg"])
-            self.assertIn("行 1", f[0]["where"])
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
 
     def test_merge_resolvable_but_not_commit_is_error(self):
         """判定表第 1 列右欄：可解但非 commit 物件（此處為 blob）＝ERROR。"""
@@ -6329,15 +6337,31 @@ class TestLintSummary(unittest.TestCase):
             self.assertEqual(rc, 1 if int(m.group(1)) else 0)
 
     def test_cmd_check_output_shape_is_unchanged(self):
-        """★G6 明文只動 lint：`check` 子命令輸出形不變（無三段式、無跳過段）。"""
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            rc = cmd_check()
-        out = buf.getvalue()
-        self.assertEqual(rc, 0, msg=out)
-        self.assertIn("check：一致", out)
-        self.assertNotIn("條款跳過", out)
-        self.assertNotIn("跳過：", out)
+        """★G6 明文只動 lint：`check` 子命令輸出形不變（無三段式、無跳過段）。
+
+        ★比照鄰案在 fixture repo 上跑而非現庫：原版直呼 `cmd_check()`，等於把「現庫
+        生成物與現況一致」寫成本案前提——收刀三步的中間態（events 已 append、generate
+        尚未跑）就會讓本案假紅，訊息還與受測程式碼零關係；唯讀看碼／scratch clone
+        （無 submodule worktree）更直接崩在 RouterRoutesError。生成內容正確性歸另外近
+        三百案，本案只守輸出形，故 `compute_generated` 以 mock 換掉。
+        ★一致與不一致兩支都驗：後者才是誤植三段式摘要的高風險路徑。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            for computed, expect_rc, expect_line in (
+                    ({}, 0, "check：一致"),
+                    ({f"{GENERATED_DIR}/STATE.md": "x\n"}, 1, "check：不一致 1 處")):
+                buf = io.StringIO()
+                with mock.patch.object(sys.modules[__name__], "ROOT", d), \
+                        mock.patch.object(sys.modules[__name__], "compute_generated",
+                                          lambda _root, c=computed: c):
+                    with contextlib.redirect_stdout(buf):
+                        rc = cmd_check()
+                out = buf.getvalue()
+                self.assertEqual(rc, expect_rc, msg=out)
+                self.assertIn(expect_line, out)
+                self.assertNotIn("條款跳過", out)
+                self.assertNotIn("跳過：", out)
 
 
 class TestSkipInventory(unittest.TestCase):
