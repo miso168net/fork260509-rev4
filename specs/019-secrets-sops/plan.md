@@ -42,7 +42,7 @@ bash 腳本與 hook 走 fixture 演練機判（8 格 fixture、刪 key、CR 注�
 `--no-verify` 可繞過事件型檢查＝已知邊界，由 pre-push 第二層與 allowlist 先行降低誘因。
 
 **Scale/Scope**: 8 個加密 key／11 支機密檔／10 條 compose 條目／3 個 repo 的 hook 面／
-5 支 ADR／新增約 4 個檔案（wrapper、解密腳本、加密檔、值比對工具）＋改動約 8 個既有檔案。
+5 支 ADR／**新增 11 個檔案＋改動 12 個既有檔案**（逐檔清單＝下方 Project Structure，該清單為準）。
 
 ## Constitution Check
 

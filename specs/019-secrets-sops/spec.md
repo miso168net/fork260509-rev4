@@ -26,7 +26,19 @@
 - 團隊組成（A-4）＝「**將來可能有非工程師**」→ ADR 記「必須分兩層」為待觸發架構決定；
   問題 B（個人密碼管理器）＝延後＋四反轉條件登記。
 - 驗收升格＝**a／b／c／d／f／h＋preflight 一致性檢查全升**；g（無 docker 離線還原）不升、
-  改 RUNBOOK 災復備註。
+  改 RUNBOOK 災復備註。**升格字母對照表**（此組字母＝brainstorm 候選驗收編號，與
+  `contracts/secret-pipeline.md` §P4 的 (a)~(e)＝FR-016 五要求本地編號**屬不同命名空間**，
+  引用時必言明出處）：
+
+  | 字母 | 驗收項 |
+  |---|---|
+  | a | 解密產物 byte 級健康（尾端無 CR／LF、leaf 與 composite 內嵌值 byte 數一致）＋preflight CR 護欄 |
+  | b | 產物 owner 與 mode（非 `root:root`、目錄 700／檔 644） |
+  | c | obs＋metrics 全開、三個非 root service 讀取成功 |
+  | d | `docker inspect` 驗機密掛載來源已離開 `/mnt/d` |
+  | f | 刪 enc 檔一 key → 管線 fail-loud（零寫入、非零退出） |
+  | g | 無 docker 離線還原演練（**不升格**、改 RUNBOOK 災復備註） |
+  | h | 掃描三延伸（誤報基線對照／三 repo 覆蓋實擋／連線字串規則命中） |
 
 ### Session 2026-07-28（/speckit-clarify）
 
@@ -169,8 +181,9 @@
 - 加密檔 git merge 衝突：依 RUNBOOK 程序（雙方解密→明文三方合併→重加密→核對 recipient 清單
   一致），暫存明文限 repo 內 gitignored 目錄。
 - passphrase 遺失（B′）：該 identity 永久失效＝走加人流程重加入；離線備份義務含 passphrase 本身。
-- U1 閘反轉：#2 失敗→方案形狀改環境變數注入＝**升級 user 重拍**；#11 反轉→SECRETS_DIR 重拍；
-  #3 失敗→預拍退路（方式 A＋解法 2）自動生效、ADR 記錄。
+- U1 閘反轉：#2 失敗→方案形狀改環境變數注入＝**升級 user 重拍**；#11 反轉→**升級 user 重拍**
+  SECRETS_DIR（2 vs 2′ 比較基礎改變）；#3 失敗→預拍退路（方式 A＋解法 2＝
+  `$HOME/.cache/rev4-secrets`）自動生效、不停工、ADR 記錄。
 - B′ 下命令替換（無 tty）情境呼叫解密：tty 守衛擋下並給指引，不得 hang 死或靜默寫壞檔。
 - 他機 clone 未跑 bootstrap：兩源倉 hooksPath 未設＝無防線——bootstrap 體檢斷言暴露；此為
   已知邊界（per-machine 設定）。
@@ -211,9 +224,10 @@
 **實測閘（U1）**
 
 - **FR-009**: 三實測閘 MUST 先於對應施工並記錄於 ADR：#2 容器 bind-mount ext4／tmpfs 路徑
-  （失敗→升級 user 重拍方案形狀）；#11 Windows 側 docker client 定址 WSL 內部路徑（反轉→
-  SECRETS_DIR 重拍）；#3 B′ passphrase identity 可用性含 pinentry keyring 假象排除（失敗→
-  預拍退路方式 A＋解法 2 自動生效）。
+  （失敗→**升級 user 重拍**方案形狀、非 agent 自決）；#11 Windows 側 docker client 定址 WSL
+  內部路徑（反轉→**升級 user 重拍** SECRETS_DIR、非 agent 自決）；#3 B′ passphrase identity
+  可用性含 pinentry keyring 假象排除（失敗→預拍退路自動生效：方式 A＋解法 2＝
+  `$HOME/.cache/rev4-secrets`、ext4 持久，不停工、ADR 記錄）。
 
 **SOPS 資產（U2）**
 
@@ -286,8 +300,8 @@
 
 ### Measurable Outcomes
 
-- **SC-001**: 8 格 fixture × 兩路徑共 16 案結果全符預期（該擋的擋、密文不誤報、兩路徑一致），
-  且三 repo 各至少一案實擋。
+- **SC-001**: 四形 fixture × 兩路徑共 **8 案（＝「8 格」）** 結果全符預期（該擋的擋、密文不誤報、
+  兩路徑一致），且三 repo 各至少一案實擋。
 - **SC-002**: 誤報基線重建後，連續例行簿記 commit 零誤擋（以本刀期間全部真實簿記 commit 為樣本）。
 - **SC-003**: 全新環境僅憑 clone＋一把已授權私鑰＋bootstrap＋解密儀式即重建全部 11 支機密檔，
   preflight 全綠、`docker compose up` 服務全健康——零人工傳遞任何機密值。
@@ -300,7 +314,10 @@
   `.new` 而非覆寫。
 - **SC-008**: 解密產物 byte 級健康全過：尾端無 CR／LF、leaf 與 composite 內嵌值 byte 數一致、
   owner 本人、目錄 700 檔 644。
-- **SC-009**: pre-commit 端到端延遲維持秒級紅線（量測記錄；比較基準＝018 現況）。
+- **SC-009**: pre-commit 端到端延遲維持秒級紅線——**機判門檻**：本刀新增兩段（樣式掃描＋值比對）
+  合計中位數 **≤5s**；值比對工具本體 staged 時其自測增量 **≤3s**；量測沿 T001 同機同日基線與
+  L-155 中位數法（drvfs 牆鐘變異大，絕對總時由既有 I/O 稅主導、不作為判準）。超標→記錄成本
+  結構並掛 BACKLOG（比照 018 SC-008 處置）。
 - **SC-010**: 治理完備：ADR 5 支 accepted（含三閘實測欄）、RUNBOOK 各段落地、B-115 登記、
   `deploy/secrets` 命中逐檔判定完成（現場 grep 為準）。
 
@@ -310,7 +327,8 @@
 
 - SOPS 產物零存在；掃描工具零安裝——全部自紙上起步。
 - `generate-secrets.sh:41`／`preflight-secrets.sh:12` 無條件賦值 SECRETS_DIR、
-  `setup-reaper-role.sh:16` PW_FILE 硬編碼；compose 頂層 secrets 10 條（:361-385）零變數展開；
+  `setup-reaper-role.sh:16` PW_FILE 硬編碼；compose 頂層 `secrets:` 區塊起 :361、10 條 `file:`
+  條目位於 :363-385（兩個行號指涉不同、非矛盾）、零變數展開；
   `generate-secrets.sh:160` chmod 600（9p 上 no-op）。
 - `.githooks/pre-commit` 19 行無掃描行；無 pre-push；兩源倉 hooksPath 未設；`tools/bootstrap`
   :120-131 體檢僅缺檔 warn、零二進位斷言。

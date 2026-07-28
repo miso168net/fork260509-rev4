@@ -62,8 +62,10 @@
 - **不通過**：缺席或版本不符 → **`die`（exit 2）**＋安裝指引（下載 URL 樣式
   `betterleaks_<VER>_linux_x64.tar.gz`＋`sha256sum -c checksums.txt` 驗證步驟）。
 - **理由**：缺 binary 時 hook 會以 exit 127 擋掉每一次 commit 且訊息難解——體檢須在此之前
-  fail-loud。**注意等級差異**：secrets 缺檔體檢維持既有 `warn` 級（人對人交接），本斷言為
-  `die` 級（工具鏈完整性）。
+  fail-loud。**注意三級差異（刻意、非疏漏；完整口徑見 secret-pipeline.md §P5.4）**：本斷言與
+  hooksPath 斷言＝`die` 級（工具鏈完整性）／`.env` 缺失＝bootstrap 代勞產生（自癒、不中止）／
+  secrets 實值缺檔＝維持既有 `warn` 級（人對人交接、bootstrap 不生成）；**上機前的 fail-loud
+  由 preflight 承載**。
 
 ---
 

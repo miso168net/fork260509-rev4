@@ -15,10 +15,12 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   `time` 基線（無 staged、無工具改動）×2 取中位；＋`python3 tools/docs-sync.py test`／
   `schema-gate.py test`／`wire-schema.py test` 三套件現況案數（預期 347／130／7）——沿 018
   T001 方法論（drvfs 牆鐘變異大、同機同日對照，L-155）
-- [ ] T002 掃描器釘版雙查與**拍板呈報**（★需 user 拍板、不得自決；CLAUDE.md §6 釘版紀律）：
-  查 Betterleaks 上游最新穩定 release 版本與發布日（research R1 當日值＝v1.7.1／2026-07-27，
-  屬浮動量必須現查）→ 連同「維持該版 vs 更新版」兩案呈報 user 選定 → 選定值記入
-  `docs/ops/RUNBOOK.md` 工具版本欄
+- [ ] T002 **三支外部工具釘版雙查與拍板呈報**（★需 user 拍板、不得自決；CLAUDE.md §6 釘版
+  紀律；一次呈報三案、避免施工中途再中斷）：①**Betterleaks**（research R1 當日值 v1.7.1／
+  2026-07-27）②**sops** 映像（R7 當日值 v3.13.3-alpine＋其 multi-arch index digest，需複查該
+  digest 仍指向該 tag）③**age**（R9 當日值 v1.3.1）——三者皆屬浮動量必須現查上游最新穩定版，
+  各以「維持研究當日值 vs 更新版」兩案呈報 user 選定 → 選定值記入 `docs/ops/RUNBOOK.md`
+  工具版本欄，供 T003／T018／T019 取用
 - [ ] T003 安裝掃描器並驗證：依 T002 拍板版本下載 `betterleaks_<VER>_linux_x64.tar.gz`
   （★版號無 `v` 前綴、架構寫 `x64`）＋`checksums.txt`（★檔名不含版號）→ `sha256sum -c`
   驗證 → 安裝至 PATH → `betterleaks version` 確認與拍板值一致（不符即中止、依 §6 紀律）
@@ -43,8 +45,10 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   （★`age -p` 的 passphrase 讀取走 `/dev/tty`、與 stdout 重導向互不干擾，真 TTY 下可行）→
   `xxd` 驗 `keys.txt` 尾端無 CR → 以 `--age <剛產生的公鑰>` 直接指定做最小加解密往返
   （**此處不用 `.sops.yaml`**，避開循環依賴）→ 另開 shell 跑解密，確認**跳出 passphrase
-  提示且解得開**、且無 keyring 自動填入假象。★成功→定案 B′；**失敗→預拍退路自動生效
-  （方式 A＋SECRETS_DIR 降解法 2），記入 ADR、不停工**
+  提示且解得開**、且無 keyring 自動填入假象；併記 **#13 多 recipient 情境的 passphrase 提示
+  次數**（T033 演練備第二把金鑰時複測、RUNBOOK 不寫死）。★成功→定案 B′；**失敗→預拍退路自動
+  生效：方式 A（明文 identity＋`chmod 600`）＋SECRETS_DIR 降解法 2＝`$HOME/.cache/rev4-secrets`
+  （ext4 持久、免開機儀式；compose 與腳本零改動、只換 `.env` 一個值）——記入 ADR、不停工**
 - [ ] T008 三閘結果落 ADR draft `docs/arc42/decisions/0080-*.md`（私鑰與落點篇的實測欄）：
   逐閘記「怎麼跑／實測輸出／結論／對設計的影響」；#3 失敗時另記退路生效與 SECRETS_DIR 降階
 
@@ -78,8 +82,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   **新分支首推（remote-oid 全零）退階 `local-oid --not --remotes=origin`**／該退階無效時掃整條
   分支／刪除分支（local-oid 全零）跳過；命中即 exit 1
 - [ ] T014 [P] [US1] 新增 `.githooks-submodule/pre-commit` 與 `.githooks-submodule/pre-push`
-  （兩源倉專用、**僅樣式掃描、零 python 依賴**）：以 `dirname "$0"` 自我定位後 source
-  `../.githooks/lib/scan-range.sh`（**不硬編碼外層絕對路徑**）
+  （兩源倉專用、**僅樣式掃描、零 python 依賴**）：**pre-commit 直接跑樣式掃描、不 source 任何
+  lib**（`scan-range.sh` 只承載 pre-push 的 stdin 解析與範圍推導）；**pre-push 才**以
+  `dirname "$0"` 自我定位後 source `../.githooks/lib/scan-range.sh`（**不硬編碼外層絕對路徑**）
 - [ ] T015 [US1] 改 `.githooks/pre-commit`：①掃描行置於 `docs-sync check` **之前**，指令＝
   `betterleaks git --pre-commit --staged --redact --verbose --exit-code 2`（★`--redact` 不可省
   ——預設 0＝明文噴進終端；★禁用 `protect`／`detect`；★原生二進位、禁容器）②exit code 分流
@@ -103,7 +108,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 
 - [ ] T018 [US2] 新增 `deploy/sops.sh`（contracts secret-pipeline §P1 七要件）：digest 釘版常數
   ＝`ghcr.io/getsops/sops@sha256:ae501277bf742f1662e0f881f43dd8fd6798b489a8058e921dbf6cda597140ea`
-  （★施工時複查 digest 仍指向 v3.13.3-alpine；★registry 與 digest 必須成對）＋`-it` 條件化
+  （★值依 T002 拍板結果；施工時複查 digest 仍指向該 tag；★registry 與 digest 必須成對）＋`-it` 條件化
   ＋**不轉發 `EDITOR`**＋顯式 `-e SOPS_AGE_KEY -e SOPS_AGE_KEY_FILE -e SOPS_AGE_KEY_CMD`＋
   掛載 `$PWD:/work -w /work` 與私鑰目錄唯讀；`chmod +x` 後 **`git update-index --chmod=+x`**
   （drvfs exec bit 不落 index）
@@ -121,7 +126,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   ★`alert_webhook_url` **如實搬移現值**（現值 39 bytes 為 user 已填真值；`--force` 不重置、
   **絕不以刪檔為手段**）；composite 不進（由既有腳本重生）
 - [ ] T022 [US2] 新增 `deploy/decrypt-secrets.sh`（contracts §P4 五要求）：tty 守衛（非互動
-  **吵鬧失敗**、不得 hang）→ source `.env` → `mkdir -p`＋`chmod 700`**自建 0700 子目錄**
+  **吵鬧失敗**、不得 hang）→ **`source .env`（存在時）、`SECRETS_DIR` 未設時回退
+  `deploy/secrets`**（與 T012 值比對工具同一回退口徑；★`.env` 於 T024 才建立，此回退是 US2
+  能在 US3 之前獨立驗證的前提）→ `mkdir -p`＋`chmod 700`**自建 0700 子目錄**
   （`/dev/shm` 為 world-writable）→ wrapper 收 stdout（`umask 077`、**不用 `--output`／`-i`**
   避免 root 產物）→ **key 數與名稱斷言、不符零寫入＋非零退出＋指名缺哪個 key** → 逐檔
   `printf '%s'`（無尾端換行）＋`chmod 644` → **現值 ≠ 解密值則另存 `.txt.new` 不覆寫**
@@ -152,13 +159,22 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 - [ ] T028 [P] [US3] `docker-compose.yml` 頂層 `secrets:` 10 條目改帶預設值變數展開（未設變數
   時回退專案相對路徑）；★`reaper_password` 不進 compose 是設計（僅 setup-reaper-role 直讀）、
   **勿誤補**；dev 與 example 兩 compose 檔零改動
-- [ ] T029 [P] [US3] `tools/bootstrap` secrets 體檢 glob 隨 SECRETS_DIR；缺實值維持 **warn 級**
-  （既有慣例——實值人對人交接、bootstrap 不生成）
+- [ ] T029 [P] [US3] `tools/bootstrap` secrets 體檢 glob 隨 SECRETS_DIR；**三級口徑明確落地**
+  （contracts §P5.4、scan-gates §S4）：`.env` 缺失→**代勞產生（自癒、不中止）**／掃描器與
+  hooksPath 斷言→**die 級**／機密實值缺檔→**維持 warn 級**（既有慣例、實值人對人交接、
+  bootstrap 不生成）；★上機前的 fail-loud 由 preflight 承載（T027），bootstrap 不重複把關
 - [ ] T030 [US3] **遷移執行＋S6／S7 驗收**：依 contracts §P6 五步（`down`→decrypt→設值
   `up -d`→**逐容器 `docker inspect` 驗來源皆非 `/mnt/d`**→**確認後才**刪舊落點）；＋未設變數時
   `docker compose config` 回退驗證（#4）＋`--profile obs --profile metrics` 全開驗三個非 root
   service（472／65534／59000）讀得到且健康＋**否定測試**：跳過 `down` 觀察 `Starting` 而非
   `Recreated`（假性完成信號）後復原重做；完成判準＝`/mnt/d` 全樹零明文機密檔
+- [ ] T039 [US3] **SC-003 後半：乾淨重建全鏈驗收**（quickstart S4 後半；★編號為後補、執行序
+  緊接 T030 之後、見 Dependencies）：清空 `$SECRETS_DIR`
+  模擬全新環境 → `tools/bootstrap` → `deploy/decrypt-secrets.sh` → `generate-secrets.sh
+  --compose-only`（重組 3 composite）→ `preflight-secrets.sh` → `docker compose up -d` →
+  **驗 11 支機密檔全數重建、preflight 全綠、服務全健康、全程零人工傳遞任何機密值**；
+  ＋**US3 情境 5 否定測試**：清空落點後**不跑解密**直接 preflight → 必須明確紅並指名缺檔
+  （而非服務靜默啟動失敗）
 
 ## Phase 6: US4 — 營運程序落地（P4）
 
@@ -171,7 +187,11 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `git pull` 即可用」是錯的）／撤銷四步（★`rotate -i --rm-age` **逐檔一行**——`rotate` 只吃
   第一個位置參數、其餘靜默略過且 exit code 不變）／金鑰與 passphrase 遺失（★備份含 passphrase
   本身）／開機儀式（2′ 下每次開機重跑解密）／合併衝突（暫存必落 repo 內、重加密後核對
-  `sops.age` 清單）／災復備註（g 不升格之代償）／工具版本記錄欄
+  `sops.age` 清單）／災復備註（g 不升格之代償）／工具版本記錄欄（T002 三支拍板值）／
+  ★**SSH identity 禁令與尋鑰來源注意事項**（FR-012 的 RUNBOOK 面落點：sops 尋鑰為**聯集載入**
+  且會零設定自動探測 `~/.ssh/id_ed25519` 與 `id_rsa`——禁以 SSH 金鑰充當 identity；切換取鑰
+  來源後必跑 #10 反向驗證）／★**#13 passphrase 提示次數**：只記 T033 實測值與量測條件、
+  **不寫死次數**
 - [ ] T032 [P] [US4] `docs/ops/RUNBOOK.md` 既有節連帶：**§7 輪替表增補「輪替後 re-encrypt 回
   加密檔」步驟**（漏此步→輪替值與加密檔脫鉤、下次 decrypt 觸發 `.new` 守衛）＋§4 人工必填
   清單增 `.wslconfig`／BitLocker 確認項＋§12 工具鏈速查增 `deploy/sops.sh` 與
@@ -180,7 +200,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   →撤銷四步→**#7 五準則逐條驗**（核心＝否定測試：舊 `enc:` stanza 貼回新檔跑原廠解密**必須
   失敗於 MAC 驗證**；rotate 前後值密文必變；recipient 清單前後不含被撤銷者；人工確認 dev 檔
   無 prod 級機密）→**#10 反向驗證**（identity 移走＋`unset` 相關變數後解密**必須失敗**）→
-  ★順序陷阱驗證（故意先 rotate 後 updatekeys 觀察中間狀態）→演練金鑰移除、痕跡不入版控
+  ★順序陷阱驗證（故意先 rotate 後 updatekeys 觀察中間狀態）→★**#13 實測**：趁雙 recipient 在場
+  量測 passphrase 提示次數並記錄（FR-024 後半；RUNBOOK 只記實測值與量測條件、**不寫死次數**）
+  →演練金鑰移除、痕跡不入版控
 
 ## Phase 7: US5 — 治理落檔（P5）
 
@@ -223,11 +245,14 @@ T001 → T002 → T003
                                                     ↓
                         [US2: T018 → T019 → T020 → T021 → T022 → T023]
                                                     ↓
-                        [US3: T024 → T025 → T026 → T027 → T028(P)/T029(P) → T030]
+                        [US3: T024 → T025 → T026 → T027 → T028(P)/T029(P) → T030 → T039]
                                                     ↓
                         [US4: T031 → T032(P) → T033]
                                                     ↓
                         [US5: T034 → T035(P) → T036]  →  [Polish: T037(P) → T038]
+                                                    ↑
+   US1 支線 T017 ───────────────────────────────────┘（US5 之 ADR D 需 US1 掃描防線實證；
+                                                       T038 收刀終驗需 S1~S3 已通過）
 ```
 
 - **US1＝MVP 且與 Foundational 正交**：掃描防線零 SOPS 依賴，可先行或與 Phase 2 並行。
@@ -237,6 +262,9 @@ T001 → T002 → T003
 - **T005（#11）→ T024 落點定值**；**T007（#3）→ T019 產鑰形式**（失敗走預拍退路、不停工）。
 - **T025 三處同刀齊改**：任一未改則該處無條件賦值靜默吃掉外部值（preflight 回 OK、compose 掛掉）。
 - **T030 遷移五步順序即契約**：刪舊落點必為最後一步（提前刪＝容器 bind 舊 inode、下次重啟才炸）。
+- **T039（編號後補、執行序在 T030 之後）**＝SC-003 後半乾淨重建全鏈；需 US3 全部接線完成才有意義。
+- **Phase 2 三閘的 blocking 範圍**＝US2／US3／US4；US5 經 US2~US4 鏈遞移依賴、US1 則完全不受
+  Phase 2 影響（可先行或並行）。
 - [P] 標記＝與同 phase 前一任務異檔零依賴（T006 gnupg 設定／T013、T014 hook 新檔／T028 compose／
   T029 bootstrap／T032 RUNBOOK 既有節／T035 BACKLOG＋NOTES／T037 量測）；其餘序列。
 - **零 submodule 改動、零 pin bump**：兩源倉僅設 per-machine `core.hooksPath`（T016）、工作樹不動。

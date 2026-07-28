@@ -45,7 +45,11 @@
 
 ## P4 解密管線契約（`deploy/decrypt-secrets.sh`；FR-016）
 
-| # | 契約（要求代號） | 否定測試 |
+> **命名空間注意**：本表 (a)~(e) 為 **FR-016 五要求的本地編號**，與 spec Clarifications 的
+> 驗收升格字母 a／b／c／d／f／h（＝brainstorm 候選驗收編號）**屬不同命名空間、指涉不同**；
+> 引用時必言明出處（對照表見 spec Clarifications）。
+
+| # | 契約（FR-016 要求代號） | 否定測試 |
 |---|---|---|
 | P4.1 (a) | 寫檔**無尾端換行**（`printf '%s'`） | leaf byte 數 vs composite 內嵌值 byte 數必須一致；不一致＝不變式破裂（而腳本只印 SKIPPED、preflight 印 OK＝零警告） |
 | P4.2 (b) | tty 守衛（B′ 需互動） | 非互動呼叫必須**吵鬧失敗**，不得 hang 死或寫出帶 CR 的檔 |
@@ -64,7 +68,7 @@
 | P5.1 | `SECRETS_DIR` 單一事實來源＝repo 根 `.env`；compose 原生讀、三腳本 `source` | 只寫 `.env` 不同步 → **compose 讀新落點、腳本查舊落點**；preflight 回 OK 而 compose 掛掉 |
 | P5.2 | `generate-secrets.sh:41`／`preflight-secrets.sh:12`／`setup-reaper-role.sh:16` **三處同刀齊改** | 任一未改 → 該處**無條件賦值**吃掉外部值（靜默） |
 | P5.3 | compose 10 條目改帶預設值變數展開；未設變數時 `docker compose config` 解析回 `./deploy/secrets` | 向後相容的代價＝**忘設變數即保護失效**（誠實登記於 ADR，由 P5.4 補償） |
-| P5.4 | preflight＋bootstrap 對落點缺席／未設值 fail-loud | 否則「`level=warning secret file does not exist` 但容器照樣 Started」＝解法 2 系列的靜默失敗 |
+| P5.4 | **fail-loud 的承載者＝preflight**（落點目錄缺席或機密缺檔→非零退出、指名缺項）；**bootstrap 的角色＝自癒與斷言**：`.env` 缺失時代勞產生（非 die）、hooksPath 與掃描器二進位斷言為 **die 級**、**機密實值缺檔維持 warn 級**（既有慣例：實值人對人交接、bootstrap 不生成） | 否則「`level=warning secret file does not exist` 但容器照樣 Started」＝解法 2 系列的靜默失敗。★三者等級刻意不同、非疏漏：preflight＝上機前把關（fail-loud）／bootstrap 工具鏈完整性＝die／bootstrap 機密實值＝warn |
 | P5.5 | `generate-secrets.sh` 增 `--compose-only`（缺 leaf **報錯退出**、不生成） | 缺 leaf 時靜默造新亂數＝每台機器各拿到不同的值 |
 | P5.6 | preflight 增 CR 偵測與 composite↔leaf 一致性檢查 | 現況只檢「檔在且非空」：塞入密碼已過期的 `database_url.txt` 也回 OK |
 | P5.7 | `printf '%s'` 寫檔形**不得改為 echo** | byte-identical 不變式的前提 |

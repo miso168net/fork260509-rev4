@@ -1,4 +1,4 @@
-# research.md — 019-secrets-sops Phase 0 接地決策（R1~R18）
+# research.md — 019-secrets-sops Phase 0 接地決策（R1~R19）
 
 > 產出方法：5 支唯讀偵察 agent 並行（掃描器上游／SOPS-age 上游／deploy 腳本面／治理慣例／
 > 環境面），全部事實附來源與查核日 2026-07-28。**★ 標記＝推翻或修正 brainstorm 既有假設者**，
@@ -239,8 +239,13 @@ recipient 用 `age:` YAML 清單形、**不設任何範圍選項**。
 
 ## R14 ★ SECRETS_DIR 落點的環境接地（FR-017／FR-021／實測閘 #2 #11）
 
-**Decision**: 落點 `/dev/shm/rev4-secrets`（拍板值不變），**解密腳本必須自建 0700 子目錄**；
-swap 殘餘風險誠實入 ADR，`noswap` 私有 tmpfs 列為 RUNBOOK 可選強化步驟（非必要、需 sudo）。
+**Decision**: 落點 `/dev/shm/rev4-secrets`（＝解法 2′、拍板值不變），**解密腳本必須自建 0700
+子目錄**；swap 殘餘風險誠實入 ADR，`noswap` 私有 tmpfs 列為 RUNBOOK 可選強化步驟（非必要、需 sudo）。
+
+**★ 退路落點具體值（供 #3 失敗時自動生效、免回讀 brainstorm）**：解法 2＝
+**`$HOME/.cache/rev4-secrets`**（ext4 持久、跨重開機存活、免開機儀式）；採此值時 SECRETS_DIR
+寫入 `.env` 的形式與 2′ 完全相同（**compose 與腳本零改動、只換一個值**），代價＝明文長駐
+`ext4.vhdx` 內（與方式 A 的威脅面一致、自洽）。
 
 **Rationale**（本機實測）:
 - `/dev/shm` 存在、tmpfs、16G 可用、選項 `rw,nosuid,nodev,noatime`——**未帶 `noswap`**；
@@ -326,13 +331,17 @@ bootstrap 對兩源倉 worktree `git config core.hooksPath <外層絕對路徑>/
 
 ## R18 ★ `deploy/secrets` 命中三分流（FR-027 口徑校正）
 
-**Decision**: 實測 **84 命中／29 檔**——**程序性引用 14 檔**（逐檔改）、**歷史文件 15 檔**（不改）、
-生成物由 `generate` 重算（不手改）。
+**Decision**: **程序性引用 13 檔**（逐檔改；此為穩定值＝repo 運作檔）＋歷史文件（不改、**檔數隨
+本刀 SDD 進度增長**）＋生成物由 `generate` 重算（不手改、現況零命中）。
 
-**★ 口徑校正**：spec 沿用 brainstorm 的「27 檔」＝評估當日值；本刀自身兩檔（brainstorm＋spec）
-自指命中後為 29 檔。**施工時以現場 `git grep` 為準、不以任何靜態數字為驗收基準。**
+**★ 口徑校正（本刀自身多次改寫，故數字必須以現場為準）**：brainstorm 評估當日 27 檔 → plan
+Phase 0 偵察 84 命中／29 檔 → **analyze 階段複核實測 113 命中／36 檔＝程序性 13＋歷史 23＋
+生成物 0**。差額全部來自本刀自身產物（brainstorm／spec／plan／tasks／research／contracts／
+quickstart 皆提及該路徑）自指命中。**程序性 13 檔經現場 `git grep` 逐檔複核、與下表完全一致**
+（先前正文誤植「14 檔」，表格本身無漏）。**施工時一律以現場 `git grep` 為準、不以任何靜態數字
+為驗收基準。**
 
-**程序性引用 14 檔（逐檔改；以檔名＋落點描述定位，施工時現場 grep 取實際位置）**：
+**程序性引用 13 檔（逐檔改；以檔名＋落點描述定位，施工時現場 grep 取實際位置）**：
 
 | 檔案 | 落點描述 |
 |---|---|
@@ -350,8 +359,9 @@ bootstrap 對兩源倉 worktree `git config core.hooksPath <外層絕對路徑>/
 | `docs/ops/RUNBOOK.md` | 檔頭指路、§4 人工必填、§7 輪替表、§11 觀測維運各處 |
 | `tools/bootstrap` | 檔頭說明與 secrets 體檢段 |
 
-歷史文件 15 檔（**不改**）：歷刀 brainstorm／spec／plan／tasks／ADR／review 等過去式紀錄。
-生成物：由 `docs-sync.py generate` 重算、不手改。
+歷史文件（**不改**；analyze 階段實測 23 檔、**隨本刀產物增加而增長**）：歷刀與本刀的
+brainstorm／spec／plan／tasks／research／contracts／quickstart／ADR／review 等過去式或設計紀錄。
+生成物：由 `docs-sync.py generate` 重算、不手改（現況零命中）。
 
 **`deploy/secrets/README.md` 為唯一向 user 說明 secrets 程序的人寫文件**——本刀改 preflight／
 generate 任一行為時，其四處描述（預檢只查檔在且非空／`--force` 全重生語意／chmod 600 注記／
