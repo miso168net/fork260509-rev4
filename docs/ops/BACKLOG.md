@@ -1,4 +1,4 @@
-<!-- next: B-113 -->
+<!-- next: B-114 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -34,3 +34,4 @@
 - B-110｜sea-orm Entity First 評估刀：sea-orm 2.x 沉澱後評估「entity 對實庫僅驗不生成的漂移檢查＋additive DDL 草稿生成輔助」（動機＝entity 與 migration 同一 schema 事實雙手寫、現無機器互驗——m001 gate1 抓漏 2 索引為既遂案例、型別手滑僅 runtime 炸開；草稿可省未來新表 toil）；邊界＝產物入庫人審過三閘、raw SQL 逃生門與 up/down 對稱不動、casbin_rule 入 skip-list（ADR 0015）、欄序仍 user 定稿（ADR 0021）、絕不開 runtime schema-sync｜sea-orm 2.x 數個 patch 版沉澱＋vendored sea-orm-adapter 2.0 相容路徑 ADR 拍板、或 1.1 維護窗關閉、或單一 feature 內出現兩支以上新表 DDL（高頻建表期——此況可先做零升級的草稿工具階段 0、無人用即停損）｜出處：JetBrains Rust Web 2026 文章研究輪 m03 裁決 defer（2026-07-21）
 - B-111｜tools/ 四支 python 工具補 .py 副檔名（docs-sync／schema-gate／fork-delta-lint／wire-schema；bootstrap／wf-watchdog 屬 bash 不在範圍；候選 A＝直接改名＋僅更新活引用〔.githooks／.claude hooks／CLAUDE.md／README／RUNBOOK／NOTES／memory；歷史 specs／brainstorms／reviews 屬過去式不改〕、候選 B＝原名留薄殼轉發＋本體改 .py 零引用更新；引用面實測 323 處散佈約 100 檔、多數屬歷史檔；改名後 drvfs exec bit 用 git update-index --chmod=+x 落索引）｜下次動 tools/ 任一支時同刀、或獨立小刀｜出處：user 指示（2026-07-28）
 - B-112｜rust-api submodule 內治理工具舊名殘留：`server/tests/wire_schema.rs` 行 2/29/56/225/245 之 `python3 tools/wire-schema extract`（行 29/56 為測試失敗時印給人照打的補救命令、行 245 更以 assert 斷言 panic 訊息含該字串）＋`migration/src/m008~m011` 註解引 `tools/schema-gate`——018 改名後照打即檔不存在；不併 018 之因＝FR-017 明文零 submodule 改動、且改動需容器內 serial 驗證＋pin bump（rust 既有行為零回歸不受影響：斷言兩側同為 rust 自帶字串常數）｜下次動 rust-api 測試或 migration 註解時同刀｜出處：018 U1 quality review advisory（2026-07-28）
+- B-113｜docs-sync 自帶測試套件 drvfs 提速：284 案實測 5.2s（T001 基線 212 案／2.53s；user 1.60s＋sys 1.28s，約 2.3s 為 drvfs I/O 等待），多案在 drvfs 上 `git init` 建 fixture repo、每次 git spawn 稅約 73ms（L-155）。候選＝fixture repo 共用（class 級 setUp）／改在 native 路徑建 fixture／不需 git 的案改純檔案 fixture｜套件再成長至體感惡化、或 pre-commit 工具全改動成本成為實際痛點時｜出處：018 U4 SC-008 實測校正（2026-07-28）

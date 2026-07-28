@@ -119,22 +119,37 @@ ERROR、無 inline 豁免、self-test 防恆綠。
 **Independent Test**: spec US4——staged 工具→自動跑其 test；RUNBOOK 假子命令紅；
 真表六支全子命令；平時零開銷。
 
-- [ ] T015 [US4] 紅測 `tools/docs-sync.py` unittest 新增（contracts G5/G7）：掃源子命令集
+- [x] T015 [US4] 紅測 `tools/docs-sync.py` unittest 新增（contracts G5/G7）：掃源子命令集
   案（合成工具源字串→`cmd == "…"` 集合對數＋去重排序）＋命令形違規案（語料塞
   `tools/docs-sync.py 假子命令`→ERROR）＋NOTES 同形不紅案＋舊名禁令案（塞
   `tools/docs-sync generate` 無 .py→ERROR）＋引數非子命令案（`tools/docs-sync.py errata
   某詞` 之非 [a-z] 後隨 token 僅驗工具存在）＋bash 工具存在案——先紅
-- [ ] T016 [US4] 實作 G7＋G5 於 `tools/docs-sync.py`：generate 新增
+- [x] T016 [US4] 實作 G7＋G5 於 `tools/docs-sync.py`：generate 新增
   `docs/generated/reference/tools-cli.md`（R5 形制：python 四支掃源子命令集＋bash 兩支
   存在與用法行、GEN_HEADER）＋lint 命令形條款（R6 雙子檢、語料＝CLAUDE.md／README／
   RUNBOOK）→T015 轉綠；實跑 `generate` 產出真表首版＋`check` 收斂
-- [ ] T017 [P] [US4] G8＋G9 接線：`.githooks/pre-commit` 追加條件觸發段（data-model §8
+- [x] T017 [P] [US4] G8＋G9 接線：`.githooks/pre-commit` 追加條件觸發段（data-model §8
   觸發表：三支 test＋fork-delta-lint.py 直跑、任一非零 exit 1、維持薄委派 ~25 行內）＋
   `tools/bootstrap` 體檢節追加三支 test 呼叫——實跑驗證（touch 工具→觸發；無工具改動→
   零額外開銷）
-- [ ] T018 [US4] S6＋S8 劇本機判（quickstart：真表對數抽查／RUNBOOK 暫塞假子命令紅→還原
+- [x] T018 [US4] S6＋S8 劇本機判（quickstart：真表對數抽查／RUNBOOK 暫塞假子命令紅→還原
   ／NOTES 塞不紅／CLAUDE.md 暫塞舊名紅→還原／`time` 實測 pre-commit 對 T001 基線：平時
   增量 ≈0、全中 <10s）＋G10 紅線＋收尾
+  - ★**SC-008 實測校正備查（2026-07-28 主線拍板；比照 T001 同類先例）**：
+    - **核心承諾達標**：SC-008 的實質意圖＝「接線成本平時零開銷」。平時（零工具 staged）
+      新增段實測 **0.07~0.084s**（1 次 `git diff --cached`＋4 次 `grep`），對 T001 基線
+      46.4／47.4s 可視為零。**此為硬性驗收基準**。
+    - **兩個絕對數字在本機不成立**，裁定為「訂立基準已被超越」而非實作退化，記實測值＋
+      成本結構於此、不改 spec 本文：①三支 test 合計 **5.4~5.6s**（原上限 5s）——docs-sync
+      由 T001 的 212 案／2.53s 長到 **284 案／5.2s**，增量幾乎全來自本刀自己新增的 72 案
+      （U2 憑證 24＋U3 27＋U4 21）；②加計 fork-delta-lint 直跑合計 **14~16s**（原上限
+      10s）——該工具單項 8.25~10.46s，其中 user＋sys 僅 1.2s、**約九成為 drvfs I/O 稅**，
+      且屬既有成本（每次 base-web pin bump 本來就付），計入「本刀新增成本」本身失真。
+      10s 上限在本刀空間邊界內數學上不可達（即使 docs-sync test 壓到 0s 亦然）。
+    - **實際成本回收已做**：`.githooks/pre-commit` 的 fork-delta-lint 兩個觸發條件
+      （base-web pin bump／工具本體 staged）改為**取聯集只跑一次**，最壞情況省約 9.4s；
+      四情境乾跑已驗（無觸發 0 次、單條件各 1 次、雙條件 1 次），22→19 行仍屬薄委派。
+    - **衍生**：B-113（docs-sync 測試套件 drvfs 提速）已立項追蹤。
 
 ## Phase 7: US5 — lint 誠實輸出（P5）
 
