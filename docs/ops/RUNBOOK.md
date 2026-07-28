@@ -276,9 +276,9 @@ lint 條款速覽（018 新增五條）——severity 三分：ERROR＝exit 1 �
   commit 物件＝ERROR；含 pins 之列另斷言鍵集恰為 web／api——缺鍵或未知鍵＝ERROR（防查
   空集合恆綠）；庫不可查＝該庫整批落跳過明細。
 - **L19 命令形 lint**：語料＝CLAUDE.md／README.md／本檔三件活手冊（NOTES＝未來式帳、
-  豁免）；命令形宣稱的子命令不在該工具源碼分派表＝ERROR；四支 python 工具的舊名
-  （不帶 .py）命中＝ERROR；bash 兩支（bootstrap／wf-watchdog）只驗檔案存在、指向不存在
-  的工具＝ERROR。
+  豁免）；命令形宣稱的子命令不在該工具源碼分派表＝ERROR；python 工具名冊各支（＝上列
+  真表 python 節逐支、隨名冊增減自動涵蓋）的舊名（不帶 .py）命中＝ERROR；bash 兩支
+  （bootstrap／wf-watchdog）只驗檔案存在、指向不存在的工具＝ERROR。
 - **L20 空集合守衛**：七組「不可能空」集合 fail-closed、空／缺＝ERROR——工具名冊、ADR
   檔集、events 列、外層 tracked md 語料、reference 來源檔（submodule 底下者庫不可查＝
   落跳過明細）、憑證掃描 tracked 清單、命令形語料三檔；另斷言有分派表的 python 工具其
