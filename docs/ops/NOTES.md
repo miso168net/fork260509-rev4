@@ -6,11 +6,13 @@
 - ★維運待辦（016 遺留）：`deploy/secrets/alert_webhook_url.txt` 現值＝dev 收器 URL（收器已撤、
   投遞失敗重試無害）、正式接收端 URL 待 user 自填；obs＋metrics 觀測件現全 up、jobs sidecar
   屬 opt-in 未常駐。
-- **進行中：018-governance-hardening**（治理工具鏈與編排紀律硬化；SDD 五步全落、TDD 分六執行單元
-  編排）——U1 已收（B-111 改名＋CLAUDE.md 範本三件）；序：U2 G1 憑證掃描→U3 G2/G3 帳本自證
-  ＋短 SHA 正規化→U4 G5/G7 真表與自測接線→U5 G4/G6 誠實輸出→U6 polish 終驗。收刀後待 user
-  拍板下一波（BACKLOG 候選：B-102 changePassword 節流、B-027/B-028 auth 家族、B-037/B-042/
-  B-081/B-013 prod 部署組等）。
+- **018-governance-hardening 已收刀**（2026-07-28）：治理工具鏈與編排紀律硬化——B-111 四支
+  工具補 .py＋CLAUDE.md 範本三件（六件套⑥／次輪前饋／三欄表）＋docs-sync 五新條款（L16 憑證
+  掃描／L17 pin 互證／L18 events 實證／L19 命令形／L20 空集合守衛）＋lint 三段式摘要＋tools-cli
+  真表＋pre-commit 條件觸發＋bootstrap 體檢接線；測試 212→347；ADR 0077/0078 accepted；
+  SC-008 依校正基準過（提速追蹤＝B-113）。詳 events/STATE。
+- **下一步：待 user 拍板下一波範圍**（BACKLOG 候選：B-102 changePassword 節流、B-027/B-028
+  auth 家族、B-037/B-042/B-081/B-013 prod 部署組等）。
 - 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；B-103（滯後卷）；
   B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；B-101（casbin
   按鈕碼與 buttons 聯集漂移）；B-094（未刪選單分頁截斷）。

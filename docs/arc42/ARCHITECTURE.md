@@ -294,6 +294,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 | 快照新鮮度 | 加 migration 的刀必於單元邊界重跑 `python3 tools/docs-sync.py refresh`→`generate` 並隨該 commit 入庫 | pre-commit `docs-sync check` 攔快照↔生成物漂移（離線秒級）；快照↔實庫一致由本紀律＋收官重跑 refresh 驗 diff 空收斂 |
 | logging | 後端 log 全環境 JSON 單行事件（dev/prod 單一形）；每請求一 request span 掛 sanitize 後 `trace_id`（白名單 `[0-9a-zA-Z._-]`＋64 上限、單一 seam＝log↔稽核 join 鍵）；completion event（`target=http.request`、path 級過濾 `APP_LOG_EXCLUDE_PATHS` 預設空＝全記） | test_support JsonLogCapture 與 production 同形 subscriber、非 JSON 行即 panic＋sanitize 矩陣測＋completion 契約測（容器內 `cargo test --lib`、016 首建） |
 | metrics | 自訂 counter 宣告即於 obs.rs 單點 pre-register 顯式 0（服務重啟首刮即在；label 值集與發射點同錨）；新增 counter 的刀必同步擴 pre-register＝慣例；HTTP 層 endpoint label 未命中路由收斂常數 `unmatched`（防無界基數） | obs.rs pre-register 測＋`/metrics` scrape 斷言（容器內 `cargo test --lib`）＋quickstart S3 判準①全序列收口（016 首建） |
+| 機密內容 | 憑證類機密字面（PEM／OPENSSH 私鑰頭、AWS access key、GitHub token／PAT 形）不入版控；樣式集走窄集合高確信（不含泛熵值與 password= 類、漏報面有意識接受＝ADR 0077）；豁免無 inline marker、僅得走工具常數白名單＋ADR | pre-commit `python3 tools/docs-sync.py lint` 之 L16：外層 tracked 全量（含 staged 新增行面）＋pin bump 時 submodule 舊 pin→新 pin 增量掃；每次執行連帶紅綠 self-test 防恆綠（018 首建） |
 
 route 全集等快變事實住 generated/reference/routes。
 

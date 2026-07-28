@@ -2,7 +2,7 @@
 id: "0077"
 title: 憑證內容掃描閘——外層 tracked 全量＋pin bump 增量掃 submodule、窄樣式集高確信、無 inline 豁免
 date: 2026-07-28
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-28 018-governance-hardening brainstorm §4 ADR draft 候選（user 親決「憑證掃描範圍＝外層 tracked 全量＋pin bump 時增量掃 submodule」）＋research R1（樣式集定稿與樣本構造紀律）／R2（文字二進位判定）／R3（增量掃實作與退化）；spec FR-007／FR-008、contracts G1"

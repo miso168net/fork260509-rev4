@@ -2,7 +2,7 @@
 id: "0078"
 title: events.jsonl append-only 例外——機器可證語意不變的格式正規化允許動既有列（獨立勘誤 commit 逐筆附證據）
 date: 2026-07-28
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-28 018-governance-hardening brainstorm §4 ADR draft 候選（user 親決「events 史料 4 筆 7 位短 SHA 一次性正規化、規則不帶史料豁免」）＋spec Clarifications（append-only 射程＝DB 資料表、不及文件帳本，零 amendment）；research R8／R9、contracts G3、data-model §4；首例＝本刀 T010 勘誤 commit"
