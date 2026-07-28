@@ -6212,13 +6212,43 @@ class TestEmptySetGuards(unittest.TestCase):
         """★現況驗收：現庫七組守衛全綠（守衛上線即自紅＝定義錯或接線錯）。"""
         self.assertEqual(lint_empty_sets(ROOT), [])
 
-    def test_run_lint_wires_empty_set_guards(self):
-        """★接線層：lint_empty_sets 從 run_lint 掉線＝G4 整條靜默下線。"""
+    def test_group4_and_group5_are_composed_into_lint_empty_sets(self):
+        """★組裝層：守衛#4／#5 組裝進 lint_empty_sets 的那兩行掉線＝lint 端零信號。
+
+        其餘五組的造空案都走 _msgs()（＝lint_empty_sets 本體），唯獨#4／#5 的既有案直呼
+        lint_reference_sources／lint_tool_dispatch，繞過組裝層；而 lint_empty_sets 僅有的
+        兩個組裝案都擋不住——test_real_repo_has_no_empty_set 在現庫本來就期望空（這兩支對
+        現況本來就回空，拿掉照樣是空）、test_run_lint_wires_empty_set_guards 修前只驗
+        「存在任一 L20 ERROR」。突變實證（修前）：兩行分別換成 pass，345 案零轉紅。
+        #5 掉線尤其是全損：它在 lint 端沒有第二個家（#4 另有 generate 端接線案看住），
+        L19 的 fail-closed 只覆蓋「掃源失敗」那一格，FR-013 要防的「有分派表卻掃出空集合
+        而恆綠」會直接消失。
+        """
         with tempfile.TemporaryDirectory() as d:
             self._bare(d)
-            f = run_lint(d)
-            self.assertTrue(any(x["code"] == "L20" and x["level"] == ERROR for x in f),
-                            msg=str(f))
+            msgs = self._msgs(d)
+            self.assertTrue(any("docker-compose.yml" in m and "reference 來源檔不存在" in m
+                                for m in msgs), msg=str(msgs))
+            self.assertTrue(any(m.startswith("tools｜") and "工具掃源失敗" in m
+                                for m in msgs), msg=str(msgs))
+
+    def test_run_lint_wires_empty_set_guards(self):
+        """★接線層：lint_empty_sets 從 run_lint 掉線＝G4 整條靜默下線。
+
+        ★不可只斷言「存在任一 L20 ERROR」：_bare fixture 上守衛#1／#2／#3／#7 都會報，
+        any 恆真，#4／#5 的組裝行換成 pass 照樣全綠。故改以 where 全集逐字對照，讓每一支
+        守衛在 run_lint 這條線上各自帶信號。#6（憑證掃描清單）在本 fixture 有 index、
+        依定義不報，由 test_group6_empty_credential_scan_roster 單獨釘。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            wheres = {x["where"] for x in run_lint(d)
+                      if x["code"] == "L20" and x["level"] == ERROR}
+            expected = ({ADR_DIR, EVENTS, ".", "tools"}
+                        | {rel for rel in REFERENCE_SOURCES
+                           if owning_submodule(rel) is None}
+                        | set(CMD_FORM_CORPUS))
+            self.assertEqual(wheres, expected)
 
 
 class TestLintSummary(unittest.TestCase):
