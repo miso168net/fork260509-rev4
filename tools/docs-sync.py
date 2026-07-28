@@ -1863,12 +1863,19 @@ RE_DISPATCH_EQ = re.compile(r'\bcmd\s*==\s*"([a-z][a-z0-9-]*)"')
 RE_DISPATCH_IN = re.compile(r"\bcmd\s+in\s+\(([^)]*)\)")
 RE_DISPATCH_ITEM = re.compile(r'"([a-z][a-z0-9-]*)"')
 
-# 命令形：★子命令 token 只認「單一空白後緊接」——手冊的目錄樹以多空白對欄（README 那行
-# `tools/fork-delta-lint.py` 後對齊的說明文字首字恰是 base-web），以 \s+ 取 token 會把說明
-# 文字當成子命令而誤紅。多值儲存格（`gate1|gate2|audit`、`errata <詞>` / `test`）則靠
-# token 字元集（小寫字母／數字／連字號）自然斷在第一個合法子命令上。
+# 命令形：子命令 token 收「一個以上的空白／tab 後緊接」。★唯一例外＝目錄樹行（行首為
+# `├`／`└` 分支符號）上的「多空白對欄」——README 的 repo 目錄樹用多空白把說明文字對欄，
+# `tools/fork-delta-lint.py` 那行後面第一個詞恰是 base-web（完全合子命令字元集），而該工具
+# 子命令集為空、任何 token 都不合法，不排除即一律誤紅。判準取排版形制（樹狀圖行）而非工具
+# 身分；樹狀圖行上的單一空白形仍照驗（見 test_tree_line_with_single_space_…）。
 RE_CMD_PY = re.compile(
-    r"tools/(" + "|".join(TOOLS_PY) + r")\.py(?: (?P<sub>[a-z][a-z0-9-]*))?")
+    r"tools/(" + "|".join(TOOLS_PY) + r")\.py(?:(?P<gap>[ \t]+)(?P<sub>[a-z][a-z0-9-]*))?")
+RE_TREE_LINE = re.compile(r"^[ \t│]*[├└]")
+# 一格多值的續值：①直豎線緊接（`gate1|gate2|audit`）②同段收尾後以斜線接下一個代碼段
+# （`… check` / `lint`）。只驗第一個值＝第二、三個值就算是假子命令也不會紅。
+# ★`[^`\n]*` 不含反引號＝只能錨在「其後第一個反引號」上，不會跨到別的命令形的代碼段。
+RE_SUB_PIPE = re.compile(r"\|([a-z][a-z0-9-]*)")
+RE_SUB_SLASH = re.compile(r"[^`\n]*`\s*/\s*`([a-z][a-z0-9-]*)`")
 RE_CMD_OLD = re.compile(r"tools/(" + "|".join(TOOLS_PY) + r")(?!\.py)\b")
 RE_CMD_SH = re.compile(r"tools/(" + "|".join(TOOLS_SH) + r")\b")
 
@@ -1931,6 +1938,17 @@ def gen_tools_cli(rows):
     return "\n".join(parts)
 
 
+def _extra_subs(line, pos):
+    """同一命令形之續值 token（一格多值；見 RE_SUB_PIPE／RE_SUB_SLASH）。"""
+    out = []
+    while True:
+        m = RE_SUB_PIPE.match(line, pos) or RE_SUB_SLASH.match(line, pos)
+        if not m:
+            return out
+        out.append(m.group(1))
+        pos = m.end()
+
+
 def check_cmd_forms(texts, subs, sh_exists):
     """純判定：texts={rel: 全文}、subs={python 工具 rel: 子命令集}、sh_exists={bash rel: bool}。"""
     out = []
@@ -1939,12 +1957,19 @@ def check_cmd_forms(texts, subs, sh_exists):
             for m in RE_CMD_PY.finditer(line):
                 sub = m.group("sub")
                 tool = f"tools/{m.group(1)}.py"
-                if sub is None or sub in subs.get(tool, set()):
+                if sub is None:
                     continue
-                out.append(finding(
-                    ERROR, "L19", f"{rel}:行 {n}",
-                    f"命令形宣稱的子命令「{sub}」不在真表（{TOOLS_CLI_MD}）之 {tool} 子命令集"
-                    "——文件宣稱漂移；改回真名，或先讓工具支援該子命令再回頭改文件"))
+                if len(m.group("gap")) > 1 and RE_TREE_LINE.match(line):
+                    continue           # 目錄樹對欄：其後是說明文字、非子命令（見 RE_TREE_LINE）
+                for value in [sub] + _extra_subs(line, m.end()):
+                    if value in subs.get(tool, set()):
+                        continue
+                    out.append(finding(
+                        ERROR, "L19", f"{rel}:行 {n}",
+                        f"命令形宣稱的子命令「{value}」不在 {tool} 的分派表——比對基準＝該工具"
+                        f"源碼的分派表（每次執行即時掃源；真表 {TOOLS_CLI_MD} 是同一份掃源的"
+                        "生成物、不是基準，手改真表不會改變判定）；文件宣稱漂移，改回真名，"
+                        "或先讓工具支援該子命令再回頭改文件"))
             for m in RE_CMD_OLD.finditer(line):
                 out.append(finding(
                     ERROR, "L19", f"{rel}:行 {n}",
@@ -5607,11 +5632,61 @@ class TestCmdFormLint(unittest.TestCase):
             "| `python3 tools/fork-delta-lint.py` | base-web 原行紀律 | 否 |\n")
         self.assertEqual(self._f(text), [])
 
+    def test_multi_value_cell_validates_every_value_not_just_the_first(self):
+        """★A7：一格多值（直豎線相連）時第 2、3 個值一樣要驗——只驗第一個＝假子命令免檢。"""
+        f = self._f("| `python3 tools/schema-gate.py gate1|bogus2|audit` | 三閘 | 是 |\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus2", f[0]["msg"])
+
+    def test_multi_value_cell_across_code_spans_validates_every_value(self):
+        """★A7 另一形：以斜線相連的第二個代碼段（RUNBOOK 命令表現行寫法）同樣要驗。"""
+        f = self._f("| `python3 tools/docs-sync.py check` / `bogus-cmd` | 兩道 | 否 |\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus-cmd", f[0]["msg"])
+
+    def test_multi_value_cell_with_argument_before_slash(self):
+        """★A7：`errata <詞>` / `test` 這形——續值在引數之後、仍須驗到。"""
+        f = self._f("| `python3 tools/docs-sync.py errata <詞>` / `bogus3` | 枚舉 | 否 |\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus3", f[0]["msg"])
+
+    def test_multi_space_aligned_fake_subcommand_is_caught(self):
+        """★A8：以多空白對欄書寫的假子命令（非目錄樹行）須抓得到。"""
+        f = self._f("| `python3 tools/docs-sync.py   bogus-aligned` | 說明 | 否 |\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus-aligned", f[0]["msg"])
+
+    def test_error_message_names_the_source_scan_as_the_basis(self):
+        """★A9：比對基準是工具源碼的分派表（即時掃源），真表只是同一掃源的生成物。
+
+        訊息若宣稱基準是真表檔，維運者會去手改真表想「讓 lint 過」——真表被 generate
+        重算覆蓋、判定也不看它，白費工還會被 check 擋下。故訊息須指出真正的基準。
+        """
+        f = self._f("`python3 tools/docs-sync.py nonexistent-cmd`\n")
+        self.assertIn("源碼", f[0]["msg"])
+        self.assertIn("分派表", f[0]["msg"])
+        self.assertIn("生成物", f[0]["msg"])
+
     def test_column_aligned_tree_line_is_not_a_subcommand(self):
-        """★README 目錄樹以多空白對欄，說明文字首字（base-web）不是子命令。"""
+        """★A8 已知邊界（明示契約）：目錄樹行以多空白對欄，其後說明文字不是子命令。
+
+        README 的 repo 目錄樹用 `├──`／`└──` 起首、以多空白把說明文字對欄，而
+        `tools/fork-delta-lint.py` 那行後面第一個詞恰好是 `base-web`——完全符合子命令的
+        字元集（小寫起首、可含連字號）。該工具的子命令集是空的（源碼無分派表、直跑），
+        任何 token 都不合法，故一律誤紅。
+        取捨：多空白後的 token 一般情形要驗（見上一案），唯獨「行首為樹狀圖分支符號」這一類
+        排版行不驗——判準是排版形制而非工具身分，維運者看得懂也躲得開；代價是有人若把假
+        子命令寫在目錄樹行上、且刻意用多空白，就抓不到（單一空白仍抓得到，見下一案）。
+        """
         self.assertEqual(
             self._f("├── tools/fork-delta-lint.py         base-web 原行紀律機器強制\n",
                     rel="README.md"), [])
+
+    def test_tree_line_with_single_space_still_validates_subcommand(self):
+        """★A8 邊界的另一半：樹狀圖行只在「多空白對欄」時免驗，單一空白仍照驗。"""
+        f = self._f("├── tools/docs-sync.py bogus-tree 生成器\n", rel="README.md")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus-tree", f[0]["msg"])
 
     def test_subcommand_on_tool_without_dispatch_is_error(self):
         """空子命令集的工具（fork-delta-lint）被宣稱帶子命令→ERROR。"""
