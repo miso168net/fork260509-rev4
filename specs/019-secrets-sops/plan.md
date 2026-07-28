@@ -23,7 +23,8 @@ sops 走官方容器（host 零安裝、image digest 釘版），私鑰採 passp
 釘版）；既有 docker compose、既有 tools/docs-sync.py 家族。
 
 **Storage**: 加密檔 `deploy/secrets.dev.enc.yaml`（git tracked 密文）；解密明文＝tmpfs
-（`/dev/shm/rev4-secrets`，拍板值，實測閘 #11 為反轉條件）；私鑰＝host `~/.config/sops/age/`。
+（`/dev/shm/rev4-secrets`＝解法 2′ 拍板值，實測閘 #11 為反轉條件；**#3 失敗時之預拍退路值＝
+`$HOME/.cache/rev4-secrets`**＝解法 2、ext4 持久）；私鑰＝host `~/.config/sops/age/`。
 
 **Testing**: 新增 python 工具照 018 慣例（自帶 test 子命令＋紅綠 self-test＋pre-commit 條件觸發）；
 bash 腳本與 hook 走 fixture 演練機判（8 格 fixture、刪 key、CR 注入、`.new` 觸發）；整體驗收
@@ -42,7 +43,9 @@ bash 腳本與 hook 走 fixture 演練機判（8 格 fixture、刪 key、CR 注�
 `--no-verify` 可繞過事件型檢查＝已知邊界，由 pre-push 第二層與 allowlist 先行降低誘因。
 
 **Scale/Scope**: 8 個加密 key／11 支機密檔／10 條 compose 條目／3 個 repo 的 hook 面／
-5 支 ADR／**新增 11 個檔案＋改動 12 個既有檔案**（逐檔清單＝下方 Project Structure，該清單為準）。
+5 支 ADR／**新增 11 個檔案（另 5 支 ADR 新檔）＋改動 12 個結構性既有檔**，另加 research R18
+的程序性引用檔逐檔判定（部分與上述清單重疊、實數以現場 `git grep` 為準）——逐檔清單＝下方
+Project Structure＋research R18 表兩者聯集。
 
 ## Constitution Check
 
@@ -122,8 +125,11 @@ docs/ops/RUNBOOK.md               # SOPS 營運段群＋§7 增補 re-encrypt＋
 docs/ops/BACKLOG.md               # B-115 prod 分層遞延包
 docs/ops/NOTES.md                 # base-web --no-verify 慣例廢止
 docs/arc42/decisions/0079~0083    # ADR 五支
-（另：`deploy/secrets` 命中程序性引用 14 檔逐檔判定，清單見 research R18；
-  歷史文件 15 檔不改；生成物由 docs-sync generate 重算）
+（另：`deploy/secrets` 命中之**程序性引用檔逐檔判定，清單見 research R18**〔13 檔穩定值，
+  其中 `.dockerignore`／`.gitignore`／`deploy/dev-webhook-sink.sh`／
+  `deploy/grafana-provisioning/alerting/contact-points.yml` 四檔不在上方清單、由 T036 收；
+  `docs/arc42/ARCHITECTURE.md` 屬活書 as-built、**歸收刀簿記 commit 不在本 branch 改**〕；
+  歷史文件不改、檔數隨本刀產物增長；生成物由 docs-sync generate 重算）
 
 # 零改動（設計保證）
 base-web/**、rust-api/**          # 兩源倉工作樹不動、pin 不動（FR-006 之設計動機）
@@ -158,7 +164,8 @@ base-web/**、rust-api/**          # 兩源倉工作樹不動、pin 不動（FR-
 `/speckit-tasks` 依 spec 五個 user story 與 brainstorm 五波閘門結構拆解，注意三項排序硬約束：
 
 1. **U1 實測閘先於 U2／U3**：#2 失敗→方案形狀改「解法 1 環境變數注入」＝**升級 user 重拍**
-   （非 agent 自決）；#11 反轉→SECRETS_DIR 回頭重拍；#3 失敗→預拍退路自動生效。
+   （非 agent 自決）；#11 反轉→**升級 user 重拍** SECRETS_DIR（**同為非 agent 自決**）；
+   #3 失敗→預拍退路自動生效（方式 A＋解法 2＝`$HOME/.cache/rev4-secrets`、不停工）。
 2. **U0 內部**：誤報基線重建 → allowlist 落檔 → **才**啟用 hook（次序顛倒＝第一個被擋的是
    自己人的簿記 commit，且會養成 `--no-verify` 慣性使事件型檢查永久失效）。
 3. **U4 遷移五步順序即契約**（contracts/secret-pipeline.md §P6），刪舊落點必為最後一步。

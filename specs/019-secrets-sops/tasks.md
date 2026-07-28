@@ -20,7 +20,7 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   2026-07-27）②**sops** 映像（R7 當日值 v3.13.3-alpine＋其 multi-arch index digest，需複查該
   digest 仍指向該 tag）③**age**（R9 當日值 v1.3.1）——三者皆屬浮動量必須現查上游最新穩定版，
   各以「維持研究當日值 vs 更新版」兩案呈報 user 選定 → 選定值記入 `docs/ops/RUNBOOK.md`
-  工具版本欄，供 T003／T018／T019 取用
+  工具版本欄，供 T003／**T040**／T018／T019 取用
 - [ ] T003 安裝掃描器並驗證：依 T002 拍板版本下載 `betterleaks_<VER>_linux_x64.tar.gz`
   （★版號無 `v` 前綴、架構寫 `x64`）＋`checksums.txt`（★檔名不含版號）→ `sha256sum -c`
   驗證 → 安裝至 PATH → `betterleaks version` 確認與拍板值一致（不符即中止、依 §6 紀律）
@@ -41,12 +41,18 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
 - [ ] T006 [P] pinentry 前置（research R8）：建 `~/.gnupg/gpg-agent.conf` 寫入
   `pinentry-program /usr/bin/pinentry-curses`＋`GPG_TTY` 設定 → `gpgconf --reload gpg-agent`
   （本機該檔原不存在＝零衝突覆蓋風險；純終端 session 下預設 pinentry-gnome3 可能彈不出）
+- [ ] T040 **age 二進位取得**（★編號後補、**執行序在 T006 之後 T007 之前**、見 Dependencies；T007 的硬前置——T007 要實跑 `age-keygen` 與 `age -p`，而全清單
+  原僅 T019 取得 age 且用完即刪、host 現況無此工具）：依 T002 拍板之 age 版本自官方 GitHub
+  release 下載 `age-v<拍板版本>-linux-amd64.tar.gz`，**以該版本 release API 的 `digest` 欄位
+  現查值比對 `sha256sum`**（★age **無 checksums 檔**、改配 Sigsum `.proof`；R9 所記 v1.3.1
+  之 sha256 僅研究當日值、版本一變即作廢）→ 置於暫存路徑供 T007 與 T019 共用、**全刀完成後刪除**
 - [ ] T007 **閘 #3**（B′ 定案點）：`age-keygen | age -p` 產一把 passphrase 加密 identity
   （★`age -p` 的 passphrase 讀取走 `/dev/tty`、與 stdout 重導向互不干擾，真 TTY 下可行）→
   `xxd` 驗 `keys.txt` 尾端無 CR → 以 `--age <剛產生的公鑰>` 直接指定做最小加解密往返
   （**此處不用 `.sops.yaml`**，避開循環依賴）→ 另開 shell 跑解密，確認**跳出 passphrase
-  提示且解得開**、且無 keyring 自動填入假象；併記 **#13 多 recipient 情境的 passphrase 提示
-  次數**（T033 演練備第二把金鑰時複測、RUNBOOK 不寫死）。★成功→定案 B′；**失敗→預拍退路自動
+  提示且解得開**、且無 keyring 自動填入假象；**先記單 recipient 情境的提示次數作基線**
+  （★#13 的多 recipient 值在此時點結構性量不到、僅一把金鑰；由 T033 雙金鑰在場時實測、
+  RUNBOOK 不寫死）。★成功→定案 B′；**失敗→預拍退路自動
   生效：方式 A（明文 identity＋`chmod 600`）＋SECRETS_DIR 降解法 2＝`$HOME/.cache/rev4-secrets`
   （ext4 持久、免開機儀式；compose 與腳本零改動、只換 `.env` 一個值）——記入 ADR、不停工**
 - [ ] T008 三閘結果落 ADR draft `docs/arc42/decisions/0080-*.md`（私鑰與落點篇的實測欄）：
@@ -56,7 +62,7 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
 
 **Goal**: Betterleaks 事件型廣譜 × 既有 docs-sync L16 狀態型窄樣式 × 值比對確定性三層互補，
 覆蓋三 repo 的 commit 與 push 邊界。
-**Independent Test**: spec US1——8 格 fixture × 兩路徑全符預期、三 repo 各實擋一案、例行簿記
+**Independent Test**: spec US1——8 格 fixture（四形 × 兩路徑）全符預期、三 repo 各實擋一案、例行簿記
 commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 
 - [ ] T009 [US1] **誤報基線現場重建**（★必先於 T010；不得沿用任何舊數字）：以 T003 安裝之
@@ -108,11 +114,14 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 
 - [ ] T018 [US2] 新增 `deploy/sops.sh`（contracts secret-pipeline §P1 七要件）：digest 釘版常數
   ＝`ghcr.io/getsops/sops@sha256:ae501277bf742f1662e0f881f43dd8fd6798b489a8058e921dbf6cda597140ea`
-  （★值依 T002 拍板結果；施工時複查 digest 仍指向該 tag；★registry 與 digest 必須成對）＋`-it` 條件化
+  （★值依 T002 拍板之 sops 映像 tag〔research R7 當日值 v3.13.3-alpine〕；施工時複查該 digest
+  仍指向拍板 tag；★registry 與 digest 必須成對）＋`-it` 條件化
   ＋**不轉發 `EDITOR`**＋顯式 `-e SOPS_AGE_KEY -e SOPS_AGE_KEY_FILE -e SOPS_AGE_KEY_CMD`＋
   掛載 `$PWD:/work -w /work` 與私鑰目錄唯讀；`chmod +x` 後 **`git update-index --chmod=+x`**
   （drvfs exec bit 不落 index）
-- [ ] T019 [US2] 取得 `age-keygen` 並產正式金鑰：自官方 GitHub release 下載
+- [ ] T019 [US2] 產正式金鑰（age 二進位已由 T040 取得、此處沿用；★版本＝T002 拍板值）：
+  ★**完整性比對值須取該版本 release API 的 `digest` 欄位現查**——research R9 所記 v1.3.1 之
+  sha256 僅為研究當日值、**版本一變即作廢**。原取得步驟保留備查：自官方 GitHub release 下載
   `age-v<VER>-linux-amd64.tar.gz`（★**無 checksums 檔**——完整性以 release API 的 `digest`
   欄位比對 `sha256sum`）→ 依 T007 定案產鑰（B′：`age-keygen | age -p`／退路 A：明文＋
   `chmod 600`）→ `xxd` 驗尾端無 CR → **二進位用完即刪**；以 `age-keygen -y` 取 recipient 公鑰
@@ -145,7 +154,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 
 - [ ] T024 [US3] 新增 `.env.example`（tracked）＋`tools/bootstrap` 代勞產生 `.env`
   （gitignored）：`SECRETS_DIR` 依 T005 結果定值（拍板值 `/dev/shm/rev4-secrets`）；
-  `.gitignore` 既有規則已覆蓋、無須加行
+  ★**退路分支（機械化 #3 之「自動生效」）**：若 T007 判 #3 失敗，`SECRETS_DIR` 改寫
+  **`$HOME/.cache/rev4-secrets`**（＝解法 2、ext4 持久；**寫入形式與 2′ 完全相同、只換值**、
+  compose 與腳本零改動）；`.gitignore` 既有規則已覆蓋、無須加行
 - [ ] T025 [US3] 三腳本 SECRETS_DIR 同步改（★**三處必須同刀齊改**，任一未改即該處無條件賦值
   靜默吃掉外部值）：`deploy/generate-secrets.sh`（`SECRETS_DIR` 賦值行）／
   `deploy/preflight-secrets.sh`（同）／`deploy/setup-reaper-role.sh`（`PW_FILE` 賦值行）
@@ -222,16 +233,20 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   #5／#6 結構性不可測驗收＋CI 側保護；掛 prod 部署刀群）＋`docs/ops/NOTES.md` 同步 base-web
   `--no-verify` 慣例廢止（repo 文件不引用 per-machine memory 路徑）
 - [ ] T036 [US5] `deploy/secrets` 命中逐檔判定（**以現場 `git grep` 為準、不以靜態數字為驗收
-  基準**）：程序性引用逐檔改（清單＝research R18 表）／歷史文件不改／生成物由
+  基準**）：程序性引用逐檔改（清單＝research R18 表；★**排除 `docs/arc42/ARCHITECTURE.md`**
+  ——該檔屬活書 as-built、**歸收刀簿記 commit、不在本 feature branch 內改**〔檔頭宣告＋
+  docs-sync L6(b) 閘〕）／歷史文件不改／生成物由
   `python3 tools/docs-sync.py generate` 重算；★`deploy/secrets/README.md` 四處描述對齊實際行為
   （預檢語意／`--force` 語意／chmod 注記／機密對照表）——該檔是唯一向 user 說明 secrets 程序的
   人寫文件、失真即誤導；順帶勘誤 `.gitignore` 的 `.json` 規則註解（與現行 compose 形不符）
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T037 [P] **S9 秒級量測**（SC-009）：pre-commit 端到端延遲（外框＋掃描器＋值比對）對
-  T001 基線；沿 L-155 方法論取多次中位、記「純碼 commit」與「治理檔 commit」兩情境；超標則
-  記錄成本結構並掛 BACKLOG（比照 018 SC-008 處置）
+- [ ] T037 [P] **S9 秒級量測**（SC-009）：★**量法依 L-155 硬性規定**——**以 `perf_counter`
+  直接包兩段（掃描器呼叫／值比對工具）各自連跑數次取中位數**，**絕不可用整鏈 `time` 前後差量**
+  （drvfs 牆鐘變異 ±1.5s 大於被測成本、018 U2 曾量出負值）；T001 整鏈基線僅供數量級粗判。
+  ★**機判門檻（出處 SC-009）：兩段合計中位數 ≤5s；值比對工具自測增量 ≤3s**。記「純碼 commit」
+  與「治理檔 commit」兩情境；超標則記錄成本結構並掛 BACKLOG（比照 018 SC-008 處置）
 - [ ] T038 **S10 治理完備＋收刀前終驗**：quickstart S1~S10 全機判單通＋SC-001~010 逐條勾稽；
   `python3 tools/docs-sync.py generate`＋`check`＋`lint` 全綠、工作樹收斂；ADR 5 支轉 accepted
   （含三閘實測欄）；踩坑逐筆 append `docs/ops/LESSONS.md`
@@ -241,7 +256,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 ```
 T001 → T002 → T003
      ├─→ [US1（MVP、不依賴 Phase 2）: T009 → T010 → T011 → T012 → T013(P)/T014(P) → T015 → T016 → T017]
-     └─→ [Foundational: T004 → T005 → T006(P) → T007 → T008]
+     └─→ [Foundational: T004 → T005 → T006(P) → T040 → T007 → T008]
                                                     ↓
                         [US2: T018 → T019 → T020 → T021 → T022 → T023]
                                                     ↓
@@ -259,7 +274,10 @@ T001 → T002 → T003
 - **T009 → T010 → T015 為硬序**：基線重建 → allowlist 落檔 → **才**啟用 hook。次序顛倒＝
   第一個被擋的是自己人的簿記 commit，且會養成 `--no-verify` 慣性使事件型檢查**永久失效**。
 - **T004（#2）為停工級閘**：失敗＝方案形狀改變＝升級 user 重拍，US2／US3 全部任務作廢重寫。
-- **T005（#11）→ T024 落點定值**；**T007（#3）→ T019 產鑰形式**（失敗走預拍退路、不停工）。
+- **T005（#11）→ T024 落點定值**；**T007（#3）→ T019 產鑰形式 ＋ T024 落點值分支**
+  （失敗走預拍退路：方式 A＋`$HOME/.cache/rev4-secrets`、不停工）。
+- **T040（age 二進位）為 T007 硬前置**（T007 要實跑 `age-keygen`／`age -p`；二進位由 T007
+  與 T019 共用、全刀完成後刪除）。
 - **T025 三處同刀齊改**：任一未改則該處無條件賦值靜默吃掉外部值（preflight 回 OK、compose 掛掉）。
 - **T030 遷移五步順序即契約**：刪舊落點必為最後一步（提前刪＝容器 bind 舊 inode、下次重啟才炸）。
 - **T039（編號後補、執行序在 T030 之後）**＝SC-003 後半乾淨重建全鏈；需 US3 全部接線完成才有意義。
@@ -278,5 +296,5 @@ T001 → T002 → T003
 - **Incremental**: US2（密文入版控）→US3（明文遷移）→US4（營運程序）→US5（治理）逐單元收斂；
   每單元 TDD 先紅後綠（python 面）或 fixture 否定測試（bash／hook 面）＋雙審查編排
   （executing-plans、CLAUDE.md §2 六件套）＋單元邊界復核。
-- **否定測試為第一公民**: 本方案失敗模式幾乎全是「指令回報成功但做錯了」——T017／T023／T030／
+- **否定測試為第一公民**: 本方案失敗模式幾乎全是「指令回報成功但做錯了」——T017／T023／T030／T039／
   T033 各含刻意構造的必紅情境，**不做否定測試＝該項未驗收**。

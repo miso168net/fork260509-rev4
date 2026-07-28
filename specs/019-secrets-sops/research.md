@@ -317,8 +317,9 @@ composite＝檔在且**內容等於期望值**才 skip；placeholder＝檔在即
 **Decision**: **兩個 hook 目錄**——`.githooks/`（外層，現況 pre-commit 續寫＋新 pre-push）與
 `.githooks-submodule/`（兩源倉專用：pre-commit＋pre-push，**僅樣式掃描、零 python 依賴**）；
 bootstrap 對兩源倉 worktree `git config core.hooksPath <外層絕對路徑>/.githooks-submodule`。
-共用掃描邏輯抽 `.githooks/lib/scan-range.sh`，源倉 hook 以 `dirname "$0"` 自我定位後 source
-（**不硬編碼外層路徑**）。
+共用掃描邏輯抽 `.githooks/lib/scan-range.sh`——該 lib **只承載 pre-push 的 stdin 解析與範圍
+推導**，故**僅源倉 pre-push 以 `dirname "$0"` 自我定位後 source 它**（**不硬編碼外層路徑**）；
+**源倉 pre-commit 直接跑樣式掃描、不 source 任何 lib**（免引入用不到的邏輯）。
 
 **Rationale**: 三 repo 共指同一目錄會讓源倉 commit 也跑 `python3 tools/docs-sync.py check`
 ——源倉沒有該檔＝每次 commit 必炸。分目錄比「單目錄＋hook 內自我判別 repo」失效面更小、
@@ -335,7 +336,7 @@ bootstrap 對兩源倉 worktree `git config core.hooksPath <外層絕對路徑>/
 本刀 SDD 進度增長**）＋生成物由 `generate` 重算（不手改、現況零命中）。
 
 **★ 口徑校正（本刀自身多次改寫，故數字必須以現場為準）**：brainstorm 評估當日 27 檔 → plan
-Phase 0 偵察 84 命中／29 檔 → **analyze 階段複核實測 113 命中／36 檔＝程序性 13＋歷史 23＋
+Phase 0 偵察 84 命中／29 檔 → **analyze 階段複核當下快照 113 命中／36 檔＝程序性 13＋歷史 23＋
 生成物 0**。差額全部來自本刀自身產物（brainstorm／spec／plan／tasks／research／contracts／
 quickstart 皆提及該路徑）自指命中。**程序性 13 檔經現場 `git grep` 逐檔複核、與下表完全一致**
 （先前正文誤植「14 檔」，表格本身無漏）。**施工時一律以現場 `git grep` 為準、不以任何靜態數字
@@ -394,4 +395,5 @@ plan.md 承載。
 - Betterleaks 未知旗標的 exit code 是否同 gitleaks 的 126（兩者同用 cobra，推測相同、未實測）。
 - 含 Betterleaks 專屬欄位的 toml 餵給 gitleaks 的確切行為（本刀堅持子集故不觸發）。
 - `grafana`／`postgres` 官方映像實際運行 UID 未逐一 `docker image inspect` 實查（沿用
-  compose 既有註解慣例；c 驗收會實地證明可讀性，不需預先釘 `user:`）。
+  compose 既有註解慣例；c 驗收〔brainstorm 升格字母、對照表見 spec Clarifications〕會實地證明
+  可讀性，不需預先釘 `user:`）。

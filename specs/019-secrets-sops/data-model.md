@@ -98,7 +98,7 @@ deploy/secrets.dev.enc.yaml（tracked 密文）
 └── SECRETS_DIR=/dev/shm/rev4-secrets
       │
       ├──→ docker compose（原生讀 .env）→ 頂層 secrets 10 條目變數展開
-      ├──→ deploy/decrypt-secrets.sh   （source .env）
+      ├──→ deploy/decrypt-secrets.sh   （source .env〔存在時〕；未設時回退 deploy/secrets）
       ├──→ deploy/generate-secrets.sh  （source .env；:41 改帶預設展開）
       ├──→ deploy/preflight-secrets.sh （source .env；:12 同上）
       ├──→ deploy/setup-reaper-role.sh （source .env；:16 PW_FILE 同步點）
@@ -168,7 +168,8 @@ redis-exporter 59000；600 會在開 obs／metrics 軌時才炸）。
 ## 7. 解密管線狀態模型（`decrypt-secrets.sh` 五要求）
 
 ```text
-[前置] tty 守衛（B′ 需互動）→ source .env → mkdir -p $SECRETS_DIR && chmod 700
+[前置] tty 守衛（B′ 需互動）→ source .env（存在時；未設時回退 deploy/secrets）
+       → mkdir -p $SECRETS_DIR && chmod 700（自建 0700 子目錄）
    │
 [解密] wrapper 收 stdout（umask 077；不用 --output／-i，避免 root 產物）
    │
