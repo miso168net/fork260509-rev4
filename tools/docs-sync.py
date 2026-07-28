@@ -1886,8 +1886,12 @@ RE_TREE_LINE = re.compile(r"^[ \t│]*[├└]")
 #   會先把「空白斜線空白」吃掉、再也對不上「反引號＋斜線＋反引號」的形，鏈式只能延續一次
 #   （U5-quality 實測：三值斜線鏈第三值漏檢、混合分隔全漏）。
 # ★`[^`\n]*` 不含反引號＝只能錨在「其後第一個反引號」上，不會跨到別的命令形的代碼段。
-RE_SUB_PIPE = re.compile(r"[|/／]([a-z][a-z0-9-]*)")
-RE_SUB_SLASH = re.compile(r"[^`\n]*`\s*[/／]\s*`([a-z][a-z0-9-]*)")
+# ★續值不得誤收「另一支完整命令形」：(?!tools/) 擋以工具路徑起手的代碼段；SLASH 形另以
+#   (?=[`|/／]) 要求續值 token 後緊接反引號或下一分隔符——「python3 tools/…」這種 token 後
+#   還有空白與引數的完整命令形因此不會被當成前一支的續值（它由 RE_CMD_PY 自己那輪去驗）。
+#   誤收的後果＝對 RUNBOOK 現行「`…check` / `python3 …test`」句型誤紅 ERROR 硬擋（U5 實證）。
+RE_SUB_PIPE = re.compile(r"[|/／](?!tools/)([a-z][a-z0-9-]*)")
+RE_SUB_SLASH = re.compile(r"[^`\n]*`\s*[/／]\s*`(?!tools/)([a-z][a-z0-9-]*)(?=[`|/／])")
 RE_CMD_OLD = re.compile(r"tools/(" + "|".join(TOOLS_PY) + r")(?!\.py)\b")
 RE_CMD_SH = re.compile(r"tools/(" + "|".join(TOOLS_SH) + r")\b")
 
@@ -5965,6 +5969,35 @@ class TestCmdFormLint(unittest.TestCase):
         `see` 就會被當成假子命令而誤紅。
         """
         self.assertEqual(self._f("跑 `python3 tools/docs-sync.py check` / see docs\n"), [])
+
+    def test_cross_span_continuation_is_not_another_command_form(self):
+        """★A7 已知邊界（明示契約）：續值只認純子命令代碼段——下一段若本身是完整命令形
+        （帶 python3 前綴或 tools 路徑），由 RE_CMD_PY 自己那一輪去驗，不得被當成前一支
+        的續值子命令。
+
+        誤收的實害（U5 quality 實證、皆為 RUNBOOK 現行書寫風格）：
+        「`…check` / `python3 tools/schema-gate.py test`」跨工具並列時，python3 或 tools
+        會被當成前一支的假子命令而誤紅 ERROR 硬擋，訊息還指向不存在的分派表問題；
+        T022 要補的 pre-commit 條件觸發說明正是這種句型。
+        """
+        cases = [
+            # ①半形斜線＋python3 前綴完整命令形（RUNBOOK 表格風格）
+            "| `python3 tools/docs-sync.py test` / `python3 tools/schema-gate.py test` "
+            "| 條件觸發 | 否 |\n",
+            # ②全形斜線散文版
+            "跑 `python3 tools/docs-sync.py test`／`python3 tools/wire-schema.py test`\n",
+            # ③續值段以 tools 路徑起手（真子命令 gate2 仍須被驗——此行應恰零 finding）
+            "`tools/docs-sync.py lint`／`tools/schema-gate.py gate2`\n",
+            # ④續值段為 bash 工具路徑
+            "`tools/docs-sync.py lint`／`tools/bootstrap`\n",
+        ]
+        for text in cases:
+            self.assertEqual(self._f(text), [], msg=text)
+        # 反面：續值段若是「tools 路徑＋假子命令」，由 RE_CMD_PY 自己那輪抓（不因
+        # (?!tools/) 而漏）——僅該假子命令一筆、不多不少。
+        f = self._f("`tools/docs-sync.py lint`／`tools/schema-gate.py bogus-gate`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus-gate", f[0]["msg"])
 
     def test_multi_space_aligned_fake_subcommand_is_caught(self):
         """★A8：以多空白對欄書寫的假子命令（非目錄樹行）須抓得到。"""
