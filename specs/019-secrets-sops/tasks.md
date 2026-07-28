@@ -267,7 +267,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   **吵鬧失敗**、不得 hang）→ **`source .env`（存在時）、`SECRETS_DIR` 未設時回退
   `deploy/secrets`**（與 T012 值比對工具同一回退口徑；★`.env` 於 T024 才建立，此回退是 US2
   能在 US3 之前獨立驗證的前提）→ `mkdir -p`＋`chmod 700`**自建 0700 子目錄**
-  （`/dev/shm` 為 world-writable）→ wrapper 收 stdout（`umask 077`、**不用 `--output`／`-i`**
+  （`/dev/shm` 為 world-writable；★重拍 2026-07-29、#11 反轉後：落點改 ext4
+  `$HOME/.cache`〔`drwx------`、非 world-writable〕，**自建 0700 子目錄之要求不變**——理由改為
+  **縱深防禦、與落點無關**，見 ADR 0080 決策 4）→ wrapper 收 stdout（`umask 077`、**不用 `--output`／`-i`**
   避免 root 產物）→ **key 數與名稱斷言、不符零寫入＋非零退出＋指名缺哪個 key** → 逐檔
   `printf '%s'`（無尾端換行）＋`chmod 644` → **現值 ≠ 解密值則另存 `.txt.new` 不覆寫**
 - [ ] T023 [US2] **S4／S5 驗收**：加解密最小往返（#1）＋加密檔形制三條＋五要求逐條否定測試
@@ -278,6 +280,8 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 ## Phase 5: US3 — 明文離開 /mnt/d（SECRETS_DIR 遷移）（P3）
 
 **Goal**: 明文自 9p（權限恆 777）遷至 tmpfs；compose 與三腳本經單一事實來源取得落點。
+★重拍（2026-07-29、#11 反轉後）：遷入落點改**解法 2＝`$HOME/.cache/rev4-secrets`（ext4 持久）**、
+非 tmpfs；接線與五步遷移程序不變（見 T024 備註與 ADR 0080）。
 **Independent Test**: spec US3——遷移五步＋落點驗證＋觀測軌全開讀取，全程機判。
 **依賴**: Phase 2（T004／T005）＋US2（T022 解密管線）。
 
@@ -356,8 +360,13 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 
 - [ ] T034 [US5] ADR 5 支落 `docs/arc42/decisions/`（0079 起、一決策一檔、綱要＝brainstorm §9）：
   **A** 選型 SOPS+age（四理由＋誠實收窄＋零維運硬約束＋digest 釘版＋**cosign 不啟用之誠實
-  登記**＋age 取得路徑）／**B** 私鑰 B′×SECRETS_DIR 2′（自洽論證＋退路預拍＋#11 反轉條件＋
-  **SSH identity 禁令**＋passphrase 政策＋**tmpfs swap 殘餘風險誠實登記**；T008 實測欄併入）／
+  登記**＋age 取得路徑）／**B** 私鑰 B′×SECRETS_DIR **解法 2**（★重拍 2026-07-29、#11 反轉後：
+  原綱要之「SECRETS_DIR 2′」與「**tmpfs swap 殘餘風險誠實登記**」兩項**隨 2′ 作廢、不得寫回
+  正式 ADR**；改為 **ext4 at-rest 殘餘風險誠實登記**〔明文長駐 `ext4.vhdx`＋補償三面〕之總表化。
+  施工標的＝**既存 draft `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`
+  完稿並轉 accepted**、非另立新檔）（自洽論證＋退路預拍〔重拍後僅退方式 A〕＋#11 反轉條件與
+  反轉實測＋**SSH identity 禁令**＋passphrase 政策〔diceware≥6＋離線備份義務〕；T008 實測欄
+  已於 U2 併入）／
   **C** 加密資產形狀（dev 單檔 8 key／prod 不建含目標形狀備忘／`ca.key` 不進含重評條件／
   命名紅線／不設範圍選項）／**D** 掃描三層防線定位（事件型×狀態型×確定性互補；三 repo 覆蓋；
   base-web `--no-verify` 慣例廢止；**compose 向後相容取捨之誠實登記**）／**E** 團隊組成前提

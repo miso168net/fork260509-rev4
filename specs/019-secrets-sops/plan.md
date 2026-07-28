@@ -9,7 +9,9 @@
 把本 repo 機密管理自「gitignore 結構防線＋9p 明文（權限恆 777）」升級為三件事：①**洩漏掃描三層
 防線**（事件型樣式掃描器×既有狀態型窄樣式 L16×確定性值比對）覆蓋三個 repo 的 commit 與 push
 邊界；②**機密以密文入版控**（單一加密檔 8 key、公鑰模型、加人零機密傳遞）＋fail-loud 解密管線；
-③**明文落點遷出 9p**（tmpfs）並以單一事實來源貫穿 compose 與三支腳本。技術路線＝SOPS+age，
+③**明文落點遷出 9p**（tmpfs；★重拍 2026-07-29、#11 反轉後改**ext4 持久
+`$HOME/.cache/rev4-secrets`**——見下方 Storage 節重拍註記）並以單一事實來源貫穿 compose 與
+三支腳本。技術路線＝SOPS+age，
 sops 走官方容器（host 零安裝、image digest 釘版），私鑰採 passphrase 加密 identity（施工首波
 實測定案、退路預拍）。所有既有失敗模式皆「指令回報成功但做錯了」，故每項改動配一條否定測試。
 
@@ -34,7 +36,8 @@ bash 腳本與 hook 走 fixture 演練機判（8 格 fixture、刪 key、CR 注�
 ＝quickstart 機判劇本（比照 017／018）。
 
 **Target Platform**: WSL2（Ubuntu）＋Docker Desktop WSL integration；repo 位於 drvfs（`/mnt/d`）、
-明文落點與私鑰位於 ext4／tmpfs。
+明文落點與私鑰位於 ext4／tmpfs（★重拍 2026-07-29、#11 反轉後：明文落點與私鑰**皆位於 ext4**、
+tmpfs 不再涉入）。
 
 **Project Type**: 治理工具鏈＋部署資產（無應用程式碼改動；兩 submodule 樹零改動）。
 

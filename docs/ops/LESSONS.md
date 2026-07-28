@@ -1,4 +1,4 @@
-<!-- next: L-162 -->
+<!-- next: L-163 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -260,3 +260,20 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   ｜出處：2026-07-29 019 U1 quality 第 2 輪（改後 lint 0 錯誤；三件活手冊剩兩處「四支」逐一
   核對為真——CLAUDE.md 該句述 018 之 B-111 確為四支改名、RUNBOOK 該句述 bootstrap 確跑四支
   test 子命令）。
+- **L-162**｜拍板反轉後的勘誤，掃「拍板關鍵詞」必漏「拍板的物理前提句」：019 SECRETS_DIR 由
+  2′（`/dev/shm`、tmpfs）反轉為解法 2（`$HOME/.cache`、ext4 持久）後，`errata tmpfs`（27 處）
+  ＋`errata 開機儀式`（16 處）逐處處置完畢、看似已全掃——但 spec US3 驗收情境 5 寫的是
+  「Given `wsl --shutdown` 重開機且未跑解密儀式，Then preflight 明確紅（指名缺檔）」，全句
+  **不含任何被掃關鍵詞**（無 tmpfs／無 /dev/shm／只有「解密儀式」不是「開機儀式」），兩輪
+  errata 皆命不中，而它正是唯一結構性失效處：ext4 持久落點下重開機不再缺檔＝該情境永遠測不
+  出紅、照驗只能得假綠。失效的是**舊拍板的物理性質**（tmpfs＝重開機即清空），不是拍板的名字。
+  防法：①拍板反轉的勘誤，先把舊拍板**蘊含的物理性質逐條列出**（本例：重開機即清空／
+  RAM-backed 不落 vhdx／world-writable/sticky／可能進 swap），對**每條性質的白話說法**各跑一輪
+  errata（掃「重開機」「shutdown」「關機」「清空」而非只掃「tmpfs」），關鍵詞取自性質而非取自
+  名詞；②驗收情境（Given／When／Then）優先於敘述句核對——敘述錯只是誤導，**Given 前提失效
+  等於驗收本身作廢**，逐條問「這個 Given 在新拍板下還能發生嗎」；③反轉後若某情境的正向性質
+  值得留證（本例「重開機後仍可直接 up」），先問有無對應 task 可機判，無則登記於 ADR 後果節、
+  不升格為驗收項——升格即製造無 task 覆蓋的孤兒驗收。
+  ｜出處：2026-07-29 019 U2 spec 第 1 輪（三 blocker 同源；修後 `grep -rn shutdown specs/019-*`
+  僅剩 spec 情境 5 原文＋其重拍註記，tasks T039 與 quickstart S4 後半早已為「清空落點」形、
+  無需連帶改）。

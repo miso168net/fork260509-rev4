@@ -106,9 +106,18 @@ deploy/secrets.dev.enc.yaml（tracked 密文）
       └──→ tools/bootstrap             （體檢 glob 隨之）
 ```
 
-**落點屬性**：`/dev/shm`＝tmpfs、16G、`rw,nosuid,nodev,noatime`（**未帶 noswap**）、目錄權限
-`drwxrwxrwt`（world-writable＋sticky）→ **解密腳本必須自建 0700 子目錄**。系統有 8 GiB swap
-啟用中 ⇒ tmpfs 內容理論上可能落入 Windows 側 VHD＝**2′ 保護上限的誠實登記**（ADR）。
+**落點屬性（2′ 原值、★已隨 2′ 作廢、保留供反轉軌跡）**：`/dev/shm`＝tmpfs、16G、
+`rw,nosuid,nodev,noatime`（**未帶 noswap**）、目錄權限 `drwxrwxrwt`（world-writable＋sticky）
+→ **解密腳本必須自建 0700 子目錄**。系統有 8 GiB swap 啟用中 ⇒ tmpfs 內容理論上可能落入
+Windows 側 VHD＝**2′ 保護上限的誠實登記**（ADR）。
+
+**落點屬性（★重拍後現行值、2026-07-29、#11 反轉後）**：`$HOME/.cache/rev4-secrets` 之父目錄
+`$HOME/.cache`＝**ext4**（`/dev/sdd` on `/`、`rw,relatime,discard,errors=remount-ro,data=ordered`）、
+目錄權限 `drwx------`（0700、owner-only，非 world-writable）→ **解密腳本自建 0700 子目錄之
+要求維持**（縱深防禦、與落點無關；ADR 0080 決策 4）。**殘餘風險改登記於 ext4 at-rest 面**：
+明文長駐 WSL2 `ext4.vhdx`（Windows 側檔案）、`wsl --shutdown` 後仍在＝解法 2 的已拍代價；
+`/dev/shm` 之 swap 殘餘風險登記**隨 2′ 作廢、不再適用**。補償面＝私鑰 B′＋三層掃描防線＋
+RUNBOOK §4 BitLocker 確認項（總表化歸 T034）。
 
 **權限終值**：目錄 700／檔案 644（三個非 root service 要讀：grafana 472／postgres-exporter 65534／
 redis-exporter 59000；600 會在開 obs／metrics 軌時才炸）。
