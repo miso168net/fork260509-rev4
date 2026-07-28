@@ -118,7 +118,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   L19 條款速覽仍寫「四支 python 工具的舊名」（該節另三處支數已由 f88e579 修、獨漏此句）。
   修法不填新數字、改敘述為「python 工具名冊各支（＝真表 python 節逐支）」——支數寫死即
   下次名冊增減再度失真，改指向現算的真表才是 L-156 要的止血。機判：改後 lint 0 錯誤、
-  `errata 四支` 於三件活手冊零殘留（其餘命中全屬 018 過去式產物／事件源／機器生成）
+  `errata 四支` 於三件活手冊僅剩兩處、逐一核對為真——CLAUDE.md 該句述 018 之 B-111 確為四支
+  改名、RUNBOOK 該句述 bootstrap 確跑四支 `test` 子命令（fork-delta-lint 無 test 子命令、
+  self-test 隨每次實跑內建，故不計入該四支）；其餘命中全屬 018 過去式產物／事件源／機器生成
 - [x] T013 [P] [US1] 新增 `.githooks/lib/scan-range.sh`＋`.githooks/pre-push`（contracts
   scan-gates §S3）：解析 pre-push stdin 四欄位；範圍推導＝一般更新用 `remote-oid..local-oid`／
   **新分支首推（remote-oid 全零）退階 `local-oid --not --remotes=origin`**／該退階無效時掃整條
