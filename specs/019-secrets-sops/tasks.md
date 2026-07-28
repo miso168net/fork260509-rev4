@@ -11,19 +11,25 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
 
 ## Phase 1: Setup
 
-- [ ] T001 基線快照（供 SC-009 對照、數字記回本行備註）：`sh .githooks/pre-commit` 全鏈實跑
+- [x] T001 基線快照（供 SC-009 對照、數字記回本行備註）：`sh .githooks/pre-commit` 全鏈實跑
   `time` 基線（無 staged、無工具改動）×2 取中位；＋`python3 tools/docs-sync.py test`／
   `schema-gate.py test`／`wire-schema.py test` 三套件現況案數（預期 347／130／7）——沿 018
   T001 方法論（drvfs 牆鐘變異大、同機同日對照，L-155）
-- [ ] T002 **三支外部工具釘版雙查與拍板呈報**（★需 user 拍板、不得自決；CLAUDE.md §6 釘版
+  ——**實測（2026-07-28）**：全鏈 51.3s／52.3s（中位 51.8s、rc=0×2）；三套件 347／130／7 全綠
+- [x] T002 **三支外部工具釘版雙查與拍板呈報**（★需 user 拍板、不得自決；CLAUDE.md §6 釘版
   紀律；一次呈報三案、避免施工中途再中斷）：①**Betterleaks**（research R1 當日值 v1.7.1／
   2026-07-27）②**sops** 映像（R7 當日值 v3.13.3-alpine＋其 multi-arch index digest，需複查該
   digest 仍指向該 tag）③**age**（R9 當日值 v1.3.1）——三者皆屬浮動量必須現查上游最新穩定版，
   各以「維持研究當日值 vs 更新版」兩案呈報 user 選定 → 選定值記入 `docs/ops/RUNBOOK.md`
   工具版本欄，供 T003／**T040**／T018／T019 取用
-- [ ] T003 安裝掃描器並驗證：依 T002 拍板版本下載 `betterleaks_<VER>_linux_x64.tar.gz`
+  ——**拍板（2026-07-28）**：①Betterleaks v1.7.1 ②sops v3.13.3-alpine（index digest
+  ae501277…140ea 本輪對 ghcr 逐字複核相符）③age v1.3.1——三者皆＝研究當日值＝現查最新穩定；
+  已記 RUNBOOK §12 版本欄。**併問儀式拍板＝C 案**（詳 T019 註記）
+- [x] T003 安裝掃描器並驗證：依 T002 拍板版本下載 `betterleaks_<VER>_linux_x64.tar.gz`
   （★版號無 `v` 前綴、架構寫 `x64`）＋`checksums.txt`（★檔名不含版號）→ `sha256sum -c`
   驗證 → 安裝至 PATH → `betterleaks version` 確認與拍板值一致（不符即中止、依 §6 紀律）
+  ——**實做（2026-07-28）**：`sha256sum -c` OK→安裝 `~/.local/bin/betterleaks`→`version`
+  回 `1.7.1` 與拍板一致
 
 ## Phase 2: Foundational（U1 三實測閘）
 
@@ -125,6 +131,10 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `age-v<VER>-linux-amd64.tar.gz`（★**無 checksums 檔**——完整性以 release API 的 `digest`
   欄位比對 `sha256sum`）→ 依 T007 定案產鑰（B′：`age-keygen | age -p`／退路 A：明文＋
   `chmod 600`）→ `xxd` 驗尾端無 CR → **二進位用完即刪**；以 `age-keygen -y` 取 recipient 公鑰
+  ——★**儀式拍板（2026-07-28、T002 併問、user 選 C 案）**：agent 以拋棄式 passphrase 產
+  「暫代正式鑰」（B′ 形制、機制全走、pty 驅動互動）全自動施工；收刀 finishing 時 user 親產
+  真鑰走加人四步＋對暫代鑰撤銷四步（含 7 支 leaf 值輪替；`alert_webhook_url` 不動、保
+  SC-007）；暫代鑰 passphrase 留於對話紀錄＝視同已洩露、誠實記入 ADR-B
 - [ ] T020 [US2] 新增 `.sops.yaml`（contracts §P2 五條）：單一 `creation_rules`、
   `path_regex` **錨定式**（★比對用 `MatchString`＝非錨定子字串命中）、`age:` 用 YAML 清單形、
   **不設六個範圍選項任一**（預設 `unencrypted_suffix="_unencrypted"`＝全加密）；寫完**驗證
@@ -213,7 +223,8 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   無 prod 級機密）→**#10 反向驗證**（identity 移走＋`unset` 相關變數後解密**必須失敗**）→
   ★順序陷阱驗證（故意先 rotate 後 updatekeys 觀察中間狀態）→★**#13 實測**：趁雙 recipient 在場
   量測 passphrase 提示次數並記錄（FR-024 後半；RUNBOOK 只記實測值與量測條件、**不寫死次數**）
-  →演練金鑰移除、痕跡不入版控
+  →演練金鑰移除、痕跡不入版控（C 案下本演練全自動——暫代鑰＝當前正式鑰、agent 知其
+  passphrase；#13 以 pty 驅動量測）
 
 ## Phase 7: US5 — 治理落檔（P5）
 
