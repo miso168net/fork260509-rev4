@@ -2484,8 +2484,11 @@ def git_object_types(shas, cwd):
     逐筆 rev-parse 需 ~87 次 subprocess（約 1s），批次為毫秒級（contracts G3 效能契約）。
     """
     types = {}
-    # 含空白者會破壞逐行對位（batch-check 一行一問），一律排除＝視同不可解
-    uniq = [s for s in dict.fromkeys(shas) if s and not re.search(r"\s", s)]
+    # ★只排除含換行者：batch-check 是「一行一問、一行一答」，值內夾換行會多問一行、其後
+    #   所有回答整體錯位（錯位能把偽造值配到真 commit 型別上＝漏報）。其餘空白無此風險——
+    #   實測 git 把整行當物件名、原樣回「<整行> missing」（不會拿空白前那截當縮寫去解），
+    #   判定結果本就是「不可解」；再排除一次＝庫裡多一條驗不到的死防線。
+    uniq = [s for s in dict.fromkeys(shas) if s and "\n" not in s]
     if not uniq:
         return types
     try:
@@ -5137,6 +5140,25 @@ class TestPinCrosscheck(unittest.TestCase):
             self.assertEqual([x["where"] for x in f], [sub for _k, sub in PIN_KEYS])
             self.assertTrue(all("index 無該 gitlink" in x["msg"] for x in f), msg=str(f))
 
+    def test_closing_detection_is_scoped_to_the_events_ledger(self):
+        """★A5：收刀偵測的 pathspec 限定（`-- docs/ops/events.jsonl`）零測試覆蓋。
+
+        曝險真實——本工具原始碼自身就含多處 feature_close 字面。pathspec 一旦被重構掉，
+        凡「staged 內容含該字面 ＋ 同時有 pin 分歧」的 commit 都會由 WARN 升成 ERROR 硬擋，
+        而那正是兩段式 commit（先子庫 commit、後回外層 bump pin）中間態最常見的組合。
+        本案 staged 一個非帳本檔、其新增行含該字面：限定在＝WARN，限定掉＝ERROR。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            old, _new = _init_sub(d, "base-web", 2)
+            _stage_gitlink(d, "base-web", old)
+            _wfile(d, "docs/ops/NOTES.md",
+                   "下一步：補上 " + json.dumps({"type": "feature_close"}) + " 這列\n")
+            _git(d, "add", "docs/ops/NOTES.md")
+            self.assertFalse(is_closing_commit(d))
+            f = _l17(d, "base-web")
+            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+
     def test_run_lint_wires_pin_crosscheck(self):
         """★接線層：`lint_pin_crosscheck` 從 run_lint 掉線＝G2 整條靜默下線。"""
         with tempfile.TemporaryDirectory() as d:
@@ -5191,15 +5213,35 @@ class TestEventsShaProof(unittest.TestCase):
             self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
             self.assertIn("blob", f[0]["msg"])
 
-    def test_pins_unresolvable_is_warn(self):
-        """判定表第 2／3 列：pins 不可解＝WARN（upstream rebase 卷史後合法失聯）。"""
+    def test_pins_unresolvable_is_warn_and_points_at_the_right_line(self):
+        """判定表第 2／3 列：pins 不可解＝WARN（upstream rebase 卷史後合法失聯）。
+
+        ★A4 fixture 須兩列、壞值落第 2 列：單列 fixture 上「把行號寫死成 1」的突變存活
+        （pins 兩支 finding 的 where 都只在單列上驗過），行號指錯會把維運者帶去改無辜的列。
+        """
         with tempfile.TemporaryDirectory() as d:
             outer, pins = self._fixture(d)
-            pins = dict(pins, web="0" * 39 + "1")
-            self._events(d, merge=outer, pins=pins)
+            rows = [dict(VALID_CLOSE, merge=outer, pins=pins),
+                    dict(VALID_CLOSE, merge=outer, pins=dict(pins, web="0" * 39 + "1"))]
+            _wfile(d, EVENTS,
+                   "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
             f = lint_events_sha(d)
             self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
             self.assertIn("pins.web", f[0]["msg"])
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
+
+    def test_pins_resolvable_but_not_commit_points_at_the_right_line(self):
+        """★A4 同理：pins 可解而非 commit 的 ERROR 亦須指到壞值真正所在那列。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(os.path.join(d, "base-web"), "rev-parse", "HEAD:app.ts").strip()
+            rows = [dict(VALID_CLOSE, merge=outer, pins=pins),
+                    dict(VALID_CLOSE, merge=outer, pins=dict(pins, web=blob))]
+            _wfile(d, EVENTS,
+                   "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
 
     def test_pins_resolvable_but_not_commit_is_error(self):
         """判定表第 2／3 列右欄：pins 可解但非 commit 物件＝ERROR。"""
@@ -5288,6 +5330,58 @@ class TestEventsShaProof(unittest.TestCase):
                 f = lint_events_sha(d)
             self.assertTrue(any(x["level"] == ERROR and "merge" in x["msg"] for x in f),
                             msg=str(f))
+
+    def test_type_guards_survive_malformed_rows_without_crashing(self):
+        """★A3：三處型別守衛（列非 dict／merge 非 str／pins 值非 str）一次釘住。
+
+        突變實證：三處 isinstance 任一拿掉，本案即以 AttributeError（`list.get`）或
+        TypeError（`re.search` 吃到 int）整條 lint 當掉——當掉不是「紅」，是守門工具
+        在壞資料前直接死掉、pre-commit 拿到的是 traceback 而非 finding。
+        L18 只負責「向 git 實證」，格式面歸 L3；故本案同時斷言：L18 零 finding、
+        L3 對三列各報至少一筆 ERROR（壞資料確實有人管、不是被吞掉）。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            rows = [
+                json.dumps([1, 2, 3]),                            # 裸 JSON 陣列列
+                json.dumps(dict(VALID_CLOSE, merge=12345, pins=pins),
+                           ensure_ascii=False),                   # merge 為整數
+                json.dumps(dict(VALID_CLOSE, merge=outer,
+                                pins={"web": 12345, "api": pins["api"]}),
+                           ensure_ascii=False),                   # pins 值為整數
+            ]
+            text = "".join(r + "\n" for r in rows)
+            _wfile(d, EVENTS, text)
+            self.assertEqual(lint_events_sha(d), [])
+            schema = lint_events(text)
+            for n in (1, 2, 3):
+                hits = [x for x in schema
+                        if x["level"] == ERROR and x["where"].endswith(f"行 {n}")]
+                self.assertTrue(hits, msg=f"行 {n} 無 schema ERROR｜{schema}")
+
+    def test_space_inside_sha_is_reported_unresolvable(self):
+        """★A6：值內夾半形空白之 SHA 須落「不可解析」ERROR，且不帶歪其後各列。
+
+        原本的排除守衛寫成「含任何空白即排除」，實測其中「空白」那半是驗不到的死防線：
+        `cat-file --batch-check` 未指定自訂格式時把整行當物件名，對 `<20位> <20位>` 原樣
+        回「<整行> missing」——不會拿空白前那截當縮寫去解，判定本來就是不可解。載重的只有
+        換行（一行一問、一行一答，多一行即整體錯位，另案 test_whitespace_in_sha_… 看住），
+        故守衛已收斂為只排除換行。本案把「夾空白＝不可解、鄰列不受影響」這個對外行為釘成
+        契約——與守衛用哪種字元集無關，換實作也不得改判。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            rows = [dict(VALID_CLOSE, merge=outer[:20] + " " + outer[20:], pins=pins),
+                    dict(VALID_CLOSE, merge=blob, pins=pins)]
+            _wfile(d, EVENTS,
+                   "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR, ERROR], msg=str(f))
+            self.assertIn("行 1", f[0]["where"])
+            self.assertIn("不可解析", f[0]["msg"])
+            self.assertIn("行 2", f[1]["where"])
+            self.assertIn("blob", f[1]["msg"])
 
     def test_absent_submodule_worktree_skips_its_pins(self):
         """判定表第 4 列：worktree 缺席＝該庫清單整批 skip（不逐列誤報 WARN）。"""
