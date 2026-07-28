@@ -252,12 +252,13 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 的 stack 不在走 exit 1——判讀看是哪支工具的哪個碼、勿一概當失敗。
 
 - **子命令真表**：`docs/generated/reference/tools-cli.md`（機器生成、
-  `python3 tools/docs-sync.py generate` 重算、嚴禁手改）——七支工具子命令的查詢入口；
+  `python3 tools/docs-sync.py generate` 重算、嚴禁手改）——納冊工具子命令的查詢入口
+  （支數＝名冊現算、見真表抬頭）；
   lint 命令形判定基準＝工具源碼分派表、真表為同一掃源的生成物（手改真表不影響判定）。
 - **pre-commit 條件觸發**（工具自測、平時零額外開銷）：staged 含某 python 工具本體才跑
   該支 test 子命令（docs-sync 約 8s、schema-gate／wire-schema／secret-value-guard 毫秒級）；
   fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下
-  單跑約 9s）；`bash tools/bootstrap` 體檢則無條件全跑四支 test。
+  單跑約 9s）；`bash tools/bootstrap` 體檢則無條件全跑工具名冊全部 test。
 
 lint 條款速覽（018 新增五條）——severity 三分：ERROR＝exit 1 擋 commit、WARN＝放行列示、
 跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：

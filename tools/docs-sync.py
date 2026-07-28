@@ -5779,7 +5779,7 @@ _FAKE_TOOLS = (("docs-sync", ("generate", "lint")), ("fork-delta-lint", ()),
 
 
 def _tools_fixture(d):
-    """自建 root 的 tools/ 七支最小工具源（python 五支帶分派表、bash 兩支帶檔頭）。"""
+    """自建 root 的 tools/ 最小工具源（支數與清單一律以 _FAKE_TOOLS 名冊為準、不留硬編數字）。"""
     for name, subs in _FAKE_TOOLS:
         body = "".join(_FAKE_EQ.format(s) for s in subs) or "# 無分派表、直跑\n"
         _wfile(d, f"tools/{name}.py", "#!/usr/bin/env python3\n" + body)

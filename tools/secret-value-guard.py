@@ -333,7 +333,7 @@ class TestSelfTest(unittest.TestCase):
         self.assertIn("綠樣本誤報", buf.getvalue())
 
     def test_selftest_catches_loosened_min_len(self):
-        """放寬下界型突變（eligible 恆真）→ MIN-1 邊界綠樣本誤報、self-test 必紅。"""
+        """放寬型突變（eligible 恆真）→ EDGE_SKIP 字面邊界綠樣本（7 字元）誤報、self-test 必紅。"""
         from unittest import mock
         mod = sys.modules[__name__]
         import io, contextlib
@@ -341,6 +341,7 @@ class TestSelfTest(unittest.TestCase):
         with mock.patch.object(mod, "eligible", lambda _v: True), \
                 contextlib.redirect_stderr(buf):
             self.assertFalse(run_selftest())
+        self.assertIn("下界邊界綠樣本誤報", buf.getvalue())
 
     def test_selftest_catches_lowered_min_len_constant(self):
         """★下界常數被改小（MIN=2）→ 7 字元邊界綠樣本變成 eligible、誤報當場紅。
