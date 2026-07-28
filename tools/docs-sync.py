@@ -19,6 +19,7 @@ token 計數：UTF-8 bytes ÷ 3 保守近似（測試鎖定算法）。
 """
 import concurrent.futures
 import contextlib
+import functools
 import io
 import json
 import os
@@ -1875,11 +1876,18 @@ RE_DISPATCH_ITEM = re.compile(r'"([a-z][a-z0-9-]*)"')
 RE_CMD_PY = re.compile(
     r"tools/(" + "|".join(TOOLS_PY) + r")\.py(?:(?P<gap>[ \t]+)(?P<sub>[a-z][a-z0-9-]*))?")
 RE_TREE_LINE = re.compile(r"^[ \t│]*[├└]")
-# 一格多值的續值：①直豎線緊接（`gate1|gate2|audit`）②同段收尾後以斜線接下一個代碼段
-# （`… check` / `lint`）。只驗第一個值＝第二、三個值就算是假子命令也不會紅。
+# 一格多值的續值兩形，皆可連鎖任意多值（三值以上、兩形混用都驗得到）：
+#   ①同段內：分隔符緊接前一個 token（`gate1|gate2|audit`、`check/lint`），收直豎線與
+#     ASCII／全形斜線——同段內不可能是表格欄界，緊接形無歧義。
+#   ②跨代碼段：前段收尾後以斜線接下一個代碼段（`… check` / `lint`／`… check`／`lint`）。
+#     ★跨段分隔符**只收斜線、刻意不收直豎線**：markdown 表格的欄界正是直豎線，收了就會
+#     把下一欄第一個小寫詞當成續值（例如「…`test` | pre-commit 兩道 |」誤紅 pre-commit）。
+# ★兩形的 group 都收在 token 尾（不含結尾反引號）：吃掉結尾反引號後，下一輪的 `[^`\n]*`
+#   會先把「空白斜線空白」吃掉、再也對不上「反引號＋斜線＋反引號」的形，鏈式只能延續一次
+#   （U5-quality 實測：三值斜線鏈第三值漏檢、混合分隔全漏）。
 # ★`[^`\n]*` 不含反引號＝只能錨在「其後第一個反引號」上，不會跨到別的命令形的代碼段。
-RE_SUB_PIPE = re.compile(r"\|([a-z][a-z0-9-]*)")
-RE_SUB_SLASH = re.compile(r"[^`\n]*`\s*/\s*`([a-z][a-z0-9-]*)`")
+RE_SUB_PIPE = re.compile(r"[|/／]([a-z][a-z0-9-]*)")
+RE_SUB_SLASH = re.compile(r"[^`\n]*`\s*[/／]\s*`([a-z][a-z0-9-]*)")
 RE_CMD_OLD = re.compile(r"tools/(" + "|".join(TOOLS_PY) + r")(?!\.py)\b")
 RE_CMD_SH = re.compile(r"tools/(" + "|".join(TOOLS_SH) + r")\b")
 
@@ -1943,7 +1951,7 @@ def gen_tools_cli(rows):
 
 
 def _extra_subs(line, pos):
-    """同一命令形之續值 token（一格多值；見 RE_SUB_PIPE／RE_SUB_SLASH）。"""
+    """同一命令形之續值 token 全集（一格多值、可連鎖；見 RE_SUB_PIPE／RE_SUB_SLASH）。"""
     out = []
     while True:
         m = RE_SUB_PIPE.match(line, pos) or RE_SUB_SLASH.match(line, pos)
@@ -2361,24 +2369,33 @@ def index_gitlink(root, sub):
     return None, "index 無該 gitlink 條目（純外層 repo 或該 submodule 未登記）"
 
 
-def submodule_head(root, sub):
+def submodule_head(root, sub, cache=None):
     """子庫存活探針：回 (worktree HEAD SHA, 跳過原因)——查不到時 SHA＝None。
 
-    ★L16 submodule 面／L17／L18 三條款共用同一支探針。各自為政的後果實證：L17 以
-    `rev-parse HEAD` 成功與否判定、L18 只看 `.git` 路徑是否存在，於「worktree 斷裂」
+    ★L16 submodule 面／L17／L18／L20 守衛#4 四條款共用同一支探針。各自為政的後果實證：
+    L17 以 `rev-parse HEAD` 成功與否判定、L18 只看 `.git` 路徑是否存在，於「worktree 斷裂」
     （`.git` gitfile 指向已被刪除的源倉、CLAUDE.md §3 明載狀態）時 L17 落 1 筆跳過、
     L18 卻對該庫每一列各落一筆「upstream rebase 卷史後合法失聯」——同一事實兩種說法，
     且把「庫根本開不起來」誤植成「SHA 失聯」，操作者會去 fetch 而不是去跑 bootstrap。
     ★判準必須是「rev-parse HEAD 成功」而非「.git 路徑存在」：後者對斷裂 worktree 為真。
+
+    ★`cache`＝單次 lint 內共用的記憶化字典（run_lint 建、逐條款傳下去）：探針是一發
+    subprocess，drvfs 上實測 base-web 78ms／rust-api 101ms，四條款各自打＝一次 lint 多花
+    ~360ms。給 cache 即每庫每次 lint 只打一發；不給（單測直呼）＝每次真打，無跨案殘留。
     """
+    if cache is not None and sub in cache:
+        return cache[sub]
     subdir = os.path.join(root, sub)
     if not os.path.exists(os.path.join(subdir, ".git")):
-        return None, "submodule worktree 缺席（唯讀看碼模式或尚未跑 bootstrap）"
-    head = (git_out(["rev-parse", "HEAD"], subdir) or "").strip()
-    if not head:
-        return None, ("submodule worktree 斷裂、庫開不起來（.git gitfile 指向的源倉不在"
-                      "或 HEAD 讀不到；跑 bash tools/bootstrap 自癒）")
-    return head, None
+        result = (None, "submodule worktree 缺席（唯讀看碼模式或尚未跑 bootstrap）")
+    else:
+        head = (git_out(["rev-parse", "HEAD"], subdir) or "").strip()
+        result = (head, None) if head else (
+            None, "submodule worktree 斷裂、庫開不起來（.git gitfile 指向的源倉不在"
+                  "或 HEAD 讀不到；跑 bash tools/bootstrap 自癒）")
+    if cache is not None:
+        cache[sub] = result
+    return result
 
 
 def _cred_grep_tree(subdir, tree):
@@ -2412,7 +2429,7 @@ def _cred_grep_tree(subdir, tree):
     return out, None
 
 
-def lint_cred_submodules(root):
+def lint_cred_submodules(root, cache=None):
     """L16 增量面：staged 含 gitlink 變動時掃 old..new 新增行（R3；data-model §2 第 2/3 列）。"""
     out = []
     staged = set((git_out(["diff", "--cached", "--name-only"], root) or "").splitlines())
@@ -2423,7 +2440,7 @@ def lint_cred_submodules(root):
                                "（掃描面＝old..new 新增行，成本正比 pin 變更量）"))
             continue
         subdir = os.path.join(root, sub)
-        _head, why = submodule_head(root, sub)
+        _head, why = submodule_head(root, sub, cache)
         if why:
             out.append(finding(SKIP, "L16", sub, f"{why}——憑證增量掃跳過"))
             continue
@@ -2451,9 +2468,9 @@ def lint_cred_submodules(root):
     return out
 
 
-def lint_credentials(root):
+def lint_credentials(root, cache=None):
     """L16 組裝：self-test 防恆綠＋外層全量＋submodule 增量（contracts G1）。"""
-    return cred_self_test() + lint_cred_outer(root) + lint_cred_submodules(root)
+    return cred_self_test() + lint_cred_outer(root) + lint_cred_submodules(root, cache)
 
 
 # ---------------------------------------------------------------------------
@@ -2483,7 +2500,7 @@ def is_closing_commit(root):
     return False
 
 
-def lint_pin_crosscheck(root):
+def lint_pin_crosscheck(root, cache=None):
     """L17：staged gitlink ↔ submodule worktree HEAD 互證（contracts G2／data-model §3）。
 
     嚴重度由收刀偵測決定：平時 WARN（兩段式 commit 的合法中間態）、收刀簿記 commit ERROR
@@ -2495,7 +2512,7 @@ def lint_pin_crosscheck(root):
         if staged is None:
             out.append(finding(SKIP, "L17", sub, f"{why}——pin 互證跳過"))
             continue
-        head, why = submodule_head(root, sub)
+        head, why = submodule_head(root, sub, cache)
         if head is None:
             out.append(finding(SKIP, "L17", sub, f"{why}——pin 互證跳過"))
             continue
@@ -2543,22 +2560,25 @@ def git_object_types(shas, cwd):
     return types
 
 
-def git_object_types_batched(jobs):
-    """多批 `(shas, cwd)` 併發問型別；回與 jobs 同序的 dict list。
+def run_git_concurrently(calls):
+    """零引數 callable list 一次併發派出；回與 calls 同序的結果。單發不起執行緒。
 
-    各批只等 git 子行程 I/O、彼此零共享狀態，故以執行緒併發（與「rust 全程 serial」無關——
-    那條紀律管的是平行 cargo 互撞 target）。WSL2 drvfs 上單發 cat-file 的成本幾乎全在開庫
-    （實測外層 68ms／base-web 100ms／rust-api 127ms，git 本體啟動僅 1ms），序列三發約 300ms
-    ＝超出 contracts G3「全帳本驗證 200ms 以內」；併發後實測約 150ms。單批不起執行緒。
+    各呼叫只等 git 子行程 I/O、彼此零共享狀態，故以執行緒併發（與「rust 全程 serial」無關——
+    那條紀律管的是平行 cargo 互撞 target）。WSL2 drvfs 上單發成本幾乎全在開庫（實測
+    cat-file 外層 23ms／base-web 64ms／rust-api 82ms、rev-parse 另需 78ms／101ms，git 本體
+    啟動僅 1ms），全部序列跑約 300ms＝超出 contracts G3「全帳本驗證 200ms 以內」。
+    ★存活探針必須與 cat-file 批次同池併發、不得排在批次之前序列跑：兩者分兩段時
+    ~180ms（探針）＋~80ms（批次）＝ 破契約（U5-quality 實測 341ms／300ms）；同時在飛後
+    實測約 130ms。代價＝對「庫不可查」者多派一發空轉 cat-file（結果不採用），成本遠低於
+    序列化探針。
     """
-    if len(jobs) <= 1:
-        return [git_object_types(shas, cwd) for shas, cwd in jobs]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(jobs)) as ex:
-        return [f.result() for f in [ex.submit(git_object_types, shas, cwd)
-                                     for shas, cwd in jobs]]
+    if len(calls) <= 1:
+        return [fn() for fn in calls]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(calls)) as ex:
+        return [f.result() for f in [ex.submit(fn) for fn in calls]]
 
 
-def lint_events_sha(root):
+def lint_events_sha(root, cache=None):
     """L18：events 帳本逐列 SHA 向 git 實證（contracts G3／data-model §4 判定表）。
 
     merge 驗於外層（不可解／非 commit＝ERROR）；pins 依 PIN_KEYS 映射驗於各 submodule
@@ -2596,24 +2616,22 @@ def lint_events_sha(root):
             if isinstance(pins[key], str):
                 per_key[key].append((n, pins[key]))
 
-    # 三批（外層 merge＋每庫 pins）一次併發派出——序列跑約 300ms、超出 G3 效能契約
+    # 三批 cat-file（外層 merge＋每庫 pins）＋每庫存活探針，全部同池一次併發派出
     # ★存活判定走共用探針（見 submodule_head）：只看 .git 路徑存在會把斷裂 worktree 當成
     #   活庫，逐列報「rebase 卷史合法失聯」＝把「庫開不起來」誤植成「SHA 失聯」
-    absent = {}
-    live = []
-    for key, sub in PIN_KEYS:
-        if not per_key[key]:
-            continue
-        _head, why = submodule_head(root, sub)
-        if why:
-            absent[key] = why
-        else:
-            live.append((key, os.path.join(root, sub)))
-    maps = git_object_types_batched(
-        [([s for _n, s in merges], root)]
-        + [([s for _n, s in per_key[key]], subdir) for key, subdir in live])
-    mtypes = maps[0]
-    ptypes = dict(zip([key for key, _subdir in live], maps[1:]))
+    # ★探針不得排在批次之前序列跑（會破 G3 200ms 契約、理由見 run_git_concurrently）：
+    #   故對尚不知死活的庫先樂觀派 cat-file，探針判死者其結果整批丟棄。
+    pending = [(key, sub) for key, sub in PIN_KEYS if per_key[key]]
+    results = run_git_concurrently(
+        [functools.partial(git_object_types, [s for _n, s in merges], root)]
+        + [functools.partial(git_object_types, [s for _n, s in per_key[key]],
+                             os.path.join(root, sub)) for key, sub in pending]
+        + [functools.partial(submodule_head, root, sub, cache) for _key, sub in pending])
+    mtypes = results[0]
+    types_of = dict(zip([key for key, _sub in pending], results[1:1 + len(pending)]))
+    absent = {key: why for (key, _sub), (_head, why)
+              in zip(pending, results[1 + len(pending):]) if why}
+    ptypes = {key: t for key, t in types_of.items() if key not in absent}
 
     for n, sha in merges:
         t = mtypes.get(sha)
@@ -2663,13 +2681,52 @@ REFERENCE_SOURCES = (COMPOSE_FILES + (ROUTER_SOURCE, ELEGANT_SOURCE)
 RE_DISPATCH_PROBE = re.compile(r"\bcmd\s*==|\bcmd\s+in\s*\(")
 
 
-def lint_reference_sources(root):
-    """守衛#4：generate 各 reference 來源檔存在。lint 與 generate 雙掛（contracts G4）。"""
-    return [finding(ERROR, "L20", rel,
-                    "reference 來源檔不存在——generate 無輸入、對照表無法重算；"
-                    "submodule worktree 未建起（跑 bash tools/bootstrap）或來源被移位")
-            for rel in REFERENCE_SOURCES
-            if not os.path.isfile(os.path.join(root, rel))]
+def owning_submodule(rel):
+    """來源檔所屬 submodule 目錄（不在任一子庫底下＝None）；映射唯一真值＝PIN_KEYS。"""
+    for _key, sub in PIN_KEYS:
+        if rel.startswith(sub + "/"):
+            return sub
+    return None
+
+
+def lint_reference_sources(root, cache=None, submodule_skip=True):
+    """守衛#4：generate 各 reference 來源檔存在。lint 與 generate 雙掛（contracts G4）。
+
+    ★與 contracts G4 字面（「空／缺即 ERROR」）的差異與理由（比照守衛#5 已做的收斂）：
+    來源檔有四筆住在 submodule 底下（router.rs／elegant routes.ts／兩支 locale）。唯讀看碼
+    模式（fresh clone 未跑 bootstrap）下這四筆必然不存在，照字面一律 ERROR，會與同一次
+    lint 內 L16／L17／L18 對「同一個環境事實」判 skip 直接自相矛盾——一邊逐字說「不適用、
+    不是失敗」、一邊逐字說「fail-closed 硬紅」（U5-quality 實測：scratch clone 得 4 ERROR
+    ＋7 SKIP，四筆 ERROR 全落在 submodule 底下的來源檔）。且守衛要防的是「查到空集合而
+    恆綠」，此處恆綠不成立：唯讀模式下 generate／check 本來就 fail-loud（實跑 check 直接
+    吐 RouterRoutesError）。額外代價是 quickstart S5 造空劇本的機判被無關 ERROR 淹沒。
+    故收斂為：來源檔位於 submodule 底下者先過共用存活探針（同 L16／L17／L18 那支），庫
+    不可查→SKIP、原因同文；庫可查而檔案不見、或外層來源檔不見→維持 ERROR。
+    ★`submodule_skip`：lint 端 True；generate 端 False——generate 沒有來源就是算不出對照表，
+    跳過只會讓它往下撞既有散落例外（RouterRoutesError／SnapshotError…），失去歸一化的意義。
+    """
+    tail = ("來源被移位或改名（submodule 底下者其庫已可查、非缺 bootstrap——庫不可查走跳過）"
+            if submodule_skip else
+            "submodule worktree 未建起（跑 bash tools/bootstrap）或來源被移位")
+    out, skipped = [], {}
+    for rel in REFERENCE_SOURCES:
+        if os.path.isfile(os.path.join(root, rel)):
+            continue
+        sub = owning_submodule(rel) if submodule_skip else None
+        if sub is not None:
+            _head, why = submodule_head(root, sub, cache)
+            if why:
+                skipped.setdefault(sub, [why, 0])
+                skipped[sub][1] += 1
+                continue
+        out.append(finding(ERROR, "L20", rel,
+                           f"reference 來源檔不存在——generate 無輸入、對照表無法重算；{tail}"))
+    for _key, sub in PIN_KEYS:
+        if sub in skipped:
+            why, n = skipped[sub]
+            out.append(finding(SKIP, "L20", sub,
+                               f"{why}——該庫 {n} 筆 reference 來源檔存在性守衛跳過"))
+    return out
 
 
 def lint_tool_dispatch(root):
@@ -2703,7 +2760,7 @@ def lint_tool_dispatch(root):
     return out
 
 
-def lint_empty_sets(root, tracked=None):
+def lint_empty_sets(root, tracked=None, cache=None):
     """L20：空集合守衛七組（data-model §6）。空／缺即 ERROR、訊息指名集合與來源。
 
     七組皆「結構上恆非空／恆存在」；空了代表掃描器或環境壞了，靜默放行＝假綠。
@@ -2723,7 +2780,7 @@ def lint_empty_sets(root, tracked=None):
         out.append(finding(ERROR, "L20", ".",
                            "外層 tracked md 語料為空（來源＝git ls-files '*.md'）——"
                            "L12~L15 引用健康條款會查到空語料而恆綠"))
-    out += lint_reference_sources(root)
+    out += lint_reference_sources(root, cache)
     out += lint_tool_dispatch(root)
     if not tracked_blobs(root):
         out.append(finding(ERROR, "L20", ".",
@@ -2778,11 +2835,14 @@ def run_lint(root):
     findings += lint_line_refs(md_texts)
     findings += lint_volatile_deep_links(md_texts)
     findings += lint_memory_refs(md_texts)
-    findings += lint_credentials(root)
-    findings += lint_pin_crosscheck(root)
-    findings += lint_events_sha(root)
+    # 子庫存活探針的單次 lint 記憶化：L16／L17／L18／L20 守衛#4 共用同一份結果，
+    # 每庫只打一發 git（見 submodule_head；四條款各自打＝多花 ~360ms 在 drvfs 上）
+    probe = {}
+    findings += lint_credentials(root, probe)
+    findings += lint_pin_crosscheck(root, probe)
+    findings += lint_events_sha(root, probe)
     findings += lint_cmd_forms(root)
-    findings += lint_empty_sets(root, tracked)
+    findings += lint_empty_sets(root, tracked, probe)
     return findings
 
 
@@ -2843,7 +2903,8 @@ def cmd_generate():
         print("[ERROR] git 不可用——pins 等 git 來源無法讀取，generate 中止（fail-closed）",
               file=sys.stderr)
         return 1
-    missing = lint_reference_sources(ROOT)
+    # generate 端不吃 submodule 跳過語意：沒有來源就是算不出對照表（見 lint_reference_sources）
+    missing = lint_reference_sources(ROOT, submodule_skip=False)
     if missing:
         print_findings(missing)
         print(f"generate：來源檔守衛擋下 {len(missing)} 筆（contracts G4）——補齊後重跑",
@@ -5607,24 +5668,84 @@ class TestEventsShaProof(unittest.TestCase):
             self.assertEqual(len(cwds), batched, msg=str(cwds))
             self.assertEqual(len(set(cwds)), batched, msg=str(cwds))
 
-    def test_batches_are_dispatched_concurrently(self):
-        """★併發守衛：多批必須同時在飛，退回序列即紅（contracts G3 效能契約）。
+    def test_calls_are_dispatched_concurrently(self):
+        """★併發守衛：同池多發必須同時在飛，退回序列即紅（contracts G3 效能契約）。
 
-        三批各在同一 barrier 上互等：併發時三者同時抵達而放行；序列時第一批等不到
-        另兩批、逾時 BrokenBarrierError＝紅。不比時間長短，故 drvfs 上不 flaky。
-        不改以 threading.get_ident() 相異數斷言——批次瞬回時 ThreadPoolExecutor 會
+        三發各在同一 barrier 上互等：併發時三者同時抵達而放行；序列時第一發等不到
+        另兩發、逾時 BrokenBarrierError＝紅。不比時間長短，故 drvfs 上不 flaky。
+        不改以 threading.get_ident() 相異數斷言——瞬回時 ThreadPoolExecutor 會
         重用剛轉閒置的同一執行緒（實測 400 回有 388 回只見 1 個 ident）。
         """
         bar = threading.Barrier(3, timeout=10)
 
-        def fake(_shas, _cwd):
+        def fake(tag):
             bar.wait()
-            return {}
+            return tag
 
-        with mock.patch.object(sys.modules[__name__], "git_object_types", fake):
-            self.assertEqual(
-                git_object_types_batched([([], "a"), ([], "b"), ([], "c")]),
-                [{}, {}, {}])
+        self.assertEqual(
+            run_git_concurrently([functools.partial(fake, t) for t in "abc"]),
+            ["a", "b", "c"])
+
+    def test_probe_flies_together_with_the_batches(self):
+        """★存活探針必須與 cat-file 批次同池併發（U5-quality：分兩段跑實測 300~341ms、
+        破 contracts G3「全帳本驗證 200ms 以內」）。
+
+        探針與三發批次共 5 個參與者在同一 barrier 上互等：探針若被移回批次之前序列跑，
+        它先抵達卻等不到批次、逾時 BrokenBarrierError＝紅。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer = _init_outer(d)
+            subs = {key: _init_sub(d, name)[0] for key, name in PIN_KEYS}
+            _wfile(d, EVENTS,
+                   json.dumps(dict(VALID_CLOSE, merge=outer, pins=subs),
+                              ensure_ascii=False) + "\n")
+            bar = threading.Barrier(1 + 2 * len(PIN_KEYS), timeout=10)
+            real_types, real_head = git_object_types, submodule_head
+
+            def fake_types(shas, cwd):
+                bar.wait()
+                return real_types(shas, cwd)
+
+            def fake_head(root, sub, cache=None):
+                bar.wait()
+                return real_head(root, sub, cache)
+
+            mod = sys.modules[__name__]
+            with mock.patch.object(mod, "git_object_types", fake_types), \
+                 mock.patch.object(mod, "submodule_head", fake_head):
+                self.assertEqual(lint_events_sha(d), [])
+
+    def test_single_lint_probes_each_submodule_at_most_once(self):
+        """★探針記憶化守衛：單次 lint 內每個子庫的存活探針最多打一發 git。
+
+        L16／L17／L18／L20 守衛#4 各自打＝每庫四發（drvfs 實測每發 78~101ms、一次 lint 多花
+        ~360ms）。同型回歸（新條款忘了傳 cache）不會被 clause 級的時間量測抓到，故釘成
+        可機器偵測的次數。★fixture 須 stage gitlink：不 stage 時 L16／L17 在探針之前就先
+        跳過（未 staged／index 無條目），四條款只剩兩條會打、分辨力減半。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer = _init_outer(d)
+            subs = {key: _init_sub(d, name)[0] for key, name in PIN_KEYS}
+            for key, name in PIN_KEYS:
+                _stage_gitlink(d, name, subs[key])
+            _wfile(d, EVENTS,
+                   json.dumps(dict(VALID_CLOSE, merge=outer, pins=subs),
+                              ensure_ascii=False) + "\n")
+            real, probes = subprocess.run, []
+
+            # ★比對整串 argv 尾段而非 args[:3]：git_out 會夾 `-c core.quotepath=off`，
+            #   以 ["git", "rev-parse", "HEAD"] 相等比對永遠不成立＝本案零信號（實證：
+            #   三個「拿掉 cache」突變體全數存活）
+            def fake(args, **kw):
+                if list(args)[-2:] == ["rev-parse", "HEAD"]:
+                    probes.append(kw.get("cwd"))
+                return real(args, **kw)
+
+            with mock.patch.object(subprocess, "run", fake):
+                run_lint(d)
+            for _key, sub in PIN_KEYS:
+                hits = [c for c in probes if c == os.path.join(d, sub)]
+                self.assertEqual(len(hits), 1, msg=f"{sub}｜{probes}")
 
 
 # --- G7／L19 測試共用 fixture（★一律自建 root，真 repo 唯讀）------------------
@@ -5795,6 +5916,48 @@ class TestCmdFormLint(unittest.TestCase):
         self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
         self.assertIn("bogus3", f[0]["msg"])
 
+    def test_multi_value_chain_beyond_two_values(self):
+        """★A7 邊界（U5-quality 實測漏檢）：三值以上的斜線鏈、混合分隔、全形斜線、同段斜線。
+
+        修前只能延續一次：跨段規則吃掉了前一段的結尾反引號，下一輪的「非反引號任意重複」
+        先把「空白斜線空白」吃掉，就再也對不上「反引號＋斜線＋反引號」的形。四形當時
+        findings 全為 0（第三值 bogus3 漏、混合分隔 lint 與 bogus 都沒驗到、全形斜線全漏）。
+        現庫三件手冊恰好只有兩值斜線與三值直豎線，故不自紅——保護卻是缺的。
+        """
+        for label, line in (
+                ("三值斜線鏈",
+                 "| `python3 tools/docs-sync.py check` / `lint` / `bogus3` | x | 否 |\n"),
+                ("混合分隔",
+                 "| `python3 tools/docs-sync.py check` / `lint|bogus3` | x | 否 |\n"),
+                ("全形斜線",
+                 "| `python3 tools/docs-sync.py check`／`bogus3` | x | 否 |\n"),
+                ("同段斜線",
+                 "| `python3 tools/docs-sync.py check/bogus3` | x | 否 |\n")):
+            f = self._f(line)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=f"{label}｜{f}")
+            self.assertIn("bogus3", f[0]["msg"], msg=label)
+
+    def test_pipe_is_not_a_cross_span_separator(self):
+        """★A7 已知邊界（明示契約）：跨代碼段的續值只認斜線、刻意不認直豎線。
+
+        markdown 表格的欄界正是直豎線：`| `… test` | pre-commit 兩道 | 否 |` 這種
+        現行寫法，若把直豎線也當跨段分隔符，下一欄第一個小寫詞（pre-commit）就會被當成
+        第二個子命令而誤紅。代價＝真的想以「`a` | `b`」表達一格多值時
+        第二值驗不到；改用斜線即可（三件手冊現行寫法本來就是斜線）。
+        """
+        self.assertEqual(
+            self._f("| `python3 tools/docs-sync.py test` | pre-commit 自測 | 否 |\n"), [])
+        self.assertEqual(
+            self._f("| `python3 tools/docs-sync.py test` | `bogus-next-cell` | 否 |\n"), [])
+
+    def test_slash_continuation_requires_a_code_span(self):
+        """★A7 已知邊界（明示契約）：斜線之後必須是代碼段，散文不當續值。
+
+        ``… check` / see docs` 這種行文裡的斜線很常見，若不要求續值落在反引號內，
+        `see` 就會被當成假子命令而誤紅。
+        """
+        self.assertEqual(self._f("跑 `python3 tools/docs-sync.py check` / see docs\n"), [])
+
     def test_multi_space_aligned_fake_subcommand_is_caught(self):
         """★A8：以多空白對欄書寫的假子命令（非目錄樹行）須抓得到。"""
         f = self._f("| `python3 tools/docs-sync.py   bogus-aligned` | 說明 | 否 |\n")
@@ -5928,13 +6091,48 @@ class TestEmptySetGuards(unittest.TestCase):
             self.assertTrue(any("tracked" in m and "md" in m for m in self._msgs(d)),
                             msg=str(self._msgs(d)))
 
-    def test_group4_missing_reference_sources(self):
-        """④generate 各 reference 來源檔——逐檔缺席即 ERROR（既有散落 fail 行為歸一化）。"""
+    def test_group4_reference_sources_roster_is_pinned(self):
+        """★④來源檔全集字面釘死：只迭代 REFERENCE_SOURCES 的斷言是套套邏輯。
+
+        突變實證（修前三支全數存活、338 案零轉紅）：常數移除 ROUTER_SOURCE／移除三個
+        reference-src 快照／移除兩支 locale。期望值取自被測常數，常數縮水時期望值同步
+        縮水，永遠對得上。縮水的後果＝該來源退回既有散落例外（RouterRoutesError／
+        SnapshotError…），R4 第四項「既有散落 fail 行為歸一化進守衛輸出」對它失效、
+        lint 端對該來源不再 fail-closed。故此處字面列出十筆，少一筆即紅。
+        """
+        self.assertEqual(REFERENCE_SOURCES, (
+            "docker-compose.yml", "docker-compose.dev.yml", "docker-compose.example.yml",
+            "rust-api/server/src/router.rs", "base-web/src/router/elegant/routes.ts",
+            "base-web/src/locales/langs/zh-tw.ts", "base-web/src/locales/langs/en-us.ts",
+            "docs/ops/reference-src/schema-snapshot.json",
+            "docs/ops/reference-src/accounts-snapshot.json",
+            "docs/ops/reference-src/archetype-map.json"))
+
+    def test_group4_outer_sources_error_submodule_sources_skip(self):
+        """★④lint 端兩分支：外層來源缺席＝ERROR、submodule 來源之庫不可查＝SKIP。
+
+        後者是與 contracts G4 字面的刻意落差（理由見 lint_reference_sources docstring）：
+        同一次 lint 內 L16／L17／L18 對「worktree 缺席」逐字判「不適用、不是失敗」，守衛#4
+        若對同一事實硬紅即自相矛盾，且會淹沒 quickstart S5 造空劇本的機判。
+        """
         with tempfile.TemporaryDirectory() as d:
             self._bare(d)
-            msgs = self._msgs(d)
-            for rel in REFERENCE_SOURCES:
-                self.assertTrue(any(rel in m for m in msgs), msg=f"{rel} 未被守衛點名")
+            f = lint_reference_sources(d)
+            errs = [x["where"] for x in f if x["level"] == ERROR]
+            skips = [x for x in f if x["level"] == SKIP]
+            self.assertEqual(errs, [rel for rel in REFERENCE_SOURCES
+                                    if owning_submodule(rel) is None], msg=str(f))
+            self.assertEqual([x["where"] for x in skips], ["base-web", "rust-api"])
+            self.assertTrue(all("worktree 缺席" in x["msg"] for x in skips), msg=str(skips))
+
+    def test_group4_error_when_submodule_is_live_but_source_missing(self):
+        """★④庫可查而來源檔不見＝仍是 ERROR（跳過只給「庫開不起來」，不給「檔沒了」）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._bare(d)
+            for _key, sub in PIN_KEYS:
+                _init_sub(d, sub)
+            errs = [x["where"] for x in lint_reference_sources(d) if x["level"] == ERROR]
+            self.assertEqual(errs, list(REFERENCE_SOURCES), msg=str(errs))
 
     def test_group4_is_also_wired_into_generate(self):
         """★守衛#4 雙掛（contracts G4「lint／generate 來源檔守衛雙掛」）：generate 端亦須報。
@@ -5943,10 +6141,12 @@ class TestEmptySetGuards(unittest.TestCase):
         （突變實證：把 cmd_generate 的守衛呼叫拿掉，全套仍全綠）。故本案直接跑 cmd_generate
         並斷言 exit 1＋守衛訊息——接線斷掉時它會改以 ComposePortsError 拋出（來源檔缺席
         的既有散落 fail 行為），本案即當場紅。
+        ★generate 端 submodule_skip=False：沒有來源就是算不出對照表，十筆全數 ERROR
+        （跳過只會讓它往下撞既有散落例外）；接線改成吃 lint 端語意時本案亦紅。
         """
         with tempfile.TemporaryDirectory() as d:
             self._bare(d)
-            f = lint_reference_sources(d)
+            f = lint_reference_sources(d, submodule_skip=False)
             self.assertEqual(len(f), len(REFERENCE_SOURCES), msg=str(f))
             self.assertTrue(all(x["level"] == ERROR for x in f))
             buf, err = io.StringIO(), io.StringIO()
@@ -5956,6 +6156,7 @@ class TestEmptySetGuards(unittest.TestCase):
             self.assertEqual(rc, 1, msg=buf.getvalue() + err.getvalue())
             self.assertIn("來源檔守衛", err.getvalue())
             self.assertIn("reference 來源檔不存在", buf.getvalue())
+            self.assertIn(ROUTER_SOURCE, buf.getvalue())
 
     def test_group5_empty_tool_roster(self):
         """⑤掃源清單本身空（名冊被清空）→ERROR。"""
