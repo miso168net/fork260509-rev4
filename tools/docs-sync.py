@@ -5216,6 +5216,17 @@ class TestToolsCliTruthTable(unittest.TestCase):
         self.assertIsNone(sh_usage_line("#!/bin/sh\n# 用途：只有用途註解\n"))
         self.assertIsNone(sh_usage_line("#\n" * SH_USAGE_HEAD + "# 用法：太深\n"))
 
+    def test_tools_roster_is_pinned_and_table_renders_six_sections(self):
+        """★名冊字面釘死：只迭代 TOOLS_PY／TOOLS_SH 的斷言是套套邏輯（常數縮水＝斷言跟著
+        縮水、全綠存活），連帶 RE_CMD_PY／RE_CMD_OLD 也由同一常數 join 而成——名冊少一支＝
+        真表少一節（SC-006 失守）＋該工具的 L19 子命令比對與舊名禁令一併靜默下線。"""
+        self.assertEqual(TOOLS_PY,
+                         ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema"))
+        self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
+        heads = [ln for ln in gen_tools_cli(compute_tools_cli(ROOT)).splitlines()
+                 if ln.startswith("## ")]
+        self.assertEqual(len(heads), 6, msg=str(heads))
+
     def test_compute_and_render_six_tools(self):
         """真表六節俱全：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
         with tempfile.TemporaryDirectory() as d:
