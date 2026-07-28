@@ -5937,12 +5937,25 @@ class TestEmptySetGuards(unittest.TestCase):
                 self.assertTrue(any(rel in m for m in msgs), msg=f"{rel} 未被守衛點名")
 
     def test_group4_is_also_wired_into_generate(self):
-        """★守衛#4 雙掛（contracts G4「lint／generate 來源檔守衛雙掛」）：generate 端亦須報。"""
+        """★守衛#4 雙掛（contracts G4「lint／generate 來源檔守衛雙掛」）：generate 端亦須報。
+
+        ★不可只驗 lint_reference_sources() 本體：那樣「函式活著、generate 沒接」零信號
+        （突變實證：把 cmd_generate 的守衛呼叫拿掉，全套仍全綠）。故本案直接跑 cmd_generate
+        並斷言 exit 1＋守衛訊息——接線斷掉時它會改以 ComposePortsError 拋出（來源檔缺席
+        的既有散落 fail 行為），本案即當場紅。
+        """
         with tempfile.TemporaryDirectory() as d:
             self._bare(d)
             f = lint_reference_sources(d)
             self.assertEqual(len(f), len(REFERENCE_SOURCES), msg=str(f))
             self.assertTrue(all(x["level"] == ERROR for x in f))
+            buf, err = io.StringIO(), io.StringIO()
+            with mock.patch.object(sys.modules[__name__], "ROOT", d):
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+                    rc = cmd_generate()
+            self.assertEqual(rc, 1, msg=buf.getvalue() + err.getvalue())
+            self.assertIn("來源檔守衛", err.getvalue())
+            self.assertIn("reference 來源檔不存在", buf.getvalue())
 
     def test_group5_empty_tool_roster(self):
         """⑤掃源清單本身空（名冊被清空）→ERROR。"""
