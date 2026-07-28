@@ -133,10 +133,21 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   ——**實測（2026-07-28）**：全綠實跑（斷言過＋兩源倉 hooksPath 佈署讀值符＋四支自測綠＋
   重跑冪等）；否定測試——PATH 遮蔽（缺席）與 9.9.9 假版 shim 兩情境皆 die exit 2、附下載
   URL 樣式與 sha256sum -c 指引
-- [ ] T017 [US1] **S1／S2／S3 驗收**（quickstart 逐步）：8 格 fixture（四形 × `git add`+commit
+- [x] T017 [US1] **S1／S2／S3 驗收**（quickstart 逐步）：8 格 fixture（四形 × `git add`+commit
   與 `git commit -a` 兩路徑、假值當場產生驗畢即刪）＋兩源倉各實擋一案＋例行簿記 commit 零誤擋
   ＋pre-push 三情境（一般／新分支全零 oid／刪除分支）＋**否定測試**：暫時拿掉 allowlist 的
   `condition = "AND"` 觀察放行過寬後復原
+  ——**實測（2026-07-28）**：①8 格全符預期且兩路徑一致——KEY=value 擋（generic-api-key）／
+  DSN 擋（rev4-dsn-credential-url）／裸值（jwt_secret 現值原文）擋（值比對層、輸出經機器
+  比對不含值原文）／SOPS 密文形兩路徑均放行（拋棄 commit 驗畢 reset 丟棄）；②rust-api
+  0.76s、base-web 1.76s 各實擋一案（generic-api-key）、husky/pnpm 零觸發、fixture 刪淨、
+  兩 worktree status 零行、外層 pin 零動；③本單元 4 筆真實簿記 commit 全綠零誤擋＋合成
+  events.jsonl 三欄 40-hex append 探針兩層 exit 0；④pre-push 對 /tmp bare：新分支首推乾淨
+  放行、一般更新乾淨放行、一般更新含 --no-verify 假機密 commit 擋（rc=1）、新分支首推含假
+  機密走退階實掃亦擋、刪除分支跳過放行；sh -x 證退階 opts＝`--not --remotes=origin`、
+  origin 零 ref 之再退階＝掃整條分支；⑤拿掉 DSN allowlist 之 condition 行→specs/*.md 內
+  真值形 DSN 被誤放（exit 2→0）、復原後回擋（exit 2）＝OR 退化實證。測試 remote／分支／
+  fixture 全數清除、工作樹收乾淨
 
 ## Phase 4: US2 — 機密以密文入版控＋可斷言的解密管線（P2）
 
