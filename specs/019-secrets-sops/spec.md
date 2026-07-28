@@ -28,6 +28,14 @@
 - 驗收升格＝**a／b／c／d／f／h＋preflight 一致性檢查全升**；g（無 docker 離線還原）不升、
   改 RUNBOOK 災復備註。
 
+### Session 2026-07-28（/speckit-clarify）
+
+- Q: 值比對防線的 repo 覆蓋範圍？ → A: 僅外層 repo 掛值比對；兩源倉靠 Betterleaks 樣式層
+  （含 DSN 自訂規則）——源倉 hook 保持零 python 依賴、毫秒級承諾可守；裸值格驗收只在外層跑。
+- Q: pre-push 第二層的 repo 覆蓋範圍？ → A: 三 repo 同套 pre-push——hooks 目錄共用、一檔生效
+  三處；掃描範圍＝本次 push 的 commit 範圍；第二層價值最高處＝`--no-verify` 慣性風險集中的
+  base-web（push 目標為 GitHub 遠端）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 機密洩漏三層掃描防線（三 repo） (Priority: P1)
@@ -185,16 +193,20 @@
 - **FR-004**: 外層 pre-commit 掃描行 MUST 位於既有 docs-sync 檢查之前、輸出遮蔽；hook 註解
   MUST 明確區分事件型（掃描）與狀態型（docs-sync）語意差異。
 - **FR-005**: 同套掃描規則 MUST 掛 pre-push 作第二層（攔截 `--no-verify` 放行後尚未離開本機
-  的 commit）。
+  的 commit）；**覆蓋範圍＝三 repo 同套**（clarify 拍板：hooks 目錄共用、一檔生效三處；掃描
+  範圍＝本次 push 的 commit 範圍）。
 - **FR-006**: 三 repo 覆蓋：外層＋rust-api＋base-web 的 commit MUST 皆經機密掃描。hook 檔
   MUST 寄宿外層 repo（單一事實來源）、由 bootstrap 冪等設定兩源倉 `core.hooksPath` 指向之
   ——兩源倉樹零改動（零 fork-delta 面、零憲法軌道波及）；bootstrap 體檢 MUST 斷言 hooksPath
-  已設。源倉 hook MUST 只跑毫秒級掃描（不觸發上游 husky／pnpm 鏈）。
+  已設。源倉 hook MUST 只跑毫秒級樣式掃描（僅 Betterleaks、零 python 依賴、不觸發上游
+  husky／pnpm 鏈）。
 - **FR-007**: 值比對防線（tools/ 新增 python 工具、定名於 plan）MUST 讀取機密現值比對 staged
   內容、命中即擋且絕不輸出值本身；值缺席時 skip＋提示（不 fail-closed）；MUST 自帶紅綠
-  self-test 防恆綠、掛 pre-commit 條件觸發自測（比照 018 慣例）。
-- **FR-008**: 8 格 fixture 驗收 MUST 全跑：KEY=value／DSN／裸值／SOPS 密文四形 × `git add`+
-  `commit` 與 `git commit -a` 兩路徑；裸值形樣式掃描不中屬預期結果、MUST 由值比對層攔截驗證。
+  self-test 防恆綠、掛 pre-commit 條件觸發自測（比照 018 慣例）。**覆蓋範圍＝僅外層 repo**
+  （clarify 拍板：源倉靠樣式層、零 python 依賴）。
+- **FR-008**: 8 格 fixture 驗收 MUST 全跑（於外層）：KEY=value／DSN／裸值／SOPS 密文四形 ×
+  `git add`+`commit` 與 `git commit -a` 兩路徑；裸值形樣式掃描不中屬預期結果、MUST 由值比對
+  層攔截驗證（僅外層有此層）；兩源倉另各以樣式形 fixture 實擋至少一案（SC-001）。
 
 **實測閘（U1）**
 
