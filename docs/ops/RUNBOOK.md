@@ -262,20 +262,23 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 lint 條款速覽（018 新增五條）——severity 三分：ERROR＝exit 1 擋 commit、WARN＝放行列示、
 跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
 
-- **L16 憑證內容掃描**：外層 tracked 全量＋pin bump（staged 含 gitlink 變動）時 submodule
-  舊 pin→新 pin diff 新增行增量掃；命中＝ERROR 指名檔案與 label（pem-private-key／
-  aws-akia／github-token／github-pat）；舊 pin 不可解＝退化為新 pin 全樹掃＋WARN 註記；
-  worktree 缺席或該 gitlink 未 staged＝落跳過明細。無 inline 豁免——確需豁免走工具常數
-  白名單＋ADR 0077。
+- **L16 憑證內容掃描**：外層 tracked 全量（判定面同時取 index——staged 新增行亦掃，涵蓋
+  git add 後工作樹被刪／洗白兩態；工作樹讀不到＝WARN、不視同乾淨）＋pin bump（staged 含
+  gitlink 變動）時 submodule 舊 pin→新 pin diff 新增行增量掃；命中＝ERROR 指名檔案與
+  label（pem-private-key／aws-akia／github-token／github-pat）；舊 pin 不可解＝退化為新
+  pin 全樹掃＋WARN 註記（退化掃本身執行失敗＝ERROR、不靜默放行）；worktree 缺席或該
+  gitlink 未 staged＝落跳過明細。無 inline 豁免——確需豁免走工具常數白名單＋ADR 0077。
 - **L17 pin 互證**：staged gitlink 與 worktree HEAD 分歧——平時 WARN（兩段式 commit 合法
   中間態）、收刀簿記 commit（staged events 新增行含 feature_close）＝ERROR；worktree 缺席
   ／index 無 gitlink／gitlink 合併衝突未解＝落跳過明細；訊息含「回外層 bump pin」指引。
 - **L18 events SHA 逐列實證**：帳本每列 merge SHA 於外層不可解或非 commit 物件＝ERROR；
   pins SHA 於對應 submodule 不可解＝WARN（upstream rebase 卷史屬合法失聯）、可解而非
-  commit 物件＝ERROR；庫不可查＝該庫整批落跳過明細。
+  commit 物件＝ERROR；含 pins 之列另斷言鍵集恰為 web／api——缺鍵或未知鍵＝ERROR（防查
+  空集合恆綠）；庫不可查＝該庫整批落跳過明細。
 - **L19 命令形 lint**：語料＝CLAUDE.md／README.md／本檔三件活手冊（NOTES＝未來式帳、
   豁免）；命令形宣稱的子命令不在該工具源碼分派表＝ERROR；四支 python 工具的舊名
-  （不帶 .py）命中＝ERROR。
+  （不帶 .py）命中＝ERROR；bash 兩支（bootstrap／wf-watchdog）只驗檔案存在、指向不存在
+  的工具＝ERROR。
 - **L20 空集合守衛**：七組「不可能空」集合 fail-closed、空／缺＝ERROR——工具名冊、ADR
   檔集、events 列、外層 tracked md 語料、reference 來源檔（submodule 底下者庫不可查＝
   落跳過明細）、憑證掃描 tracked 清單、命令形語料三檔；另斷言有分派表的 python 工具其

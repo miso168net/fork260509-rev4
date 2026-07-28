@@ -180,14 +180,23 @@ ERROR、無 inline 豁免、self-test 防恆綠。
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T022 [P] RUNBOOK 連帶更新 `docs/ops/RUNBOOK.md`：新條款退出碼與跳過語意說明＋
+- [x] T022 [P] RUNBOOK 連帶更新 `docs/ops/RUNBOOK.md`：新條款退出碼與跳過語意說明＋
   tools-cli 真表條目＋pre-commit 條件觸發說明（工具 .py 名稱面已由 T002 落、此處為新增
   內容節）
-- [ ] T023 quickstart S1~S9 全機判單通＋SC-001~009 逐條勾稽：含 S7 範本自食證據彙整
+- [x] T023 quickstart S1~S9 全機判單通＋SC-001~009 逐條勾稽：含 S7 範本自食證據彙整
   （U2 起各 workflow script grep 含⑥允許清單與前饋句）＋S9 三套件對 T001 基線零轉紅
   （新增案另計、總數核對）＋改後引擎對現況全綠終驗
-- [ ] T024 `python3 tools/docs-sync.py generate`＋`check`＋`lint` 全綠、工作樹收斂
+- [x] T024 `python3 tools/docs-sync.py generate`＋`check`＋`lint` 全綠、工作樹收斂
   （收刀前終態；活書 ARCHITECTURE as-built 不入本清單——落收刀簿記 commit＝L6(b) 閘）
+  - **U6 實測備查（2026-07-28）**：S1~S9 全機判單通、SC-001~009 全 PASS（SC-008 依 T001/
+    T018 校正基準：平時 43.5s vs 基線 46.4/47.4s＝增量≈0、全中增量 13.9s 記實測）。
+    ★S1 步 4 負向 grep 執行面零命中的精確陳述＝範圍內恰 2 筆命中、皆為 docs-sync.py 內
+    L19 舊名禁令 unittest 的被測樣本（刻意保留的判定證據、L19 語料不含工具本體故不自紅）、
+    非活引用。SC-009 另以「T002 前基線版 212 個 test 方法名於現 347 個中零消失」機器證
+    強化。U6 quality blocker（pre-commit 檔頭註解 L19→L20 漂移、U5 上線 L20 時漏改）由
+    主線修畢；RUNBOOK 速覽三處遺漏（L16 index 面與兩次要分支／L18 pins 鍵集／L19 bash
+    存在檢）由主線補齊、逐句對照實作核實。收刀待辦（advisory 提醒）：B-111 刪列、
+    ADR 0077/0078 轉 accepted、memory 檔更新。
 
 ## Dependencies
 
