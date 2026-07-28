@@ -35,6 +35,17 @@ esac
 git -C "$ROOT" config core.hooksPath .githooks
 ok "core.hooksPath=.githooks"
 
+# 掃描器斷言（019 scan-gates §S4；★die 級——缺席時 hook 會以 exit 127 擋掉每次 commit
+# 且訊息難解，體檢須先 fail-loud；版本釘定值＝RUNBOOK §12 拍板、升版先改拍板再改此值）
+BETTERLEAKS_VER="1.7.1"
+BETTERLEAKS_GET="處置：下載 https://github.com/betterleaks/betterleaks/releases/download/v${BETTERLEAKS_VER}/betterleaks_${BETTERLEAKS_VER}_linux_x64.tar.gz 與同頁 checksums.txt（檔名不含版號）→ sha256sum -c checksums.txt --ignore-missing 驗證 → 解壓 betterleaks 至 ~/.local/bin"
+command -v betterleaks >/dev/null 2>&1 \
+  || die "betterleaks 缺席（三層掃描防線之樣式層）——${BETTERLEAKS_GET}"
+bl_ver="$(betterleaks version 2>/dev/null || true)"
+[ "$bl_ver" = "$BETTERLEAKS_VER" ] \
+  || die "betterleaks 版本（${bl_ver:-讀不到}）≠ 釘定 ${BETTERLEAKS_VER}——${BETTERLEAKS_GET}"
+ok "betterleaks ${BETTERLEAKS_VER} 就緒（釘版斷言過）"
+
 # ── 2. 源倉（缺才 clone、幂等）────────────────────────────────────────
 ensure_src() { # $1=目錄 $2=URL $3=名
   if [ -d "$1/.git" ]; then
@@ -91,6 +102,17 @@ ensure_worktree() { # $1=源倉 $2=目錄名 $3=分支
 ensure_worktree "$BASEWEB_SRC" "base-web" "rev4-admin-base-web"
 ensure_worktree "$RUSTAPI_SRC" "rust-api" "rev4-admin-rust-api"
 
+# 兩源倉 hooksPath 佈署＋讀值斷言（019 scan-gates §S5；per-machine git config、源倉工作樹
+# 零改動）：★絕對路徑指向外層 .githooks-submodule（相對路徑會相對於源倉根、必錯）；
+# 冪等（重跑＝再設同值）。他機 clone 未跑 bootstrap＝源倉無防線，由本斷言在體檢時暴露。
+for wt in base-web rust-api; do
+  git -C "$ROOT/$wt" config core.hooksPath "$ROOT/.githooks-submodule"
+  hp="$(git -C "$ROOT/$wt" config core.hooksPath || echo '')"
+  [ "$hp" = "$ROOT/.githooks-submodule" ] \
+    || die "$wt core.hooksPath 讀值（${hp:-未設}）≠ 預期——自癒：git -C $ROOT/$wt config core.hooksPath $ROOT/.githooks-submodule"
+done
+ok "兩源倉 core.hooksPath＝外層 .githooks-submodule（樣式掃描防線就位）"
+
 # ── 4. pin 一致性（分歧只警告；判讀＝回外層更新 pin 方向、CLAUDE.md §3）──
 check_pin() { # $1=目錄名
   local pin head
@@ -114,6 +136,7 @@ run_tool_test() { # $1=工具名（不含 .py）；失敗才吐明細，成功�
 run_tool_test docs-sync
 run_tool_test schema-gate
 run_tool_test wire-schema
+run_tool_test secret-value-guard
 python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
 ok "fork-delta-lint 全綠（self-test＋實掃）"
 

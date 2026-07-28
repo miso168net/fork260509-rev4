@@ -19,6 +19,10 @@
 - 語言：python
 - 子命令：`extract`｜`test`
 
+## tools/secret-value-guard.py
+- 語言：python
+- 子命令：`check`｜`test`
+
 ## tools/bootstrap
 - 語言：bash
 - 存在：是

@@ -88,15 +88,22 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   假值 fixture exit 2（內建規則仍生效＝未被自訂 config 取代）②DSN fixture exit 2（命中
   `rev4-dsn-credential-url`）③SOPS 密文形 exit 0 ④玩具示例限 specs/*.md 放行、同形在根目錄
   檔 exit 2（allowlist AND 圈定生效）⑤帶 config 全歷史重掃 21→0 findings（基線全數圈定）
-- [ ] T011 [P] [US1] **TDD 紅**：`tools/secret-value-guard.py` 測試先行——內嵌
+- [x] T011 [P] [US1] **TDD 紅**：`tools/secret-value-guard.py` 測試先行——內嵌
   `unittest.TestCase`（沿 018 慣例、無 pytest）：命中即擋／絕不輸出值本身／值缺席時 skip 不
   fail-closed／紅綠 self-test 防恆綠（紅樣本執行期字串串接構造、綠樣本含近似不命中與**邊界
   樣本**）／`purge_git_env` 隔離 git fixture。此時實作未寫、測試必紅
-- [ ] T012 [US1] **TDD 綠**：實作 `tools/secret-value-guard.py`——`main(argv)` 手寫
+  ——**紅證據（2026-07-28）**：測試全寫、實作全 `raise NotImplementedError` 時實跑
+  `test` 子命令＝`Ran 25 tests … FAILED (errors=21)`（其餘 4 案＝純 CLI usage 面、不依賴實作）
+- [x] T012 [US1] **TDD 綠**：實作 `tools/secret-value-guard.py`——`main(argv)` 手寫
   `if cmd == "…"` 字面鏈＋`test` 子命令＋usage `exit 64`（★掃源正則只認此形）；讀
   `$SECRETS_DIR`（回退 `deploy/secrets`）現值比對 `git diff --cached`；**★同步登記進
   `tools/docs-sync.py` 的 `TOOLS_PY` 常數**（否則不入 tools-cli 真表、L19／L20 涵蓋不到）→
   `python3 tools/docs-sync.py generate` 重算真表
+  ——**綠證據（2026-07-28）**：實作補齊後 `Ran 25 tests … OK`；staged 真實機密值活探針
+  rc=1、訊息只有「檔案:行號＋機密名稱」、輸出經比對確認不含值原文；★TOOLS_PY 登記牽動
+  docs-sync 同檔釘死斷言（名冊字面／真表 7 節／dry-run BASE 與分支 a）連動改、347 案仍全綠
+  （名冊釘死＝設計上強迫登記時同步過賬，非 scope 外擅改）；generate 重算 tools-cli 真表新增
+  secret-value-guard 節
 - [x] T013 [P] [US1] 新增 `.githooks/lib/scan-range.sh`＋`.githooks/pre-push`（contracts
   scan-gates §S3）：解析 pre-push stdin 四欄位；範圍推導＝一般更新用 `remote-oid..local-oid`／
   **新分支首推（remote-oid 全零）退階 `local-oid --not --remotes=origin`**／該退階無效時掃整條
@@ -111,16 +118,21 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   ——**實測（2026-07-28）**：`sh -n` 語法綠；★源倉樹無 `.gitleaks.toml`＝scanner 自動探索
   構不到，兩 hook 以 `dirname "$0"` 取外層檔顯式帶 `--config`（外層 hooksPath 絕對路徑保證
   `$0` 絕對）；實擋演練＝T017 ②④
-- [ ] T015 [US1] 改 `.githooks/pre-commit`：①掃描行置於 `docs-sync check` **之前**，指令＝
+- [x] T015 [US1] 改 `.githooks/pre-commit`：①掃描行置於 `docs-sync check` **之前**，指令＝
   `betterleaks git --pre-commit --staged --redact --verbose --exit-code 2`（★`--redact` 不可省
   ——預設 0＝明文噴進終端；★禁用 `protect`／`detect`；★原生二進位、禁容器）②exit code 分流
   （2＝命中／1＝掃描器自身異常、訊息可辨識並指向 bootstrap）③加值比對呼叫 ④註解**明確區分
   事件型（掃描：`--no-verify` 繞過即真進 git）與狀態型（docs-sync：只延後）** ⑤新工具加入條件
   觸發自測 `for` 清單
-- [ ] T016 [US1] 改 `tools/bootstrap`（沿既有編號段與 ok/warn/die 慣例）：①掃描器存在性與版本
+  ——**實測（2026-07-28）**：五要件全落；T009→T010→T015 硬序守住（allowlist 先行）；
+  本 commit 起每筆 commit 實跑新 hook＝活自證（本次 commit 即首例、全鏈綠）
+- [x] T016 [US1] 改 `tools/bootstrap`（沿既有編號段與 ok/warn/die 慣例）：①掃描器存在性與版本
   斷言（**die 級**、附安裝指引；防新機 commit 時 exit 127 猝死）②兩源倉 `core.hooksPath` 冪等
   佈署（絕對路徑指向外層 `.githooks-submodule`）＋讀值斷言（不符 die＋自癒指令）③段 5 自測
   清單加入新工具
+  ——**實測（2026-07-28）**：全綠實跑（斷言過＋兩源倉 hooksPath 佈署讀值符＋四支自測綠＋
+  重跑冪等）；否定測試——PATH 遮蔽（缺席）與 9.9.9 假版 shim 兩情境皆 die exit 2、附下載
+  URL 樣式與 sha256sum -c 指引
 - [ ] T017 [US1] **S1／S2／S3 驗收**（quickstart 逐步）：8 格 fixture（四形 × `git add`+commit
   與 `git commit -a` 兩路徑、假值當場產生驗畢即刪）＋兩源倉各實擋一案＋例行簿記 commit 零誤擋
   ＋pre-push 三情境（一般／新分支全零 oid／刪除分支）＋**否定測試**：暫時拿掉 allowlist 的

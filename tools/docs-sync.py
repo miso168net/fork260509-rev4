@@ -1852,7 +1852,8 @@ def compute_snapshot_reference(root):
 # G7 tools-cli 真表／L19 命令形 lint（contracts G5/G7；FR-014）
 # ---------------------------------------------------------------------------
 
-TOOLS_PY = ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema")
+TOOLS_PY = ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema",
+            "secret-value-guard")
 TOOLS_SH = ("bootstrap", "wf-watchdog")
 TOOLS_CLI_MD = f"{GENERATED_DIR}/reference/tools-cli.md"
 SH_USAGE_HEAD = 10     # bash 用法行只認檔頭前 N 行的註解（再深＝內文敘述、非介面說明）
@@ -5769,11 +5770,12 @@ _FAKE_EQ = 'if cmd == "{}":\n    pass\n'
 _FAKE_ELIF = 'elif cmd == "{}":\n    pass\n'
 _FAKE_IN = 'if cmd in ("{}", "{}"):\n    pass\n'
 _FAKE_TOOLS = (("docs-sync", ("generate", "lint")), ("fork-delta-lint", ()),
-               ("schema-gate", ("gate1", "gate2")), ("wire-schema", ("extract",)))
+               ("schema-gate", ("gate1", "gate2")), ("wire-schema", ("extract",)),
+               ("secret-value-guard", ("check",)))
 
 
 def _tools_fixture(d):
-    """自建 root 的 tools/ 六支最小工具源（python 四支帶分派表、bash 兩支帶檔頭）。"""
+    """自建 root 的 tools/ 七支最小工具源（python 五支帶分派表、bash 兩支帶檔頭）。"""
     for name, subs in _FAKE_TOOLS:
         body = "".join(_FAKE_EQ.format(s) for s in subs) or "# 無分派表、直跑\n"
         _wfile(d, f"tools/{name}.py", "#!/usr/bin/env python3\n" + body)
@@ -5810,16 +5812,17 @@ class TestToolsCliTruthTable(unittest.TestCase):
         self.assertIsNone(sh_usage_line("#!/bin/sh\n# 用途：只有用途註解\n"))
         self.assertIsNone(sh_usage_line("#\n" * SH_USAGE_HEAD + "# 用法：太深\n"))
 
-    def test_tools_roster_is_pinned_and_table_renders_six_sections(self):
+    def test_tools_roster_is_pinned_and_table_renders_seven_sections(self):
         """★名冊字面釘死：只迭代 TOOLS_PY／TOOLS_SH 的斷言是套套邏輯（常數縮水＝斷言跟著
         縮水、全綠存活），連帶 RE_CMD_PY／RE_CMD_OLD 也由同一常數 join 而成——名冊少一支＝
         真表少一節（SC-006 失守）＋該工具的 L19 子命令比對與舊名禁令一併靜默下線。"""
         self.assertEqual(TOOLS_PY,
-                         ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema"))
+                         ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema",
+                          "secret-value-guard"))
         self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
         heads = [ln for ln in gen_tools_cli(compute_tools_cli(ROOT)).splitlines()
                  if ln.startswith("## ")]
-        self.assertEqual(len(heads), 6, msg=str(heads))
+        self.assertEqual(len(heads), 7, msg=str(heads))
 
     def test_compute_and_render_six_tools(self):
         """真表六節俱全：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
@@ -6500,7 +6503,8 @@ class TestGateWiring(unittest.TestCase):
     文、實測觸發次數（非只驗字面在）。沙盒建在系統 tmp（native fs、非 drvfs），十次乾跑
     合計約 0.7s。"""
 
-    BASE = ["tools/docs-sync.py check", "tools/docs-sync.py lint"]
+    BASE = ["tools/secret-value-guard.py check",
+            "tools/docs-sync.py check", "tools/docs-sync.py lint"]
 
     @classmethod
     def setUpClass(cls):
@@ -6622,9 +6626,10 @@ class TestGateWiring(unittest.TestCase):
         ★四分支逐一驗：hook 首行是 #!/bin/sh 且全檔無 set -e，行尾 `|| exit 1` 被拿掉＝該
         動作非零時被完全忽略、續跑並以 0 收場（＝全庫閘可被一行編輯靜默關掉）。只驗其中
         一支＝覆蓋率 1/4，另三支的保護被拆時全套件仍綠。"""
-        # 分支 a：check 非零→立即 exit，lint 與後續全不得跑（log 只有 check 一行）。
+        # 分支 a：check 非零→立即 exit，lint 與後續全不得跑（log＝值比對＋check 兩行——
+        # 019 起值比對層在 docs-sync 之前、屬事件型防線，見 hook 註解）。
         self.assertEqual(self._run(["docs/ops/NOTES.md"], fail="docs-sync.py"),
-                         (1, ["tools/docs-sync.py check"]))
+                         (1, self.BASE[:2]))
         # 分支 b：只讓 lint 非零（同一支工具、以子命令區分）→ check 跑完、hook 仍 exit 1。
         self.assertEqual(self._run(["docs/ops/NOTES.md"], fail="docs-sync.py", fail_sub="lint"),
                          (1, self.BASE))

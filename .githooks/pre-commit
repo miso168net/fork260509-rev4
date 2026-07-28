@@ -1,11 +1,34 @@
 #!/bin/sh
-# rev4 pre-commit：docs-sync check（L1 生成一致）＋lint（L3～L20）
-# 被擋時：錯誤訊息附去處；同回合修復後重試。--no-verify 只延後、狀態型檢查不消失。
+# rev4 pre-commit：機密掃描（019 三層防線；scan-gates §S1／§S2）→ docs-sync check（L1 生成
+# 一致）＋lint（L3～L20）。被擋時：錯誤訊息附去處；同回合修復後重試。
+#
+# ★兩種語意（019 scan-gates；註解即契約）：
+#   事件型（機密掃描＋值比對）：--no-verify 繞過＝機密「真進 git 歷史」、不可逆——僅剩
+#     pre-push 第二層同套規則補攔；被誤擋一律修 .gitleaks.toml allowlist、絕不養成
+#     --no-verify 慣性（慣性＝事件型檢查永久失效）。
+#   狀態型（docs-sync check/lint 與工具自測）：--no-verify 只延後、下次 commit 檢查不消失。
+#
+# 樣式掃描（S1、事件型）：★--redact 不可省（預設 0＝明文噴進終端與 scrollback）；★一律 git
+# 子命令（禁 protect/detect——兩專案皆已隱藏、無文件保證）；★原生二進位、禁容器形式（容器
+# 不帶 GIT_INDEX_FILE → `git commit -a` 掃 0 bytes 靜默漏報）；exit code 分流＝2 機密命中／
+# 其餘非零＝掃描器本身異常（含 127 缺 binary）。
+betterleaks git --pre-commit --staged --redact --verbose --exit-code 2
+scan_rc=$?
+if [ "$scan_rc" -eq 2 ]; then
+  echo "[pre-commit] ✗ 機密樣式命中（上方輸出含 rule id 與檔案行、值已遮蔽）——自 staged 移除後重試；誤報→修 .gitleaks.toml allowlist（AND＋paths×regexes 圈定）、絕不 --no-verify" >&2
+  exit 1
+elif [ "$scan_rc" -ne 0 ]; then
+  echo "[pre-commit] ✗ 掃描器本身異常（exit $scan_rc）、非機密命中——跑 bash tools/bootstrap 檢修（安裝／版本斷言）" >&2
+  exit 1
+fi
+# 值比對層（S2、事件型、僅外層）：機密現值 × staged 新增行；現值缺席＝skip（fail-open）；
+# 紅綠 self-test 每次連帶跑（防恆綠）。
+python3 tools/secret-value-guard.py check || exit 1
 python3 tools/docs-sync.py check || exit 1
 python3 tools/docs-sync.py lint || exit 1
 # 守門工具自測條件觸發（FR-015／data-model §8）：staged 含某工具本體才跑該支、平時零開銷。
 staged=$(git diff --cached --name-only)
-for t in docs-sync schema-gate wire-schema; do
+for t in docs-sync schema-gate wire-schema secret-value-guard; do
   if echo "$staged" | grep -qxF "tools/$t.py"; then
     python3 "tools/$t.py" test || exit 1
   fi
