@@ -68,15 +68,23 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   信物，且 identity 保護的是跨 git 歷史與未來輪替的根信物、與現值暴露正交；③閘 #3 失敗之預拍
   退路連帶調整＝**僅退方式 A（明文 identity）、SECRETS_DIR 已在 2 不再降**。閘就此結清、
   續跑 T006 起
-- [ ] T006 [P] pinentry 前置（research R8）：建 `~/.gnupg/gpg-agent.conf` 寫入
+- [x] T006 [P] pinentry 前置（research R8）：建 `~/.gnupg/gpg-agent.conf` 寫入
   `pinentry-program /usr/bin/pinentry-curses`＋`GPG_TTY` 設定 → `gpgconf --reload gpg-agent`
   （本機該檔原不存在＝零衝突覆蓋風險；純終端 session 下預設 pinentry-gnome3 可能彈不出）
+  ——**實測（2026-07-29）**：`/usr/bin/pinentry-curses` 存在（1.2.1）；conf 原不存在（與 R8
+  一致、免備份）→ 寫入 pinentry-program 一行（mode 600）→ `gpgconf --reload gpg-agent` rc=0
+  → 讀回逐字相符；`GPG_TTY` 屬 session 環境變數、非 gpg-agent.conf 合法選項＝以 session
+  `export GPG_TTY=$(tty)` 落實、RUNBOOK 面落地歸 T031
 - [ ] T040 **age 二進位取得**（★編號後補、**執行序在 T006 之後 T007 之前**、見 Dependencies；T007 的硬前置——T007 要實跑 `age-keygen` 與 `age -p`，而全清單
   原僅 T019 取得 age 且用完即刪、host 現況無此工具）：依 T002 拍板之 age 版本自官方 GitHub
   release 下載 `age-v<拍板版本>-linux-amd64.tar.gz`，**以該版本 release API 的 `digest` 欄位
   現查值比對 `sha256sum`**（★age **無 checksums 檔**、改配 Sigsum `.proof`；R9 所記 v1.3.1
   之 sha256 僅研究當日值、版本一變即作廢）→ 置於暫存路徑供 T007 與 T019 共用、**全刀完成後刪除**
-- [ ] T007 **閘 #3**（B′ 定案點）：`age-keygen | age -p` 產一把 passphrase 加密 identity
+  ——**實測（2026-07-29）**：release API digest 現查值＝`sha256:bdc69c09cbdd6cf8b1f333d372a1f5
+  8247b3a33146406333e30c0f26e8f51377`、tarball `sha256sum` 逐字相符（比對基＝本輪 API 現查、
+  非 research 舊記；本輪現查值恰與 R9 當日值相同）；解包路徑＝
+  `$HOME/.cache/rev4-019-tmp/age/age/`、`age` 與 `age-keygen` 實跑皆回 v1.3.1
+- [x] T007 **閘 #3**（B′ 定案點）：`age-keygen | age -p` 產一把 passphrase 加密 identity
   （★`age -p` 的 passphrase 讀取走 `/dev/tty`、與 stdout 重導向互不干擾，真 TTY 下可行）→
   `xxd` 驗 `keys.txt` 尾端無 CR → 以 `--age <剛產生的公鑰>` 直接指定做最小加解密往返
   （**此處不用 `.sops.yaml`**，避開循環依賴）→ 另開 shell 跑解密，確認**跳出 passphrase
@@ -85,6 +93,18 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   RUNBOOK 不寫死）。★成功→定案 B′；**失敗→預拍退路自動
   生效：方式 A（明文 identity＋`chmod 600`）＋SECRETS_DIR 降解法 2＝`$HOME/.cache/rev4-secrets`
   （ext4 持久、免開機儀式；compose 與腳本零改動、只換 `.env` 一個值）——記入 ADR、不停工**
+  ——**實測（2026-07-29）閘 #3 全過→B′ 定案、退路未動用**（重拍後退路＝僅退方式 A、
+  SECRETS_DIR 已在 2；詳 T005 備註）：全程 pty 驅動（python pty、零人工）——
+  ①`age-keygen | age -p` 產拋棄式 passphrase 加殼 identity（371 bytes、開頭
+  `age-encryption.org/v1`＋binary scrypt 段、`xxd` 驗尾端無 CR〔末 byte 0x64〕）；
+  ②sops 官方容器（digest 釘版）`--age` 公鑰加密最小檔（不用 `.sops.yaml`）＝key 名明文、
+  值 `ENC[`；③另開新 pty session 帶 `SOPS_AGE_KEY_FILE`（唯讀掛載、容器 env 乾淨）解密：
+  跳提示 `Enter passphrase for identity 'SOPS_AGE_KEY_FILE':`、輸入後逐字還原 rc=0；
+  ④第二次解密仍跳提示＝無 keyring／agent 快取假象；⑤錯誤 passphrase 反證 rc=128、零明文
+  （`Recovery failed because no master key…`）＝提示為真實守門。**單 recipient 提示次數基線＝
+  每次 `sops -d` 恰 1 次**（多 recipient 值由 T033 量、RUNBOOK 不寫死）。閘用檔案全程限
+  `$HOME/.cache/rev4-019-tmp/gate3/`（未碰 `~/.config/sops/age/`）、identity 與實驗檔驗畢
+  全清、容器一律 --rm 零殘留
 - [ ] T008 三閘結果落 ADR draft `docs/arc42/decisions/0080-*.md`（私鑰與落點篇的實測欄）：
   逐閘記「怎麼跑／實測輸出／結論／對設計的影響」；#3 失敗時另記退路生效與 SECRETS_DIR 降階
 
