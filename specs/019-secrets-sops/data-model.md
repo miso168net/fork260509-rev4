@@ -96,6 +96,7 @@ deploy/secrets.dev.enc.yaml（tracked 密文）
 ```text
 .env（repo 根、gitignored、bootstrap 代勞產生）
 └── SECRETS_DIR=/dev/shm/rev4-secrets
+      # ★重拍（2026-07-29、#11 反轉後）：改 $HOME/.cache/rev4-secrets、詳 tasks T005 備註與 ADR 0080
       │
       ├──→ docker compose（原生讀 .env）→ 頂層 secrets 10 條目變數展開
       ├──→ deploy/decrypt-secrets.sh   （source .env〔存在時〕；未設時回退 deploy/secrets）

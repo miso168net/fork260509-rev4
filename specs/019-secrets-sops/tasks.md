@@ -46,7 +46,7 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   Permission denied）、644 檔之**檔案級** bind-mount（＝compose secrets 實形）UID 472/59000
   皆讀取成功；另實測「掛整個 700 目錄」時非 root UID 無法穿越＝dir 700＋file 644＋逐檔掛載
   的既定設計正確自洽。實驗檔與容器已全清
-- [ ] T005 **閘 #11**（結論反轉條件、必須早於落點定案）：自 Windows 側 docker client 對
+- [x] T005 **閘 #11**（結論反轉條件、必須早於落點定案）：自 Windows 側 docker client 對
   WSL 內部 ext4／tmpfs 路徑起一個容器，**以 `docker inspect` 的 Mounts 判讀**（非只看容器
   有沒有起來）；併校準「解密後明文能否被 Windows 側讀取」。★**反轉→SECRETS_DIR 拍板回頭
   重做（2 vs 2′ 比較基礎改變）＝升級 user**
@@ -62,6 +62,12 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   解法 2 與 2′ 暴露相同、2′ 差異化收益收窄至 at-rest（不落 vhdx）與關機即清。
   ——與 2′ 拍板前提相悖之兩個停工級判準例逐字命中→**status blocked、SECRETS_DIR 2 vs 2′
   比較基礎由 user 重裁**；T006/T040/T007/T008 未動工（B′×2′ 自洽耦合、待重拍後續跑）
+  ——★**重拍定案（2026-07-29、user 三點）**：①SECRETS_DIR＝**解法 2＝`$HOME/.cache/rev4-secrets`**
+  （ext4 持久、免開機儀式；at-rest 代價＝明文長駐 ext4.vhdx、誠實入 ADR 0080）；②私鑰**維持
+  B′**（passphrase 加密 identity）——理由＝#11 事實下唯一不怕「Windows 側讀走檔案」的 at-rest
+  信物，且 identity 保護的是跨 git 歷史與未來輪替的根信物、與現值暴露正交；③閘 #3 失敗之預拍
+  退路連帶調整＝**僅退方式 A（明文 identity）、SECRETS_DIR 已在 2 不再降**。閘就此結清、
+  續跑 T006 起
 - [ ] T006 [P] pinentry 前置（research R8）：建 `~/.gnupg/gpg-agent.conf` 寫入
   `pinentry-program /usr/bin/pinentry-curses`＋`GPG_TTY` 設定 → `gpgconf --reload gpg-agent`
   （本機該檔原不存在＝零衝突覆蓋風險；純終端 session 下預設 pinentry-gnome3 可能彈不出）
@@ -252,7 +258,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 **依賴**: Phase 2（T004／T005）＋US2（T022 解密管線）。
 
 - [ ] T024 [US3] 新增 `.env.example`（tracked）＋`tools/bootstrap` 代勞產生 `.env`
-  （gitignored）：`SECRETS_DIR` 依 T005 結果定值（拍板值 `/dev/shm/rev4-secrets`）；
+  （gitignored）：`SECRETS_DIR` 依 T005 結果定值（拍板值 `/dev/shm/rev4-secrets`
+  ★重拍（2026-07-29、#11 反轉後）：**重拍值＝`$HOME/.cache/rev4-secrets`、原 2′ 拍板值作廢**、
+  詳 T005 備註與 ADR 0080）；
   ★**退路分支（機械化 #3 之「自動生效」）**：若 T007 判 #3 失敗，`SECRETS_DIR` 改寫
   **`$HOME/.cache/rev4-secrets`**（＝解法 2、ext4 持久；**寫入形式與 2′ 完全相同、只換值**、
   compose 與腳本零改動）；`.gitignore` 既有規則已覆蓋、無須加行
@@ -296,7 +304,8 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `up -d --force-recreate`、**不用 `restart`**）／加人與換機四步（零機密傳遞；★「換機
   `git pull` 即可用」是錯的）／撤銷四步（★`rotate -i --rm-age` **逐檔一行**——`rotate` 只吃
   第一個位置參數、其餘靜默略過且 exit code 不變）／金鑰與 passphrase 遺失（★備份含 passphrase
-  本身）／開機儀式（2′ 下每次開機重跑解密）／合併衝突（暫存必落 repo 內、重加密後核對
+  本身）／開機儀式（2′ 下每次開機重跑解密；★重拍（2026-07-29）：此段改寫為**解法 2 常駐語意
+  ——毋需每開機重解密**、詳 T005 備註與 ADR 0080）／合併衝突（暫存必落 repo 內、重加密後核對
   `sops.age` 清單）／災復備註（g 不升格之代償）／工具版本記錄欄（T002 三支拍板值）／
   ★**SSH identity 禁令與尋鑰來源注意事項**（FR-012 的 RUNBOOK 面落點：sops 尋鑰為**聯集載入**
   且會零設定自動探測 `~/.ssh/id_ed25519` 與 `id_rsa`——禁以 SSH 金鑰充當 identity；切換取鑰

@@ -25,6 +25,9 @@ sops 走官方容器（host 零安裝、image digest 釘版），私鑰採 passp
 **Storage**: 加密檔 `deploy/secrets.dev.enc.yaml`（git tracked 密文）；解密明文＝tmpfs
 （`/dev/shm/rev4-secrets`＝解法 2′ 拍板值，實測閘 #11 為反轉條件；**#3 失敗時之預拍退路值＝
 `$HOME/.cache/rev4-secrets`**＝解法 2、ext4 持久）；私鑰＝host `~/.config/sops/age/`。
+★重拍（2026-07-29、#11 反轉後）：解密明文落點改**解法 2＝`$HOME/.cache/rev4-secrets`**
+（ext4 持久、免開機儀式）、私鑰維持 B′、#3 退路僅退方式 A（SECRETS_DIR 已在 2 不再降）——
+詳 tasks T005 備註與 ADR 0080。
 
 **Testing**: 新增 python 工具照 018 慣例（自帶 test 子命令＋紅綠 self-test＋pre-commit 條件觸發）；
 bash 腳本與 hook 走 fixture 演練機判（8 格 fixture、刪 key、CR 注入、`.new` 觸發）；整體驗收

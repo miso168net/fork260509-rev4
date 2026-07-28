@@ -21,6 +21,8 @@
   SECRETS_DIR 降解法 2）；`SOPS_AGE_KEY` 環境變數注入私鑰值＝紅線不可採。
 - SECRETS_DIR＝**解法 2′ `/dev/shm/rev4-secrets`**（tmpfs；與 B′ 唯一自洽組合）；**#11 為結論
   反轉條件**（U1 首波實測；反轉→**升級 user 重拍、非 agent 自決**）。
+  ★重拍（2026-07-29、#11 反轉後）：SECRETS_DIR 改**解法 2＝`$HOME/.cache/rev4-secrets`**、
+  私鑰維持 B′、#3 退路僅退方式 A——詳 tasks T005 備註與 ADR 0080。
 - prod 加密檔＝**不建**（dev 單檔單規則；prod 目標形狀入 ADR 備忘）；切檔粒度＝**dev 一檔 8 key**；
   ca.key＝**不進 SOPS**（維持可重生、ADR 記重評條件）。
 - 團隊組成（A-4）＝「**將來可能有非工程師**」→ ADR 記「必須分兩層」為待觸發架構決定；
@@ -293,6 +295,7 @@
 - **identity**: age 私鑰檔（B′＝passphrase 加密內容）；根信物＝腦中 passphrase（B′）或檔案
   本身（退路 A）。
 - **SECRETS_DIR**: 解密明文落點，單一事實來源＝`.env`；拍板值 `/dev/shm/rev4-secrets`。
+  ★重拍（2026-07-29、#11 反轉後）：改 `$HOME/.cache/rev4-secrets`、詳 tasks T005 備註與 ADR 0080。
 - **allowlist／規則集**: `.gitleaks.toml`＝誤報圈定＋DSN 自訂規則；三 repo 共用。
 - **hook 面**: 外層 `.githooks/`（含源倉用 hook 目錄）＋兩源倉 `core.hooksPath` 指向設定
   （per-machine、bootstrap 冪等）。
