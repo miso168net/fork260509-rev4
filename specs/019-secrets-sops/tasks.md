@@ -75,7 +75,7 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   一致、免備份）→ 寫入 pinentry-program 一行（mode 600）→ `gpgconf --reload gpg-agent` rc=0
   → 讀回逐字相符；`GPG_TTY` 屬 session 環境變數、非 gpg-agent.conf 合法選項＝以 session
   `export GPG_TTY=$(tty)` 落實、RUNBOOK 面落地歸 T031
-- [ ] T040 **age 二進位取得**（★編號後補、**執行序在 T006 之後 T007 之前**、見 Dependencies；T007 的硬前置——T007 要實跑 `age-keygen` 與 `age -p`，而全清單
+- [x] T040 **age 二進位取得**（★編號後補、**執行序在 T006 之後 T007 之前**、見 Dependencies；T007 的硬前置——T007 要實跑 `age-keygen` 與 `age -p`，而全清單
   原僅 T019 取得 age 且用完即刪、host 現況無此工具）：依 T002 拍板之 age 版本自官方 GitHub
   release 下載 `age-v<拍板版本>-linux-amd64.tar.gz`，**以該版本 release API 的 `digest` 欄位
   現查值比對 `sha256sum`**（★age **無 checksums 檔**、改配 Sigsum `.proof`；R9 所記 v1.3.1
@@ -84,6 +84,10 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   8247b3a33146406333e30c0f26e8f51377`、tarball `sha256sum` 逐字相符（比對基＝本輪 API 現查、
   非 research 舊記；本輪現查值恰與 R9 當日值相同）；解包路徑＝
   `$HOME/.cache/rev4-019-tmp/age/age/`、`age` 與 `age-keygen` 實跑皆回 v1.3.1
+  ——★**勾選語意＝取得與 digest 驗訖已完成**（T007／T019 硬前置就此解除；**T019 直接沿用此
+  二進位、勿重複下載**）；本任務文中「全刀完成後刪除」之暫存清理
+  （`$HOME/.cache/rev4-019-tmp/`＝tarball＋release-api.json＋解包目錄）**未隨勾選完成、
+  屬收刀時執行之餘留步驟**（勾選不代表暫存已清）
 - [x] T007 **閘 #3**（B′ 定案點）：`age-keygen | age -p` 產一把 passphrase 加密 identity
   （★`age -p` 的 passphrase 讀取走 `/dev/tty`、與 stdout 重導向互不干擾，真 TTY 下可行）→
   `xxd` 驗 `keys.txt` 尾端無 CR → 以 `--age <剛產生的公鑰>` 直接指定做最小加解密往返
