@@ -23,6 +23,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from unittest import mock
 
@@ -4954,6 +4955,60 @@ class TestEventsShaProof(unittest.TestCase):
             f = run_lint(d)
             self.assertTrue(any(x["code"] == "L18" and x["level"] == ERROR
                                 for x in f), msg=str(f))
+
+    def test_dispatch_is_one_batch_per_repo(self):
+        """★批次守衛：全帳本驗證恰派「1＋存活庫數」發 cat-file，且每庫各一發。
+
+        退回逐筆 rev-parse 對真庫要 ~87 次 subprocess（約 1s）＝超 contracts G3
+        「200ms 以內」十倍量級；本案把「批次而非逐筆」釘成可機器偵測的次數。
+        ★fixture 須多列（此處 3 列×3 庫＝9 個 SHA），單列時逐筆與批次派發次數同為 3、
+        分辨不出——故另立 assertLess 看住 fixture 不退化。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer = [_init_outer(d)]
+            for i in range(2):
+                _wfile(d, "README.md", f"說明 {i}\n")
+                _git(d, "add", "README.md")
+                _git(d, "commit", "-qm", f"r{i}")
+                outer.append(_git(d, "rev-parse", "HEAD").strip())
+            subs = {key: _init_sub(d, name, len(outer)) for key, name in PIN_KEYS}
+            rows = [dict(VALID_CLOSE, merge=sha,
+                         pins={key: shas[i] for key, shas in subs.items()})
+                    for i, sha in enumerate(outer)]
+            _wfile(d, EVENTS,
+                   "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+            real, cwds = subprocess.run, []
+
+            def fake(args, **kw):
+                if list(args[:2]) == ["git", "cat-file"]:
+                    cwds.append(kw.get("cwd"))
+                return real(args, **kw)
+
+            with mock.patch.object(subprocess, "run", fake):
+                self.assertEqual(lint_events_sha(d), [])
+            batched = 1 + len(PIN_KEYS)
+            self.assertLess(batched, len(rows) * batched)   # 逐筆實作會派後者那麼多發
+            self.assertEqual(len(cwds), batched, msg=str(cwds))
+            self.assertEqual(len(set(cwds)), batched, msg=str(cwds))
+
+    def test_batches_are_dispatched_concurrently(self):
+        """★併發守衛：多批必須同時在飛，退回序列即紅（contracts G3 效能契約）。
+
+        三批各在同一 barrier 上互等：併發時三者同時抵達而放行；序列時第一批等不到
+        另兩批、逾時 BrokenBarrierError＝紅。不比時間長短，故 drvfs 上不 flaky。
+        不改以 threading.get_ident() 相異數斷言——批次瞬回時 ThreadPoolExecutor 會
+        重用剛轉閒置的同一執行緒（實測 400 回有 388 回只見 1 個 ident）。
+        """
+        bar = threading.Barrier(3, timeout=10)
+
+        def fake(_shas, _cwd):
+            bar.wait()
+            return {}
+
+        with mock.patch.object(sys.modules[__name__], "git_object_types", fake):
+            self.assertEqual(
+                git_object_types_batched([([], "a"), ([], "b"), ([], "c")]),
+                [{}, {}, {}])
 
 
 SNAP_COLS = [
