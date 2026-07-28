@@ -962,6 +962,22 @@ def _is_exempt(rel):
     return any(rel == p or rel.startswith(p) for p in HISTORICAL_EXEMPT)
 
 
+def purge_git_env():
+    """清掉本行程的 GIT_* 環境變數（就地改 os.environ，子行程一併免疫）。
+
+    ★只給 test 子命令用：git 跑 hook 時會把外層 repo 的 GIT_DIR／GIT_INDEX_FILE 洩漏給
+    子行程，而 `git commit -a` 與 pathspec commit 給的是**絕對路徑**（.git/index.lock、
+    .git/next-index-PID.lock）——測試 fixture 在 temp repo 內跑的 git init／add／commit
+    會因此寫進真 repo 的 index，整套崩（實測 44 failures＋1 error）且外層 commit 被
+    「invalid object／Error building trees」這種與閘判定無關的訊息誤擋。同
+    tools/fork-delta-lint.py 的 sh() 慣例。
+    ★絕不可全域清：check／lint 必須繼續繼承 GIT_INDEX_FILE，否則看不到正在被 commit 的
+    index（`git commit -a` 時尤其重要——那是唯一能看到自動 stage 內容的途徑）。
+    """
+    for k in [k for k in os.environ if k.startswith("GIT_")]:
+        del os.environ[k]
+
+
 def git_out(args, cwd):
     try:
         r = subprocess.run(["git", "-c", "core.quotepath=off", *args], cwd=cwd,
@@ -5458,6 +5474,53 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(tuple(RE_BOOTSTRAP_TEST.findall(text)), tools_test_roster())
         self.assertIn("tools/fork-delta-lint.py", text)
 
+    def test_bootstrap_tool_test_is_fail_closed(self):
+        """★G9 的另一半：跑了還要「失敗會紅」。上一案只驗「有沒有跑、順序對不對」，
+        突變實測 die 換成 warn（只累加 WARNS、不改退出碼）與條件換成恆假（自測結果
+        完全不看）兩者皆全綠存活＝守門工具自測掛掉時 bootstrap 仍以 0 收場，正是本刀
+        要消滅的失效類。此案釘住「檢查退出狀態」與「失敗即 die」兩件。"""
+        text = _read(ROOT, BOOTSTRAP_REL) or ""
+        m = re.search(r"^run_tool_test\(\) \{.*?^\}$", text, re.M | re.S)
+        self.assertIsNotNone(m, msg="bootstrap 的 run_tool_test 函式不見了")
+        body = m.group(0)
+        self.assertRegex(body, r"if\s+!\s+\w+=\"\$\(python3 ")   # 退出狀態有被看
+        self.assertIn("die ", body)                              # 失敗即體檢紅
+
+    def test_purge_git_env_removes_only_git_prefixed(self):
+        """★GIT_* 隔離（本體）：hook 內跑 test 時外層 git 會洩漏 GIT_INDEX_FILE，而
+        `git commit -a` 與 pathspec commit 給的是絕對路徑——不清即讓 fixture 的 temp
+        repo 寫進真 repo 的 index（實測 44 failures＋1 error、外層 commit 被無關的
+        invalid object 訊息誤擋）。改成 no-op 即紅。"""
+        saved = {k: v for k, v in os.environ.items() if k.startswith("GIT_")}
+        probe = "DOCS_SYNC_PURGE_PROBE"
+        os.environ["GIT_INDEX_FILE"] = "/nonexistent/abs/index"
+        os.environ["GIT_DIR"] = "/nonexistent/abs/gitdir"
+        os.environ[probe] = "keep"
+        try:
+            purge_git_env()
+            self.assertEqual([k for k in os.environ if k.startswith("GIT_")], [])
+            self.assertEqual(os.environ.get(probe), "keep")   # 非 GIT_ 前綴不受波及
+        finally:
+            # ★不得靠 purge_git_env 自己還原：它正是被測對象，改壞時本案設的兩個 GIT_*
+            # 會外洩並污染後續所有 git fixture 案（實測 18 案連坐）。自己清乾淨再回填。
+            os.environ.pop(probe, None)
+            for k in [k for k in os.environ if k.startswith("GIT_")]:
+                del os.environ[k]
+            os.environ.update(saved)
+
+    def test_test_subcommand_purges_git_env(self):
+        """★GIT_* 隔離（接線）：清除發生在測試開跑之前，套件自己看不見自己被隔離，
+        故以檔文釘住 main() 的 test 分支確有呼叫。★同時反向釘住「只清 test 分支」——
+        check／lint 必須繼續繼承 GIT_INDEX_FILE 才看得到正在被 commit 的 index。"""
+        src = _read(ROOT, "tools/docs-sync.py") or ""
+        m = re.search(r'\n    if cmd == "test":\n(.*?)\n    try:\n', src, re.S)
+        self.assertIsNotNone(m, msg="main() 的 test 分支不見了")
+        self.assertIn("purge_git_env()", m.group(1))
+        mm = re.search(r"\ndef main\(argv\):\n(.*?)\n\nif __name__", src, re.S)
+        self.assertIsNotNone(mm, msg="main() 不見了")
+        self.assertEqual(mm.group(1).count("purge_git_env()"), 1,
+                         msg="purge_git_env 只該掛 test 分支；生產面清掉 GIT_* 會瞎掉")
+
     def test_dry_run_costs_nothing_extra_when_no_tool_staged(self):
         """情境①平時（零工具 staged）：只跑 check＋lint，零 test、零 fork-delta-lint。"""
         self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
@@ -5797,6 +5860,7 @@ def main(argv):
         return 2
     cmd = argv[1]
     if cmd == "test":
+        purge_git_env()   # ★hook 內執行時隔離外層 GIT_*，否則 fixture 寫進真 repo index
         result = unittest.main(argv=[argv[0]], exit=False, verbosity=1).result
         return 0 if result.wasSuccessful() else 1
     try:
