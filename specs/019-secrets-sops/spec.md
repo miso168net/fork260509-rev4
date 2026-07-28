@@ -157,8 +157,8 @@
 
 1. **Given** 收刀前，**When** 檢視 `docs/arc42/decisions/`，**Then** 5 支 ADR（0079 起）
    accepted 且涵蓋既定綱要（含 U1 三閘實測結果欄）。
-2. **Given** 外層 `deploy/secrets` 命中 27 檔清單，**When** 逐檔判定，**Then** 程序性引用已
-   更新、歷史文件不改、判定結果可查。
+2. **Given** 外層 `deploy/secrets` 現場 `git grep` 命中清單，**When** 逐檔判定，**Then** 程序性
+   引用已更新、歷史文件不改、判定結果可查。
 
 ---
 
@@ -263,8 +263,10 @@
   實測結果 MUST 記入對應 ADR。
 - **FR-026**: BACKLOG MUST 登記 B-115 prod 機密分層遞延包（prod 加密檔＋#5/#6 驗收＋CI 側
   保護；掛 prod 部署刀群）。
-- **FR-027**: `deploy/secrets` 27 檔命中 MUST 逐檔判定連帶更新（程序引用改、歷史文件不改、
-  判定可查）。
+- **FR-027**: `deploy/secrets` 全 repo 命中 MUST 逐檔判定連帶更新（程序引用改、歷史文件不改、
+  生成物由 docs-sync generate 重算；判定可查）。**以施工時現場 `git grep` 為準、不以任何靜態
+  數字為驗收基準**（plan 階段實測＝84 命中／29 檔＝程序性 14＋歷史 15；初稿 27 檔為評估當日值、
+  差額＝本刀自身 brainstorm 與 spec 兩檔自指命中）。
 - **FR-028**: base-web `--no-verify` 慣例廢止 MUST 同步 NOTES 對應慣例行（repo 文件不引用
   per-machine memory 路徑）。
 
@@ -300,7 +302,7 @@
   owner 本人、目錄 700 檔 644。
 - **SC-009**: pre-commit 端到端延遲維持秒級紅線（量測記錄；比較基準＝018 現況）。
 - **SC-010**: 治理完備：ADR 5 支 accepted（含三閘實測欄）、RUNBOOK 各段落地、B-115 登記、
-  27 檔判定完成。
+  `deploy/secrets` 命中逐檔判定完成（現場 grep 為準）。
 
 ## Assumptions
 
@@ -313,7 +315,8 @@
 - `.githooks/pre-commit` 19 行無掃描行；無 pre-push；兩源倉 hooksPath 未設；`tools/bootstrap`
   :120-131 體檢僅缺檔 warn、零二進位斷言。
 - docs-sync L16（018）＝既有狀態型窄樣式防線、無 DSN 樣式——與本刀互補。
-- events.jsonl 三欄各 18 筆 40-hex＝allowlist 首要誤報源；`deploy/secrets` 外層命中 27 檔。
+- events.jsonl 三欄（merge／pins.web／pins.api）各 18 筆、合計 54 筆 40-hex＝allowlist 首要
+  誤報源；`deploy/secrets` 外層命中 plan 階段實測 84 處／29 檔（程序性 14＋歷史 15）。
 - RUNBOOK §7 輪替表存在（:128 起）——本刀增補而非新建。
 - 無任何 CI 設定——CI 側掃描與金鑰保護遞延（B-115）。
 - alert_webhook_url 現值＝已撤 dev 收器 URL（39 bytes）；「如實搬移」規則不因收器已撤而改變。

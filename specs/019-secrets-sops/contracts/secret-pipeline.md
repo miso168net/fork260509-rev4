@@ -1,0 +1,111 @@
+# contracts/secret-pipeline.md — 019 加密／解密管線與落點接線契約
+
+> 契約＝可機器驗證的行為邊界。所有「必須失敗」的條款皆為否定測試對象——本方案的失敗模式幾乎
+> 全是「指令回報成功但做錯了」，故每條正向契約都配一條否定契約。
+
+---
+
+## P1 wrapper 契約（`deploy/sops.sh`；FR-010）
+
+| # | 契約 | 違反後果 |
+|---|---|---|
+| P1.1 | 映像以 **digest** 釘版（非 tag） | tag 可被重新 push＝供應鏈不可變性喪失 |
+| P1.2 | 互動旗標**條件化**（有 tty 才配 `-it`） | 寫死 `-it`＋輸出重導向 → pty 把換行改 CRLF、密碼尾多 `\r`（靜默）；非互動情境無限期 hang |
+| P1.3 | **不轉發** host `EDITOR` | 官方映像已內建 `EDITOR=vim`；轉發 host 值會使 `sops edit` 失敗 |
+| P1.4 | 顯式 `-e SOPS_AGE_KEY -e SOPS_AGE_KEY_FILE -e SOPS_AGE_KEY_CMD` | 未以 `-e` 列出的變數被**靜默丟棄** |
+| P1.5 | 必須自 repo 根執行 | 否則 `.sops.yaml` 找不到 → `config file not found, or has no creation rules`（吵鬧失敗、可接受） |
+| P1.6 | 明文產物一律由 **host shell 收 stdout**＋`umask 077`，不用 `--output`／`-i` 產明文 | 映像以 root 執行、host umask 不跨容器邊界 → 產物 `root:root`，後續 `chmod` 在 `set -euo pipefail` 下中止 |
+| P1.7 | `chmod +x` 後 `git update-index --chmod=+x` | drvfs 上 exec bit 不落 index → 他機 clone 得到不可執行檔 |
+
+---
+
+## P2 `.sops.yaml` 契約（FR-013）
+
+| # | 契約 | 違反後果 |
+|---|---|---|
+| P2.1 | `path_regex` **錨定式**（`^…$`） | 比對用 `MatchString`＝非錨定子字串命中 → 意外檔案被套規則 |
+| P2.2 | **僅一條** `creation_rules` | first-match-wins，第二條被**靜默忽略** |
+| P2.3 | 寫完**驗證規則確實命中**目標檔 | 目錄式或錯誤 regex → 比對不到任何檔案、分層形同虛設**且不報錯** |
+| P2.4 | **不設**六個範圍選項任一 | 預設 `unencrypted_suffix="_unencrypted"`＝全加密；設 `encrypted_regex` 是**白名單**，新增欄位靜默不加密 → 明文密碼進 git |
+| P2.5 | key 名**禁 `_unencrypted` 後綴** | 該後綴無法藉由「不設定」規避，命名踩中即該值明文入庫 |
+
+---
+
+## P3 加密檔契約（FR-014／FR-015）
+
+| # | 契約 | 驗證方式 |
+|---|---|---|
+| P3.1 | 檔名 `deploy/secrets.dev.enc.yaml`（**格式副檔名在最後**） | 寫成 `.env.enc` → SOPS 當 binary 處理、**退化為整檔加密**（失去核心優勢） |
+| P3.2 | 恰 **8 key**（7 leaf＋`alert_webhook_url`） | key 數斷言；composite 不進（缺席時由 preflight 攔下、且 composite 是唯一有自動修復機制的副本） |
+| P3.3 | `git diff` 呈現 **key 名明文＋值全密文** | 目視／機判：每值以 `ENC[` 開頭 |
+| P3.4 | `alert_webhook_url` **如實搬移現值** | byte 級比對搬移前後一致；**絕不重生、絕不以刪檔為測試手段** |
+| P3.5 | 明文中間產物限 **repo 內 gitignored 目錄**、用完即刪、不得出現於 staged | wrapper 只掛載 `$PWD`，`$SECRETS_DIR` 在 repo 外→容器看不到；且 staged 檢查為驗收項 |
+
+---
+
+## P4 解密管線契約（`deploy/decrypt-secrets.sh`；FR-016）
+
+| # | 契約（要求代號） | 否定測試 |
+|---|---|---|
+| P4.1 (a) | 寫檔**無尾端換行**（`printf '%s'`） | leaf byte 數 vs composite 內嵌值 byte 數必須一致；不一致＝不變式破裂（而腳本只印 SKIPPED、preflight 印 OK＝零警告） |
+| P4.2 (b) | tty 守衛（B′ 需互動） | 非互動呼叫必須**吵鬧失敗**，不得 hang 死或寫出帶 CR 的檔 |
+| P4.3 (c) | key 數與名稱斷言，不符 → **零寫入 + 非零退出 + 指名缺哪個 key** | 刻意刪 enc 檔一 key → 管線必紅；**絕不可**落到 `generate-secrets.sh` 靜默造新亂數的路徑 |
+| P4.4 (d) | 輸出目錄 `mkdir -p` + `chmod 700`，且**早於任何 `up`** | 目錄不存在時 docker daemon 會以 root 建出 `drwxr-xr-x root root`，使用者不能寫也不能刪 |
+| P4.5 (e) | 現值 ≠ 解密值 → 另存 `<name>.txt.new` + 警示，**不覆寫** | 構造 `alert_webhook_url` 差異 → 必產 `.new`；此為 decrypt 引入的**原本不存在的覆寫路徑**，`generate` 印 SKIPPED、`preflight` 只檢存在與非空，兩者都不告警 |
+| P4.6 | 落點自建 **0700 子目錄** | `/dev/shm` 目錄權限為 `drwxrwxrwt`（world-writable） |
+| P4.7 | 檔案權限終值 **644**、目錄 **700** | 600 → grafana(472)／postgres-exporter(65534)／redis-exporter(59000) 全部 Permission denied，且**只在開 obs／metrics 軌時才炸** |
+
+---
+
+## P5 落點接線契約（FR-017～FR-020）
+
+| # | 契約 | 違反後果 |
+|---|---|---|
+| P5.1 | `SECRETS_DIR` 單一事實來源＝repo 根 `.env`；compose 原生讀、三腳本 `source` | 只寫 `.env` 不同步 → **compose 讀新落點、腳本查舊落點**；preflight 回 OK 而 compose 掛掉 |
+| P5.2 | `generate-secrets.sh:41`／`preflight-secrets.sh:12`／`setup-reaper-role.sh:16` **三處同刀齊改** | 任一未改 → 該處**無條件賦值**吃掉外部值（靜默） |
+| P5.3 | compose 10 條目改帶預設值變數展開；未設變數時 `docker compose config` 解析回 `./deploy/secrets` | 向後相容的代價＝**忘設變數即保護失效**（誠實登記於 ADR，由 P5.4 補償） |
+| P5.4 | preflight＋bootstrap 對落點缺席／未設值 fail-loud | 否則「`level=warning secret file does not exist` 但容器照樣 Started」＝解法 2 系列的靜默失敗 |
+| P5.5 | `generate-secrets.sh` 增 `--compose-only`（缺 leaf **報錯退出**、不生成） | 缺 leaf 時靜默造新亂數＝每台機器各拿到不同的值 |
+| P5.6 | preflight 增 CR 偵測與 composite↔leaf 一致性檢查 | 現況只檢「檔在且非空」：塞入密碼已過期的 `database_url.txt` 也回 OK |
+| P5.7 | `printf '%s'` 寫檔形**不得改為 echo** | byte-identical 不變式的前提 |
+
+---
+
+## P6 遷移契約（FR-021；順序即契約）
+
+```text
+① docker compose down            # 略過＝假性完成（SECRETS_DIR 改變不觸發重建、config-hash 相同，
+                                 #   up -d 顯示 Starting 而非 Recreated，容器仍 bind 舊 inode）
+② ./deploy/decrypt-secrets.sh    # 腳本內先 mkdir -p + chmod 700（P4.4／P4.6）
+③ 設好 SECRETS_DIR 後 docker compose up -d
+④ docker inspect <c> --format '{{range .Mounts}}{{.Source}}{{end}}'   # 逐容器驗來源已非 /mnt/d
+⑤ 確認無誤後「才」刪除舊落點 deploy/secrets/*.txt
+```
+
+**否定契約**：④未通過前刪除 ⑤ 的檔 → 容器仍運作（bind 到已刪 inode）、**下次重啟才炸**。
+
+---
+
+## P7 營運程序契約（FR-023／FR-024）
+
+| 操作 | 契約 | 陷阱 |
+|---|---|---|
+| 編輯機密 | `sops edit` → decrypt → `up -d --force-recreate <svc>` | **不用 `restart`**（可能撞 Docker Desktop bind-mount 快照失效） |
+| 加人／換機 | ①新機產鑰 ②公鑰交付（公鑰非機密）③管理者 `updatekeys -y` ④新機 `git pull`＋decrypt | 「換機器 `git pull` 即可用」是錯的；`updatekeys` 只影響**執行當下存在**的加密檔，未來新建檔由 `creation_rules` 決定（兩機制都要對） |
+| 撤銷 | ①`.sops.yaml` 移除 recipient ②`rotate -i --rm-age <公鑰>` **逐檔一行** ③**輪替實際機密值** | `rotate` **只處理第一個位置參數**，多檔其餘**靜默略過且 exit code 不變**；只做 `updatekeys` 不換 data key → 對方可把舊 `enc:` stanza 貼回新檔用原廠 `sops decrypt` 解開（門檻＝任何前同事＋文字編輯器）；git 歷史永久 ⇒ 第③步不可省 |
+| 輪替 | 依 RUNBOOK §7 逐支程序 → **輪替後 re-encrypt 回加密檔** | 漏此步 → 輪替值與加密檔脫鉤，下次 decrypt 觸發 `.new` 守衛 |
+| 遺失 | 私鑰遺失＝走加人流程重加入；B′ 下 passphrase 遺失＝該 identity 永久失效 | 離線備份義務**含 passphrase 本身**（私鑰檔在磁碟上是密文，光有檔案沒有 passphrase 等於沒有） |
+| 合併衝突 | 雙方解密 → 明文三方合併 → 重加密 → **核對 `sops.age` 清單與 `.sops.yaml` 一致** | 對暫存路徑加密時 `path_regex` 可能比對不到規則 → recipients 被悄悄改變；暫存明文**必須落 repo 內**（wrapper 只掛載 `$PWD`） |
+
+---
+
+## P8 撤銷演練五準則（#7；FR-024）
+
+1. **否定測試（核心）**：把舊版本中屬自己的 `enc:` stanza 用文字編輯器貼回新檔的 `sops.age`
+   清單，跑**原廠** `sops decrypt` → **必須失敗於 MAC 驗證**（`cipher: message authentication failed`）。
+2. recipient 清單前後確實不含被撤銷者。
+3. rotate 前後**值密文必變**（未變＝data key 未換）。
+4. 人工確認 dev 檔內不含 prod 等級機密（**此規則測不出來、只能靠流程保證**）。
+5. 前置：演練用第二把金鑰已備妥。
+
+**只驗「被撤銷者無法直接解開 HEAD」＝假通過**（錯誤流程下也會通過）。
