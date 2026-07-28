@@ -14,6 +14,7 @@
 
 token 計數：UTF-8 bytes ÷ 3 保守近似（測試鎖定算法）。
 """
+import concurrent.futures
 import contextlib
 import io
 import json
@@ -23,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 # ---------------------------------------------------------------------------
 # 共用基礎
@@ -2324,6 +2326,21 @@ def git_object_types(shas, cwd):
     return types
 
 
+def git_object_types_batched(jobs):
+    """多批 `(shas, cwd)` 併發問型別；回與 jobs 同序的 dict list。
+
+    各批只等 git 子行程 I/O、彼此零共享狀態，故以執行緒併發（與「rust 全程 serial」無關——
+    那條紀律管的是平行 cargo 互撞 target）。WSL2 drvfs 上單發 cat-file 的成本幾乎全在開庫
+    （實測外層 68ms／base-web 100ms／rust-api 127ms，git 本體啟動僅 1ms），序列三發約 300ms
+    ＝超出 contracts G3「全帳本驗證 200ms 以內」；併發後實測約 150ms。單批不起執行緒。
+    """
+    if len(jobs) <= 1:
+        return [git_object_types(shas, cwd) for shas, cwd in jobs]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(jobs)) as ex:
+        return [f.result() for f in [ex.submit(git_object_types, shas, cwd)
+                                     for shas, cwd in jobs]]
+
+
 def lint_events_sha(root):
     """L18：events 帳本逐列 SHA 向 git 實證（contracts G3／data-model §4 判定表）。
 
@@ -2343,7 +2360,34 @@ def lint_events_sha(root):
             rows.append((n, e))
 
     merges = [(n, e["merge"]) for n, e in rows if isinstance(e.get("merge"), str)]
-    mtypes = git_object_types([s for _n, s in merges], root)
+
+    keys = {key for key, _sub in PIN_KEYS}
+    per_key = {key: [] for key in keys}
+    keyset = []                     # 鍵集斷言 findings（輸出序仍排在 merge findings 之後）
+    for n, e in rows:
+        if "pins" not in e:
+            continue
+        pins = e["pins"]
+        if not isinstance(pins, dict) or set(pins) != keys:
+            got = ("、".join(sorted(pins)) or "空") if isinstance(pins, dict) \
+                else type(pins).__name__
+            keyset.append(finding(ERROR, "L18", f"{EVENTS}:行 {n}",
+                                  f"pins 鍵集須恰為 web／api（現為 {got}）——缺鍵或未知鍵會讓"
+                                  "逐列實證查到空集合而恆綠"))
+            continue
+        for key in keys:
+            if isinstance(pins[key], str):
+                per_key[key].append((n, pins[key]))
+
+    # 三批（外層 merge＋每庫 pins）一次併發派出——序列跑約 300ms、超出 G3 效能契約
+    live = [(key, os.path.join(root, sub)) for key, sub in PIN_KEYS
+            if per_key[key] and os.path.exists(os.path.join(root, sub, ".git"))]
+    maps = git_object_types_batched(
+        [([s for _n, s in merges], root)]
+        + [([s for _n, s in per_key[key]], subdir) for key, subdir in live])
+    mtypes = maps[0]
+    ptypes = dict(zip([key for key, _subdir in live], maps[1:]))
+
     for n, sha in merges:
         t = mtypes.get(sha)
         if t is None:
@@ -2353,36 +2397,19 @@ def lint_events_sha(root):
         elif t != "commit":
             out.append(finding(ERROR, "L18", f"{EVENTS}:行 {n}",
                                f"merge SHA {sha[:12]} 解得物件型別 {t}、非 commit"))
+    out.extend(keyset)
 
-    keys = {key for key, _sub in PIN_KEYS}
-    per_key = {key: [] for key in keys}
-    for n, e in rows:
-        if "pins" not in e:
-            continue
-        pins = e["pins"]
-        if not isinstance(pins, dict) or set(pins) != keys:
-            got = ("、".join(sorted(pins)) or "空") if isinstance(pins, dict) \
-                else type(pins).__name__
-            out.append(finding(ERROR, "L18", f"{EVENTS}:行 {n}",
-                               f"pins 鍵集須恰為 web／api（現為 {got}）——缺鍵或未知鍵會讓"
-                               "逐列實證查到空集合而恆綠"))
-            continue
-        for key in keys:
-            if isinstance(pins[key], str):
-                per_key[key].append((n, pins[key]))
     for key, sub in PIN_KEYS:
         items = per_key[key]
         if not items:
             continue
-        subdir = os.path.join(root, sub)
-        if not os.path.exists(os.path.join(subdir, ".git")):
+        if key not in ptypes:
             out.append(finding(WARN, "L18", sub,
                                f"submodule worktree 缺席——pins.{key} 共 {len(items)} 筆 "
                                "SHA 實證跳過（唯讀看碼模式；跳過≠通過）"))
             continue
-        ptypes = git_object_types([s for _n, s in items], subdir)
         for n, sha in items:
-            t = ptypes.get(sha)
+            t = ptypes[key].get(sha)
             if t is None:
                 out.append(finding(WARN, "L18", f"{EVENTS}:行 {n}",
                                    f"pins.{key} SHA {sha[:12]} 在 {sub} 不可解析——"
@@ -4847,6 +4874,67 @@ class TestEventsShaProof(unittest.TestCase):
             f = lint_events_sha(d)
             self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
             self.assertIn("pins", f[0]["msg"])
+
+    def test_pins_non_dict_is_error(self):
+        """★型別守衛：pins 非 dict＝ERROR，鍵集比對本身擋不住。
+
+        ★`["web", "api"]` 這格是本案的殺傷樣本：其 `set()` 恰等於鍵集，鍵集比對放行後
+        會走進 `pins[key]` 字串下標而拋 TypeError（整條 lint 當掉）——唯有 isinstance
+        守衛在才會落 ERROR。另兩格（SHA list／裸 str）驗非 dict 時的型別名訊息。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            for bad in (["web", "api"], [pins["web"], pins["api"]], pins["web"]):
+                self._events(d, merge=outer, pins=bad)
+                f = lint_events_sha(d)
+                self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+                self.assertIn("pins", f[0]["msg"])
+                self.assertIn(type(bad).__name__, f[0]["msg"])
+
+    def test_whitespace_in_sha_does_not_misalign_batch(self):
+        """★對位守衛：值內夾空白（換行）之 SHA 一律視同不可解，且不得帶歪其後各列。
+
+        `cat-file --batch-check` 一行一問、回顯以 zip 逐行配對；值內若夾換行，git 會多回
+        一行，其後所有 SHA 的型別整體錯位——錯位能把偽造值配到真 commit 型別上（漏報）。
+        本案第 1 列放夾換行的偽造值、第 2 列放真 blob（應報非 commit）：守衛掉了兩列都會
+        被配成 commit 而雙雙漏報。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            rows = [dict(VALID_CLOSE, merge=outer + "\n" + outer, pins=pins),
+                    dict(VALID_CLOSE, merge=blob, pins=pins)]
+            _wfile(d, EVENTS,
+                   "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR, ERROR], msg=str(f))
+            self.assertIn("行 1", f[0]["where"])
+            self.assertIn("不可解析", f[0]["msg"])
+            self.assertIn("行 2", f[1]["where"])
+            self.assertIn("blob", f[1]["msg"])
+
+    def test_batch_check_failure_fails_closed(self):
+        """★fail-closed：`cat-file` 子行程非零退出＝整批輸出丟棄、視同全不可解→merge 面 ERROR。
+
+        守衛掉了會改去解析半截 stdout，把「查不成」讀成「查過了、乾淨」。本案刻意保留真
+        stdout、只把退出碼翻成非零——唯有守衛在，才會落 ERROR。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._events(d, merge=outer, pins=pins)
+            self.assertEqual(lint_events_sha(d), [])       # 前提：真跑時本 fixture 全綠
+            real = subprocess.run
+
+            def fake(args, **kw):
+                r = real(args, **kw)
+                if list(args[:2]) == ["git", "cat-file"]:
+                    return subprocess.CompletedProcess(args, 1, r.stdout, "boom")
+                return r
+
+            with mock.patch.object(subprocess, "run", fake):
+                f = lint_events_sha(d)
+            self.assertTrue(any(x["level"] == ERROR and "merge" in x["msg"] for x in f),
+                            msg=str(f))
 
     def test_absent_submodule_worktree_skips_its_pins(self):
         """判定表第 4 列：worktree 缺席＝該庫清單整批 skip（不逐列誤報 WARN）。"""
