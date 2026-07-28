@@ -2305,12 +2305,46 @@ def lint_cred_outer(root):
 
 
 def index_gitlink(root, sub):
-    """index 內該 submodule 的 gitlink SHA（無 160000 條目→None）；L16 增量面與 L17 共用。"""
+    """index 內該 submodule 的 gitlink SHA；回 (SHA, 跳過原因)——取不到時 SHA＝None。
+
+    ★只認 stage 0：gitlink 合併衝突未解時 index 同時有 stage 1（共同祖先）／2（ours）／
+    3（theirs）三筆，且 `git ls-files -s` 依 stage 遞增輸出——「取首個 160000 行」會讀到
+    祖先 pin，L17 據以報一筆根本不存在的分歧（收刀簿記 commit 那格更會升成 ERROR 硬擋）、
+    L16 增量掃則拿祖先 SHA 當「new」去 diff。衝突態一律回跳過原因，比默默取祖先誠實。
+    """
+    sha0, stages = None, set()
     for line in (git_out(["ls-files", "-s", "--", sub], root) or "").splitlines():
         parts = line.split()
-        if len(parts) >= 2 and parts[0] == "160000":
-            return parts[1]
-    return None
+        if len(parts) >= 3 and parts[0] == "160000":
+            stages.add(parts[2])
+            if parts[2] == "0":
+                sha0 = parts[1]
+    if sha0 is not None:
+        return sha0, None
+    if stages:
+        return None, (f"index gitlink 合併衝突未解（stage {'／'.join(sorted(stages))}、"
+                      "無 stage 0）——先解掉該 submodule 的衝突再重跑")
+    return None, "index 無該 gitlink 條目（純外層 repo 或該 submodule 未登記）"
+
+
+def submodule_head(root, sub):
+    """子庫存活探針：回 (worktree HEAD SHA, 跳過原因)——查不到時 SHA＝None。
+
+    ★L16 submodule 面／L17／L18 三條款共用同一支探針。各自為政的後果實證：L17 以
+    `rev-parse HEAD` 成功與否判定、L18 只看 `.git` 路徑是否存在，於「worktree 斷裂」
+    （`.git` gitfile 指向已被刪除的源倉、CLAUDE.md §3 明載狀態）時 L17 落 1 筆跳過、
+    L18 卻對該庫每一列各落一筆「upstream rebase 卷史後合法失聯」——同一事實兩種說法，
+    且把「庫根本開不起來」誤植成「SHA 失聯」，操作者會去 fetch 而不是去跑 bootstrap。
+    ★判準必須是「rev-parse HEAD 成功」而非「.git 路徑存在」：後者對斷裂 worktree 為真。
+    """
+    subdir = os.path.join(root, sub)
+    if not os.path.exists(os.path.join(subdir, ".git")):
+        return None, "submodule worktree 缺席（唯讀看碼模式或尚未跑 bootstrap）"
+    head = (git_out(["rev-parse", "HEAD"], subdir) or "").strip()
+    if not head:
+        return None, ("submodule worktree 斷裂、庫開不起來（.git gitfile 指向的源倉不在，"
+                      "或 HEAD 讀不到）——跑 bash tools/bootstrap 自癒")
+    return head, None
 
 
 def _cred_grep_tree(subdir, tree):
@@ -2352,14 +2386,13 @@ def lint_cred_submodules(root):
         if sub not in staged:
             continue
         subdir = os.path.join(root, sub)
-        if not os.path.exists(os.path.join(subdir, ".git")):
-            out.append(finding(WARN, "L16", sub,
-                               "submodule worktree 缺席——憑證增量掃跳過（唯讀看碼模式）"))
+        _head, why = submodule_head(root, sub)
+        if why:
+            out.append(finding(WARN, "L16", sub, f"{why}——憑證增量掃跳過"))
             continue
-        new = index_gitlink(root, sub)
+        new, why = index_gitlink(root, sub)
         if new is None:
-            out.append(finding(WARN, "L16", sub,
-                               "staged gitlink SHA 讀不到——憑證增量掃跳過"))
+            out.append(finding(WARN, "L16", sub, f"{why}——憑證增量掃跳過"))
             continue
         old = (git_out(["rev-parse", f"HEAD:{sub}"], root) or "").strip()
         diff = git_out(["diff", old, new, "-U0"], subdir) if old else None
@@ -2421,17 +2454,13 @@ def lint_pin_crosscheck(root):
     """
     out, closing = [], None
     for _key, sub in PIN_KEYS:
-        staged = index_gitlink(root, sub)
+        staged, why = index_gitlink(root, sub)
         if staged is None:
-            continue                       # index 無該 gitlink（純外層 repo）＝條款不適用
-        subdir = os.path.join(root, sub)
-        head = ""
-        if os.path.exists(os.path.join(subdir, ".git")):
-            head = (git_out(["rev-parse", "HEAD"], subdir) or "").strip()
-        if not head:
-            out.append(finding(WARN, "L17", sub,
-                               "submodule worktree 缺席或 HEAD 讀不到——pin 互證跳過"
-                               "（唯讀看碼模式；跳過≠通過）"))
+            out.append(finding(WARN, "L17", sub, f"{why}——pin 互證跳過（跳過≠通過）"))
+            continue
+        head, why = submodule_head(root, sub)
+        if head is None:
+            out.append(finding(WARN, "L17", sub, f"{why}——pin 互證跳過（跳過≠通過）"))
             continue
         if head == staged:
             continue
@@ -2528,8 +2557,18 @@ def lint_events_sha(root):
                 per_key[key].append((n, pins[key]))
 
     # 三批（外層 merge＋每庫 pins）一次併發派出——序列跑約 300ms、超出 G3 效能契約
-    live = [(key, os.path.join(root, sub)) for key, sub in PIN_KEYS
-            if per_key[key] and os.path.exists(os.path.join(root, sub, ".git"))]
+    # ★存活判定走共用探針（見 submodule_head）：只看 .git 路徑存在會把斷裂 worktree 當成
+    #   活庫，逐列報「rebase 卷史合法失聯」＝把「庫開不起來」誤植成「SHA 失聯」
+    absent = {}
+    live = []
+    for key, sub in PIN_KEYS:
+        if not per_key[key]:
+            continue
+        _head, why = submodule_head(root, sub)
+        if why:
+            absent[key] = why
+        else:
+            live.append((key, os.path.join(root, sub)))
     maps = git_object_types_batched(
         [([s for _n, s in merges], root)]
         + [([s for _n, s in per_key[key]], subdir) for key, subdir in live])
@@ -2553,8 +2592,8 @@ def lint_events_sha(root):
             continue
         if key not in ptypes:
             out.append(finding(WARN, "L18", sub,
-                               f"submodule worktree 缺席——pins.{key} 共 {len(items)} 筆 "
-                               "SHA 實證跳過（唯讀看碼模式；跳過≠通過）"))
+                               f"{absent.get(key, '該庫不可查')}——pins.{key} 共 "
+                               f"{len(items)} 筆 SHA 實證跳過（跳過≠通過）"))
             continue
         for n, sha in items:
             t = ptypes[key].get(sha)
@@ -4867,6 +4906,143 @@ def _stage_gitlink(d, name, sha):
     _git(d, "update-index", "--add", "--cacheinfo", f"160000,{sha},{name}")
 
 
+def _l17(d, sub):
+    """L17 findings 中屬該 submodule 者——fixture 只造一個子庫時，另一個必落「index 無該
+    gitlink」跳過明細（A10），故各案一律先依 sub 過濾再斷言。"""
+    return [x for x in lint_pin_crosscheck(d) if x["where"] == sub]
+
+
+def _break_worktree(d, name):
+    """把子庫的 `.git` 換成指向不存在源倉的 gitfile＝CLAUDE.md §3「worktree 斷裂」實態。
+
+    worktree 模式下子庫的 `.git` 是一個檔（`gitdir: <源倉路徑>`）；源倉目錄被刪／未 clone
+    時該檔仍在、`os.path.exists` 為真，但任何 git 操作都開不起來——「路徑存在」與「庫可查」
+    是兩件事，本 helper 即造出那個落差。
+    """
+    sd = os.path.join(d, name)
+    real = os.path.join(sd, ".git")
+    if os.path.isdir(real):
+        import shutil
+        shutil.rmtree(real)
+    with open(real, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(f"gitdir: {os.path.join(d, '不存在的源倉')}\n")
+
+
+def _stage_gitlink_conflict(d, name, shas):
+    """把 index 內該 gitlink 換成未解衝突態（stage 1／2／3 各一筆、無 stage 0）。
+
+    `git ls-files -s` 依 stage 遞增輸出，故「取首個 160000 行」會讀到 stage 1＝共同祖先 pin。
+    """
+    info = "".join(f"160000 {sha} {i}\t{name}\n" for i, sha in enumerate(shas, start=1))
+    env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+               GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+    r = subprocess.run(["git", "update-index", "--index-info"], cwd=d, input=info,
+                       capture_output=True, encoding="utf-8", env=env)
+    if r.returncode != 0:
+        raise AssertionError(f"update-index --index-info｜{r.stderr}")
+
+
+class TestSubmoduleProbe(unittest.TestCase):
+    """★A1 共用探針：L16 submodule 面／L17／L18 對「這個庫能不能查」必須用同一支探針。
+
+    斷裂 worktree（`.git` gitfile 指向不存在的源倉）是 CLAUDE.md §3 明載的真實狀態。修前
+    L17 用 `rev-parse HEAD` 成功與否、L18 只看 `.git` 路徑存在與否——同一事實兩種判讀：
+    L17 落 1 筆「跳過」、L18 卻對該庫每一列各落一筆「rebase 卷史後合法失聯」（真帳本換算
+    ＝單庫 17 筆、兩庫俱斷 34 筆），且把「庫根本開不起來」誤植成「SHA 失聯」，操作者會朝
+    錯方向排查（去 fetch 而不是去跑 bootstrap）。
+    """
+
+    def test_probe_reports_absent_and_broken_distinctly(self):
+        """探針三態：健全→回 HEAD；worktree 缺席→原因含「缺席」；斷裂→原因含「開不起來」。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            sha, = _init_sub(d, "base-web")
+            self.assertEqual(submodule_head(d, "base-web"), (sha, None))
+            head, why = submodule_head(d, "rust-api")
+            self.assertIsNone(head)
+            self.assertIn("缺席", why)
+            _break_worktree(d, "base-web")
+            head, why = submodule_head(d, "base-web")
+            self.assertIsNone(head)
+            self.assertIn("開不起來", why)
+
+    def test_broken_worktree_yields_one_skip_per_clause(self):
+        """★斷裂 worktree：L17／L18 各恰 1 筆跳過、理由同文；L18 絕不逐列報 rebase 失聯。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer = _init_outer(d)
+            shas = {key: _init_sub(d, name)[0] for key, name in PIN_KEYS}
+            rows = [dict(VALID_CLOSE, merge=outer, pins=dict(shas)) for _ in range(3)]
+            _wfile(d, EVENTS,
+                   "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+            _stage_gitlink(d, "base-web", shas["web"])
+            _break_worktree(d, "base-web")
+            f17 = [x for x in lint_pin_crosscheck(d) if x["where"] == "base-web"]
+            f18 = [x for x in lint_events_sha(d)
+                   if "base-web" in x["where"] or "base-web" in x["msg"]]
+            self.assertEqual(len(f17), 1, msg=str(f17))
+            self.assertEqual(len(f18), 1, msg=str(f18))     # 修前＝每列各一筆＝3 筆
+            self.assertIn("開不起來", f17[0]["msg"])
+            self.assertIn("開不起來", f18[0]["msg"])
+            self.assertNotIn("rebase", f18[0]["msg"])
+            self.assertEqual([x for x in lint_events_sha(d)
+                              if "rebase" in x["msg"]], [])
+
+    def test_broken_worktree_skips_credential_incremental_face(self):
+        """L16 submodule 增量面同用該探針：斷裂庫不得走進 diff／退化全樹掃。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            sha, = _init_sub(d, "base-web")
+            _stage_gitlink(d, "base-web", sha)
+            _break_worktree(d, "base-web")
+            f = lint_cred_submodules(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertIn("開不起來", f[0]["msg"])
+
+
+class TestIndexGitlinkStage(unittest.TestCase):
+    """★A2：gitlink 合併衝突未解時 index 同時有 stage 1／2／3，取首個 160000 行＝讀到祖先 pin。
+
+    後果具體：L17 拿共同祖先 pin 去比 worktree HEAD，報一筆根本不存在的分歧（且在收刀簿記
+    commit 上會升成 ERROR 硬擋）；L16 增量掃則以祖先 SHA 當「new」去 diff。誠實作法＝認出
+    衝突態並落跳過明細。
+    """
+
+    def test_stage_zero_is_returned_when_clean(self):
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            sha, = _init_sub(d, "base-web")
+            _stage_gitlink(d, "base-web", sha)
+            self.assertEqual(index_gitlink(d, "base-web"), (sha, None))
+
+    def test_no_entry_reports_reason(self):
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            sha, why = index_gitlink(d, "base-web")
+            self.assertIsNone(sha)
+            self.assertIn("index 無該 gitlink", why)
+
+    def test_conflicted_index_is_not_read_as_ancestor_pin(self):
+        """stage 1／2／3 俱在（無 stage 0）→不得回祖先 pin，須回衝突原因。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            base, ours, theirs = _init_sub(d, "base-web", 3)
+            _stage_gitlink_conflict(d, "base-web", (base, ours, theirs))
+            sha, why = index_gitlink(d, "base-web")
+            self.assertIsNone(sha, msg=f"讀到 {sha}（祖先＝{base}）")
+            self.assertIn("衝突", why)
+
+    def test_pin_crosscheck_skips_on_conflicted_index(self):
+        """★L17：衝突態不得報「pin 與 worktree HEAD 分歧」（那是拿祖先 pin 比出來的假分歧）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            base, ours, theirs = _init_sub(d, "base-web", 3)
+            _stage_gitlink_conflict(d, "base-web", (base, ours, theirs))
+            f = _l17(d, "base-web")
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertIn("衝突", f[0]["msg"])
+            self.assertNotIn("分歧", f[0]["msg"])
+
+
 class TestPinCrosscheck(unittest.TestCase):
     """L17 pin↔worktree HEAD 互證（contracts G2／data-model §3 狀態表逐格）。
 
@@ -4879,7 +5055,7 @@ class TestPinCrosscheck(unittest.TestCase):
             _init_outer(d)
             sha, = _init_sub(d, "base-web")
             _stage_gitlink(d, "base-web", sha)
-            self.assertEqual(lint_pin_crosscheck(d), [])
+            self.assertEqual(_l17(d, "base-web"), [])
 
     def test_divergence_on_ordinary_commit_is_warn(self):
         """狀態表第 2 列：分歧×一般 commit→WARN（兩段式中間態合法、不擋）。"""
@@ -4887,7 +5063,7 @@ class TestPinCrosscheck(unittest.TestCase):
             _init_outer(d)
             old, new = _init_sub(d, "base-web", 2)
             _stage_gitlink(d, "base-web", old)
-            f = lint_pin_crosscheck(d)
+            f = _l17(d, "base-web")
             self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
             self.assertEqual(f[0]["where"], "base-web")
             self.assertIn(old[:12], f[0]["msg"])
@@ -4902,7 +5078,7 @@ class TestPinCrosscheck(unittest.TestCase):
             _stage_gitlink(d, "base-web", old)
             _wfile(d, EVENTS, json.dumps(VALID_CLOSE, ensure_ascii=False) + "\n")
             _git(d, "add", EVENTS)
-            f = lint_pin_crosscheck(d)
+            f = _l17(d, "base-web")
             self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
             self.assertIn("bump pin", f[0]["msg"])
 
@@ -4914,7 +5090,7 @@ class TestPinCrosscheck(unittest.TestCase):
             _stage_gitlink(d, "base-web", old)
             _wfile(d, EVENTS, json.dumps(VALID_MISC, ensure_ascii=False) + "\n")
             _git(d, "add", EVENTS)
-            f = lint_pin_crosscheck(d)
+            f = _l17(d, "base-web")
             self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
 
     def test_absent_worktree_skips(self):
@@ -4922,7 +5098,7 @@ class TestPinCrosscheck(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             _init_outer(d)
             _stage_gitlink(d, "rust-api", "1" * 40)
-            f = lint_pin_crosscheck(d)
+            f = _l17(d, "rust-api")
             self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
             self.assertEqual(f[0]["where"], "rust-api")
             self.assertIn("跳過", f[0]["msg"])
@@ -4939,22 +5115,27 @@ class TestPinCrosscheck(unittest.TestCase):
             _init_outer(d)
             os.makedirs(os.path.join(d, "base-web"))       # 空目錄、不 init
             _stage_gitlink(d, "base-web", "a" * 40)        # 異於任何真 SHA
-            f = lint_pin_crosscheck(d)
+            f = _l17(d, "base-web")
             self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
             self.assertEqual(f[0]["where"], "base-web")
             self.assertIn("跳過", f[0]["msg"])
             # 收刀形：守衛缺席時這格會退化成 ERROR、硬擋合法 commit
             _wfile(d, EVENTS, json.dumps(VALID_CLOSE, ensure_ascii=False) + "\n")
             _git(d, "add", EVENTS)
-            f = lint_pin_crosscheck(d)
+            f = _l17(d, "base-web")
             self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
             self.assertIn("跳過", f[0]["msg"])
 
-    def test_no_gitlink_in_index_is_no_op(self):
-        """index 無該 gitlink（純外層 repo）→不適用、零 finding。"""
+    def test_no_gitlink_in_index_falls_into_skip_detail(self):
+        """★A10：index 無該 gitlink（純外層 repo）→落跳過明細，不再零 finding 靜默略過。
+
+        靜默略過時「不適用」與「檢了通過」在輸出上長得一樣＝FR-012 要消滅的假綠面。
+        """
         with tempfile.TemporaryDirectory() as d:
             _init_outer(d)
-            self.assertEqual(lint_pin_crosscheck(d), [])
+            f = lint_pin_crosscheck(d)
+            self.assertEqual([x["where"] for x in f], [sub for _k, sub in PIN_KEYS])
+            self.assertTrue(all("index 無該 gitlink" in x["msg"] for x in f), msg=str(f))
 
     def test_run_lint_wires_pin_crosscheck(self):
         """★接線層：`lint_pin_crosscheck` 從 run_lint 掉線＝G2 整條靜默下線。"""
