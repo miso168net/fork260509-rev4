@@ -1,4 +1,4 @@
-<!-- next: L-159 -->
+<!-- next: L-161 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -225,3 +225,26 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   進了＝要改寫歷史＋輪替）；③驗收劇本裡「fixture 驗畢即刪」的字句一律補「並 prune 物件庫」，
   否則收尾宣稱結構性造假。
   ｜出處：2026-07-28 019 U1 T017 裸值格驗收（spec review 第 1 輪抓出、blob `8a183df0`）。
+- **L-159**｜「防恆綠」的 self-test 自己恆綠：secret-value-guard 的下界邊界樣本原寫成
+  `"E" * MIN_SECRET_LEN` 與 `"E" * (MIN_SECRET_LEN - 1)`——樣本由**被測常數自身**構造，常數
+  一動樣本跟著動，兩個檢查恆過（實測 MIN 改 2 或 21 皆 `run_selftest()=True`；MIN=21 時同一
+  支對 16 字元機密現值靜默回空集合）。而生產面 pre-commit 只跑 `check`→self-test（unittest
+  僅在工具本體被 staged 時才跑），故 MIN 落在 1~21 任一值時日常 commit 面零守門。更糟的是
+  檔內註解與兩條錯誤訊息**明文宣稱**這組樣本釘得住 MIN 突變，讓維護者誤信有一道不存在的閘。
+  防法：①凡「釘住常數」的樣本一律寫**字面值**、與被測常數雙記帳（本檔＝`EDGE_HIT`／
+  `EDGE_SKIP`；同 repo 既有慣例＝docs-sync 的 `TOOLS_PY` 名冊字面斷言），常數改動時 self-test
+  當場紅、強迫同步過賬；②防恆綠機制寫完必做**突變實測**（常數改大、改小各實跑一次確認真
+  的紅），只跑健康路徑等於沒驗；③錯誤訊息聲稱「某突變會被抓到」時，該突變必須有一支實跑
+  得到的案子，否則訊息本身就是假保證。
+  ｜出處：2026-07-29 019 U1 quality 第 1 輪（tools/secret-value-guard.py，修後 MIN=2／4／16／21
+  逐一實跑 check 皆 exit 1）。
+- **L-160**｜新寫的 diff 掃描器重蹈同 repo 已寫成警語的坑：`-U0` 的內容行本身帶一個加號
+  前綴，故檔內以「兩個加號」起首的行在 diff 裡長成三個加號——secret-value-guard 的
+  `find_hits` 以單一前綴同時判檔頭與新增行，實測①含空白形被當 `+++ ` 檔頭吞掉、path 被改寫
+  成該行文字（其後命中報成錯檔錯行）②無空白形被 `not startswith("+++")` 整行排除（漏掃），
+  且該行不推進行號、同 hunk 後續命中行號一併少算。而 docs-sync 的 `cred_diff_hits`（018 L16）
+  早已用 hunk 狀態機解掉，其 docstring 還逐字寫著這個坑——同 repo 有正解卻沒沿用（L-157 同族：
+  有出處的假安心）。防法：①動手寫同族工具（掃 diff／掃 staged／掃範圍）前先 grep 既有同族
+  實作，把其 docstring 的警語當規格照抄；②diff 解析一律先以 hunk 邊界（`diff --git`／`@@`）
+  切開檔頭區與內容區再判前綴——同一個前綴在兩區語意不同，單一判準必誤。
+  ｜出處：2026-07-29 019 U1 quality 第 1 輪（find_hits 唯讀實測，修前後 hits 對照見 tasks T012 備註）。

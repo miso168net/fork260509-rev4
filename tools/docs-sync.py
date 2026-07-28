@@ -1919,7 +1919,7 @@ def sh_usage_line(source):
 
 
 def compute_tools_cli(root):
-    """六支工具掃源 → 真表 rows（python 四支＝子命令集；bash 兩支＝存在＋用法行）。"""
+    """TOOLS_PY／TOOLS_SH 名冊掃源 → 真表 rows（python＝子命令集；bash＝存在＋用法行）。"""
     rows = []
     for name in TOOLS_PY:
         rel = f"tools/{name}.py"
@@ -1937,10 +1937,14 @@ def compute_tools_cli(root):
 
 def gen_tools_cli(rows):
     """真表 md（GEN_HEADER＋每工具一節；data-model §7）。"""
+    # ★抬頭支數由 rows 現算、不寫死字面：寫死時名冊增減只改得到節數、抬頭原封不動，生成檔
+    # 當場自我矛盾且全套件仍綠（019 U1 實證：名冊進 secret-value-guard 後抬頭仍稱「六支」、
+    # 實列七節）。字面斷言＝test_tools_roster_is_pinned_and_table_renders_seven_sections。
+    n_py = sum(1 for r in rows if r["lang"] == "python")
     parts = [GEN_HEADER, "# reference/tools-cli — 治理工具命令真表", "",
-             "來源＝tools/ 六支工具掃源（python 四支＝分派表字串比較字面、去重排序；bash 兩支"
-             "＝存在與檔頭用法行）。消費者＝lint L19 命令形條款（語料＝CLAUDE.md／README.md／"
-             "docs/ops/RUNBOOK.md 三件活手冊）＋人讀。\n"]
+             f"來源＝tools/ {len(rows)} 支工具掃源（python {n_py} 支＝分派表字串比較字面、"
+             f"去重排序；bash {len(rows) - n_py} 支＝存在與檔頭用法行）。消費者＝lint L19 "
+             "命令形條款（語料＝CLAUDE.md／README.md／docs/ops/RUNBOOK.md 三件活手冊）＋人讀。\n"]
     for row in rows:
         parts.append(f"## {row['rel']}")
         parts.append(f"- 語言：{row['lang']}")
@@ -5820,12 +5824,15 @@ class TestToolsCliTruthTable(unittest.TestCase):
                          ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema",
                           "secret-value-guard"))
         self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
-        heads = [ln for ln in gen_tools_cli(compute_tools_cli(ROOT)).splitlines()
-                 if ln.startswith("## ")]
+        md = gen_tools_cli(compute_tools_cli(ROOT))
+        heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
         self.assertEqual(len(heads), 7, msg=str(heads))
+        # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
+        # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（019 U1 實證）。
+        self.assertIn("來源＝tools/ 7 支工具掃源（python 5 支", md)
 
-    def test_compute_and_render_six_tools(self):
-        """真表六節俱全：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
+    def test_compute_and_render_every_rostered_tool(self):
+        """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
         with tempfile.TemporaryDirectory() as d:
             _tools_fixture(d)
             md = gen_tools_cli(compute_tools_cli(d))
@@ -5888,7 +5895,7 @@ class TestCmdFormLint(unittest.TestCase):
                              msg=sub)
 
     def test_old_name_without_py_is_error(self):
-        """②舊名禁令：四支不帶 .py 的路徑形命中即 ERROR（B-111 長期機器化）。"""
+        """②舊名禁令：TOOLS_PY 名冊各支不帶 .py 的路徑形命中即 ERROR（B-111 長期機器化）。"""
         f = self._f("勘誤跑 `tools/docs-sync errata 某詞`\n")
         self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
         self.assertIn("舊名", f[0]["msg"])
@@ -6547,7 +6554,7 @@ class TestGateWiring(unittest.TestCase):
         self.assertIn("tools/fork-delta-lint.py", hook)   # 無 test 介面、走聯集觸發
 
     def test_bootstrap_runs_every_tool_test(self):
-        """G9 體檢節無條件全跑：三行 run_tool_test 被刪即紅（與 hook 同一名冊對賬）。"""
+        """G9 體檢節無條件全跑：run_tool_test 逐行被刪即紅（與 hook 同一名冊對賬）。"""
         text = _read(ROOT, BOOTSTRAP_REL)
         self.assertIsNotNone(text)
         self.assertEqual(tuple(RE_BOOTSTRAP_TEST.findall(text)), tools_test_roster())
@@ -6605,7 +6612,7 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
 
     def test_dry_run_triggers_only_the_staged_tools_test(self):
-        """情境②三支全 staged＝三支全觸發（順序＝名冊序）；情境③只 staged 一支＝另兩支
+        """情境②名冊全 staged＝全支觸發（順序＝名冊序）；情境③只 staged 一支＝其餘各支
         不得被拖下水（條件是逐支比對、不是「有工具改動就全跑」）。"""
         roster = tools_test_roster()
         self.assertEqual(self._run([f"tools/{n}.py" for n in roster]),

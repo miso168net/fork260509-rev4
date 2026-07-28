@@ -104,6 +104,16 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   docs-sync 同檔釘死斷言（名冊字面／真表 7 節／dry-run BASE 與分支 a）連動改、347 案仍全綠
   （名冊釘死＝設計上強迫登記時同步過賬，非 scope 外擅改）；generate 重算 tools-cli 真表新增
   secret-value-guard 節
+  ——**quality 第 1 輪修正（2026-07-29）**：上列「真表新增節」當時未察抬頭已失真——名冊
+  進第 5 支後，`gen_tools_cli` 寫死的敘述字面仍稱「六支（python 四支）」，生成檔遂抬頭說
+  六支、實列七節而 347 案全綠（無斷言碰得到該字串）。修＝抬頭支數改由 rows 現算＋同案補
+  字面斷言（實證：把抬頭改回寫死字面＝該案當場 FAIL）；同語意殘漏一併全掃 5 處
+  （`compute_tools_cli`／`gen_tools_cli`／真表案名與 docstring／舊名禁令 docstring／bootstrap
+  與 hook 兩案 docstring 的支數）。另修 `secret-value-guard.py` 兩缺陷：①self-test 邊界樣本
+  原以 `MIN_SECRET_LEN` 自身構造＝套套邏輯（實測 MIN 改 2／21 皆全綠、生產面 check 零守門）
+  → 樣本改字面 `EDGE_HIT`／`EDGE_SKIP` 雙記帳，MIN=2／4／16／21 逐一實跑 check 皆 exit 1；
+  ②`find_hits` 把內容以「兩個加號」起頭的新增行誤判 diff 檔頭（報錯檔錯行）或整行漏掃
+  （行號少算）→ 改以 hunk 邊界切開檔頭區與內容區。測試 25→29 案 OK、docs-sync 347 案零轉紅
 - [x] T013 [P] [US1] 新增 `.githooks/lib/scan-range.sh`＋`.githooks/pre-push`（contracts
   scan-gates §S3）：解析 pre-push stdin 四欄位；範圍推導＝一般更新用 `remote-oid..local-oid`／
   **新分支首推（remote-oid 全零）退階 `local-oid --not --remotes=origin`**／該退階無效時掃整條

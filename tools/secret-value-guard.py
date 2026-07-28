@@ -25,9 +25,15 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_SECRETS_DIR = os.path.join("deploy", "secrets")
-# 比對下界：短於此的現值不比對（誤報面失控；防線由樣式層接手）。self-test 以邊界樣本
-# 釘住——放寬下界型突變（MIN 變小）會使「MIN-1 綠樣本」誤報、當場紅。
+# 比對下界：短於此的現值不比對（誤報面失控；防線由樣式層接手）。
+# ★self-test 的兩個邊界樣本用**字面長度**寫死、不由本常數構造：以被測常數自身構造＝套套
+# 邏輯，常數一動樣本跟著動、兩檢查恆過（019 U1 實證：MIN 改 2 或 21，run_selftest() 皆
+# True，而 pre-commit 生產面只跑 check→self-test，於是 MIN 落在 1~21 任一值時日常零守門）。
+# 字面釘死後兩向都當場紅：MIN 被放寬→7 字元綠樣本誤報；MIN 被抬高→8 字元紅樣本未攔。
+# ★因此下界一旦改動，必須同步改 EDGE_HIT／EDGE_SKIP（雙記帳、不得單邊改）。
 MIN_SECRET_LEN = 8
+EDGE_HIT = "E" * 8       # self-test 邊界紅樣本：恰達現行下界、必攔
+EDGE_SKIP = "E" * 7      # self-test 邊界綠樣本：恰低於現行下界、不比對
 
 RE_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
@@ -77,28 +83,42 @@ def staged_diff(root):
 
 
 def find_hits(diff_text, secrets):
-    """掃 unified diff 的新增行，回 [(路徑, 新檔行號, 機密名稱), …]；不看刪除行與 context。"""
+    """掃 unified diff 的新增行，回 [(路徑, 新檔行號, 機密名稱), …]；不看刪除行與 context。
+
+    ★先以 hunk 邊界（RE_HUNK／`diff --git`）切開「檔頭區」與「內容區」，再判前綴：內容區
+    的行前綴恆為 +／-／空白，故內容本身以「兩個加號」起頭的新增行會渲染成 `+++…`。單靠
+    前綴同時判檔頭與新增行時，該行①含空白形 `+++ ` 被當成檔頭吃掉——path 被改寫成該行
+    文字、後續命中報到錯的檔與錯的行；②無空白形 `+++x` 被 `not startswith("+++")` 整行
+    排除——該行漏掃、且不推進行號，同 hunk 後續命中行號一併少算（019 U1 實證）。
+    """
     hits = []
     path = None
     new_ln = 0
+    in_hunk = False
     for line in diff_text.splitlines():
-        if line.startswith("+++ "):
-            target = line[4:].split("\t")[0]
-            path = None if target == "/dev/null" else (
-                target[2:] if target.startswith("b/") else target)
-            continue
         m = RE_HUNK.match(line)
         if m:
             new_ln = int(m.group(1))
+            in_hunk = True
             continue
-        if line.startswith("+") and not line.startswith("+++"):
+        if line.startswith("diff --git "):
+            in_hunk = False                # 下一個檔的檔頭區開始（內容行必帶前綴、撞不到）
+            path = None
+            continue
+        if not in_hunk:                    # 檔頭區：只認 +++ 目標路徑
+            if line.startswith("+++ "):
+                target = line[4:].split("\t")[0]
+                path = None if target == "/dev/null" else (
+                    target[2:] if target.startswith("b/") else target)
+            continue
+        if line.startswith("+"):
             if path is not None:
                 content = line[1:]
                 for name, value in secrets.items():
                     if value in content:
                         hits.append((path, new_ln, name))
             new_ln += 1
-        elif line.startswith("-") and not line.startswith("---"):
+        elif line.startswith("-"):
             continue                       # 舊行不佔新檔行號
         elif line.startswith(" "):
             new_ln += 1                    # context（-U0 下罕見）仍推進行號
@@ -127,15 +147,13 @@ def run_selftest():
         print("[secret-value-guard] ERROR self-test：綠樣本誤報（比對過寬）——擋 commit",
               file=sys.stderr)
         ok = False
-    edge_hit = "E" * MIN_SECRET_LEN                      # 邊界紅：恰達下界必攔
-    if not _pipeline(_mk_diff("selftest.txt", ["k=" + edge_hit]), {"edge": edge_hit}):
-        print("[secret-value-guard] ERROR self-test：下界邊界樣本未攔（MIN 被抬高？）——擋 commit",
-              file=sys.stderr)
+    if not _pipeline(_mk_diff("selftest.txt", ["k=" + EDGE_HIT]), {"edge": EDGE_HIT}):
+        print("[secret-value-guard] ERROR self-test：下界邊界紅樣本未攔（MIN_SECRET_LEN 被抬高？"
+              "改下界須同步改 EDGE_HIT／EDGE_SKIP）——擋 commit", file=sys.stderr)
         ok = False
-    edge_skip = "E" * (MIN_SECRET_LEN - 1)               # 邊界綠：低於下界不比對
-    if _pipeline(_mk_diff("selftest.txt", ["k=" + edge_skip]), {"edge": edge_skip}):
-        print("[secret-value-guard] ERROR self-test：下界邊界綠樣本誤報（MIN 被放寬？）——擋 commit",
-              file=sys.stderr)
+    if _pipeline(_mk_diff("selftest.txt", ["k=" + EDGE_SKIP]), {"edge": EDGE_SKIP}):
+        print("[secret-value-guard] ERROR self-test：下界邊界綠樣本誤報（MIN_SECRET_LEN 被放寬？"
+              "改下界須同步改 EDGE_HIT／EDGE_SKIP）——擋 commit", file=sys.stderr)
         ok = False
     return ok
 
@@ -227,6 +245,23 @@ class TestFindHits(unittest.TestCase):
         diff = _mk_diff("f.txt", ["x=" + v[:-1] + "Q"])
         self.assertEqual(find_hits(diff, {"k": v}), [])
 
+    def test_added_line_starting_with_double_plus_space_is_content_not_header(self):
+        """★內容以「兩個加號＋空白」起頭的新增行渲染成 `+++ …`：純前綴判檔頭會把它當檔頭
+        吃掉，path 被改寫成該行文字（此樣本刻意偽裝成 `+++ b/evil.md`）、行號也不推進，
+        於是命中報到錯的檔與錯的行。修前實測＝[('evil.md', 1, 'k')]。"""
+        v = _fixture_value()
+        diff = _mk_diff("f.md", ["++ b/evil.md", "x=" + v, "tail"])
+        self.assertEqual(find_hits(diff, {"k": v}), [("f.md", 2, "k")])
+
+    def test_added_line_starting_with_double_plus_is_scanned_and_counted(self):
+        """★內容以「兩個加號」起頭（無空白）＝ diff 行 `+++x`：以 not startswith("+++")
+        排除即該行整行漏掃，且不推進行號、同 hunk 後續命中行號少算 1。
+        修前實測＝[('f.md', 1, 'k')]（首行漏掃＋次行行號少算）。"""
+        v = _fixture_value()
+        diff = _mk_diff("f.md", ["++" + v, "後續 " + v])
+        self.assertEqual(find_hits(diff, {"k": v}),
+                         [("f.md", 1, "k"), ("f.md", 2, "k")])
+
     def test_deleted_file_dev_null_target_skipped(self):
         v = _fixture_value()
         diff = ("diff --git a/gone.txt b/gone.txt\n"
@@ -306,6 +341,31 @@ class TestSelfTest(unittest.TestCase):
         with mock.patch.object(mod, "eligible", lambda _v: True), \
                 contextlib.redirect_stderr(buf):
             self.assertFalse(run_selftest())
+
+    def test_selftest_catches_lowered_min_len_constant(self):
+        """★下界常數被改小（MIN=2）→ 7 字元邊界綠樣本變成 eligible、誤報當場紅。
+        邊界樣本若以 MIN_SECRET_LEN 自身構造即套套邏輯（常數一動樣本跟著動）：019 U1
+        修前實測 MIN 改 2 時 run_selftest() 仍 True，生產面（pre-commit 只跑 check）零守門。"""
+        from unittest import mock
+        mod = sys.modules[__name__]
+        import io, contextlib
+        buf = io.StringIO()
+        with mock.patch.object(mod, "MIN_SECRET_LEN", 2), \
+                contextlib.redirect_stderr(buf):
+            self.assertFalse(run_selftest())
+        self.assertIn("下界邊界綠樣本誤報", buf.getvalue())
+
+    def test_selftest_catches_raised_min_len_constant(self):
+        """★下界常數被抬高（MIN=21）→ 8 字元邊界紅樣本不再納入比對、未攔當場紅。
+        修前實測 MIN 改 21 亦全綠，且同一支對 16 字元機密現值靜默跳過（掃描面失守）。"""
+        from unittest import mock
+        mod = sys.modules[__name__]
+        import io, contextlib
+        buf = io.StringIO()
+        with mock.patch.object(mod, "MIN_SECRET_LEN", 21), \
+                contextlib.redirect_stderr(buf):
+            self.assertFalse(run_selftest())
+        self.assertIn("下界邊界紅樣本未攔", buf.getvalue())
 
     def test_selftest_never_prints_sample_values(self):
         import io, contextlib
