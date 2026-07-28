@@ -114,7 +114,11 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   ——**實做（2026-07-29）**：落檔 `0080-age-identity-bprime-secretsdir-solution2.md`
   （status: draft、格式對齊 0077）：三閘逐閘四欄實測欄（#2 過引 T004 證據／#11 反轉雙側
   數據＋user 重拍三點定案與理由／#3 本輪全過 B′ 定案、退路未動用）＋C 案儀式拍板引用
-  （T019 註記為權威）＋解法 2 at-rest 代價誠實登記；正文完稿歸 U6 T034、收刀轉 accepted
+  （T019 註記為權威）＋解法 2 at-rest 代價誠實登記；正文完稿歸 T034（Phase 7 US5 治理）、
+  收刀轉 accepted
+  ——★**重拍連帶註記**：上方任務文「#3 失敗時另記退路生效與 SECRETS_DIR 降階」屬 2′ 基準原文；
+  #11 反轉重拍後退路**僅退方式 A、不含 SECRETS_DIR 降階**（ADR 0080 決策 3），且本輪 #3 全過
+  ＝退路未動用、無「降階」可記
 
 ## Phase 3: US1 — 機密洩漏三層掃描防線（P1；MVP）
 
@@ -284,7 +288,10 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   （如 `chmod 755` 的暫存父目錄）、把 `SECRETS_DIR` 指入其下跑解密，`stat -c %a` 子目錄
   **仍必為 `700`**（＝「0700 子目錄要求＝縱深防禦、與落點無關」的機判證據；此項**不可**落在
   `quickstart.md` §S6／T030——解法 2 之下 `$HOME/.cache` 本身即 `drwx------`，權限非 0700 的
-  父目錄只能在解密管線驗收面刻意構造）；驗完刪除暫存父目錄
+  父目錄只能在解密管線驗收面刻意構造）；驗完刪除暫存父目錄。
+  ★**施工時同步補列**：`quickstart.md` §S5 表現為六列、**尚未含本項**（contracts §P4.6 已註明
+  以本行為唯一權威落點）——本任務施工時把本項補成 §S5 第七列，使劇本與 T023 一致；未補列前
+  照 §S5 逐列核對者必漏跑本項
 
 ## Phase 5: US3 — 明文離開 /mnt/d（SECRETS_DIR 遷移）（P3）
 
@@ -301,6 +308,8 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   ★**退路分支（機械化 #3 之「自動生效」）**：若 T007 判 #3 失敗，`SECRETS_DIR` 改寫
   **`$HOME/.cache/rev4-secrets`**（＝解法 2、ext4 持久；**寫入形式與 2′ 完全相同、只換值**、
   compose 與腳本零改動）；`.gitignore` 既有規則已覆蓋、無須加行
+  ——★**重拍後本分支已成無作用**：主值即為 `$HOME/.cache/rev4-secrets`，退路只剩私鑰維度
+  （方式 A）、SECRETS_DIR 不再有降階動作（ADR 0080 決策 3）；條款留存供金鑰輪替等再驗情境
 - [ ] T025 [US3] 三腳本 SECRETS_DIR 同步改（★**三處必須同刀齊改**，任一未改即該處無條件賦值
   靜默吃掉外部值）：`deploy/generate-secrets.sh`（`SECRETS_DIR` 賦值行）／
   `deploy/preflight-secrets.sh`（同）／`deploy/setup-reaper-role.sh`（`PW_FILE` 賦值行）
@@ -375,7 +384,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   施工標的＝**既存 draft `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`
   完稿並轉 accepted**、非另立新檔）（自洽論證＋退路預拍〔重拍後僅退方式 A〕＋#11 反轉條件與
   反轉實測＋**SSH identity 禁令**＋passphrase 政策〔diceware≥6＋離線備份義務〕；T008 實測欄
-  已於 U2 併入）／
+  已於 Phase 2〔Foundational〕併入）／
   **C** 加密資產形狀（dev 單檔 8 key／prod 不建含目標形狀備忘／`ca.key` 不進含重評條件／
   命名紅線／不設範圍選項）／**D** 掃描三層防線定位（事件型×狀態型×確定性互補；三 repo 覆蓋；
   base-web `--no-verify` 慣例廢止；**compose 向後相容取捨之誠實登記**）／**E** 團隊組成前提
@@ -426,7 +435,8 @@ T001 → T002 → T003
   第一個被擋的是自己人的簿記 commit，且會養成 `--no-verify` 慣性使事件型檢查**永久失效**。
 - **T004（#2）為停工級閘**：失敗＝方案形狀改變＝升級 user 重拍，US2／US3 全部任務作廢重寫。
 - **T005（#11）→ T024 落點定值**；**T007（#3）→ T019 產鑰形式 ＋ T024 落點值分支**
-  （失敗走預拍退路：方式 A＋`$HOME/.cache/rev4-secrets`、不停工）。
+  （失敗走預拍退路：方式 A＋`$HOME/.cache/rev4-secrets`、不停工；★重拍後〔#11 反轉〕退路
+  **僅退方式 A**，SECRETS_DIR 主值即為此值＝無降階動作，詳 ADR 0080 決策 3）。
 - **T040（age 二進位）為 T007 硬前置**（T007 要實跑 `age-keygen`／`age -p`；二進位由 T007
   與 T019 共用、全刀完成後刪除）。
 - **T025 三處同刀齊改**：任一未改則該處無條件賦值靜默吃掉外部值（preflight 回 OK、compose 掛掉）。

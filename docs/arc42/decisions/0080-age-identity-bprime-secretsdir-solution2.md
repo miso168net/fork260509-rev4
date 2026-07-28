@@ -9,9 +9,10 @@ provenance: "rev4:2026-07-28 019-secrets-sops brainstorm §3（user 親決私鑰
 tags: [security, secrets, sops, age, deployment]
 ---
 
-> **draft 狀態說明**：本檔於 U2（Foundational 三實測閘）結清時立骨架與實測欄；
-> 正文完稿（自洽論證全文、SSH identity 禁令、passphrase 政策 diceware≥6 與離線備份義務、
-> tmpfs／ext4 殘餘風險誠實登記之總表化）歸 U6 T034，收刀時轉 accepted。
+> **draft 狀態說明**：本檔於 `specs/019-secrets-sops/tasks.md` Phase 2（Foundational 三實測閘）
+> 結清時立骨架與實測欄；正文完稿（自洽論證全文、SSH identity 禁令、passphrase 政策 diceware≥6
+> 與離線備份義務、tmpfs／ext4 殘餘風險誠實登記之總表化）歸同檔 **T034（Phase 7 US5 治理）**，
+> 收刀時轉 accepted。
 
 ## 背景
 
@@ -20,7 +21,7 @@ tags: [security, secrets, sops, age, deployment]
 identity）與 **SECRETS_DIR 解密明文落點**（解法 2 ext4 持久 vs 2′ tmpfs）——brainstorm 階段
 拍 B′×2′（唯一自洽組合），同時預留三個 go/no-go 實測閘：#2（容器 bind-mount ext4／tmpfs
 可見性）為硬性前置、#11（Windows 側 docker client 定址 WSL 內部路徑）為結論反轉條件、
-#3（B′ passphrase identity 可用性）為 B′ 定案點。三閘於 U2 實測結清，其中 #11 反轉、
+#3（B′ passphrase identity 可用性）為 B′ 定案點。三閘於 tasks.md Phase 2 實測結清，其中 #11 反轉、
 經 user 重拍後定案為 **B′ × 解法 2（`$HOME/.cache/rev4-secrets`）**。
 
 ## 決策

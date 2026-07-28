@@ -172,6 +172,8 @@ base-web/**、rust-api/**          # 兩源倉工作樹不動、pin 不動（FR-
 1. **U1 實測閘先於 U2／U3**：#2 失敗→方案形狀改「解法 1 環境變數注入」＝**升級 user 重拍**
    （非 agent 自決）；#11 反轉→**升級 user 重拍** SECRETS_DIR（**同為非 agent 自決**）；
    #3 失敗→預拍退路自動生效（方式 A＋解法 2＝`$HOME/.cache/rev4-secrets`、不停工）。
+   ★重拍（2026-07-29、#11 已實測反轉）：上句「方式 A＋解法 2」屬 2′ 基準原文；SECRETS_DIR 既已
+   定在解法 2，**#3 退路僅退方式 A、不含 SECRETS_DIR 降階**——詳 ADR 0080 決策 3。
 2. **U0 內部**：誤報基線重建 → allowlist 落檔 → **才**啟用 hook（次序顛倒＝第一個被擋的是
    自己人的簿記 commit，且會養成 `--no-verify` 慣性使事件型檢查永久失效）。
 3. **U4 遷移五步順序即契約**（contracts/secret-pipeline.md §P6），刪舊落點必為最後一步。

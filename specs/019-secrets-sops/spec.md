@@ -197,6 +197,8 @@ T005 備註與 ADR 0080。
 - U1 閘反轉：#2 失敗→方案形狀改環境變數注入＝**升級 user 重拍**；#11 反轉→**升級 user 重拍**
   SECRETS_DIR（2 vs 2′ 比較基礎改變）；#3 失敗→預拍退路（方式 A＋解法 2＝
   `$HOME/.cache/rev4-secrets`）自動生效、不停工、ADR 記錄。
+  ★重拍（2026-07-29、#11 已實測反轉）：上句「方式 A＋解法 2」屬 2′ 基準原文；SECRETS_DIR 既已
+  定在解法 2，**#3 退路僅退方式 A、不含 SECRETS_DIR 降階**——詳 ADR 0080 決策 3。
 - B′ 下命令替換（無 tty）情境呼叫解密：tty 守衛擋下並給指引，不得 hang 死或靜默寫壞檔。
 - 他機 clone 未跑 bootstrap：兩源倉 hooksPath 未設＝無防線——bootstrap 體檢斷言暴露；此為
   已知邊界（per-machine 設定）。
@@ -241,6 +243,9 @@ T005 備註與 ADR 0080。
   內部路徑（反轉→**升級 user 重拍** SECRETS_DIR、非 agent 自決）；#3 B′ passphrase identity
   可用性含 pinentry keyring 假象排除（失敗→預拍退路自動生效：方式 A＋解法 2＝
   `$HOME/.cache/rev4-secrets`、ext4 持久，不停工、ADR 記錄）。
+  ★重拍（2026-07-29、#11 已實測反轉）：括號內「方式 A＋解法 2」屬 2′ 基準下的原文；SECRETS_DIR
+  既已定在解法 2，本條之 #3 預拍退路**僅退方式 A（明文 identity＋`chmod 600`）、不含 SECRETS_DIR
+  降階**——詳 ADR 0080 決策 3；三閘實測結果同見 ADR 0080 三閘實測欄。
 
 **SOPS 資產（U2）**
 
