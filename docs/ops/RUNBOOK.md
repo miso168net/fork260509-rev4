@@ -239,7 +239,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／L3~L15） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／L3~L20） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
@@ -250,6 +250,38 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 
 退出碼注意：schema-gate/wire-schema＝差異 1、環境不可用 2、用法錯 64；docs-sync refresh
 的 stack 不在走 exit 1——判讀看是哪支工具的哪個碼、勿一概當失敗。
+
+- **子命令真表**：`docs/generated/reference/tools-cli.md`（機器生成、
+  `python3 tools/docs-sync.py generate` 重算、嚴禁手改）——六支工具子命令的查詢入口；
+  lint 命令形判定基準＝工具源碼分派表、真表為同一掃源的生成物（手改真表不影響判定）。
+- **pre-commit 條件觸發**（工具自測、平時零額外開銷）：staged 含某 python 工具本體才跑
+  該支 test 子命令（docs-sync 約 8s、schema-gate／wire-schema 毫秒級）；fork-delta-lint
+  兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下單跑約 9s）；
+  `bash tools/bootstrap` 體檢則無條件全跑三支 test。
+
+lint 條款速覽（018 新增五條）——severity 三分：ERROR＝exit 1 擋 commit、WARN＝放行列示、
+跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
+
+- **L16 憑證內容掃描**：外層 tracked 全量＋pin bump（staged 含 gitlink 變動）時 submodule
+  舊 pin→新 pin diff 新增行增量掃；命中＝ERROR 指名檔案與 label（pem-private-key／
+  aws-akia／github-token／github-pat）；舊 pin 不可解＝退化為新 pin 全樹掃＋WARN 註記；
+  worktree 缺席或該 gitlink 未 staged＝落跳過明細。無 inline 豁免——確需豁免走工具常數
+  白名單＋ADR 0077。
+- **L17 pin 互證**：staged gitlink 與 worktree HEAD 分歧——平時 WARN（兩段式 commit 合法
+  中間態）、收刀簿記 commit（staged events 新增行含 feature_close）＝ERROR；worktree 缺席
+  ／index 無 gitlink／gitlink 合併衝突未解＝落跳過明細；訊息含「回外層 bump pin」指引。
+- **L18 events SHA 逐列實證**：帳本每列 merge SHA 於外層不可解或非 commit 物件＝ERROR；
+  pins SHA 於對應 submodule 不可解＝WARN（upstream rebase 卷史屬合法失聯）、可解而非
+  commit 物件＝ERROR；庫不可查＝該庫整批落跳過明細。
+- **L19 命令形 lint**：語料＝CLAUDE.md／README.md／本檔三件活手冊（NOTES＝未來式帳、
+  豁免）；命令形宣稱的子命令不在該工具源碼分派表＝ERROR；四支 python 工具的舊名
+  （不帶 .py）命中＝ERROR。
+- **L20 空集合守衛**：七組「不可能空」集合 fail-closed、空／缺＝ERROR——工具名冊、ADR
+  檔集、events 列、外層 tracked md 語料、reference 來源檔（submodule 底下者庫不可查＝
+  落跳過明細）、憑證掃描 tracked 清單、命令形語料三檔；另斷言有分派表的 python 工具其
+  子命令集非空。
+- **lint 摘要三段式**：末行＝`lint：X 錯誤／Y 警告／Z 條款跳過`；Z>0 時次行列跳過明細
+  （條款｜位置＝原因）；退出碼僅 X>0 時非零。
 
 ## 13. 故障排除速查（全文→LESSONS；此表只指路）
 
