@@ -71,15 +71,23 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
 **Independent Test**: spec US1——8 格 fixture（四形 × 兩路徑）全符預期、三 repo 各實擋一案、例行簿記
 commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 
-- [ ] T009 [US1] **誤報基線現場重建**（★必先於 T010；不得沿用任何舊數字）：以 T003 安裝之
+- [x] T009 [US1] **誤報基線現場重建**（★必先於 T010；不得沿用任何舊數字）：以 T003 安裝之
   掃描器對全歷史實跑一次，逐筆分流「真機密／誤報」並記錄命中樣態與所屬檔案；重點確認
   `docs/ops/events.jsonl` 的 40-hex 三欄（merge／pins.web／pins.api）、
   `deploy/secrets/*.txt.example`、`specs/017-audit-retention/quickstart.md` 的 `curl -u` 示例
-- [ ] T010 [US1] 新增 `.gitleaks.toml`（★必先於 T015 啟用 hook）：①DSN 自訂 `[[rules]]`
+  ——**實測（2026-07-28、493 commits、--redact 全程）**：21 findings、逐筆分流全數誤報、
+  零真機密——events.jsonl `pins.api` 欄 40-hex ×20（generic-api-key；merge／pins.web 欄
+  不觸發該規則＝關鍵字不中）＋017 quickstart `curl -u` 命令替換示例 ×1（curl-auth-user）；
+  `deploy/secrets/*.txt.example` 零命中（22-byte 佔位、低熵不中）
+- [x] T010 [US1] 新增 `.gitleaks.toml`（★必先於 T015 啟用 hook）：①DSN 自訂 `[[rules]]`
   （`id`＋`regex` 必填，涵蓋 postgres(ql)／redis／mysql 帳密 URL 樣式，補 `description`＋
   `keywords`）②依 T009 基線寫 per-rule allowlist——**每條必含 `condition = "AND"`**＋
   `paths`×`regexes`＋顯式 `regexTarget`，**嚴禁整檔放行**（漏 AND 退化為過寬放行且不報錯
   ＝本 schema 最大靜默失效點）③檔頭註記「僅用 gitleaks 子集欄位」（保雙向可攜）
+  ——**實測（2026-07-28）**：`extend.useDefault=true` 落檔後五探針全過——①KEY=value 執行期
+  假值 fixture exit 2（內建規則仍生效＝未被自訂 config 取代）②DSN fixture exit 2（命中
+  `rev4-dsn-credential-url`）③SOPS 密文形 exit 0 ④玩具示例限 specs/*.md 放行、同形在根目錄
+  檔 exit 2（allowlist AND 圈定生效）⑤帶 config 全歷史重掃 21→0 findings（基線全數圈定）
 - [ ] T011 [P] [US1] **TDD 紅**：`tools/secret-value-guard.py` 測試先行——內嵌
   `unittest.TestCase`（沿 018 慣例、無 pytest）：命中即擋／絕不輸出值本身／值缺席時 skip 不
   fail-closed／紅綠 self-test 防恆綠（紅樣本執行期字串串接構造、綠樣本含近似不命中與**邊界
