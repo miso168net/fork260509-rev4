@@ -36,14 +36,32 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
 **Goal**: 結清三個 go/no-go 實測，決定 US2／US3 的方案形狀；結果全數記入 ADR draft。
 **Blocking 範圍**: block US2／US3／US4；**不 block US1**。
 
-- [ ] T004 **閘 #2**（硬性前置、research R14）：於 `$HOME` ext4 路徑與 `/dev/shm` 各放測試檔，
+- [x] T004 **閘 #2**（硬性前置、research R14）：於 `$HOME` ext4 路徑與 `/dev/shm` 各放測試檔，
   以該路徑 bind-mount 起一個容器，`docker inspect --format '{{json .Mounts}}'` 確認 Source
   正確且容器**讀得到**；併驗權限與 UID 行為。★**失敗＝方案形狀改「解法 1 環境變數注入」
   ＝立即停工升級 user 重拍**（腳本形狀全異、後續任務作廢重寫），不得自行改設計
+  ——**實測（2026-07-29）閘 #2 全過**：ext4（`$HOME/.cache` 下測試目錄）與 `/dev/shm` 下
+  0700 測試目錄各起 alpine:3.23.3（--rm），inspect Mounts Source 逐字正確、容器內 cat 讀到
+  同值；UID/權限＝真 POSIX——uid:gid 1000:1000 原樣呈現、600 檔擋非 owner UID（472/59000
+  Permission denied）、644 檔之**檔案級** bind-mount（＝compose secrets 實形）UID 472/59000
+  皆讀取成功；另實測「掛整個 700 目錄」時非 root UID 無法穿越＝dir 700＋file 644＋逐檔掛載
+  的既定設計正確自洽。實驗檔與容器已全清
 - [ ] T005 **閘 #11**（結論反轉條件、必須早於落點定案）：自 Windows 側 docker client 對
   WSL 內部 ext4／tmpfs 路徑起一個容器，**以 `docker inspect` 的 Mounts 判讀**（非只看容器
   有沒有起來）；併校準「解密後明文能否被 Windows 側讀取」。★**反轉→SECRETS_DIR 拍板回頭
   重做（2 vs 2′ 比較基礎改變）＝升級 user**
+  ——★**實測（2026-07-29）閘 #11 反轉、升級 user**（雙側完整數據見本次 blocked 回報；
+  環境＝distro Ubuntu-24.04、Docker Desktop 引擎 29.6.2、docker.exe 同引擎）：
+  ①**Windows 側 docker.exe 以 UNC 形 `\\wsl.localhost\Ubuntu-24.04\dev\shm\...` 可定址
+  WSL 內部 tmpfs 起容器且 Mounts 成立、容器內讀到明文**（600 權限被容器 root 無視）；
+  ②**/dev/shm 明文可被 Windows 側輕易讀取**——`powershell.exe Get-Content` 與 `cmd.exe type`
+  經 `\\wsl.localhost`（及舊別名 `\\wsl$`）讀 600 權限測試檔皆逐字成功；③對照組：docker.exe
+  以**純 Linux 路徑字串**（`/dev/shm/...`／`/home/...`）掛載＝Mounts JSON 與 WSL 側完全同形
+  但容器內是**別 namespace 的空目錄**（構不到 Ubuntu 內容；證「只看 inspect Mounts 不可判定
+  定址成立、必須驗內容」）；④對稱性：ext4（`$HOME`）路徑經 UNC 讀取同樣成功＝live 通道對
+  解法 2 與 2′ 暴露相同、2′ 差異化收益收窄至 at-rest（不落 vhdx）與關機即清。
+  ——與 2′ 拍板前提相悖之兩個停工級判準例逐字命中→**status blocked、SECRETS_DIR 2 vs 2′
+  比較基礎由 user 重裁**；T006/T040/T007/T008 未動工（B′×2′ 自洽耦合、待重拍後續跑）
 - [ ] T006 [P] pinentry 前置（research R8）：建 `~/.gnupg/gpg-agent.conf` 寫入
   `pinentry-program /usr/bin/pinentry-curses`＋`GPG_TTY` 設定 → `gpgconf --reload gpg-agent`
   （本機該檔原不存在＝零衝突覆蓋風險；純終端 session 下預設 pinentry-gnome3 可能彈不出）
