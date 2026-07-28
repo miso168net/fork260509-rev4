@@ -4779,6 +4779,29 @@ class TestPinCrosscheck(unittest.TestCase):
             self.assertEqual(f[0]["where"], "rust-api")
             self.assertIn("跳過", f[0]["msg"])
 
+    def test_dir_present_without_dotgit_skips(self):
+        """狀態表第 4 列另一形：★目錄在、`.git` 不在（fresh clone 未跑 bootstrap 的常態）。
+
+        ★守衛（`.git` 存在才 rev-parse）是載重件：git 的 repo 探索會從 cwd 往上走，在外層 repo
+        內一個沒有 `.git` 的空目錄執行 rev-parse HEAD 拿回的是「外層 repo 的 HEAD」，必然異於
+        staged gitlink——守衛缺席時第 4 列（skip）會被錯判成第 2／第 3 列，收刀簿記 commit 那格
+        更是把合法 commit 硬擋在門外。故本案同時斷言一般形與收刀形皆停在 WARN 跳過。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            os.makedirs(os.path.join(d, "base-web"))       # 空目錄、不 init
+            _stage_gitlink(d, "base-web", "a" * 40)        # 異於任何真 SHA
+            f = lint_pin_crosscheck(d)
+            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertEqual(f[0]["where"], "base-web")
+            self.assertIn("跳過", f[0]["msg"])
+            # 收刀形：守衛缺席時這格會退化成 ERROR、硬擋合法 commit
+            _wfile(d, EVENTS, json.dumps(VALID_CLOSE, ensure_ascii=False) + "\n")
+            _git(d, "add", EVENTS)
+            f = lint_pin_crosscheck(d)
+            self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+            self.assertIn("跳過", f[0]["msg"])
+
     def test_no_gitlink_in_index_is_no_op(self):
         """index 無該 gitlink（純外層 repo）→不適用、零 finding。"""
         with tempfile.TemporaryDirectory() as d:
