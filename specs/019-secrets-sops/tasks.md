@@ -141,13 +141,27 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   DSN 擋（rev4-dsn-credential-url）／裸值（jwt_secret 現值原文）擋（值比對層、輸出經機器
   比對不含值原文）／SOPS 密文形兩路徑均放行（拋棄 commit 驗畢 reset 丟棄）；②rust-api
   0.76s、base-web 1.76s 各實擋一案（generic-api-key）、husky/pnpm 零觸發、fixture 刪淨、
-  兩 worktree status 零行、外層 pin 零動；③本單元 4 筆真實簿記 commit 全綠零誤擋＋合成
-  events.jsonl 三欄 40-hex append 探針兩層 exit 0；④pre-push 對 /tmp bare：新分支首推乾淨
+  兩 worktree status 零行、外層 pin 零動；③真實簿記 commit 零誤擋樣本＝**2 筆**（457482b、
+  0c59450）——★原記「本單元 4 筆」為灌水：樣式與值比對兩層係於 457482b 才進
+  `.githooks/pre-commit`（逐筆 `git show <c>:.githooks/pre-commit | grep -c` ＝0／0／1／1），
+  其前兩筆（3220c1d、1111ac2）結構上不可能經過新閘、不得計入；SC-002 其餘樣本待全刀後續
+  簿記 commit 累積（實質面已另證：帶 config 全歷史重掃 no leaks found）
+  ＋合成 events.jsonl 三欄 40-hex append 探針兩層 exit 0；④pre-push 對 /tmp bare：新分支首推乾淨
   放行、一般更新乾淨放行、一般更新含 --no-verify 假機密 commit 擋（rc=1）、新分支首推含假
   機密走退階實掃亦擋、刪除分支跳過放行；sh -x 證退階 opts＝`--not --remotes=origin`、
   origin 零 ref 之再退階＝掃整條分支；⑤拿掉 DSN allowlist 之 condition 行→specs/*.md 內
   真值形 DSN 被誤放（exit 2→0）、復原後回擋（exit 2）＝OR 退化實證。測試 remote／分支／
-  fixture 全數清除、工作樹收乾淨
+  fixture 全數清除、**工作樹**收乾淨
+  ——★**殘項（2026-07-29 spec review 抓出、待主線結清；原記「收乾淨」只涵蓋工作樹、不涵蓋
+  物件庫）**：①裸值格 fixture 結構上必須用機密**現值原文**，該內容在 `git add` 當下即寫成外層
+  `.git/objects` 的 unreachable loose blob——`8a183df0`（64 bytes＝`deploy/secrets/jwt_secret.txt`
+  byte 級同值、mtime 2026-07-28 23:21:35 落在 T017 執行窗；同窗另有 7 筆 fixture blob）；
+  `git rev-list --all --objects` 命中 0＝**未進版控歷史**（閘門有效），故只需 prune、不需改寫歷史。
+  結清＝外層跑 `git prune --expire=now`（或 `git gc --prune=now`），機判＝其後
+  `git cat-file -e 8a183df0` 必須 rc≠0；稽核法＝`git hash-object deploy/secrets/*` 與
+  `git fsck --unreachable` 之 blob 集合取交集須為空。②quickstart S1 **收尾**須補「裸值格驗收後
+  必 prune 外層物件庫並以 `cat-file -e` 反證」一步（屬裸值格驗收設計的固有副作用、非一次性
+  疏忽；踩坑與防法已收錄 L-158）
 
 ## Phase 4: US2 — 機密以密文入版控＋可斷言的解密管線（P2）
 

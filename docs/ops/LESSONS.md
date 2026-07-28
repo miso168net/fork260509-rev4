@@ -1,4 +1,4 @@
-<!-- next: L-158 -->
+<!-- next: L-159 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -212,3 +212,16 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   文件時，**回讀原文並把「防法句」逐字帶入**（含禁止面），不可只引編號＋憑印象轉述；
   驗收方法句視同程式碼、對照原 lesson 的禁止清單逐字核。
   ｜出處：2026-07-28 019 SDD analyze 修正核驗（L-155 誤用、獨立核驗軌抓出）。
+- **L-158**｜「工作樹收乾淨」≠「物件庫收乾淨」：`git add` 過的內容即使 `reset --hard`／刪檔
+  丟棄，也已在 `.git/objects` 留成 unreachable loose blob——`.gitignore` 只擋「進版控」、
+  不擋「進物件庫」，而三層掃描防線全部看不到它（樣式／值比對只看 staged 內容、pre-push 只看
+  commit 範圍）。019 T017 的**裸值格**驗收結構上必須拿機密**現值原文**當 fixture，故驗完丟棄後，
+  jwt_secret 現值仍以 unreachable blob 躺在 drvfs 777 的 `/mnt/d/…/.git/objects/8a/…`
+  ——正是 US1 要消滅的失效類，卻由驗收本身製造（同窗共 8 筆 fixture blob 殘留）。
+  防法：①凡以真實機密值當 fixture 的驗收，收尾必含 `git prune --expire=now`（或
+  `git gc --prune=now`）＋機判反證 `git cat-file -e <blob>` rc≠0，不可只靠 `reset --hard`／刪檔；
+  ②稽核指令＝`git hash-object <機密檔>` 逐檔算 SHA、與 `git fsck --unreachable` 的 blob 集合
+  取交集（非空即殘留）；先跑 `git rev-list --all --objects` 判是否已進歷史（未進＝只需 prune、
+  進了＝要改寫歷史＋輪替）；③驗收劇本裡「fixture 驗畢即刪」的字句一律補「並 prune 物件庫」，
+  否則收尾宣稱結構性造假。
+  ｜出處：2026-07-28 019 U1 T017 裸值格驗收（spec review 第 1 輪抓出、blob `8a183df0`）。
