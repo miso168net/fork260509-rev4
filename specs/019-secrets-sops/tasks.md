@@ -97,14 +97,20 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `$SECRETS_DIR`（回退 `deploy/secrets`）現值比對 `git diff --cached`；**★同步登記進
   `tools/docs-sync.py` 的 `TOOLS_PY` 常數**（否則不入 tools-cli 真表、L19／L20 涵蓋不到）→
   `python3 tools/docs-sync.py generate` 重算真表
-- [ ] T013 [P] [US1] 新增 `.githooks/lib/scan-range.sh`＋`.githooks/pre-push`（contracts
+- [x] T013 [P] [US1] 新增 `.githooks/lib/scan-range.sh`＋`.githooks/pre-push`（contracts
   scan-gates §S3）：解析 pre-push stdin 四欄位；範圍推導＝一般更新用 `remote-oid..local-oid`／
   **新分支首推（remote-oid 全零）退階 `local-oid --not --remotes=origin`**／該退階無效時掃整條
   分支／刪除分支（local-oid 全零）跳過；命中即 exit 1
-- [ ] T014 [P] [US1] 新增 `.githooks-submodule/pre-commit` 與 `.githooks-submodule/pre-push`
+  ——**實測（2026-07-28）**：`sh -n` 語法綠；合成 stdin 冒煙——一般更新（HEAD~1..HEAD）exit 0、
+  刪除分支行（local-oid 全零）靜默跳過 exit 0；scanner exit 2／其他非零分流訊息各自可辨識；
+  三情境 bare-repo 全驗＝T017 ④
+- [x] T014 [P] [US1] 新增 `.githooks-submodule/pre-commit` 與 `.githooks-submodule/pre-push`
   （兩源倉專用、**僅樣式掃描、零 python 依賴**）：**pre-commit 直接跑樣式掃描、不 source 任何
   lib**（`scan-range.sh` 只承載 pre-push 的 stdin 解析與範圍推導）；**pre-push 才**以
   `dirname "$0"` 自我定位後 source `../.githooks/lib/scan-range.sh`（**不硬編碼外層絕對路徑**）
+  ——**實測（2026-07-28）**：`sh -n` 語法綠；★源倉樹無 `.gitleaks.toml`＝scanner 自動探索
+  構不到，兩 hook 以 `dirname "$0"` 取外層檔顯式帶 `--config`（外層 hooksPath 絕對路徑保證
+  `$0` 絕對）；實擋演練＝T017 ②④
 - [ ] T015 [US1] 改 `.githooks/pre-commit`：①掃描行置於 `docs-sync check` **之前**，指令＝
   `betterleaks git --pre-commit --staged --redact --verbose --exit-code 2`（★`--redact` 不可省
   ——預設 0＝明文噴進終端；★禁用 `protect`／`detect`；★原生二進位、禁容器）②exit code 分流
