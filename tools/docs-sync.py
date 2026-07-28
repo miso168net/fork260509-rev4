@@ -5379,6 +5379,106 @@ class TestCmdFormLint(unittest.TestCase):
                             msg=str(f))
 
 
+HOOK_REL = ".githooks/pre-commit"
+BOOTSTRAP_REL = "tools/bootstrap"
+RE_HOOK_ROSTER = re.compile(r"^for t in ([a-z0-9. -]+); do$", re.M)
+RE_BOOTSTRAP_TEST = re.compile(r"^run_tool_test (\S+)$", re.M)
+# 樁工具：把自己被呼叫的 argv 記進 WIRE_LOG；WIRE_FAIL 命中即非零退出（驗 fail-closed）。
+STUB_TOOL = ("#!/usr/bin/env python3\n"
+             "import os, sys\n"
+             "open(os.environ['WIRE_LOG'], 'a').write(' '.join(sys.argv) + '\\n')\n"
+             "fail = os.environ.get('WIRE_FAIL')\n"
+             "sys.exit(1 if fail and sys.argv[0].endswith(fail) else 0)\n")
+
+
+def tools_test_roster():
+    """真表中帶 `test` 子命令的 python 工具名冊＝hook／bootstrap 應觸發自測的全集。"""
+    subs = {r["rel"]: r["subs"] for r in compute_tools_cli(ROOT) if r["lang"] == "python"}
+    return tuple(n for n in TOOLS_PY if "test" in subs[f"tools/{n}.py"])
+
+
+class TestGateWiring(unittest.TestCase):
+    """★G8/G9 接線守衛（contracts G8／G9、data-model §8）：守門動作住 shell 面，整段被
+    刪除或改壞時三套件仍全綠（＝本刀要消滅的失效類「守門動作恆不跑」）。python 面已有
+    test_run_lint_wires_cmd_forms／test_compute_generated_wires_tools_cli 同級案，此節補齊
+    shell 面：①名冊與真表對賬（把 hook 的手抄名冊降級為受檢副本）②以樁工具乾跑真 hook 檔
+    文、實測觸發次數（非只驗字面在）。沙盒建在系統 tmp（native fs、非 drvfs），七次乾跑
+    合計約 0.5s。"""
+
+    BASE = ["tools/docs-sync.py check", "tools/docs-sync.py lint"]
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.d = d = cls._tmp.name
+        _init_outer(d)
+        hook = _read(ROOT, HOOK_REL)
+        assert hook is not None, f"{HOOK_REL} 讀不到——G8 接線無源"
+        _wfile(d, HOOK_REL, hook)              # ★乾跑真 hook 檔文，不重寫等價品
+        for name in TOOLS_PY:
+            _wfile(d, f"tools/{name}.py", STUB_TOOL)
+        _wfile(d, "base-web", "gitlink 佔位：本測只驗觸發條件、不建真 submodule\n")
+        _wfile(d, "docs/ops/NOTES.md", "非工具檔（平時情境用）\n")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def _run(self, staged, fail=""):
+        """乾跑真 hook：回（退出碼, 樁工具被呼叫的 argv 行序）。"""
+        log = os.path.join(self.d, "wire.log")
+        open(log, "w").close()
+        _git(self.d, "reset", "-q")
+        _git(self.d, "add", "--", *staged)
+        r = subprocess.run(["sh", HOOK_REL], cwd=self.d, capture_output=True,
+                           encoding="utf-8", errors="replace",
+                           env=dict(os.environ, WIRE_LOG=log, WIRE_FAIL=fail))
+        with open(log, encoding="utf-8") as fh:
+            return r.returncode, fh.read().splitlines()
+
+    def test_hook_roster_is_a_checked_copy_of_the_truth_table(self):
+        """★hook 的 `for t in …` 是全庫第三份手抄名冊（一＝TOOLS_PY、二＝bootstrap）：
+        與真表對賬後，新增帶 test 介面的守門工具卻漏接線即紅、不再零提醒。"""
+        hook = _read(ROOT, HOOK_REL)
+        m = RE_HOOK_ROSTER.search(hook or "")
+        self.assertIsNotNone(m, msg="pre-commit 條件觸發段的工具名冊行不見了")
+        self.assertEqual(tuple(m.group(1).split()), tools_test_roster())
+        self.assertIn("tools/fork-delta-lint.py", hook)   # 無 test 介面、走聯集觸發
+
+    def test_bootstrap_runs_every_tool_test(self):
+        """G9 體檢節無條件全跑：三行 run_tool_test 被刪即紅（與 hook 同一名冊對賬）。"""
+        text = _read(ROOT, BOOTSTRAP_REL)
+        self.assertIsNotNone(text)
+        self.assertEqual(tuple(RE_BOOTSTRAP_TEST.findall(text)), tools_test_roster())
+        self.assertIn("tools/fork-delta-lint.py", text)
+
+    def test_dry_run_costs_nothing_extra_when_no_tool_staged(self):
+        """情境①平時（零工具 staged）：只跑 check＋lint，零 test、零 fork-delta-lint。"""
+        self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
+
+    def test_dry_run_triggers_only_the_staged_tools_test(self):
+        """情境②三支全 staged＝三支全觸發（順序＝名冊序）；情境③只 staged 一支＝另兩支
+        不得被拖下水（條件是逐支比對、不是「有工具改動就全跑」）。"""
+        roster = tools_test_roster()
+        self.assertEqual(self._run([f"tools/{n}.py" for n in roster]),
+                         (0, self.BASE + [f"tools/{n}.py test" for n in roster]))
+        self.assertEqual(self._run(["tools/docs-sync.py"]),
+                         (0, self.BASE + ["tools/docs-sync.py test"]))
+
+    def test_dry_run_fork_delta_lint_union_runs_exactly_once(self):
+        """情境④~⑥ fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取
+        聯集：各單條件 1 次、雙條件仍 1 次（重跑判定冪等、白付約 9s drvfs I/O 稅）。"""
+        for staged in (["base-web"], ["tools/fork-delta-lint.py"],
+                       ["base-web", "tools/fork-delta-lint.py"]):
+            self.assertEqual(self._run(staged),
+                             (0, self.BASE + ["tools/fork-delta-lint.py"]), msg=str(staged))
+
+    def test_dry_run_non_zero_action_fails_the_hook(self):
+        """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。"""
+        self.assertEqual(self._run(["tools/schema-gate.py"], fail="schema-gate.py"),
+                         (1, self.BASE + ["tools/schema-gate.py test"]))
+
+
 SNAP_COLS = [
     {"table": "sys_user", "column": "id", "ordinal": 1, "type": "bigint",
      "nullable": False, "default": None},
