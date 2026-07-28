@@ -81,3 +81,4 @@
 | 0076 | accepted | 2026-07-21 | 稽核 retention 自動清理——遵憲 J3 自記＋reaper 權限最小擴張（B-016 本體、兌現 0075 預留條款） | — | 0075 | — |
 | 0077 | accepted | 2026-07-28 | 憑證內容掃描閘——外層 tracked 全量＋pin bump 增量掃 submodule、窄樣式集高確信、無 inline 豁免 | — | — | — |
 | 0078 | accepted | 2026-07-28 | events.jsonl append-only 例外——機器可證語意不變的格式正規化允許動既有列（獨立勘誤 commit 逐筆附證據） | — | — | — |
+| 0080 | draft | 2026-07-29 | 私鑰 B′（passphrase 加殼 identity）× SECRETS_DIR 解法 2（$HOME/.cache/rev4-secrets）——三實測閘定案與 #11 反轉後重拍 | — | — | — |

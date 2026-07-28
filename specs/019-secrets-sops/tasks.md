@@ -105,8 +105,12 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   每次 `sops -d` 恰 1 次**（多 recipient 值由 T033 量、RUNBOOK 不寫死）。閘用檔案全程限
   `$HOME/.cache/rev4-019-tmp/gate3/`（未碰 `~/.config/sops/age/`）、identity 與實驗檔驗畢
   全清、容器一律 --rm 零殘留
-- [ ] T008 三閘結果落 ADR draft `docs/arc42/decisions/0080-*.md`（私鑰與落點篇的實測欄）：
+- [x] T008 三閘結果落 ADR draft `docs/arc42/decisions/0080-*.md`（私鑰與落點篇的實測欄）：
   逐閘記「怎麼跑／實測輸出／結論／對設計的影響」；#3 失敗時另記退路生效與 SECRETS_DIR 降階
+  ——**實做（2026-07-29）**：落檔 `0080-age-identity-bprime-secretsdir-solution2.md`
+  （status: draft、格式對齊 0077）：三閘逐閘四欄實測欄（#2 過引 T004 證據／#11 反轉雙側
+  數據＋user 重拍三點定案與理由／#3 本輪全過 B′ 定案、退路未動用）＋C 案儀式拍板引用
+  （T019 註記為權威）＋解法 2 at-rest 代價誠實登記；正文完稿歸 U6 T034、收刀轉 accepted
 
 ## Phase 3: US1 — 機密洩漏三層掃描防線（P1；MVP）
 
