@@ -5,9 +5,10 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 對賬）
-  lint            L3～L18（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
+  lint            L3～L19（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
                   L16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
-                  L17 pin↔worktree HEAD 互證；L18 events 帳本 SHA 逐列向 git 實證）
+                  L17 pin↔worktree HEAD 互證；L18 events 帳本 SHA 逐列向 git 實證；
+                  L19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令）
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
   test            跑自帶測試（unittest）
@@ -1826,6 +1827,135 @@ def compute_snapshot_reference(root):
     }
 
 
+# ---------------------------------------------------------------------------
+# G7 tools-cli 真表／L19 命令形 lint（contracts G5/G7；FR-014）
+# ---------------------------------------------------------------------------
+
+TOOLS_PY = ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema")
+TOOLS_SH = ("bootstrap", "wf-watchdog")
+TOOLS_CLI_MD = f"{GENERATED_DIR}/reference/tools-cli.md"
+SH_USAGE_HEAD = 10     # bash 用法行只認檔頭前 N 行的註解（再深＝內文敘述、非介面說明）
+# ★語料寫死三件活手冊（現在式）：NOTES 屬未來式帳（可合法提及尚未存在的子命令、clarify
+# 拍板）、LESSONS 屬過去式史料（L-143 留有當時舊名的實跑 exit 對照）、docs/generated/ 為
+# 機器生成（含本真表自身與由 events 派生的里程碑摘要）——三者入語料即當場自紅。
+CMD_FORM_CORPUS = ("CLAUDE.md", "README.md", "docs/ops/RUNBOOK.md")
+
+# 掃源＝分派表的字串比較字面。★兩形都要收：schema-gate 的 audit 只出現在 `cmd in (…)` 形，
+# 只收等號形則真表少一個子命令、與源碼對不上（SC-006）。變數名限定 cmd、子命令限小寫起首
+# ——把一般字串比較（如 mode 比對、大寫常數）擋在外。
+RE_DISPATCH_EQ = re.compile(r'\bcmd\s*==\s*"([a-z][a-z0-9-]*)"')
+RE_DISPATCH_IN = re.compile(r"\bcmd\s+in\s+\(([^)]*)\)")
+RE_DISPATCH_ITEM = re.compile(r'"([a-z][a-z0-9-]*)"')
+
+# 命令形：★子命令 token 只認「單一空白後緊接」——手冊的目錄樹以多空白對欄（README 那行
+# `tools/fork-delta-lint.py` 後對齊的說明文字首字恰是 base-web），以 \s+ 取 token 會把說明
+# 文字當成子命令而誤紅。多值儲存格（`gate1|gate2|audit`、`errata <詞>` / `test`）則靠
+# token 字元集（小寫字母／數字／連字號）自然斷在第一個合法子命令上。
+RE_CMD_PY = re.compile(
+    r"tools/(" + "|".join(TOOLS_PY) + r")\.py(?: (?P<sub>[a-z][a-z0-9-]*))?")
+RE_CMD_OLD = re.compile(r"tools/(" + "|".join(TOOLS_PY) + r")(?!\.py)\b")
+RE_CMD_SH = re.compile(r"tools/(" + "|".join(TOOLS_SH) + r")\b")
+
+
+class ToolsCliError(Exception):
+    """tools-cli 掃源失敗（fail-loud：python 工具本體缺席＝真表無源，不得靜默產空表）。"""
+
+
+def scan_subcommands(source):
+    """工具源碼 → 子命令集（去重排序）。"""
+    subs = set(RE_DISPATCH_EQ.findall(source))
+    for group in RE_DISPATCH_IN.findall(source):
+        subs.update(RE_DISPATCH_ITEM.findall(group))
+    return sorted(subs)
+
+
+def sh_usage_line(source):
+    """bash 檔頭前 SH_USAGE_HEAD 行內首個含「用法」的註解行（去註解符）；缺→None。"""
+    for line in source.splitlines()[:SH_USAGE_HEAD]:
+        s = line.strip()
+        if s.startswith("#") and "用法" in s:
+            return s.lstrip("#").strip()
+    return None
+
+
+def compute_tools_cli(root):
+    """六支工具掃源 → 真表 rows（python 四支＝子命令集；bash 兩支＝存在＋用法行）。"""
+    rows = []
+    for name in TOOLS_PY:
+        rel = f"tools/{name}.py"
+        src = _read(root, rel)
+        if src is None:
+            raise ToolsCliError(f"{rel} 讀不到——真表缺源、命令形比對基準無法建立")
+        rows.append({"rel": rel, "lang": "python", "subs": scan_subcommands(src)})
+    for name in TOOLS_SH:
+        rel = f"tools/{name}"
+        src = _read(root, rel)
+        rows.append({"rel": rel, "lang": "bash", "exists": src is not None,
+                     "usage": sh_usage_line(src) if src is not None else None})
+    return rows
+
+
+def gen_tools_cli(rows):
+    """真表 md（GEN_HEADER＋每工具一節；data-model §7）。"""
+    parts = [GEN_HEADER, "# reference/tools-cli — 治理工具命令真表", "",
+             "來源＝tools/ 六支工具掃源（python 四支＝分派表字串比較字面、去重排序；bash 兩支"
+             "＝存在與檔頭用法行）。消費者＝lint L19 命令形條款（語料＝CLAUDE.md／README.md／"
+             "docs/ops/RUNBOOK.md 三件活手冊）＋人讀。\n"]
+    for row in rows:
+        parts.append(f"## {row['rel']}")
+        parts.append(f"- 語言：{row['lang']}")
+        if row["lang"] == "python":
+            parts.append("- 子命令：" + ("｜".join(f"`{s}`" for s in row["subs"])
+                                       if row["subs"] else "（無——源碼無分派表、直跑）"))
+        else:
+            parts.append(f"- 存在：{'是' if row['exists'] else '否'}")
+            parts.append("- 檔頭用法行：" + (row["usage"]
+                                        or f"（檔頭前 {SH_USAGE_HEAD} 行無「用法」註解行）"))
+        parts.append("")
+    return "\n".join(parts)
+
+
+def check_cmd_forms(texts, subs, sh_exists):
+    """純判定：texts={rel: 全文}、subs={python 工具 rel: 子命令集}、sh_exists={bash rel: bool}。"""
+    out = []
+    for rel in sorted(texts):
+        for n, line in enumerate((texts[rel] or "").splitlines(), start=1):
+            for m in RE_CMD_PY.finditer(line):
+                sub = m.group("sub")
+                tool = f"tools/{m.group(1)}.py"
+                if sub is None or sub in subs.get(tool, set()):
+                    continue
+                out.append(finding(
+                    ERROR, "L19", f"{rel}:行 {n}",
+                    f"命令形宣稱的子命令「{sub}」不在真表（{TOOLS_CLI_MD}）之 {tool} 子命令集"
+                    "——文件宣稱漂移；改回真名，或先讓工具支援該子命令再回頭改文件"))
+            for m in RE_CMD_OLD.finditer(line):
+                out.append(finding(
+                    ERROR, "L19", f"{rel}:行 {n}",
+                    f"舊名命令形「tools/{m.group(1)}」（缺 .py 副檔名）——B-111 改名後工具實體"
+                    "只有 .py 名，照著打即檔不存在"))
+            for m in RE_CMD_SH.finditer(line):
+                tool = f"tools/{m.group(1)}"
+                if not sh_exists.get(tool, False):
+                    out.append(finding(ERROR, "L19", f"{rel}:行 {n}",
+                                       f"命令形指向不存在的工具「{tool}」"))
+    return out
+
+
+def lint_cmd_forms(root):
+    """L19：三件活手冊的 tools 命令形 vs tools-cli 真表（contracts G5）。"""
+    try:
+        rows = compute_tools_cli(root)
+    except ToolsCliError as ex:
+        return [finding(ERROR, "L19", "tools",
+                        f"真表掃源失敗（{ex}）——命令形無比對基準，fail-closed")]
+    texts = {rel: _read(root, rel) for rel in CMD_FORM_CORPUS}
+    return check_cmd_forms(
+        {rel: t for rel, t in texts.items() if t is not None},
+        {r["rel"]: set(r["subs"]) for r in rows if r["lang"] == "python"},
+        {r["rel"]: r["exists"] for r in rows if r["lang"] == "bash"})
+
+
 def parse_events_loose(text):
     """generate 用的寬鬆解析（壞行、非 object 行跳過——擋壞行是 L3 的職責）。"""
     events = []
@@ -1872,6 +2002,7 @@ def compute_generated(root):
     msg_rows = compute_msg_dict_rows(root)
     files[MSG_DICT_MD] = gen_msg_dict_md(msg_rows)
     files[MSG_DICT_PANEL] = gen_msg_dict_panel(msg_rows)
+    files[TOOLS_CLI_MD] = gen_tools_cli(compute_tools_cli(root))
     files.update(compute_snapshot_reference(root))
     return files
 
@@ -2423,8 +2554,8 @@ def lint_events_sha(root):
 
 
 def run_lint(root):
-    """組裝 L3～L18（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
-    實證）全套。回 findings。git 不可用＝fail-closed 單發 ERROR。"""
+    """組裝 L3～L19（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
+    實證、L19 命令形真表比對）全套。回 findings。git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
         return [finding(ERROR, "L1", ".",
                         "git 不可用——HEAD 基線與掃描語料無法建立，lint fail-closed（修復 git 後重跑）")]
@@ -2461,6 +2592,7 @@ def run_lint(root):
     findings += lint_credentials(root)
     findings += lint_pin_crosscheck(root)
     findings += lint_events_sha(root)
+    findings += lint_cmd_forms(root)
     return findings
 
 
@@ -5034,6 +5166,208 @@ class TestEventsShaProof(unittest.TestCase):
                 [{}, {}, {}])
 
 
+# --- G7／L19 測試共用 fixture（★一律自建 root，真 repo 唯讀）------------------
+
+# ★分派表字面一律以 format 模板構造：本檔自身即掃源標的，落任何完整的
+#   「cmd 等號等號 空白 雙引號 小寫子命令 雙引號」字面，就會被自己的掃源當成 docs-sync 的
+#   子命令、真表當場失真（與 L16 紅樣本執行期串接同一紀律）。模板的 {} 非小寫字母＝不自命中。
+_FAKE_EQ = 'if cmd == "{}":\n    pass\n'
+_FAKE_ELIF = 'elif cmd == "{}":\n    pass\n'
+_FAKE_IN = 'if cmd in ("{}", "{}"):\n    pass\n'
+_FAKE_TOOLS = (("docs-sync", ("generate", "lint")), ("fork-delta-lint", ()),
+               ("schema-gate", ("gate1", "gate2")), ("wire-schema", ("extract",)))
+
+
+def _tools_fixture(d):
+    """自建 root 的 tools/ 六支最小工具源（python 四支帶分派表、bash 兩支帶檔頭）。"""
+    for name, subs in _FAKE_TOOLS:
+        body = "".join(_FAKE_EQ.format(s) for s in subs) or "# 無分派表、直跑\n"
+        _wfile(d, f"tools/{name}.py", "#!/usr/bin/env python3\n" + body)
+    _wfile(d, "tools/bootstrap", "#!/usr/bin/env bash\n# 用途：體檢（無用法行）\n")
+    _wfile(d, "tools/wf-watchdog", "#!/usr/bin/env bash\n# 用法：bash tools/wf-watchdog\n")
+
+
+class TestToolsCliTruthTable(unittest.TestCase):
+    """G7 tools-cli 掃源真表（contracts G7／data-model §7／research R5）。"""
+
+    def test_scan_dedups_sorts_and_ignores_non_dispatch(self):
+        """掃源子命令集：elif 鏈＋`cmd in (...)` 形全收、重複去重、非分派字串比較不收。"""
+        src = ("import sys\n"
+               + _FAKE_EQ.format("lint")
+               + _FAKE_ELIF.format("generate")
+               + _FAKE_ELIF.format("lint")               # 重複→去重
+               + _FAKE_IN.format("gate2", "audit")       # schema-gate 的 audit 只長這形
+               + 'if mode == "notacmd":\n    pass\n'     # 非 cmd 變數＝一般字串比較、不收
+               + 'if cmd == "BadCase":\n    pass\n')     # 大寫起首＝非子命令形、不收
+        self.assertEqual(scan_subcommands(src),
+                         ["audit", "gate2", "generate", "lint"])
+
+    def test_real_docs_sync_dispatch_is_pinned(self):
+        """★對現庫源碼實掃（S6 步 1 逐一對照的機器化）：本檔測試字面污染真表即當場紅。"""
+        src = _read(ROOT, "tools/docs-sync.py")
+        self.assertIsNotNone(src)
+        self.assertEqual(scan_subcommands(src),
+                         ["check", "errata", "generate", "lint", "refresh", "test"])
+
+    def test_sh_usage_line(self):
+        """bash 用法行＝檔頭前 N 行首個含「用法」註解（去註解符）；缺／過深→None。"""
+        head = "#!/usr/bin/env bash\n# 名稱 — 說明\n#\n#   用法：bash tools/x [token]\n"
+        self.assertEqual(sh_usage_line(head), "用法：bash tools/x [token]")
+        self.assertIsNone(sh_usage_line("#!/bin/sh\n# 用途：只有用途註解\n"))
+        self.assertIsNone(sh_usage_line("#\n" * SH_USAGE_HEAD + "# 用法：太深\n"))
+
+    def test_compute_and_render_six_tools(self):
+        """真表六節俱全：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
+        with tempfile.TemporaryDirectory() as d:
+            _tools_fixture(d)
+            md = gen_tools_cli(compute_tools_cli(d))
+            self.assertTrue(md.startswith(GEN_HEADER))
+            for name in TOOLS_PY:
+                self.assertIn(f"## tools/{name}.py", md)
+            for name in TOOLS_SH:
+                self.assertIn(f"## tools/{name}\n", md)
+            self.assertIn("`generate`｜`lint`", md)
+            self.assertIn("直跑", md)                      # fork-delta-lint 無子命令
+            self.assertIn("用法：bash tools/wf-watchdog", md)
+
+    def test_compute_fails_loud_on_missing_python_tool(self):
+        """python 工具缺席＝真表無源→fail-loud（不得靜默產空表、否則命令形恆綠）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _tools_fixture(d)
+            os.remove(os.path.join(d, "tools/wire-schema.py"))
+            with self.assertRaises(ToolsCliError):
+                compute_tools_cli(d)
+
+    def test_absent_bash_tool_recorded_as_missing(self):
+        """bash 工具缺席＝真表如實記「否」（判定歸 L19、生成面不炸）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _tools_fixture(d)
+            os.remove(os.path.join(d, "tools/wf-watchdog"))
+            rows = {r["rel"]: r for r in compute_tools_cli(d)}
+            self.assertFalse(rows["tools/wf-watchdog"]["exists"])
+            self.assertTrue(rows["tools/bootstrap"]["exists"])
+
+    def test_compute_generated_wires_tools_cli(self):
+        """★接線層：真表若沒進 compute_generated，check 就對不到賬、G7 靜默下線。"""
+        self.assertIn(TOOLS_CLI_MD, compute_generated(ROOT))
+
+
+class TestCmdFormLint(unittest.TestCase):
+    """L19 命令形 lint（contracts G5／research R6）：真表比對＋舊名禁令＋語料邊界。"""
+
+    SUBS = {"tools/docs-sync.py": {"check", "errata", "generate", "lint", "refresh", "test"},
+            "tools/schema-gate.py": {"audit", "gate1", "gate2", "test"},
+            "tools/wire-schema.py": {"extract", "test"},
+            "tools/fork-delta-lint.py": set()}
+    SH = {"tools/bootstrap": True, "tools/wf-watchdog": True}
+    RUNBOOK_REL = "docs/ops/RUNBOOK.md"
+
+    def _f(self, text, rel=None):
+        return check_cmd_forms({rel or self.RUNBOOK_REL: text}, self.SUBS, self.SH)
+
+    def test_unknown_subcommand_is_error_naming_file_and_line(self):
+        """真表沒有的子命令→ERROR，指名該檔該行（文件宣稱漂移）。"""
+        text = "前言\n\n跑 `python3 tools/docs-sync.py nonexistent-cmd` 重算\n"
+        f = self._f(text)
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertEqual(f[0]["code"], "L19")
+        self.assertEqual(f[0]["where"], f"{self.RUNBOOK_REL}:行 3")
+        self.assertIn("nonexistent-cmd", f[0]["msg"])
+
+    def test_known_subcommands_pass(self):
+        for sub in ("generate", "check", "lint", "refresh", "errata", "test"):
+            self.assertEqual(self._f(f"`python3 tools/docs-sync.py {sub}`\n"), [],
+                             msg=sub)
+
+    def test_old_name_without_py_is_error(self):
+        """②舊名禁令：四支不帶 .py 的路徑形命中即 ERROR（B-111 長期機器化）。"""
+        f = self._f("勘誤跑 `tools/docs-sync errata 某詞`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("舊名", f[0]["msg"])
+
+    def test_new_name_does_not_trip_old_name_ban(self):
+        """`tools/docs-sync.py` 內含舊名子字串——負向前瞻沒掛好即全庫誤紅。"""
+        self.assertEqual(self._f("`python3 tools/docs-sync.py generate`\n"), [])
+
+    def test_non_lowercase_token_treated_as_argument(self):
+        """後隨 token 非小寫字母起首（佔位符）＝引數、僅驗工具存在、不驗子命令。"""
+        self.assertEqual(self._f("`tools/docs-sync.py 「關鍵詞」`\n"), [])
+        self.assertEqual(self._f("`tools/docs-sync.py errata 「關鍵詞」`\n"), [])
+        self.assertEqual(self._f("- 生成器＋lint（generate／check／lint／errata／test）\n"), [])
+
+    def test_multi_value_cells_from_live_runbook(self):
+        """★RUNBOOK 現行一格多值列原文入 fixture：以空白為界取 token 會取到整串而誤紅。"""
+        text = (
+            "| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道 | 否 |\n"
+            "| `python3 tools/docs-sync.py errata <詞>` / `test` | 枚舉／自測 | 否 |\n"
+            "| `python3 tools/schema-gate.py gate1|gate2|audit` | 三閘 | **是** |\n"
+            "| `python3 tools/wire-schema.py extract` / `test` | 抽 typings／自測 | 是 |\n"
+            "| `python3 tools/fork-delta-lint.py` | base-web 原行紀律 | 否 |\n")
+        self.assertEqual(self._f(text), [])
+
+    def test_column_aligned_tree_line_is_not_a_subcommand(self):
+        """★README 目錄樹以多空白對欄，說明文字首字（base-web）不是子命令。"""
+        self.assertEqual(
+            self._f("├── tools/fork-delta-lint.py         base-web 原行紀律機器強制\n",
+                    rel="README.md"), [])
+
+    def test_subcommand_on_tool_without_dispatch_is_error(self):
+        """空子命令集的工具（fork-delta-lint）被宣稱帶子命令→ERROR。"""
+        f = self._f("`python3 tools/fork-delta-lint.py scan`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+
+    def test_bash_tools_existence_only(self):
+        """③bash 兩支僅驗檔存在：在＝過、不在＝ERROR。"""
+        self.assertEqual(self._f("`bash tools/bootstrap`\n"), [])
+        self.assertEqual(
+            check_cmd_forms({self.RUNBOOK_REL: "`bash tools/wf-watchdog <token>`\n"},
+                            self.SUBS, {"tools/bootstrap": True, "tools/wf-watchdog": False}
+                            )[0]["level"], ERROR)
+
+    def test_corpus_is_exactly_three_live_manuals(self):
+        """★語料邊界機器斷言：三件活手冊；NOTES（未來式）／LESSONS（史料）／generated 皆排除。"""
+        self.assertEqual(CMD_FORM_CORPUS, ("CLAUDE.md", "README.md", "docs/ops/RUNBOOK.md"))
+        self.assertNotIn(NOTES, CMD_FORM_CORPUS)
+        for rel in lessons_paths(ROOT):
+            self.assertNotIn(rel, CMD_FORM_CORPUS)
+        for rel in CMD_FORM_CORPUS:
+            self.assertFalse(rel.startswith(GENERATED_DIR + "/"), msg=rel)
+
+    def test_corpus_boundary_end_to_end(self):
+        """同一段違規文字：放 NOTES／LESSONS／generated 不紅、放 RUNBOOK 即紅（各一）。"""
+        bad = "跑 `python3 tools/docs-sync.py nonexistent-cmd` 與 `tools/docs-sync generate`\n"
+        with tempfile.TemporaryDirectory() as d:
+            _tools_fixture(d)
+            for rel in (NOTES, "docs/ops/LESSONS.md", TOOLS_CLI_MD):
+                _wfile(d, rel, bad)
+            self.assertEqual(lint_cmd_forms(d), [])
+            _wfile(d, "docs/ops/RUNBOOK.md", bad)
+            f = lint_cmd_forms(d)
+            self.assertEqual(len(f), 2, msg=str(f))
+            self.assertTrue(all(x["level"] == ERROR and x["code"] == "L19" for x in f))
+
+    def test_missing_tool_source_fails_closed(self):
+        """真表無源→L19 fail-closed 單發 ERROR（不得因掃源失敗而靜默放行）。"""
+        with tempfile.TemporaryDirectory() as d:
+            f = lint_cmd_forms(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("fail-closed", f[0]["msg"])
+
+    def test_live_manuals_are_clean(self):
+        """★現庫三件活手冊零命令形漂移（條款上線即自紅＝接線或語料選錯）。"""
+        self.assertEqual(lint_cmd_forms(ROOT), [])
+
+    def test_run_lint_wires_cmd_forms(self):
+        """★接線層：lint_cmd_forms 從 run_lint 掉線＝L19 整條靜默下線。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _tools_fixture(d)
+            _wfile(d, "CLAUDE.md", "跑 `tools/docs-sync.py nonexistent-cmd`\n")
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "L19" and x["level"] == ERROR for x in f),
+                            msg=str(f))
+
+
 SNAP_COLS = [
     {"table": "sys_user", "column": "id", "ordinal": 1, "type": "bigint",
      "nullable": False, "default": None},
@@ -5350,6 +5684,9 @@ def main(argv):
         return 1
     except ElegantRoutesError as ex:
         print(f"[ERROR] screens 解析｜{ex}——fail-loud，處置後重跑", file=sys.stderr)
+        return 1
+    except ToolsCliError as ex:
+        print(f"[ERROR] tools-cli 掃源｜{ex}——fail-loud，處置後重跑", file=sys.stderr)
         return 1
     except SnapshotError as ex:
         print(f"[ERROR] 快照管線｜{ex}", file=sys.stderr)
