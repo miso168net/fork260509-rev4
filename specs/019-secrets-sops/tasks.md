@@ -308,6 +308,13 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   **縱深防禦、與落點無關**，見 ADR 0080 決策 4）→ wrapper 收 stdout（`umask 077`、**不用 `--output`／`-i`**
   避免 root 產物）→ **key 數與名稱斷言、不符零寫入＋非零退出＋指名缺哪個 key** → 逐檔
   `printf '%s'`（無尾端換行）＋`chmod 644` → **現值 ≠ 解密值則另存 `.txt.new` 不覆寫**
+  ——**實做（2026-07-29）**：契約全落＋兩個實測接地——①單次 `sops -d`（B′ 單 recipient
+  恰 1 次提示、pty 實測 fed=1）收全 YAML 至 `tmp/decrypt-secrets.XXXXXX/`（gitignored、
+  trap 即刪）；②★容器 pty 單流雜訊實測＝提示行＋ANSI 清行序列（ESC[F ESC[K）黏在首資料行
+  ＋全輸出 CRLF——拆 key 前先 `tr '\r' '\n'`＋剝 CSI 序列、只認 `key: value` 行（提示行天然
+  被濾）；權限自證 drvfs（v9fs）分支＝WARN 不中止（chmod 結構性 no-op、US3 遷移消滅）、
+  其他 fs 不為 700＝FAIL。正向全跑 rc=0、8 支 WRITTEN、11 支 sha256 前後全 OK（含 3 composite
+  未動）；非互動 rc=1 即紅不 hang；exec bit `git ls-files -s`＝100755
 - [ ] T023 [US2] **S4／S5 驗收**：加解密最小往返（#1）＋加密檔形制三條＋五要求逐條否定測試
   （刪 key→零寫入報錯｜構造 `alert_webhook_url` 差異→產 `.new` 原檔不變｜`xxd` 驗無 `0a`
   無 `0d`｜leaf 與 composite 內嵌值 byte 數一致｜owner 非 `root:root`｜非互動呼叫吵鬧失敗）；
