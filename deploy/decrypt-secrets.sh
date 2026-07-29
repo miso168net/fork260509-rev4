@@ -106,7 +106,7 @@ EXPECTED_KEYS=(postgres_password redis_password jwt_secret refresh_token_secret
 #   權限自證分支所承認的性質）——暫存檔會以實效 777、Windows 側可見的形式承載 8 支完整明文，
 #   正是 FR-021／SC-005「/mnt/d 全樹零明文機密檔」要消滅的暴露面，且不隨 US3 落點遷移而消失。
 # ★本檔由 host shell 重導向產生、不進容器（wrapper 只掛載 $PWD 供 sops 讀 enc 檔），故不受
-#   contracts §P4「合併衝突」列之「暫存明文必須落 repo 內」限制——該限只適用於要餵回 sops
+#   contracts §P7「合併衝突」列之「暫存明文必須落 repo 內」限制——該限只適用於要餵回 sops
 #   加密的檔（wrapper 只掛載 $PWD、repo 外的檔容器讀不到）。
 TMP_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}"
 mkdir -p "$TMP_ROOT"

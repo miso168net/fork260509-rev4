@@ -329,7 +329,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   落點）＝FR-021／SC-005 要消滅的暴露面。改落 `${XDG_CACHE_HOME:-$HOME/.cache}` 下之
   `rev4-decrypt.XXXXXX`（0700），並補**落點性質斷言**（fs 為 `v9fs` 或 mode≠700 即 FAIL＋處置
   指引；斷言**早於** `sops` 呼叫＝不合格時零明文產生）。可行性依據＝此檔由 host shell 重導向
-  產生、不進容器，contracts §P4「合併衝突」列之「暫存明文必須落 repo 內（wrapper 只掛載
+  產生、不進容器，contracts §P7「合併衝突」列之「暫存明文必須落 repo 內（wrapper 只掛載
   `$PWD`）」只約束**要餵回 sops 加密**的輸入檔，不約束 host 收的輸出。隔離沙箱機判（ext4、
   stub `sops.sh` 餵 8 支假值＋pty，全程未觸真機密與 repo 工作樹；落點以 stub 內
   `exec 9>&1`＋`readlink -f /proc/self/fd/9` 探得）：對照組（`git show HEAD:` 版）RAW＝
@@ -574,9 +574,12 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   `fs=v9fs`／`mode=777`，收尾 repo `tmp/` 零殘留。errata 枚舉「落 repo 內」11 處逐處判定：
   RUNBOOK §15.1 `set --value-file` 值檔／§15.7 步驟 3 `merged.yaml`／brainstorm enc 檔首建
   ＝限制成立不動，decrypt-secrets.sh 兩處註解／L-171／quickstart §S8 表／T022 備註＝已是正解，
-  §15.7 步驟 1＝本次修正。教訓＝L-180。★**殘留**：`contracts/secret-pipeline.md` §P4「合併
-  衝突」列的「暫存明文必須落 repo 內」敘述仍**過寬**（該檔不在本輪允許檔清單內、未動）——
-  語意權威以 decrypt-secrets.sh 檔內界線註解＋本備註＋L-171／L-180 為準
+  §15.7 步驟 1＝本次修正。教訓＝L-180。
+  ——★**殘留已結清（2026-07-30 主線）**：`contracts/secret-pipeline.md` **§P7**（非 §P4）
+  「合併衝突」列之「暫存明文必須落 repo 內」原為**無條件敘述**、與 as-built 互斥（照它
+  「回復一致」＝把 L-171／L-180 剛消滅的暴露面裝回去）——已改為**落點兩分**並標原敘述作廢、
+  操作程序指向 RUNBOOK §15.7 為唯一權威；連帶三處錯編號 §P4→§P7 同刀勘誤
+  （`deploy/decrypt-secrets.sh`、本檔 T022 備註與本行）
 - [x] T032 [P] [US4] `docs/ops/RUNBOOK.md` 既有節連帶：**§7 輪替表增補「輪替後 re-encrypt 回
   加密檔」步驟**（漏此步→輪替值與加密檔脫鉤、下次 decrypt 觸發 `.new` 守衛）＋§4 人工必填
   清單增 `.wslconfig`／BitLocker 確認項＋§12 工具鏈速查增 `deploy/sops.sh` 與
