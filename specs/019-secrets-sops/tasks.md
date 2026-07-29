@@ -251,13 +251,17 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 **Independent Test**: spec US2——在現行落點不變的前提下即可完整驗證加密往返、斷言行為與守衛。
 **依賴**: Phase 2（T007 定私鑰方式）。
 
-- [ ] T018 [US2] 新增 `deploy/sops.sh`（contracts secret-pipeline §P1 七要件）：digest 釘版常數
+- [x] T018 [US2] 新增 `deploy/sops.sh`（contracts secret-pipeline §P1 七要件）：digest 釘版常數
   ＝`ghcr.io/getsops/sops@sha256:ae501277bf742f1662e0f881f43dd8fd6798b489a8058e921dbf6cda597140ea`
   （★值依 T002 拍板之 sops 映像 tag〔research R7 當日值 v3.13.3-alpine〕；施工時複查該 digest
   仍指向拍板 tag；★registry 與 digest 必須成對）＋`-it` 條件化
   ＋**不轉發 `EDITOR`**＋顯式 `-e SOPS_AGE_KEY -e SOPS_AGE_KEY_FILE -e SOPS_AGE_KEY_CMD`＋
   掛載 `$PWD:/work -w /work` 與私鑰目錄唯讀；`chmod +x` 後 **`git update-index --chmod=+x`**
   （drvfs exec bit 不落 index）
+  ——**實做（2026-07-29）**：七要件全落（digest 複查＝本機映像 `v3.13.3-alpine` 之 index digest
+  逐字相符）；`-i -t` 條件＝stdin 是 tty（實測 stdout 重導向時 sops 提示與輸出同流＋CRLF、
+  詳 T022 parser 註）；非互動 `--version` rc=0、非互動解密 rc=128 吵鬧失敗不 hang；
+  `git ls-files -s` 驗 100755
 - [ ] T019 [US2] 產正式金鑰（age 二進位已由 T040 取得、此處沿用；★版本＝T002 拍板值）：
   ★**完整性比對值須取該版本 release API 的 `digest` 欄位現查**——research R9 所記 v1.3.1 之
   sha256 僅為研究當日值、**版本一變即作廢**。原取得步驟保留備查：自官方 GitHub release 下載
