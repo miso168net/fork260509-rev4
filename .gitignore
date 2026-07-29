@@ -68,6 +68,7 @@ deploy/.env
 # Docker secrets — 實際 secret 檔 gitignored、.example 範本 git-tracked
 # .json（redis_exporter 需要 JSON 格式 password file、無法用 plain text）
 /deploy/secrets/*.txt
+/deploy/secrets/*.txt.new
 !/deploy/secrets/*.txt.example
 /deploy/secrets/*.json
 !/deploy/secrets/*.json.example
