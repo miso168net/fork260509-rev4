@@ -358,28 +358,33 @@ volumes:
   prometheus_data:
   pushgateway_data:
 
+# 019-secrets-sops T028（FR-018／P5.3）：落點經 SECRETS_DIR 帶預設值變數展開——單一事實
+# 來源＝repo 根 .env（gitignored、bootstrap 代勞產生、值必須為絕對路徑字面；.env.example
+# 有產檔約束全文）；未設變數回退 ./deploy/secrets（#4 向後相容——忘設＝保護失效，由
+# preflight／bootstrap 斷言補償、ADR 誠實登記）。★reaper_password 不進 compose 是設計
+# （僅 deploy/setup-reaper-role.sh 直讀）、勿誤補。
 secrets:
   postgres_password:
-    file: ./deploy/secrets/postgres_password.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/postgres_password.txt
   redis_password:
-    file: ./deploy/secrets/redis_password.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/redis_password.txt
   jwt_secret:
-    file: ./deploy/secrets/jwt_secret.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/jwt_secret.txt
   refresh_token_secret:
-    file: ./deploy/secrets/refresh_token_secret.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/refresh_token_secret.txt
   database_url:
-    file: ./deploy/secrets/database_url.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/database_url.txt
   redis_url:
-    file: ./deploy/secrets/redis_url.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/redis_url.txt
   captcha_secret:
-    file: ./deploy/secrets/captcha_secret.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/captcha_secret.txt
   # 016-observability T009：grafana 管理密碼（GF_SECURITY_ADMIN_PASSWORD $__file{} provider 注入）
   grafana_admin_password:
-    file: ./deploy/secrets/grafana_admin_password.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/grafana_admin_password.txt
   # 016-observability T012：告警 webhook URL（alerting/contact-points.yml $__file{} provider 注入）
   alert_webhook_url:
-    file: ./deploy/secrets/alert_webhook_url.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/alert_webhook_url.txt
   # 016-observability T025：reaper 最小權限 DB 憑證（composite＝postgres://reaper:…；
   # m012 建 role、deploy/setup-reaper-role.sh 設密；FR-013 密碼零進版本庫）
   reaper_database_url:
-    file: ./deploy/secrets/reaper_database_url.txt
+    file: ${SECRETS_DIR:-./deploy/secrets}/reaper_database_url.txt
