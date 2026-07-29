@@ -578,8 +578,10 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   ——★**殘留已結清（2026-07-30 主線）**：`contracts/secret-pipeline.md` **§P7**（非 §P4）
   「合併衝突」列之「暫存明文必須落 repo 內」原為**無條件敘述**、與 as-built 互斥（照它
   「回復一致」＝把 L-171／L-180 剛消滅的暴露面裝回去）——已改為**落點兩分**並標原敘述作廢、
-  操作程序指向 RUNBOOK §15.7 為唯一權威；連帶三處錯編號 §P4→§P7 同刀勘誤
-  （`deploy/decrypt-secrets.sh`、本檔 T022 備註與本行）
+  操作程序指向 RUNBOOK §15.7 為唯一權威；連帶錯編號 §P4→§P7 同刀勘誤**共四處**
+  （`deploy/decrypt-secrets.sh`、本檔 T022 備註與本行；★**第四處**＝`docs/ops/LESSONS.md`
+  L-180 防法①枚舉末項，23a3846 當時的機判樣式含全形引號而漏認該行、假綠，2026-07-30
+  spec 第 1 輪 blocker 補正並標結清，教訓＝L-181）
 - [x] T032 [P] [US4] `docs/ops/RUNBOOK.md` 既有節連帶：**§7 輪替表增補「輪替後 re-encrypt 回
   加密檔」步驟**（漏此步→輪替值與加密檔脫鉤、下次 decrypt 觸發 `.new` 守衛）＋§4 人工必填
   清單增 `.wslconfig`／BitLocker 確認項＋§12 工具鏈速查增 `deploy/sops.sh` 與
