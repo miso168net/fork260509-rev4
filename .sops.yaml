@@ -1,0 +1,11 @@
+# .sops.yaml — 019-secrets-sops 加密規則（契約＝contracts/secret-pipeline.md §P2）
+# P2.1 path_regex 錨定式：sops 比對用 MatchString＝非錨定子字串命中、必須 ^…$
+# P2.2 僅一條 creation_rules（first-match-wins、第二條起被靜默忽略）
+# P2.4 不設六個範圍選項任一：預設 unencrypted_suffix="_unencrypted"＝全加密
+# P2.5 連帶紀律：加密檔 key 名禁 _unencrypted 後綴（該後綴無法藉「不設定」規避）
+# recipient＝age 公鑰清單（YAML 清單形；公鑰非機密）。目前唯一 recipient＝019 施工期
+# 暫代正式鑰（C 案、ADR 0080 決策 5）；收刀 finishing 時由 user 真鑰替換＋撤銷暫代鑰。
+creation_rules:
+  - path_regex: ^deploy/secrets\.dev\.enc\.yaml$
+    age:
+      - age1g0yn0akuh9x3msxeyhuhakc6njfa290mmzwvxdc0dpnly47mhdlqec0vya

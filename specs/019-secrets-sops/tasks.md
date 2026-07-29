@@ -262,7 +262,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   逐字相符）；`-i -t` 條件＝stdin 是 tty（實測 stdout 重導向時 sops 提示與輸出同流＋CRLF、
   詳 T022 parser 註）；非互動 `--version` rc=0、非互動解密 rc=128 吵鬧失敗不 hang；
   `git ls-files -s` 驗 100755
-- [ ] T019 [US2] 產正式金鑰（age 二進位已由 T040 取得、此處沿用；★版本＝T002 拍板值）：
+- [x] T019 [US2] 產正式金鑰（age 二進位已由 T040 取得、此處沿用；★版本＝T002 拍板值）：
   ★**完整性比對值須取該版本 release API 的 `digest` 欄位現查**——research R9 所記 v1.3.1 之
   sha256 僅為研究當日值、**版本一變即作廢**。原取得步驟保留備查：自官方 GitHub release 下載
   `age-v<VER>-linux-amd64.tar.gz`（★**無 checksums 檔**——完整性以 release API 的 `digest`
@@ -274,15 +274,31 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`「決策」節第 5 點
   ＝唯一權威落點）：**本任務只產「暫代正式鑰」**（agent 拋棄式 passphrase、B′ 形制、pty
   驅動全自動）；真鑰產製與暫代鑰撤銷／輪替屬**收刀 finishing 義務**、不在本任務範圍
-- [ ] T020 [US2] 新增 `.sops.yaml`（contracts §P2 五條）：單一 `creation_rules`、
+  ——**實做（2026-07-29）**：C 案暫代正式鑰產訖——pty 驅動 `age-keygen | age -p`（沿用 T040
+  二進位）、拋棄式 passphrase 執行期構造（已依 C 案誠實登記於單元回報、視同已洩露）；
+  `~/.config/sops/age/keys.txt` 371 bytes、開頭 `age-encryption.org/v1`、`xxd` 尾 byte 0xb4
+  無 CR、目錄 700 檔 600；公鑰取產出時 public key 行（回報 interim_pubkey 欄）；echo 回顯
+  檢查＝pty 流不含 passphrase 原文
+- [x] T020 [US2] 新增 `.sops.yaml`（contracts §P2 五條）：單一 `creation_rules`、
   `path_regex` **錨定式**（★比對用 `MatchString`＝非錨定子字串命中）、`age:` 用 YAML 清單形、
   **不設六個範圍選項任一**（預設 `unencrypted_suffix="_unencrypted"`＝全加密）；寫完**驗證
   規則確實命中**目標檔
-- [ ] T021 [US2] 建 `deploy/secrets.dev.enc.yaml`（恰 8 key＝7 leaf＋`alert_webhook_url`）：
+  ——**實測（2026-07-29）**：命中驗證＝`--filename-override deploy/secrets.dev.enc.yaml`
+  不帶 `--age` 加密成功且 metadata recipient 逐字＝T019 公鑰（規則供鑰自證）；錨定否定
+  探針三案（前綴 x、後綴 .bak、點未跳脫形 secretsXdev）全數 rc=1
+  `no matching creation rules found`
+- [x] T021 [US2] 建 `deploy/secrets.dev.enc.yaml`（恰 8 key＝7 leaf＋`alert_webhook_url`）：
   自現值組明文 YAML（**中間產物限 repo 內 gitignored 目錄、用完即刪、不得 staged**；wrapper
   只掛載 `$PWD`）→ 經 wrapper 加密 → 驗 `git diff` 呈現 **key 名明文＋值全 `ENC[`**、key 數＝8。
   ★`alert_webhook_url` **如實搬移現值**（現值 39 bytes 為 user 已填真值；`--force` 不重置、
   **絕不以刪檔為手段**）；composite 不進（由既有腳本重生）
+  ——**實測（2026-07-29）**：名單現場核對＝README 對照表與 generate-secrets.sh 之 11 支
+  去除 3 composite（database_url／redis_url／reaper_database_url）＝8；明文組檔於
+  `tmp/019-us2-plain/`（gitignored、`git check-ignore` 證）、pyyaml round-trip byte 級斷言
+  全過且 8 值皆無引號純量形、驗畢即刪＋`git status` 零 staged；`grep -cE 'key: ENC\[' `＝8、
+  key 名明文 8 支逐字符合；`_unencrypted` 唯一命中＝sops metadata 之 `unencrypted_suffix`
+  記錄行、非 key 名；alert_webhook_url 依現值 sha256 基準（9848…dd3e）如實搬移、
+  byte 級一致證據收 T023 往返驗
 - [ ] T022 [US2] 新增 `deploy/decrypt-secrets.sh`（contracts §P4 五要求）：tty 守衛（非互動
   **吵鬧失敗**、不得 hang）→ **`source .env`（存在時）、`SECRETS_DIR` 未設時回退
   `deploy/secrets`**（與 T012 值比對工具同一回退口徑；★`.env` 於 T024 才建立，此回退是 US2
