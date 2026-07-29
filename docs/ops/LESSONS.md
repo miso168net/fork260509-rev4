@@ -1,4 +1,4 @@
-<!-- next: L-174 -->
+<!-- next: L-175 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -388,3 +388,19 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   ｜出處：2026-07-29 019 U4 T039 乾淨重建（清空 $SECRETS_DIR 重解密後 up：5 業務件
   running 健康、migrate start 即炸 mount error；--force-recreate 6 業務件＋8 觀測件後
   全綠，pg_up／redis_up 復 1）。
+
+L-174｜**落點類設計變更的「消費者清單」漏一支＝該防線靜默失效且全綠**——019 把機密明文落點
+  自 repo 內遷至 `$HOME/.cache` 時，契約 §P5.2 的同刀齊改清單只列了三支 shell 腳本
+  （後補至四支），漏掉第五消費者 `tools/secret-value-guard.py`（三層掃描防線的確定性層）。
+  該工具只讀環境變數 `SECRETS_DIR`、不解析 repo 根 `.env`，而 git hook 純繼承呼叫端 shell
+  環境、**不會有人替它 export**——遷移後 pre-commit 每次都走「目錄缺席→skip→rc=0」那條
+  fail-open 路徑，於是 FR-007／US1 情境 4／SC-001 裸值格**結構性失守卻全綠**（樣式層對裸值
+  本就不中＝契約明訂預期，這一格只有值比對能守）。
+  ｜防法：①**落點／路徑類變更動手前先枚舉全部消費者**（`git grep` 該常數名與其預設值字面
+  ＋掃 hook 與工具面，不只看 contracts 既有清單——清單本身可能就是漏的）②消費者清單寫進
+  契約時附「漏列即靜默失效」的後果句，讓下次讀者知道那不是裝飾③**fail-open 的層級必須有
+  「我這次真的在守」的正向證據**：skip 是合法設計，但收單前要用端到端反證（構造裸值 staged
+  探針→必須 rc≠0 且指名）證明它沒在恆 skip；④驗完務必 `git prune --expire=now` 清物件庫
+  （L-158）。｜出處：2026-07-29 019 U4 spec 審抓出（實證：`env -u SECRETS_DIR … check` 印
+  skip 且 rc=0；修＝補與四腳本逐字同口徑的三級解析〔環境變數→`.env` 只嚴格解析該一行、
+  非法值吵鬧失敗不靜默回退→回退 `deploy/secrets`〕＋7 案單元測試，端到端反證回 rc=1 指名）。

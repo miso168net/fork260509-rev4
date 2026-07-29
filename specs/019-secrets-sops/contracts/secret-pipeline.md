@@ -66,7 +66,7 @@
 | # | 契約 | 違反後果 |
 |---|---|---|
 | P5.1 | `SECRETS_DIR` 單一事實來源＝repo 根 `.env`；compose 原生讀、三腳本 `source` | 只寫 `.env` 不同步 → **compose 讀新落點、腳本查舊落點**；preflight 回 OK 而 compose 掛掉 |
-| P5.2 | `generate-secrets.sh:41`／`preflight-secrets.sh:12`／`setup-reaper-role.sh:16` **三處同刀齊改** | 任一未改 → 該處**無條件賦值**吃掉外部值（靜默） |
+| P5.2 | 落點消費者**全員同刀齊改**——★**五支**（原表只列前三、019 U4 遷移後補齊）：`generate-secrets.sh`／`preflight-secrets.sh`（`SECRETS_DIR` 賦值）／`setup-reaper-role.sh`（`PW_FILE`）／`decrypt-secrets.sh`／**`tools/secret-value-guard.py`**（三層防線之確定性層） | 任一未改 → 該處**無條件賦值**吃掉外部值（靜默）。★第五支漏列之實害（U4 實證）：guard 只讀環境變數而 hook 環境不設該變數 → 落點遷出後 pre-commit 一律 `skip` 且 `rc=0`，FR-007／US1 情境 4／SC-001 裸值格**結構性失守而全綠**（L-174） |
 | P5.3 | compose 10 條目改帶預設值變數展開；未設變數時 `docker compose config` 解析回 `./deploy/secrets` | 向後相容的代價＝**忘設變數即保護失效**（誠實登記於 ADR，由 P5.4 補償） |
 | P5.4 | **fail-loud 的承載者＝preflight**（落點目錄缺席或機密缺檔→非零退出、指名缺項）；**bootstrap 的角色＝自癒與斷言**：`.env` 缺失時代勞產生（非 die）、hooksPath 與掃描器二進位斷言為 **die 級**、**機密實值缺檔維持 warn 級**（既有慣例：實值人對人交接、bootstrap 不生成） | 否則「`level=warning secret file does not exist` 但容器照樣 Started」＝解法 2 系列的靜默失敗。★三者等級刻意不同、非疏漏：preflight＝上機前把關（fail-loud）／bootstrap 工具鏈完整性＝die／bootstrap 機密實值＝warn |
 | P5.5 | `generate-secrets.sh` 增 `--compose-only`（缺 leaf **報錯退出**、不生成） | 缺 leaf 時靜默造新亂數＝每台機器各拿到不同的值 |

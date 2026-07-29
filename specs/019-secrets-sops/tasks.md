@@ -395,7 +395,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   .env`＝`.gitignore:60` 命中（既有規則覆蓋、零加行）；bootstrap 實跑＝缺失時代勞產生
   `SECRETS_DIR=/home/anew/.cache/rev4-secrets`（shell 側展開後寫入）、已存在時不覆寫只讀值
   斷言（T039 重跑實證）
-- [x] T025 [US3] 三腳本 SECRETS_DIR 同步改（★**三處必須同刀齊改**，任一未改即該處無條件賦值
+- [x] T025 [US3] 三腳本 SECRETS_DIR 同步改（★**三處必須同刀齊改**——★2026-07-29 主線後補：
+  實為**五支消費者**，本任務原清單漏列 `tools/secret-value-guard.py`〔詳本 Phase 末「主線
+  結清」段與契約 §P5.2〕；任一未改即該處無條件賦值
   靜默吃掉外部值）：`deploy/generate-secrets.sh`（`SECRETS_DIR` 賦值行）／
   `deploy/preflight-secrets.sh`（同）／`deploy/setup-reaper-role.sh`（`PW_FILE` 賦值行）
   ——改帶預設展開＋各自 `source .env`（存在時）
@@ -473,6 +475,18 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   處置＝6 業務件＋8 觀測件 `up -d --force-recreate` 重掛新 inode 後全綠（migrate Exited 0、
   5 業務件 healthy、grafana ok／pg_up=1／redis_up=1），坑與防法＝L-173。收尾：8 觀測件
   指名 stop 收回 opt-in（絕不 down）、rev3 全程零波及
+
+★**主線結清（2026-07-29、U4 spec 審 blocker）**：落點消費者原清單漏列第五支
+`tools/secret-value-guard.py`（三層防線之確定性層）——該工具只讀環境變數 `SECRETS_DIR`、
+不解析 `.env`，而 git hook 純繼承呼叫端環境不設該變數 → **遷移後 pre-commit 一律 skip 且
+rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修＝補與四腳本**逐字同口徑**的
+三級解析（環境變數優先→repo 根 `.env` 只嚴格解析 `SECRETS_DIR` 一行、**非法值吵鬧失敗不
+靜默回退**〔回退＝掃錯目錄的假綠〕→皆缺回退 `deploy/secrets`）＋7 案單元測試（29→36）。
+**端到端反證（機判）**：以現值構造裸值 staged 探針 → 值比對層 `rc=1` 指名
+`檔案:行號＋機密名`、零值輸出；同一探針樣式層 `rc=0`（裸值不中＝契約 §S6 預期，證此格
+唯值比對能守）；驗畢 `git prune --expire=now`＋11 支現值 blob `cat-file -e` 全數不在物件庫
+（L-158）。連帶：契約 §P5.2 消費者清單三支→**五支**並附「漏列即靜默失效」後果句；坑與
+防法＝**L-174**。
 
 ## Phase 6: US4 — 營運程序落地（P4）
 

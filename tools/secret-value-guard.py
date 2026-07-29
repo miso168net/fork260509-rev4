@@ -36,6 +36,9 @@ EDGE_HIT = "E" * 8       # self-test 邊界紅樣本：恰達現行下界、必�
 EDGE_SKIP = "E" * 7      # self-test 邊界綠樣本：恰低於現行下界、不比對
 
 RE_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+RE_ENV_SECRETS_DIR = re.compile(r"^SECRETS_DIR=(.*)$")
+# .env 值字元白名單：與 deploy 四腳本 case 樣式 `*[!A-Za-z0-9_/.-]*` 逐字同集合。
+RE_ENV_VALUE_OK = re.compile(r"^[A-Za-z0-9_/.-]+$")
 
 
 def purge_git_env():
@@ -52,6 +55,39 @@ def purge_git_env():
 def eligible(value):
     """值是否納入比對（單行且長度達下界）。"""
     return len(value) >= MIN_SECRET_LEN and "\n" not in value and "\r" not in value
+
+
+def resolve_secrets_dir(root, env=None):
+    """機密落點三級口徑（與 deploy 四腳本同口徑；019 契約 §P5.1／P5.2 第五消費者）。
+
+    環境變數優先（與 compose 口徑一致）→ repo 根 `.env` 只嚴格解析 `SECRETS_DIR` 一行
+    → 皆缺回退 repo 內 `deploy/secrets`。
+    ★不整檔 source／不引 dotenv：compose 的 `.env` 允許不加引號的含空白值、井號語意亦與
+    shell 不同。★`.env` 有該鍵但值非法＝**吵鬧失敗**（回錯誤訊息）而非靜默回退——靜默回退
+    會讓本層改掃 repo 內舊落點、明明沒在守卻回綠（假綠）。
+    回 `(絕對路徑, None)` 或 `(None, 錯誤訊息)`。
+    """
+    env = os.environ if env is None else env
+    val = env.get("SECRETS_DIR")
+    if val:
+        return (val if os.path.isabs(val) else os.path.join(root, val)), None
+    envfile = os.path.join(root, ".env")
+    if os.path.isfile(envfile):
+        raw_val = None
+        with open(envfile, encoding="utf-8", errors="replace") as fh:
+            for raw in fh:
+                m = RE_ENV_SECRETS_DIR.match(raw.rstrip("\r\n"))
+                if m:
+                    raw_val = m.group(1)   # 取最後一筆（同腳本 `grep … | tail -n 1`）
+        if raw_val is not None:
+            if not RE_ENV_VALUE_OK.match(raw_val):
+                return None, (".env 之 SECRETS_DIR 為空或含空白／shell 元字元"
+                              "——拒用（產檔約束見 .env.example）")
+            if not raw_val.startswith("/"):
+                return None, (".env 之 SECRETS_DIR 必須為絕對路徑字面"
+                              "（compose 不做 shell 展開）——見 .env.example")
+            return raw_val, None
+    return os.path.join(root, DEFAULT_SECRETS_DIR), None
 
 
 def load_secrets(secrets_dir):
@@ -161,9 +197,10 @@ def run_selftest():
 def cmd_check():
     if not run_selftest():
         return 1
-    sdir = os.environ.get("SECRETS_DIR") or DEFAULT_SECRETS_DIR
-    if not os.path.isabs(sdir):
-        sdir = os.path.join(ROOT, sdir)
+    sdir, err = resolve_secrets_dir(ROOT)
+    if err is not None:
+        print(f"[secret-value-guard] ERROR {err}——比對層本身異常、非機密命中", file=sys.stderr)
+        return 1
     secrets = {n: v for n, v in load_secrets(sdir).items() if eligible(v)}
     if not secrets:
         print(f"[secret-value-guard] skip：機密現值目錄缺席或空（{sdir}）"
@@ -281,6 +318,59 @@ class TestEligibleBoundary(unittest.TestCase):
 
     def test_multiline_value_not_eligible(self):
         self.assertFalse(eligible("A" * MIN_SECRET_LEN + "\n" + "B" * MIN_SECRET_LEN))
+
+
+class TestResolveSecretsDir(unittest.TestCase):
+    """三級口徑（019 U4 遷移後補：落點遷出 repo 後本層曾一律 skip＝結構性失守、L-174）。"""
+
+    def _root(self, env_body=None):
+        import tempfile
+        d = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        if env_body is not None:
+            with open(os.path.join(d, ".env"), "w", encoding="utf-8") as fh:
+                fh.write(env_body)
+        return d
+
+    def test_env_var_wins_over_dotenv(self):
+        root = self._root("SECRETS_DIR=/tmp/from-dotenv\n")
+        sdir, err = resolve_secrets_dir(root, {"SECRETS_DIR": "/tmp/from-envvar"})
+        self.assertIsNone(err)
+        self.assertEqual(sdir, "/tmp/from-envvar")
+
+    def test_dotenv_used_when_env_var_absent(self):
+        root = self._root("# 註解\nSECRETS_DIR=/tmp/rev4-secrets\nOTHER=1\n")
+        sdir, err = resolve_secrets_dir(root, {})
+        self.assertIsNone(err)
+        self.assertEqual(sdir, "/tmp/rev4-secrets")
+
+    def test_dotenv_last_occurrence_wins(self):
+        root = self._root("SECRETS_DIR=/tmp/first\nSECRETS_DIR=/tmp/last\n")
+        self.assertEqual(resolve_secrets_dir(root, {})[0], "/tmp/last")
+
+    def test_fallback_when_no_env_var_no_dotenv(self):
+        root = self._root()
+        sdir, err = resolve_secrets_dir(root, {})
+        self.assertIsNone(err)
+        self.assertEqual(sdir, os.path.join(root, DEFAULT_SECRETS_DIR))
+
+    def test_dotenv_relative_path_rejected_loudly(self):
+        root = self._root("SECRETS_DIR=deploy/secrets\n")
+        sdir, err = resolve_secrets_dir(root, {})
+        self.assertIsNone(sdir)          # ★不得靜默回退（回退＝掃錯目錄的假綠）
+        self.assertIn("絕對路徑", err)
+
+    def test_dotenv_shell_metachar_rejected_loudly(self):
+        for body in ("SECRETS_DIR=/tmp/$(id)\n", "SECRETS_DIR=/tmp/a b\n", "SECRETS_DIR=\n"):
+            root = self._root(body)
+            sdir, err = resolve_secrets_dir(root, {})
+            self.assertIsNone(sdir)
+            self.assertIsNotNone(err)
+
+    def test_relative_env_var_resolved_against_root(self):
+        root = self._root()
+        self.assertEqual(resolve_secrets_dir(root, {"SECRETS_DIR": "rel/dir"})[0],
+                         os.path.join(root, "rel", "dir"))
 
 
 class TestLoadSecrets(unittest.TestCase):
