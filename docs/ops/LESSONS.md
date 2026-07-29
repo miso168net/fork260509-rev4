@@ -1,4 +1,4 @@
-<!-- next: L-177 -->
+<!-- next: L-178 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -438,3 +438,15 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   ｜出處：2026-07-29 019 U4 quality 審抓出（修＝preflight 加 LF 護欄、preflight 與 generate
   比對改 `printf | cmp`；機判＝尾 LF 組 rc=1 指名、尾 CR 對照組維持原訊息、真 drift 組仍抓、
   generate 連動重寫至與健康對照組同 sha256 前 8 碼且重跑冪等）。
+- **L-177**｜**「未設」與「已設為空」是兩種狀態，`${VAR:-default}` 與 `[ -z "$VAR" ]` 對它們的
+  判讀恰好相反**——`SECRETS_DIR` 匯出為空字串時，compose 因 shell 環境勝出 `.env` 而直接吃預設
+  值回退舊落點、根本不讀 `.env`；五支自寫解析器的 `[ -z ]`／python `if val:` 卻當「未設」續讀
+  `.env` 取新落點。兩邊都有答案、都 `rc=0`，分裂全靜默：實測 preflight 印「可 up」rc=0、guard
+  rc=0，而 `compose config` 全指向遷移後零 `.txt` 的舊落點（`up` 遂在該處建空目錄當 secret 掛
+  入）。同族 L-175／L-176 同因：只驗典型輸入、未逐格驗狀態空間邊界。｜防法：①「環境變數→設定
+  檔→預設值」口徑至少三格（未設／已設非空／**已設為空**）逐格與權威解析器對答案；②bash 判有無
+  設定用 `${VAR+set}`、判空用 `-z`，分開寫（python＝`is None` 與 `== ""`）；③邊界格無合法用途
+  者一律吵鬧失敗＋自癒指引——靜默選一邊必有一半機率與權威分裂，且分裂方向恰是全綠那邊；④三方
+  矩陣語料須含空值格。｜出處：2026-07-29 019 U4 quality 審（修＝五處同刀加前置守衛；機判＝空
+  字串組四腳本＋guard 全 rc=1 指名〔decrypt 於 pty 實跑〕、unset 對照組三方同解、guard 41
+  tests OK 移除守衛即紅）。

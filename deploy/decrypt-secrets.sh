@@ -45,6 +45,16 @@ fi
 #   8 支明文寫回 repo 內 /mnt/d 舊落點＝違反 FR-021／SC-005）。故偵測改用寬樣式撈出
 #   compose 會讀到的那一行（同 tail -n 1 後者勝口徑），再對其值套下方嚴格白名單：寬進窄出，
 #   四形一律「正確採用」或「吵鬧失敗」，永不落入靜默回退。
+# ★空字串邊界（019 U4 quality 修；五支賦值型解析器同刀齊改）：「已匯出但為空」≠「未設」——
+#   shell 環境已勝出 .env，compose 的 ${SECRETS_DIR:-./deploy/secrets} 對空字串直接吃預設值、
+#   回退 repo 內舊落點且**不讀 .env 該鍵**；而 [ -z ] 把空字串當未設、續往 .env 取新落點＝
+#   本腳本把 8 支明文寫進 .env 新落點、compose 卻掛 repo 內舊落點，即 P5.1 違反後果欄那條路
+#   的另一入口，且破在靜默方向。空字串無合法用途（要走回退請 unset），故吵鬧失敗指名真因。
+if [ "${SECRETS_DIR+set}" = set ] && [ -z "$SECRETS_DIR" ]; then
+    echo "FAIL：SECRETS_DIR 已匯出為空字串——compose 會忽略 .env 並回退 ./deploy/secrets（repo 內舊落點）。" >&2
+    echo "→ 要用 .env 的值：先 unset SECRETS_DIR；要指定他處落點：匯出絕對路徑。" >&2
+    exit 1
+fi
 if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
     _line="$(sed -e "1s/^$(printf '\357\273\277')//" -e 's/\r$//' .env \
              | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 || true)"

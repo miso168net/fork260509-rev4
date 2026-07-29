@@ -130,6 +130,13 @@ T030 施工時補列）；
 `python3 tools/secret-value-guard.py check` → **三方必須解析出同一個落點**；任一案分裂
 （典型＝腳本／guard 回退 `deploy/secrets` 而 compose 用新落點、且雙方 `rc=0` 零訊息）
 即為 blocker——那正是「compose 掛得到、容器跑得動、唯獨 pre-commit 不再守」的假綠。
+＋★**`SECRETS_DIR` 空字串邊界**（019 U4 quality 第 3 輪補；契約 §P5.1）：以 `SECRETS_DIR=`（匯出為
+空字串）同時跑 `docker compose config | grep 'file:'`、四支 deploy 腳本、
+`python3 tools/secret-value-guard.py check` → compose 因 `${SECRETS_DIR:-…}` 對空字串吃預設值而
+回退 `./deploy/secrets`（遷移後零 `.txt`），故四腳本＋guard **必須全數 `rc=1` 並指名空字串**；
+若其中任一改讀 `.env` 落點回 `rc=0`（＝「preflight 說可 up、compose 掛空目錄」）即為 blocker。
+對照組 `unset SECRETS_DIR` → 三方同解新落點；`SECRETS_DIR=/tmp/rev4-nonexistent` → 環境變數仍
+勝出 `.env`（preflight 指名該路徑缺檔）。
 
 **完成判準**：`/mnt/d` 全樹零明文機密檔；＋新落點在**版控面外**之機判（019 U3 遺留
 advisory 一、T030 施工時補列）——`git check-ignore` 與 `git ls-files --error-unmatch` 對

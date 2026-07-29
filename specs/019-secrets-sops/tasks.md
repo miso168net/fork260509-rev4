@@ -419,6 +419,16 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `tail -n 1` 後者勝），值仍套原嚴格白名單。機判＝同一組 `.env` 語料八形三方（compose
   v5.3.1 `config` ／preflight 實跑／guard `check`）逐案同解；非法值四案（相對路徑／元字元／
   空值／引號形）維持 rc=1 吵鬧失敗；guard 新增 4 案單元測試（40 tests OK，退回窄樣式即 3 紅）
+  ——★**U4 quality 第 3 輪補修（空字串邊界）**：五支賦值型解析器的 `[ -z "${SECRETS_DIR:-}" ]`
+  ／`if val:` 把「已匯出但為空」當未設而落到 `.env` 這一級；compose 則因 shell 環境已勝出
+  `.env`，`${SECRETS_DIR:-./deploy/secrets}` 對空字串**直接吃預設值**回退 repo 內舊落點。
+  同一個空字串環境實測：preflight 印「可 up」`rc=0`、guard `rc=0`，compose `config` 卻全數
+  指向遷移後零 `.txt` 的 `deploy/secrets`（＝P5.4 要消滅的「secret 不存在但容器照樣 Started」
+  誤導型失敗）。修＝五處同刀加前置守衛，以 `${VAR+set}` 判「有無設定」、與 `-z` 判「是否為空」
+  分離，**已設且為空即吵鬧失敗**並指名真因＋給 `unset` 自癒指引。機判＝空字串組四腳本＋guard
+  全數 `rc=1` 指名（decrypt 於 pty 下實跑，守衛早於 `mkdir`／`sops` 呼叫）；對照組 `unset`
+  三方仍同解新落點、非空環境變數仍勝出 `.env`；guard 新增 1 案單元測試（41 tests OK，
+  移除守衛即該案紅）
 - [x] T026 [US3] `deploy/generate-secrets.sh` 功能改：加 `--compose-only` 旗標（缺 leaf
   **報錯退出、不生成**——防靜默造新亂數）＋權限終值改 **644**（原 600 會使三個非 root service
   在開 obs／metrics 軌時 Permission denied）；★`printf '%s'` 寫檔形**不得改為 echo**

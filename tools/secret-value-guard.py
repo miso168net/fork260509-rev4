@@ -73,10 +73,17 @@ def resolve_secrets_dir(root, env=None):
     會讓本層改掃 repo 內舊落點、明明沒在守卻回綠（假綠）。
     ★**行形偵測寬、值校驗窄**（019 U4）：偵測面必須涵蓋 compose 會讀到的每一種行形
     （BOM／縮排／export 前綴／等號兩側空白／CRLF），否則漏認即靜默回退＝同一個假綠。
+    ★**空字串邊界**（019 U4 quality）：「已匯出但為空」≠「未設」——shell 環境已勝出 `.env`，
+    compose 的 `${SECRETS_DIR:-./deploy/secrets}` 對空字串直接吃預設值、回退 repo 內舊落點
+    且**不讀 `.env` 該鍵**；`if val:` 把空字串當未設而續讀 `.env`＝本層掃新落點、compose
+    掛舊落點的靜默分裂。空字串無合法用途（要走回退請 unset），故吵鬧失敗指名真因。
     回 `(絕對路徑, None)` 或 `(None, 錯誤訊息)`。
     """
     env = os.environ if env is None else env
     val = env.get("SECRETS_DIR")
+    if val == "":
+        return None, ("SECRETS_DIR 已匯出為空字串——compose 會忽略 .env 並回退 repo 內 "
+                      "./deploy/secrets；要用 .env 的值請先 unset SECRETS_DIR")
     if val:
         return (val if os.path.isabs(val) else os.path.join(root, val)), None
     envfile = os.path.join(root, ".env")
@@ -346,6 +353,17 @@ class TestResolveSecretsDir(unittest.TestCase):
         sdir, err = resolve_secrets_dir(root, {"SECRETS_DIR": "/tmp/from-envvar"})
         self.assertIsNone(err)
         self.assertEqual(sdir, "/tmp/from-envvar")
+
+    def test_empty_env_var_rejected_loudly(self):
+        """★空字串邊界（019 U4 quality）：`SECRETS_DIR` 匯出為空時，compose 的
+        `${SECRETS_DIR:-./deploy/secrets}` 直接吃預設值回退 repo 內舊落點、**不讀 .env**；
+        本層若把它當未設而續讀 `.env`，即「本層掃新落點、compose 掛舊落點」的靜默分裂
+        （修前實證：同一個空字串環境下 preflight 與 guard 皆 rc=0 全綠、compose config
+        十條目卻全指 repo 內 deploy/secrets，而該處遷移後零 .txt）。必須吵鬧失敗。"""
+        root = self._root("SECRETS_DIR=/tmp/from-dotenv\n")
+        sdir, err = resolve_secrets_dir(root, {"SECRETS_DIR": ""})
+        self.assertIsNone(sdir)          # ★不得靜默擇一邊（回退或讀 .env 皆是假綠）
+        self.assertIn("空字串", err)
 
     def test_dotenv_used_when_env_var_absent(self):
         root = self._root("# 註解\nSECRETS_DIR=/tmp/rev4-secrets\nOTHER=1\n")
