@@ -110,17 +110,25 @@
 
 ## S6 落點遷移五步與向後相容（SC-005／#4／d 驗收〔brainstorm 升格字母，對照表見 spec Clarifications〕）
 
-**做什麼**：依 contracts/secret-pipeline.md §P6 順序執行五步。
+**做什麼**：依 contracts/secret-pipeline.md §P6 順序執行五步；②與③之間補跑
+`./deploy/generate-secrets.sh --compose-only`＋`./deploy/preflight-secrets.sh`
+（composite 三支不進加密檔、由 leaf 重組；preflight＝上機前 fail-loud；T030 施工時補列）。
 
 **期望**：①`down` 先行；④逐容器
-`docker inspect <c> --format '{{range .Mounts}}{{.Source}}{{end}}'` 顯示來源**皆非 `/mnt/d`**；
+`docker inspect <c> --format '{{range .Mounts}}{{.Source}}{{end}}'` 顯示來源**皆非 `/mnt/d`**
+——★每筆 Source 必先以 host 側 `readlink -f` **物理化**再比對前綴：Mounts.Source 是 compose
+專案 working_dir 的邏輯路徑，symlink 環境下字面 grep 在遷移前就全綠＝假陰性（L-172；
+T030 施工時補列）；
 ⑤確認後才刪舊落點；另**未設 `SECRETS_DIR` 時** `docker compose config` 解析回
 `./deploy/secrets` 相對路徑（#4 向後相容）。
 
 **否定測試**：跳過 `down` 直接改值 `up -d` → 觀察輸出為 `Starting` 而非 `Recreated`（config-hash
 相同、不觸發重建）＝假性完成的信號 → 復原後照正確順序重做。
 
-**完成判準**：`/mnt/d` 全樹零明文機密檔。
+**完成判準**：`/mnt/d` 全樹零明文機密檔；＋新落點在**版控面外**之機判（019 U3 遺留
+advisory 一、T030 施工時補列）——`git check-ignore` 與 `git ls-files --error-unmatch` 對
+新落點路徑皆 rc=128 fatal outside repository、物理路徑非 `git rev-parse --show-toplevel`
+前綴、`git status --porcelain` 零行。
 
 ---
 

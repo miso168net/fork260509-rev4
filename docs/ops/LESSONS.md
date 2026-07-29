@@ -1,4 +1,4 @@
-<!-- next: L-172 -->
+<!-- next: L-174 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -366,3 +366,25 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   儀式拍板＝第 2 輪已收歸決策 5、重拍三點定案＝本輪收歸「決策」節 1~3 與其理由段並宣告唯一
   權威；改法＝tasks T005 改指路一行＋任務範圍界線，`tasks.md` 3 處／`spec.md` 3 處／
   `plan.md` 1 處／`data-model.md` 1 處共八處「T005 備註與 ADR 0080」全改為單指 ADR 節號）。
+- **L-172**｜docker inspect 的 Mounts.Source 是 compose 專案 working_dir 的**邏輯路徑**、
+  不是物理路徑：本機以 `/home/anew/x_Project`（symlink → `/mnt/d/AnewSpaces/x_Project`）
+  起過 compose，遷移前 secret 掛載 Source 就顯示 `/home/anew/x_Project/...`——對「來源皆非
+  /mnt/d」的驗收做字面 grep 會**在遷移前就全綠**（假陰性），驗收形同虛設。防法：判「來源
+  已離開 9p」必以 host 側 `readlink -f` 把每筆 Source 物理化後再比對前綴（物理路徑落
+  `/mnt/d/*` 即紅），且逐容器逐 mount 列證、不抽樣；與閘 #11 的教訓同族——Mounts JSON
+  同形不代表定址語意相同，字面相符不是證據、物理解析才是。
+  ｜出處：2026-07-29 019 U4 T030 步驟④施工前偵察（遷移前 rust-api 之 5 筆 secret Source
+  全顯示 symlink 邏輯路徑、字面不含 /mnt/d；步驟④遂以 readlink -f 物理化斷言落地，
+  遷移後 14 容器 12 筆 secret mount 全數物理落 ext4）。
+- **L-173**｜bind source 檔「刪除重建」（新 inode）後，既存容器**不會**因 up 而重掛：
+  running 容器抓著舊 inode 照常跑（值同無感）；**已 Exited 的 oneshot 服務**（migrate）
+  下次 `up` 要重新 start，其 Docker Desktop bind-mount 快照路徑（docker-desktop-bind-mounts/
+  …）已隨舊 inode 消失 → mount 直接 fail（`no such file or directory`）、服務起不來——
+  ＝contracts §P6 否定契約「bind 到已刪 inode、下次重啟才炸」的實證形，且 `up -d` 對
+  config 未變的服務只 Start 不 Recreate、絕不會自癒。防法：任何「清空落點→重解密」之後，
+  凡是**在清空前就存在**的容器（含 Exited 的 oneshot 與 stopped 的 profile 件）一律
+  `up -d --force-recreate`（或 down→up）重建 bind；只驗 running 件健康＝漏掉停著的地雷，
+  下次 profile 起用或重啟才炸。
+  ｜出處：2026-07-29 019 U4 T039 乾淨重建（清空 $SECRETS_DIR 重解密後 up：5 業務件
+  running 健康、migrate start 即炸 mount error；--force-recreate 6 業務件＋8 觀測件後
+  全綠，pg_up／redis_up 復 1）。

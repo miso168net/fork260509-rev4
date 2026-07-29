@@ -381,7 +381,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 **Independent Test**: spec US3——遷移五步＋落點驗證＋觀測軌全開讀取，全程機判。
 **依賴**: Phase 2（T004／T005）＋US2（T022 解密管線）。
 
-- [ ] T024 [US3] 新增 `.env.example`（tracked）＋`tools/bootstrap` 代勞產生 `.env`
+- [x] T024 [US3] 新增 `.env.example`（tracked）＋`tools/bootstrap` 代勞產生 `.env`
   （gitignored）：`SECRETS_DIR` 依 T005 結果定值（拍板值 `/dev/shm/rev4-secrets`
   ★重拍（2026-07-29、#11 反轉後）：**重拍值＝`$HOME/.cache/rev4-secrets`、原 2′ 拍板值作廢**、
   詳 ADR 0080「決策」節第 2 點）；
@@ -390,35 +390,89 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   compose 與腳本零改動）；`.gitignore` 既有規則已覆蓋、無須加行
   ——★**重拍後本分支已成無作用**：主值即為 `$HOME/.cache/rev4-secrets`，退路只剩私鑰維度
   （方式 A）、SECRETS_DIR 不再有降階動作（ADR 0080 決策 3）；條款留存供金鑰輪替等再驗情境
-- [ ] T025 [US3] 三腳本 SECRETS_DIR 同步改（★**三處必須同刀齊改**，任一未改即該處無條件賦值
+  ——**實測（2026-07-29）**：`.env.example` 落檔（產檔約束三條：單行 KEY=VALUE／絕對路徑
+  字面〔compose 讀 .env 不做 shell 展開〕／值不含空白與 shell 元字元）；`git check-ignore -v
+  .env`＝`.gitignore:60` 命中（既有規則覆蓋、零加行）；bootstrap 實跑＝缺失時代勞產生
+  `SECRETS_DIR=/home/anew/.cache/rev4-secrets`（shell 側展開後寫入）、已存在時不覆寫只讀值
+  斷言（T039 重跑實證）
+- [x] T025 [US3] 三腳本 SECRETS_DIR 同步改（★**三處必須同刀齊改**，任一未改即該處無條件賦值
   靜默吃掉外部值）：`deploy/generate-secrets.sh`（`SECRETS_DIR` 賦值行）／
   `deploy/preflight-secrets.sh`（同）／`deploy/setup-reaper-role.sh`（`PW_FILE` 賦值行）
   ——改帶預設展開＋各自 `source .env`（存在時）
-- [ ] T026 [US3] `deploy/generate-secrets.sh` 功能改：加 `--compose-only` 旗標（缺 leaf
+  ——**實測（2026-07-29、與 T026 同一 commit 落地）**：三處改帶預設展開（未設回退
+  deploy/secrets）；★.env 讀取**不整檔 source**、改四腳本（含 decrypt）同口徑只嚴格解析
+  `SECRETS_DIR=` 一行（U3 遺留 advisory 四：白名單字元類拒空白／shell 元字元、絕對路徑字面
+  斷言、環境變數優先＝compose 口徑）；機判＝元字元值與相對路徑值皆 rc=1 拒用（含 `$()`
+  探針值未被執行）、env var 蓋過 .env、`bash -n`＋`shellcheck -S warning` 全綠
+- [x] T026 [US3] `deploy/generate-secrets.sh` 功能改：加 `--compose-only` 旗標（缺 leaf
   **報錯退出、不生成**——防靜默造新亂數）＋權限終值改 **644**（原 600 會使三個非 root service
   在開 obs／metrics 軌時 Permission denied）；★`printf '%s'` 寫檔形**不得改為 echo**
-- [ ] T027 [US3] `deploy/preflight-secrets.sh` 增強：①CR 偵測護欄（命中即 FAIL）②composite↔
+  ——**實測（2026-07-29、ext4 沙箱假值 fixture）**：`--compose-only` 斷言 8 支來源檔
+  （7 leaf＋alert_webhook_url）在位非空——全在位 rc=0 只重組 3 composite（leaf 記 PRESENT
+  不動）、刪 jwt_secret 後 rc=1 指名且**未代生成**（刪檔仍缺＝零生成實證）；權限終值
+  目錄 700＋檔 644（stat 實測）；printf 寫檔形未動；未知旗標 exit 64
+- [x] T027 [US3] `deploy/preflight-secrets.sh` 增強：①CR 偵測護欄（命中即 FAIL）②composite↔
   leaf 一致性檢查（複用既有期望值組合式；防「塞入密碼已過期的 `database_url` 也回 OK」）
   ③成功句改**陣列長度插值**（現硬編碼「十一個」、免每刀追改）
-- [ ] T028 [P] [US3] `docker-compose.yml` 頂層 `secrets:` 10 條目改帶預設值變數展開（未設變數
+  ——**實測（2026-07-29、同沙箱）**：①注入 CR → rc=1 指名 captcha_secret.txt；②尾附
+  drift 於 database_url → rc=1 指名＋指路 `--compose-only` 重組、重組後復綠；③成功句
+  `${#REQUIRED[@]}` 插值實印「11 個…（落點路徑；CR 零命中、composite 一致）」；
+  訊息全程只指名檔案、零值輸出
+- [x] T028 [P] [US3] `docker-compose.yml` 頂層 `secrets:` 10 條目改帶預設值變數展開（未設變數
   時回退專案相對路徑）；★`reaper_password` 不進 compose 是設計（僅 setup-reaper-role 直讀）、
   **勿誤補**；dev 與 example 兩 compose 檔零改動
-- [ ] T029 [P] [US3] `tools/bootstrap` secrets 體檢 glob 隨 SECRETS_DIR；**三級口徑明確落地**
+  ——**實測（2026-07-29）**：10 條全改 `${SECRETS_DIR:-./deploy/secrets}/…`；無 .env 時
+  `config` 解析回 repo 內 deploy/secrets（#4）、.env 在位時三 profile 全開 config 之 10 條
+  file 全解析至 `/home/anew/.cache/rev4-secrets`；reaper_password 未誤補、dev／example
+  兩檔 git diff 零行
+- [x] T029 [P] [US3] `tools/bootstrap` secrets 體檢 glob 隨 SECRETS_DIR；**三級口徑明確落地**
   （contracts §P5.4、scan-gates §S4）：`.env` 缺失→**代勞產生（自癒、不中止）**／掃描器與
   hooksPath 斷言→**die 級**／機密實值缺檔→**維持 warn 級**（既有慣例、實值人對人交接、
   bootstrap 不生成）；★上機前的 fail-loud 由 preflight 承載（T027），bootstrap 不重複把關
-- [ ] T030 [US3] **遷移執行＋S6／S7 驗收**：依 contracts §P6 五步（`down`→decrypt→設值
+  ——**實測（2026-07-29）**：.env 缺失實跑＝代勞產生＋繼續跑（非 die）；體檢名冊仍取 repo 內
+  `deploy/secrets/*.example`、實值在位檢查隨 SECRETS_DIR；T039 清空落點實跑＝warn 級列 11 缺檔
+  ＋rc=0（重建指引改指 decrypt＋--compose-only）；掃描器／hooksPath 斷言維持 die 級未動
+- [x] T030 [US3] **遷移執行＋S6／S7 驗收**：依 contracts §P6 五步（`down`→decrypt→設值
   `up -d`→**逐容器 `docker inspect` 驗來源皆非 `/mnt/d`**→**確認後才**刪舊落點）；＋未設變數時
   `docker compose config` 回退驗證（#4）＋`--profile obs --profile metrics` 全開驗三個非 root
   service（472／65534／59000）讀得到且健康＋**否定測試**：跳過 `down` 觀察 `Starting` 而非
   `Recreated`（假性完成信號）後復原重做；完成判準＝`/mnt/d` 全樹零明文機密檔
-- [ ] T039 [US3] **SC-003 後半：乾淨重建全鏈驗收**（quickstart S4 後半；★編號為後補、執行序
+  ——**實測（2026-07-29、全過；步驟 0 先記 11 支 sha256 前 8 碼＋byte 數基準）**：
+  ①三 profile 旗標 down（僅 rev4；rev3 12 支容器 ID 集合前後 diff 零行）；②pty 驅動 decrypt
+  8 支 WRITTEN＋`--compose-only` 重組 3＋preflight 綠（fed=1、echo_leak=0）；③up -d --wait
+  6 業務件全 Created→Healthy；④**逐容器逐 mount 列證**：14 容器（含 obs／metrics）之 12 筆
+  `/run/secrets/*` 掛載 Source 經 `readlink -f` **物理化**後全落 `/home/anew/.cache/
+  rev4-secrets`、零 `/mnt/d`（★字面 grep 會假綠——遷移前 Source 即顯示 symlink 邏輯路徑
+  `/home/anew/x_Project/...`、物理實為 /mnt/d，物理化斷言之因＝L-172）；⑤刪前終核新落點
+  11/11 sha256 與基準全符**後才** `rm deploy/secrets/*.txt`（.example＋README 保留、
+  git status 零行）。#4 回退：無 .env 與 .env 暫移兩情境 config 均解析回 deploy/secrets、
+  驗畢復原。S7：obs＋metrics 全開，grafana(472)／postgres-exporter(65534)／redis-exporter
+  (59000) 容器內 id -u 實證＋讀 `/run/secrets/*` 之 sha256 前 8 碼與基準全符（a665975d／
+  98483895／e68962c7／dcd27828）、grafana /api/health database ok、prometheus 查
+  pg_up=1／redis_up=1（兩 exporter 以 644 檔真連線成功＝644 終值真驗收）。否定測試：跳過
+  down 直接改值 up -d → 全程零 `Recreated`、rust-api 掛載仍指舊路徑（假性完成實證）→
+  復原後照 ①~⑤ 正確順序重做。完成判準：`/mnt/d/AnewSpaces/x_Project` 全樹（含 .git 物件庫、
+  fork 源倉、rev3 目錄）以 7 種基準 byte 數預篩 7890 檔、sha256 與 11 支基準交集**零命中**
+  （全碟其餘目錄與本 repo 機密值無接觸面、範圍判定記於單元回報）。★U3 遺留 advisory 一：
+  新落點版控面外機判＝`git check-ignore` 與 `git ls-files --error-unmatch` 對新落點路徑皆
+  rc=128 fatal outside repository＋物理路徑非 toplevel 前綴＋`git status --porcelain` 零行
+- [x] T039 [US3] **SC-003 後半：乾淨重建全鏈驗收**（quickstart S4 後半；★編號為後補、執行序
   緊接 T030 之後、見 Dependencies）：清空 `$SECRETS_DIR`
   模擬全新環境 → `tools/bootstrap` → `deploy/decrypt-secrets.sh` → `generate-secrets.sh
   --compose-only`（重組 3 composite）→ `preflight-secrets.sh` → `docker compose up -d` →
   **驗 11 支機密檔全數重建、preflight 全綠、服務全健康、全程零人工傳遞任何機密值**；
   ＋**US3 情境 5 否定測試**：清空落點後**不跑解密**直接 preflight → 必須明確紅並指名缺檔
   （而非服務靜默啟動失敗）
+  ——**實測（2026-07-29、全過）**：`rm -rf $SECRETS_DIR` → bootstrap（.env 不覆寫、讀值斷言
+  綠；缺 11 實值＝warn 級 rc=0）→ **情境 5 否定**：不解密直接 preflight＝rc=1 明確紅列名
+  11 缺檔＋重建指引 → pty decrypt 8 支＋--compose-only 重組 3＋preflight 綠 → up：11/11
+  sha256＋byte 數與基準全符（**alert_webhook_url 98483895/39 bytes＝SC-007**）、全程僅憑
+  repo 內密文＋暫代私鑰、零人工傳遞機密值。★踩坑：清空前已存在的容器 bind 舊 inode——
+  running 件無感、**Exited 的 migrate 下次 up 重 start 即 mount error**（Docker Desktop
+  bind 快照隨舊 inode 消失；`up -d` 對 config 未變者只 Start 不自癒）＝§P6 否定契約實證形；
+  處置＝6 業務件＋8 觀測件 `up -d --force-recreate` 重掛新 inode 後全綠（migrate Exited 0、
+  5 業務件 healthy、grafana ok／pg_up=1／redis_up=1），坑與防法＝L-173。收尾：8 觀測件
+  指名 stop 收回 opt-in（絕不 down）、rev3 全程零波及
 
 ## Phase 6: US4 — 營運程序落地（P4）
 
