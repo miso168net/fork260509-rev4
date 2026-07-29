@@ -182,6 +182,7 @@ SC-008 處置慣例）。
 §12 工具速查）；③BACKLOG 登記 B-115；④NOTES 同步 base-web `--no-verify` 慣例廢止；
 ⑤`deploy/secrets` 命中逐檔判定完成（**以現場 `git grep` 為準、不以靜態數字為驗收基準**；
 程序性引用改、歷史文件不改、生成物由 generate 重算）；⑥`deploy/secrets/README.md` 四處
-（預檢語意／force 語意／chmod 注記／對照表）已對齊實際行為。
+（預檢語意／force 語意／chmod 注記／對照表）已對齊實際行為；⑦清理 019 暫存
+`$HOME/.cache/rev4-019-tmp/`（T038 唯一清理點）——清後 `ls` 反證不存在。
 
 **期望**：全數齊備且與實測結果一致；`docs-sync.py lint` 全綠、`generate` 後無 diff。

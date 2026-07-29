@@ -424,8 +424,8 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 - [ ] T038 **S10 治理完備＋收刀前終驗**：quickstart S1~S10 全機判單通＋SC-001~010 逐條勾稽；
   `python3 tools/docs-sync.py generate`＋`check`＋`lint` 全綠、工作樹收斂；ADR 5 支轉 accepted
   （含三閘實測欄）；踩坑逐筆 append `docs/ops/LESSONS.md`；★清理 019 暫存
-  `$HOME/.cache/rev4-019-tmp/`（age 二進位＋tarball＋release-api.json——T040／T019／T033
-  共用暫存之**唯一清理點**；清後 `ls` 反證不存在）
+  `$HOME/.cache/rev4-019-tmp/`（age 二進位＋tarball＋release-api.json——T040 產出、
+  T007／T019／T033 共用之**唯一清理點**；清後 `ls` 反證不存在）
 
 ## Dependencies
 
