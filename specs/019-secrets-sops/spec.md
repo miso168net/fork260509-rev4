@@ -16,7 +16,8 @@
 - 範圍＝**全量一刀**：掃描防線（第 0 步）＋SOPS 本體（第 1~5 步）＋治理落檔。
 - 掃描器＝**Betterleaks**（安裝時依釘版紀律雙查最新穩定版＋驗 checksum；與 gitleaks drop-in 同構、反悔可換）。
 - cosign＝**不裝**：容器 image digest 釘版為實際防線；ADR 誠實登記「官方簽章存在但未啟用驗證」。
-- age-keygen＝**GitHub release 官方二進位**＋checksum、產完金鑰即刪。
+- age-keygen＝**GitHub release 官方二進位**＋checksum、產完金鑰即刪（★時點勘誤 2026-07-29：
+  刪除時點統一＝T038 收刀終驗、施工期 T007／T019／T033 共用暫存——詳 tasks T040）。
 - 私鑰＝**方式 B′ 傾向＋#3 實測定案**（passphrase 加密 identity）；退路預拍＝**退方式 A**（同時
   SECRETS_DIR 降解法 2）；`SOPS_AGE_KEY` 環境變數注入私鑰值＝紅線不可採。
 - SECRETS_DIR＝**解法 2′ `/dev/shm/rev4-secrets`**（tmpfs；與 B′ 唯一自洽組合）；**#11 為結論
@@ -254,7 +255,8 @@
 - **FR-010**: sops MUST 經官方容器 wrapper（`deploy/sops.sh`）提供、image 以 digest 釘版；
   wrapper MUST：互動旗標條件化（非互動不配 tty）、不轉發 host 編輯器變數、顯式轉發
   `SOPS_AGE_*` 三變數；exec bit MUST 以 `git update-index --chmod=+x` 落 index。
-- **FR-011**: age-keygen MUST 自官方 GitHub release 取得＋checksum 驗證、用完即刪；私鑰 MUST
+- **FR-011**: age-keygen MUST 自官方 GitHub release 取得＋checksum 驗證、用完即刪
+  （刪除時點＝T038 收刀終驗、詳 tasks T040）；私鑰 MUST
   落地 host（B′＝passphrase 加密內容）、落地後 MUST 驗尾端無 CR。
 - **FR-012**: MUST 禁止以 SSH 金鑰充當 SOPS identity（規則落 ADR＋RUNBOOK）；identity 來源
   切換後 MUST 緊接 #10 反向驗證。
@@ -289,11 +291,12 @@
 
 - **FR-023**: RUNBOOK MUST 落地：SOPS 營運段（編輯＝edit→decrypt→`up -d --force-recreate`
   不用 restart；加人／換機四步；撤銷四步含原子 `rotate -i --rm-age` 逐檔一行；金鑰／
-  passphrase 遺失；開機儀式；災復備註；工具版本記錄欄）；§7 輪替表增補「輪替後 re-encrypt 回
+  passphrase 遺失；開機儀式；GPG_TTY session 前置（T006 移交）；災復備註；工具版本記錄欄）；
+  §7 輪替表增補「輪替後 re-encrypt 回
   加密檔」步驟；§4 人工清單增 .wslconfig／BitLocker 確認項；§12 增工具速查。
   ★重拍（2026-07-29、#11 反轉後）：「開機儀式」段名保留、**內容改寫為解法 2 常駐語意**
-  （重開機後明文仍在、無須重跑解密；改述為「落點缺檔時的補救步驟」）——詳 tasks T031 備註
-  與 ADR 0080。
+  （重開機後明文仍在、無須重跑解密；內容改述為「落點缺檔時的補救步驟」）——重拍原委詳
+  ADR 0080「後果」節。
 - **FR-024**: 撤銷演練 MUST 過 #7 五準則（否定測試核心）；#13 提示次數 MUST 實測記錄且
   RUNBOOK 不寫死。
 - **FR-025**: ADR 5 支（0079 起、一決策一檔、綱要＝brainstorm §9）MUST accepted；U1 三閘

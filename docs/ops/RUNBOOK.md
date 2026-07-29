@@ -290,8 +290,8 @@ lint 條款速覽（018 新增五條）——severity 三分：ERROR＝exit 1 �
 - **019 機密工具鏈釘版（T002 拍板 2026-07-28）**：Betterleaks **v1.7.1**（原生二進位、
   bootstrap 存在性斷言同值）／sops 容器 **v3.13.3-alpine**（index digest＝
   `sha256:ae501277bf742f1662e0f881f43dd8fd6798b489a8058e921dbf6cda597140ea`、寫死於容器
-  wrapper 常數）／age **v1.3.1**（一次性產鑰、官方 release 二進位以 release API digest 欄位
-  驗 sha256、用完即刪）。
+  wrapper 常數）／age **v1.3.1**（一次性產鑰工具、不常駐：官方 release 二進位以 release API
+  digest 欄位驗 sha256、取用完畢即清理）。
 
 ## 13. 故障排除速查（全文→LESSONS；此表只指路）
 

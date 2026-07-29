@@ -83,7 +83,7 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   原僅 T019 取得 age 且用完即刪、host 現況無此工具）：依 T002 拍板之 age 版本自官方 GitHub
   release 下載 `age-v<拍板版本>-linux-amd64.tar.gz`，**以該版本 release API 的 `digest` 欄位
   現查值比對 `sha256sum`**（★age **無 checksums 檔**、改配 Sigsum `.proof`；R9 所記 v1.3.1
-  之 sha256 僅研究當日值、版本一變即作廢）→ 置於暫存路徑供 T007 與 T019 共用、**全刀完成後刪除**
+  之 sha256 僅研究當日值、版本一變即作廢）→ 置於暫存路徑供 T007／T019／T033 共用、**全刀完成後刪除（清理承接＝T038 收刀終驗）**
   ——**實測（2026-07-29）**：release API digest 現查值＝`sha256:bdc69c09cbdd6cf8b1f333d372a1f5
   8247b3a33146406333e30c0f26e8f51377`、tarball `sha256sum` 逐字相符（比對基＝本輪 API 現查、
   非 research 舊記；本輪現查值恰與 R9 當日值相同）；解包路徑＝
@@ -91,7 +91,7 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   ——★**勾選語意＝取得與 digest 驗訖已完成**（T007／T019 硬前置就此解除；**T019 直接沿用此
   二進位、勿重複下載**）；本任務文中「全刀完成後刪除」之暫存清理
   （`$HOME/.cache/rev4-019-tmp/`＝tarball＋release-api.json＋解包目錄）**未隨勾選完成、
-  屬收刀時執行之餘留步驟**（勾選不代表暫存已清）
+  屬收刀時執行之餘留步驟**（勾選不代表暫存已清；★承接任務＝T038、其列明清理此暫存）
 - [x] T007 **閘 #3**（B′ 定案點）：`age-keygen | age -p` 產一把 passphrase 加密 identity
   （★`age -p` 的 passphrase 讀取走 `/dev/tty`、與 stdout 重導向互不干擾，真 TTY 下可行）→
   `xxd` 驗 `keys.txt` 尾端無 CR → 以 `--age <剛產生的公鑰>` 直接指定做最小加解密往返
@@ -263,7 +263,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   sha256 僅為研究當日值、**版本一變即作廢**。原取得步驟保留備查：自官方 GitHub release 下載
   `age-v<VER>-linux-amd64.tar.gz`（★**無 checksums 檔**——完整性以 release API 的 `digest`
   欄位比對 `sha256sum`）→ 依 T007 定案產鑰（B′：`age-keygen | age -p`／退路 A：明文＋
-  `chmod 600`）→ `xxd` 驗尾端無 CR → **二進位用完即刪**；以 `age-keygen -y` 取 recipient 公鑰
+  `chmod 600`）→ `xxd` 驗尾端無 CR →（★時點勘誤 2026-07-29：二進位**不於本任務刪除**——
+  T033 產演練金鑰仍需 `age-keygen`、清理統一由 T038 收刀終驗承接）；以 `age-keygen -y` 取
+  recipient 公鑰
   ——★**儀式拍板＝C 案**（拍板全文、誠實登記與收刀義務見 ADR
   `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`「決策」節第 5 點
   ＝唯一權威落點）：**本任務只產「暫代正式鑰」**（agent 拋棄式 passphrase、B′ 形制、pty
@@ -357,7 +359,10 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `git pull` 即可用」是錯的）／撤銷四步（★`rotate -i --rm-age` **逐檔一行**——`rotate` 只吃
   第一個位置參數、其餘靜默略過且 exit code 不變）／金鑰與 passphrase 遺失（★備份含 passphrase
   本身）／開機儀式（2′ 下每次開機重跑解密；★重拍（2026-07-29）：此段改寫為**解法 2 常駐語意
-  ——毋需每開機重解密**、詳 ADR 0080「決策」節第 2 點）／合併衝突（暫存必落 repo 內、重加密後核對
+  ——毋需每開機重解密**、內容改述為「**落點缺檔時的補救步驟**」〔快取被清／新機／手動刪落點
+  時＝跑解密儀式〕、詳 ADR 0080「決策」節第 2 點）／★**GPG_TTY 前置**（T006 移交：`GPG_TTY`
+  屬 session 環境變數、非 `gpg-agent.conf` 合法選項——B′ 互動解密前置＝session
+  `export GPG_TTY=$(tty)`、寫進 SOPS 營運段）／合併衝突（暫存必落 repo 內、重加密後核對
   `sops.age` 清單）／災復備註（g 不升格之代償）／工具版本記錄欄（T002 三支拍板值）／
   ★**SSH identity 禁令與尋鑰來源注意事項**（FR-012 的 RUNBOOK 面落點：sops 尋鑰為**聯集載入**
   且會零設定自動探測 `~/.ssh/id_ed25519` 與 `id_rsa`——禁以 SSH 金鑰充當 identity；切換取鑰
@@ -367,7 +372,8 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   加密檔」步驟**（漏此步→輪替值與加密檔脫鉤、下次 decrypt 觸發 `.new` 守衛）＋§4 人工必填
   清單增 `.wslconfig`／BitLocker 確認項＋§12 工具鏈速查增 `deploy/sops.sh` 與
   `deploy/decrypt-secrets.sh`
-- [ ] T033 [US4] **S8 撤銷演練＋反向驗證**：產演練用第二把金鑰→加入→`updatekeys -y`→確認可解
+- [ ] T033 [US4] **S8 撤銷演練＋反向驗證**：產演練用第二把金鑰（★age 沿用 T040 暫存二進位、
+  勿重複下載）→加入→`updatekeys -y`→確認可解
   →撤銷四步→**#7 五準則逐條驗**（核心＝否定測試：舊 `enc:` stanza 貼回新檔跑原廠解密**必須
   失敗於 MAC 驗證**；rotate 前後值密文必變；recipient 清單前後不含被撤銷者；人工確認 dev 檔
   無 prod 級機密）→**#10 反向驗證**（identity 移走＋`unset` 相關變數後解密**必須失敗**）→
@@ -417,7 +423,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   與「治理檔 commit」兩情境；超標則記錄成本結構並掛 BACKLOG（比照 018 SC-008 處置）
 - [ ] T038 **S10 治理完備＋收刀前終驗**：quickstart S1~S10 全機判單通＋SC-001~010 逐條勾稽；
   `python3 tools/docs-sync.py generate`＋`check`＋`lint` 全綠、工作樹收斂；ADR 5 支轉 accepted
-  （含三閘實測欄）；踩坑逐筆 append `docs/ops/LESSONS.md`
+  （含三閘實測欄）；踩坑逐筆 append `docs/ops/LESSONS.md`；★清理 019 暫存
+  `$HOME/.cache/rev4-019-tmp/`（age 二進位＋tarball＋release-api.json——T040／T019／T033
+  共用暫存之**唯一清理點**；清後 `ls` 反證不存在）
 
 ## Dependencies
 
@@ -446,7 +454,7 @@ T001 → T002 → T003
   （失敗走預拍退路：方式 A＋`$HOME/.cache/rev4-secrets`、不停工；★重拍後〔#11 反轉〕退路
   **僅退方式 A**，SECRETS_DIR 主值即為此值＝無降階動作，詳 ADR 0080 決策 3）。
 - **T040（age 二進位）為 T007 硬前置**（T007 要實跑 `age-keygen`／`age -p`；二進位由 T007
-  與 T019 共用、全刀完成後刪除）。
+  ／T019／T033 共用、清理承接＝T038 收刀終驗）。
 - **T025 三處同刀齊改**：任一未改則該處無條件賦值靜默吃掉外部值（preflight 回 OK、compose 掛掉）。
 - **T030 遷移五步順序即契約**：刪舊落點必為最後一步（提前刪＝容器 bind 舊 inode、下次重啟才炸）。
 - **T039（編號後補、執行序在 T030 之後）**＝SC-003 後半乾淨重建全鏈；需 US3 全部接線完成才有意義。
