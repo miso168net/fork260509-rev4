@@ -51,9 +51,10 @@ if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
   fi
 fi
 SECRETS_DIR="${SECRETS_DIR:-deploy/secrets}"
-# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支同刀齊改、契約 P5.1）：本腳本首行已
-# `cd` 至 repo 根，故相對值本就等價；此處**顯式錨定**是為與 generate／preflight 同形——
-# 依賴 `cd` 屬隱性保證，日後若被移除即靜默改以 CWD 錨定、與 compose 分裂。
+# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支同刀齊改、契約 P5.1）：此處 `$PWD` 並非
+# 呼叫端 CWD——本腳本首行 `cd "$(dirname "$0")/.."` 已把 CWD 換成**自腳本位置推導**的 repo 根，
+# 故 `$PWD` 等同該推導值、與呼叫端無關（★若日後移除該 `cd`，本行須同步改為自 BASH_SOURCE
+# 推導，否則落點改隨呼叫端漂、與 compose 分裂）。
 case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$PWD/$SECRETS_DIR" ;; esac
 
 PW_FILE="$SECRETS_DIR/reaper_password.txt"

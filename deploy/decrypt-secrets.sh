@@ -73,10 +73,12 @@ if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
     fi
 fi
 SECRETS_DIR="${SECRETS_DIR:-deploy/secrets}"
-# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支同刀齊改、契約 P5.1）：本腳本 :31 已斷言
-# CWD＝repo 根，故相對值本就等價；此處**顯式錨定**是為與 generate／preflight 同形——依賴
-# 「CWD 恰為 repo 根」屬隱性保證，斷言若日後被放寬即靜默改變落點。
-case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$PWD/$SECRETS_DIR" ;; esac
+# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支同刀齊改、契約 P5.1）：錨定基準取自
+# **本腳本位置**（非 `$PWD`）——本腳本 :31 雖已斷言 CWD＝repo 根，但拿 `$PWD` 當基準等於
+# 把正確性續押在該斷言上：斷言日後一旦放寬，`$PWD` 隨呼叫端漂、落點就靜默改變。自
+# BASH_SOURCE 推導與 CWD 無關，才與 generate／preflight 真正同形（U4 收單審 advisory）。
+_ANCHOR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$_ANCHOR_ROOT/$SECRETS_DIR" ;; esac
 
 # ---- P4.4／P4.6 自建 0700 子目錄＋權限自證 ----
 umask 077
