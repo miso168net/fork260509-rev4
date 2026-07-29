@@ -13,9 +13,30 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PW_FILE=deploy/secrets/reaper_password.txt
+# SECRETS_DIR 解析（019 P5.1／P5.2 三處同刀齊改之第三同步點；generate／preflight／decrypt
+# 同口徑）：環境變數優先（與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行
+# （★不整檔 source——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，
+# 含錢字號小括號／反引號之值 source 時會被執行）→ 皆缺回退 repo 內 deploy/secrets。
+if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
+  _line="$(grep '^SECRETS_DIR=' .env | tail -n 1 || true)"
+  if [ -n "$_line" ]; then
+    _val="${_line#SECRETS_DIR=}"
+    case "$_val" in
+      *[!A-Za-z0-9_/.-]*|"")
+        echo "FAIL：.env 之 SECRETS_DIR 為空或含空白／shell 元字元——拒用（產檔約束見 .env.example）" >&2
+        exit 1 ;;
+      /*) SECRETS_DIR="$_val" ;;
+      *)
+        echo "FAIL：.env 之 SECRETS_DIR 必須為絕對路徑字面（compose 不做 shell 展開）——見 .env.example" >&2
+        exit 1 ;;
+    esac
+  fi
+fi
+SECRETS_DIR="${SECRETS_DIR:-deploy/secrets}"
+
+PW_FILE="$SECRETS_DIR/reaper_password.txt"
 if [ ! -s "$PW_FILE" ]; then
-  echo "錯誤：$PW_FILE 缺席或為空（先跑 deploy/generate-secrets.sh）" >&2
+  echo "錯誤：$PW_FILE 缺席或為空（先跑 deploy/decrypt-secrets.sh；無加密檔情境＝generate-secrets.sh）" >&2
   exit 1
 fi
 PW="$(cat "$PW_FILE")"

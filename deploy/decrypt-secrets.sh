@@ -33,10 +33,24 @@ if [ ! -f .sops.yaml ] || [ ! -f deploy/secrets.dev.enc.yaml ]; then
     exit 1
 fi
 
-# ---- 落點解析：source .env（存在時）→ 未設回退 deploy/secrets（與 tools/secret-value-guard.py 同口徑）----
-if [ -f .env ]; then
-    # shellcheck disable=SC1091
-    . ./.env
+# ---- 落點解析（019 P5.1；generate／preflight／setup-reaper-role 同口徑）：環境變數優先
+#      （與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行（★不整檔 source
+#      ——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，含錢字號小括號
+#      ／反引號之值 source 時會被執行）→ 皆缺回退 deploy/secrets ----
+if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
+    _line="$(grep '^SECRETS_DIR=' .env | tail -n 1 || true)"
+    if [ -n "$_line" ]; then
+        _val="${_line#SECRETS_DIR=}"
+        case "$_val" in
+            *[!A-Za-z0-9_/.-]*|"")
+                echo "FAIL：.env 之 SECRETS_DIR 為空或含空白／shell 元字元——拒用（產檔約束見 .env.example）" >&2
+                exit 1 ;;
+            /*) SECRETS_DIR="$_val" ;;
+            *)
+                echo "FAIL：.env 之 SECRETS_DIR 必須為絕對路徑字面（compose 不做 shell 展開）——見 .env.example" >&2
+                exit 1 ;;
+        esac
+    fi
 fi
 SECRETS_DIR="${SECRETS_DIR:-deploy/secrets}"
 
@@ -163,6 +177,16 @@ if [ "${#MISSING[@]}" -ne 0 ] || [ "${#EXTRA[@]}" -ne 0 ] || [ "${#NONPLAIN[@]}"
     fi
     echo "FAIL：key 斷言不符＝零寫入退出。修復加密檔後重跑；絕不落到 generate 造亂數路徑。" >&2
     exit 1
+fi
+
+# ---- 既有 .txt.new 偵測（019 U3 遺留 advisory 三）：值重新一致後，先前 DIFF 產下的舊 .new
+#      不會再被觸碰＝長存落點；此處只提醒、★不自動刪（避免吃掉人工待決資料）----
+STALE_NEW=()
+for f in "$SECRETS_DIR"/*.txt.new; do
+    [ -e "$f" ] && STALE_NEW+=("$(basename "$f")")
+done
+if [ "${#STALE_NEW[@]}" -ne 0 ]; then
+    echo "WARN：落點已有先前遺留的待決 .txt.new：${STALE_NEW[*]}——請人工比對處置（本腳本不自動刪）。" >&2
 fi
 
 # ---- 寫入（斷言全過後才進入；P4.1／P4.5／P4.7）----
