@@ -593,6 +593,22 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   at-rest 誠實登記與 §15.6 常駐語意）；③§12 速查表增兩列（`./deploy/sops.sh <sops 參數>`／
   `bash deploy/decrypt-secrets.sh`，第三欄註明需 docker／需互動 tty）。本任務**自證**＝T033
   第③步輪替 captcha_secret 後照 §15.4 回寫，decrypt 復跑零 `.new`
+  ——**quality 第 1 輪 blocker 修復（2026-07-30）**：①§15.7 兩處重導向補 pty 正規化——本節是
+  互動程序（stdin 有 tty）故 wrapper 必帶 `-t`，步驟 1 的裸 `>` 會把 passphrase 提示行與 CRLF
+  寫進要三方合併的明文 YAML、步驟 3 再把它加密回權威密文檔（提示行含冒號＝多一支 YAML key，
+  要到下次 decrypt 的 P4.3 斷言才 fail-loud）。改為步驟 1 先落 `.raw` 再
+  `tr '\r' '\n'`＋剝 ANSI CSI＋只留 `^[a-z_]+: ` 行，並斷言「恰 8 行且 8 行皆裸量純量」
+  （判準同 `decrypt-secrets.sh`）；步驟 3 補 `< /dev/null` 讓 wrapper 不帶 `-t`＝根治。連帶
+  §15 節首增「手動重導向必先正規化」警語、`deploy/sops.sh` P1.2 註解補列人工呼叫端、
+  contracts §P7「合併衝突」列補 pty 面約束。機判＝零機密實測：`--version` 經 pty 重導向
+  CR=3 且 `[warning]` 併流／補 `< /dev/null` 後 CR=0 且 stderr 分流；`-d` 未輸 passphrase 之
+  重導向檔 67 bytes、含 1 行提示、零 key 行；正規化片段對「提示行＋CRLF＋8 key」樣本得
+  8 行／8 裸量（PASS），對「區塊純量＋引號值」樣本得 6 裸量（正確擋下）。教訓＝L-182。
+  ②§7／§4 落點語彙隨 US3 前移（本屬 T036 射程、因 §7 是本任務動過之節、新舊語彙並存且會產出
+  **破壞性命令**故提前修）：§7 抬頭增 `$SECRETS_DIR` 宣告＋取值片段（含 `-d` 失敗即 FAIL），
+  重生 leaf／postgres `ALTER USER`／grafana `reset-admin-password` 三處路徑改 `$SECRETS_DIR`；
+  §4 第 1 項 `alert_webhook_url` 路徑同步。★**未動**＝§6 備份、§9 DB 直連、§11 觀測維運三節之
+  `deploy/secrets/` 殘留（本執行單元允許檔案清單外，留 T036 一併處置）
 - [x] T033 [US4] **S8 撤銷演練＋反向驗證**：產演練用第二把金鑰（★age 沿用 T040 暫存二進位、
   勿重複下載）→加入→`updatekeys -y`→確認可解
   →撤銷四步→**#7 五準則逐條驗**（核心＝否定測試：舊 `enc:` stanza 貼回新檔跑原廠解密**必須
@@ -676,7 +692,10 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   docs-sync L6(b) 閘〕）／歷史文件不改／生成物由
   `python3 tools/docs-sync.py generate` 重算；★`deploy/secrets/README.md` 四處描述對齊實際行為
   （預檢語意／`--force` 語意／chmod 注記／機密對照表）——該檔是唯一向 user 說明 secrets 程序的
-  人寫文件、失真即誤導；順帶勘誤 `.gitignore` 的 `.json` 規則註解（與現行 compose 形不符）
+  人寫文件、失真即誤導；順帶勘誤 `.gitignore` 的 `.json` 規則註解（與現行 compose 形不符）。
+  ★**RUNBOOK 面已由 T032 提前處置 §4 第 1 項與 §7 全節**（2026-07-30 quality 第 1 輪 blocker）
+  ——本任務仍須以現場 `git grep` 為準複核，剩餘已知殘留＝§6 備份條、§9 DB 直連兩條、§11 grafana
+  密碼條（檔頭指路之 `deploy/secrets/README.md` 屬**仍存在的檔**、不是殘留）
 
 ## Phase 8: Polish & Cross-Cutting
 

@@ -62,7 +62,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
 
 ## 4. ★人工必填清單（腳本不代辦）
 
-1. **alert_webhook_url 真值**：編輯 `deploy/secrets/alert_webhook_url.txt` 填正式接收端 URL
+1. **alert_webhook_url 真值**：編輯 `$SECRETS_DIR/alert_webhook_url.txt`（落點＝§7 抬頭／§15.6；
+   US3 起已非 repo 內 `deploy/secrets/`）填正式接收端 URL
    → `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart grafana`。
    現值＝已撤 dev 收器 URL——佔位/舊值期間告警投遞必失敗（屬預期、
    不影響規則狀態與業務）。`--force` 不重置此檔；重置＝刪檔重跑 generate-secrets.sh。
@@ -138,17 +139,27 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 
 ## 7. 機密輪替表（生成明細→`deploy/secrets/README.md`；密文面連帶＝§15）
 
-下表「重生 leaf」＝`rm deploy/secrets/<機密>.txt` → `bash deploy/generate-secrets.sh`（零參數：
+★**落點＝`$SECRETS_DIR`**（US3 起明文機密已遷出 repo：真值＝repo 根 `.env` 的 `SECRETS_DIR`、
+拍板預設 `$HOME/.cache/rev4-secrets`＝§15.6。repo 內 `deploy/secrets/` 現只剩 `README.md` 與
+`.example`——路徑寫成那裡＝`cat` 讀到**空字串**，下表 `ALTER USER` 會把密碼改成空）。本節命令
+貼進 shell 前先設好本變數（取值口徑同 `deploy/*.sh` 的寬樣式解析）：
+
+```bash
+export SECRETS_DIR="$(grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' .env | tail -n 1 | sed -E 's/.*=[[:space:]]*//')"
+[ -d "$SECRETS_DIR" ] || echo "FAIL：SECRETS_DIR 取值失敗（.env 缺該行？）——先跑 bash tools/bootstrap"
+```
+
+下表「重生 leaf」＝`rm "$SECRETS_DIR/<機密>.txt"` → `bash deploy/generate-secrets.sh`（零參數：
 缺則補新亂數值＋drift 偵測連動重寫 composite；2026-07-19 沙箱實測僅該 leaf＋其 composite 變動、
 其餘九支零變動）。★單機密輪替絕不可用 `--force`（射程見表下首條）。
 
 | 機密 | 輪替程序 |
 |---|---|
-| postgres_password | ★initdb-only 三步：①重生 leaf ②`docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres psql -U soybean -d soybean_admin_rust -c "ALTER USER soybean PASSWORD '$(cat deploy/secrets/postgres_password.txt)'"`（host shell 代換自動帶入 leaf 現值；hex 字元集、單引號巢套安全）③`docker compose -f docker-compose.yml -f docker-compose.dev.yml restart rust-api migrate postgres_exporter`。`POSTGRES_PASSWORD_FILE` 只在卷空時 initdb 生效——漏②＝檔新庫舊、全面 auth 失敗 |
+| postgres_password | ★initdb-only 三步：①重生 leaf ②`docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres psql -U soybean -d soybean_admin_rust -c "ALTER USER soybean PASSWORD '$(cat "$SECRETS_DIR/postgres_password.txt")'"`（host shell 代換自動帶入 leaf 現值；hex 字元集、單引號巢套安全）③`docker compose -f docker-compose.yml -f docker-compose.dev.yml restart rust-api migrate postgres_exporter`。`POSTGRES_PASSWORD_FILE` 只在卷空時 initdb 生效——漏②＝檔新庫舊、全面 auth 失敗 |
 | redis_password | 重生 leaf → `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart redis rust-api redis_exporter`（requirepass 每次啟動現讀、無卷配對問題） |
 | reaper_password | 重生 leaf → `bash deploy/setup-reaper-role.sh`（把新密推進 DB、內建自驗）→ `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs restart reaper` |
 | jwt／refresh／captcha | 重生 leaf（三檔各自獨立、換哪支刪哪支）→ `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart rust-api`。後果：全體使用者被登出、pending captcha 失效 |
-| grafana_admin_password | ★init-only（2026-07-19 實測）：檔改＋重啟**不會**改既有 admin 密碼（$__file 僅 grafana_data 首建時寫入）。輪替＝重生 leaf 後 `docker compose -f docker-compose.yml -f docker-compose.dev.yml exec grafana grafana cli --homepath /usr/share/grafana admin reset-admin-password "$(cat deploy/secrets/grafana_admin_password.txt)"`（即時生效、免重啟；grafana 13 無獨立 grafana-cli 執行檔） |
+| grafana_admin_password | ★init-only（2026-07-19 實測）：檔改＋重啟**不會**改既有 admin 密碼（$__file 僅 grafana_data 首建時寫入）。輪替＝重生 leaf 後 `docker compose -f docker-compose.yml -f docker-compose.dev.yml exec grafana grafana cli --homepath /usr/share/grafana admin reset-admin-password "$(cat "$SECRETS_DIR/grafana_admin_password.txt")"`（即時生效、免重啟；grafana 13 無獨立 grafana-cli 執行檔） |
 | alert_webhook_url | 特例：直接編輯檔填真值 → `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart grafana`（provisioning $__file 啟動時讀入）。`--force` 不重置 |
 
 - ★**每一列做完都要接「re-encrypt 回加密檔」這一步**（019 起機密以密文入版控；程序＝§15.4）：
@@ -352,6 +363,14 @@ pinentry 可能找不到 tty。pinentry 本體設定（`pinentry-program`）才�
 起來再輸入**。搶在容器接管 tty 之前打字＝那串字會被 host shell 回顯成明文留在畫面與 scrollback
 （本刀演練實測）。
 
+★**手動把 wrapper 的 stdout 重導向到檔案時必先正規化**（同一 pty 性質的另一面；契約＝
+`deploy/sops.sh` 之 P1.2）：stdin 有 tty ⇒ wrapper 帶 `-t` ⇒ ①輸出換行一律變 CRLF
+②stderr 與 passphrase 提示行與 stdout **同一條流**被一起收進檔案。兩種處置：需要 passphrase
+的子命令（`-d`）只能事後**剝 CR＋濾掉非資料行**（程序＝§15.7 步驟 1）；不需要 passphrase 的
+子命令（`-e`）直接補 `< /dev/null` 把 tty 拔掉、wrapper 就不帶 `-t`，從根上不發生。
+實測（2026-07-30、零機密）：`./deploy/sops.sh --version` 經 pty 重導向得 3 個 CR 且
+`[warning]` 行併入同檔；補 `< /dev/null` 後 CR=0、stderr 不再併流。
+
 ### 15.1 編輯機密（改值／加 key）
 
 ```bash
@@ -484,11 +503,27 @@ WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/rev4-merge.XXXXXX")"
   || echo "FAIL：$WORK 落在 9p 或權限非 700——把 XDG_CACHE_HOME 指到 ext4 路徑後重來"
 ```
 
-1. 各自 `./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > "$WORK/<自己>.yaml"`
+1. 各自解密**並正規化**（★正規化不可省，成因＝§15 節首「手動重導向」警語：裸重導向產出的檔
+   含 CRLF 與 passphrase 提示行，照走步驟 3 就把提示行當成多出來的 YAML key 加密進**權威密文
+   檔**——要等下次 `bash deploy/decrypt-secrets.sh` 的 key 斷言才炸，屆時壞密文可能已 commit
+   給他人）：
+
+   ```bash
+   ./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > "$WORK/<自己>.raw"
+   tr '\r' '\n' < "$WORK/<自己>.raw" | sed -E $'s/\x1b\\[[0-9;]*[A-Za-z]//g' \
+     | grep -E '^[a-z_]+: ' > "$WORK/<自己>.yaml"
+   rm -f "$WORK/<自己>.raw"
+   [ "$(wc -l < "$WORK/<自己>.yaml")" = 8 ] \
+     && [ "$(grep -c -E "^[a-z_]+: [^\"'|>]" "$WORK/<自己>.yaml")" = 8 ] \
+     || echo "FAIL：不是 8 支裸量純量 key 行——解密失敗、或有值需引號／區塊純量而續行已被濾掉；停手勿續（判準同 decrypt-secrets.sh 的 key 斷言）"
+   ```
+
+   `tr` 取**轉行界**而非 `tr -d`：提示行末尾可能只有 CR，刪掉就會與第一支 key 黏成同一行。
 2. **在 `$WORK` 內**做三方合併產出 `$WORK/merged.yaml`；確認無誤後才
    `cp "$WORK/merged.yaml" tmp/merged.yaml`——repo 內只放這一個檔、只活到步驟 4，絕不 `git add`
-3. 重加密：
-   `./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/merged.yaml > deploy/secrets.dev.enc.yaml`
+3. 重加密（★`< /dev/null` 不可省：加密不需 passphrase，把 stdin 從 tty 拔掉 wrapper 就不帶
+   `-t`〔P1.2〕，輸出才不會被容器 pty 改成 CRLF、sops 的 stderr 也不會併進權威密文檔）：
+   `./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/merged.yaml < /dev/null > deploy/secrets.dev.enc.yaml`
    ——★`--filename-override` 不可省：`path_regex` 比對的是**檔名**，對 `tmp/merged.yaml`
    比不到規則就會報 `no matching creation rules found`（或在別的規則下**悄悄換掉 recipients**）
 4. **核對加密檔 `sops.age` 的 recipient 清單與 `.sops.yaml` 逐一相符**，再刪**兩處**暫存明文：
