@@ -274,7 +274,10 @@
   不覆寫；B′ 情境 tty 守衛。
 - **FR-017**: SECRETS_DIR MUST 以 repo 根 `.env`（gitignored、bootstrap 代勞產生、
   `.env.example` tracked）為單一事實來源；compose 與 decrypt／generate／preflight MUST 讀值
-  一致（腳本 source `.env`，殺「compose 讀新落點、腳本查舊落點」分裂）。
+  一致（殺「compose 讀新落點、腳本查舊落點」分裂）。★**as-built 勘誤（2026-07-29、019 U4）**：
+  原句「腳本 `source .env`」**已作廢**——`source` 屬刻意拒用（值內 `$()`／反引號會被執行）；
+  as-built 一律**三級口徑**（環境變數→`.env` 只嚴格解析該一行→回退），且消費者**不止三支**：
+  完整聯集七處＝`contracts/secret-pipeline.md` §P5.1（唯一權威清單；漏列即靜默失效＝L-174）。
 - **FR-018**: compose 頂層 10 條 secrets 條目 MUST 改帶預設值變數展開（未設變數回退
   `./deploy/secrets`＝#4 驗收）；「忘設變數＝保護失效」取捨 MUST 由 preflight＋bootstrap 斷言
   補償並於 ADR 誠實登記。

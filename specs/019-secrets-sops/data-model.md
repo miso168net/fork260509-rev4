@@ -99,12 +99,21 @@ deploy/secrets.dev.enc.yaml（tracked 密文）
       # ★重拍（2026-07-29、#11 反轉後）：改 $HOME/.cache/rev4-secrets、詳 ADR 0080「決策」節第 2 點
       │
       ├──→ docker compose（原生讀 .env）→ 頂層 secrets 10 條目變數展開
-      ├──→ deploy/decrypt-secrets.sh   （source .env〔存在時〕；未設時回退 deploy/secrets）
-      ├──→ deploy/generate-secrets.sh  （source .env；:41 改帶預設展開）
-      ├──→ deploy/preflight-secrets.sh （source .env；:12 同上）
-      ├──→ deploy/setup-reaper-role.sh （source .env；:16 PW_FILE 同步點）
-      └──→ tools/bootstrap             （體檢 glob 隨之）
+      ├──→ deploy/decrypt-secrets.sh   （三級口徑；未設時回退 deploy/secrets）
+      ├──→ deploy/generate-secrets.sh  （三級口徑；:41 改帶預設展開）
+      ├──→ deploy/preflight-secrets.sh （三級口徑；:12 同上）
+      ├──→ deploy/setup-reaper-role.sh （三級口徑；:16 PW_FILE 同步點）
+      ├──→ tools/secret-value-guard.py （三級口徑；三層防線之確定性層）
+      └──→ tools/bootstrap             （體檢 glob 隨之；只讀 .env＋回退、不吃環境變數）
 ```
+
+★**as-built 勘誤（2026-07-29、019 U4）**：①上圖原缺 `tools/secret-value-guard.py`——落點遷出
+repo 後該層一律 `skip` 且 `rc=0`＝SC-001 裸值格結構性失守卻全綠（**L-174**）；②「`source .env`」
+為施工前敘述、**已作廢**：`source` 屬**刻意拒用**的機制（值內 `$()`／反引號會被執行＝把落點
+設定變成可執行碼），as-built 一律**三級口徑**＝環境變數優先 → repo 根 `.env` **只嚴格解析
+`SECRETS_DIR=` 一行**（非法值吵鬧失敗、不靜默回退）→ 皆缺回退 `deploy/secrets`。
+★**消費者聯集之唯一權威清單＝`contracts/secret-pipeline.md` §P5.1（七處）**——本圖為模型視角、
+落點類變更前一律以 P5.1 為準（本圖與任一單列皆可能落後）。
 
 **落點屬性（2′ 原值、★已隨 2′ 作廢、保留供反轉軌跡）**：`/dev/shm`＝tmpfs、16G、
 `rw,nosuid,nodev,noatime`（**未帶 noswap**）、目錄權限 `drwxrwxrwt`（world-writable＋sticky）
@@ -178,7 +187,8 @@ redis-exporter 59000；600 會在開 obs／metrics 軌時才炸）。
 ## 7. 解密管線狀態模型（`decrypt-secrets.sh` 五要求）
 
 ```text
-[前置] tty 守衛（B′ 需互動）→ source .env（存在時；未設時回退 deploy/secrets）
+[前置] tty 守衛（B′ 需互動）→ 三級口徑取 SECRETS_DIR（環境變數→.env 嚴格解析該一行→回退
+       deploy/secrets；★不整檔 source、詳 §4 as-built 勘誤與契約 §P5.1）
        → mkdir -p $SECRETS_DIR && chmod 700（自建 0700 子目錄）
    │
 [解密] wrapper 收 stdout（umask 077；不用 --output／-i，避免 root 產物）
