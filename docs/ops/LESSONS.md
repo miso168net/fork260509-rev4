@@ -388,8 +388,7 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
   ｜出處：2026-07-29 019 U4 T039 乾淨重建（清空 $SECRETS_DIR 重解密後 up：5 業務件
   running 健康、migrate start 即炸 mount error；--force-recreate 6 業務件＋8 觀測件後
   全綠，pg_up／redis_up 復 1）。
-
-L-174｜**落點類設計變更的「消費者清單」漏一支＝該防線靜默失效且全綠**——019 把機密明文落點
+- **L-174**｜**落點類設計變更的「消費者清單」漏一支＝該防線靜默失效且全綠**——019 把機密明文落點
   自 repo 內遷至 `$HOME/.cache` 時，契約 §P5.2 的同刀齊改清單只列了三支 shell 腳本
   （後補至四支），漏掉第五消費者 `tools/secret-value-guard.py`（三層掃描防線的確定性層）。
   該工具只讀環境變數 `SECRETS_DIR`、不解析 repo 根 `.env`，而 git hook 純繼承呼叫端 shell
@@ -404,8 +403,7 @@ L-174｜**落點類設計變更的「消費者清單」漏一支＝該防線靜�
   （L-158）。｜出處：2026-07-29 019 U4 spec 審抓出（實證：`env -u SECRETS_DIR … check` 印
   skip 且 rc=0；修＝補與四腳本逐字同口徑的三級解析〔環境變數→`.env` 只嚴格解析該一行、
   非法值吵鬧失敗不靜默回退→回退 `deploy/secrets`〕＋7 案單元測試，端到端反證回 rc=1 指名）。
-
-L-175｜**「設定檔讀值」的兩支解析器只要偵測面不等寬，窄的那支就會靜默回退到舊行為**——019
+- **L-175**｜**「設定檔讀值」的兩支解析器只要偵測面不等寬，窄的那支就會靜默回退到舊行為**——019
   把落點 `SECRETS_DIR` 寫進 repo 根 `.env` 後，compose 用自己的 dotenv 解析器讀，六支自寫
   消費者（四支 deploy 腳本＋`tools/secret-value-guard.py`＋`tools/bootstrap`）用 `grep
   '^SECRETS_DIR='` 讀。compose 那支接受 UTF-8 BOM／行首空白／`export ` 前綴／等號兩側空白
@@ -424,8 +422,7 @@ L-175｜**「設定檔讀值」的兩支解析器只要偵測面不等寬，窄�
   ｜出處：2026-07-29 019 U4 quality 審抓出（實證：compose v5.3.1 六形皆解析為新落點，窄樣式
   四形回退舊落點 rc=0；修＝六處同刀改寬樣式＋guard 4 案單元測試〔退回窄樣式即 3 紅〕，
   八形三方矩陣逐案同解）。
-
-L-176｜**寫檔守住 byte-identical，讀取比對卻用命令替換＝不變式在比對面破功**——019 機密檔
+- **L-176**｜**寫檔守住 byte-identical，讀取比對卻用命令替換＝不變式在比對面破功**——019 機密檔
   一律 `printf '%s'` 寫入（零尾端換行）並立 CR 護欄，但 preflight 的 composite↔leaf 一致性
   與 generate 的 dual-write drift 判定都用 `[ "$(cat f)" = "$v" ]`：命令替換會剝掉尾端換行，
   於是「檔尾多一個 LF」這一格對兩者**結構性失明**——實測 `redis_password.txt` 尾多一個 LF
