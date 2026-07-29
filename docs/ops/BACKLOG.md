@@ -1,4 +1,4 @@
-<!-- next: B-115 -->
+<!-- next: B-118 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -35,3 +35,6 @@
 - B-112｜rust-api submodule 內治理工具舊名殘留：`server/tests/wire_schema.rs` 行 2/29/56/225/245 之 `python3 tools/wire-schema extract`（行 29/56 為測試失敗時印給人照打的補救命令、行 245 更以 assert 斷言 panic 訊息含該字串）＋`migration/src/m008~m011` 註解引 `tools/schema-gate`——018 改名後照打即檔不存在；不併 018 之因＝FR-017 明文零 submodule 改動、且改動需容器內 serial 驗證＋pin bump（rust 既有行為零回歸不受影響：斷言兩側同為 rust 自帶字串常數）｜下次動 rust-api 測試或 migration 註解時同刀｜出處：018 U1 quality review advisory（2026-07-28）
 - B-113｜docs-sync 自帶測試套件 drvfs 提速：284 案實測 5.2s（T001 基線 212 案／2.53s；user 1.60s＋sys 1.28s，約 2.3s 為 drvfs I/O 等待），多案在 drvfs 上 `git init` 建 fixture repo、每次 git spawn 稅約 73ms（L-155）。候選＝fixture repo 共用（class 級 setUp）／改在 native 路徑建 fixture／不需 git 的案改純檔案 fixture｜套件再成長至體感惡化、或 pre-commit 工具全改動成本成為實際痛點時｜出處：018 U4 SC-008 實測校正（2026-07-28）
 - B-114｜index_pins 無 stage-0 過濾、與 018 新增 index_gitlink 嚴格規則不一致：gitlink 合併衝突未解時（index 同存 stage 1/2/3）index_pins 取首個 160000 行會讀到共同祖先 pin、STATE 顯示祖先值；018 已在 index_gitlink（L16/L17 面）釘死只認 stage 0，generate 面未歸一。修法＝index_pins 復用 index_gitlink（回傳 SHA 與跳過原因）、衝突態 STATE 顯示未定而非祖先 pin｜下次動 docs-sync generate 面、或 gitlink 衝突實際發生時｜出處：018 final holistic review advisory（2026-07-28）
+- B-115｜prod 機密分層遞延包：①建 `deploy/secrets.prod.enc.yaml`＋`.sops.yaml` 第二條錨定 `path_regex`（recipients≥2、**不含開發機公鑰**）②託管 DB 情境下 `database_url` 由 composite 升格為 primary secret 入 SOPS ③遞延驗收 #5（開發機解不開 prod）／#6（CI 取不到金鑰）——019 無 prod 資產與 CI 母體＝**結構性不可測**，不做假替代測試 ④CI 側金鑰保護（GitHub Environments／OIDC）；★同時是 ADR 0083「問題 B 四反轉條件」②③ 的強制重讀點——**B-115 兌現前不得宣稱 prod 機密已納管**｜prod 部署刀群（與 B-037／B-042／B-081／B-013 同期）｜出處：019 spec FR-026＋ADR 0081 決策 2（2026-07-30）
+- B-116｜`tools/` 與 `.githooks/` 之 index exec bit（100755）零機器守衛：drvfs 恆顯示 0777、`ls` 看不出 index 裡是 100644 還是 100755，全靠人記得 `git update-index --chmod=+x`（019 兩支新腳本 `deploy/sops.sh`／`deploy/decrypt-secrets.sh` 皆屬此形、雖已逐支 `git ls-files -s` 驗過 100755，但下一支工具入名冊時同坑必重演）。候選修法＝docs-sync 加一條 lint，對名冊內可執行腳本斷言 `git ls-files -s` 首欄＝100755｜下次新增可執行腳本、或動 `TOOLS_PY` 名冊時｜出處：019 U1 收單審 advisory（2026-07-29）
+- B-117｜RUNBOOK §15.7 步驟 3 以 shell 重導向覆寫**權威密文檔**：`./deploy/sops.sh -e … > deploy/secrets.dev.enc.yaml` 由 shell 在 sops 起跑前即截斷目標檔，加密失敗（規則比不到／私鑰不可用／docker 不在）時該檔先成 0 byte；與同節 §15.2 產鑰已立的「`[ -e ]` 前置閘＋寫 `.new` 再 `mv`＋失敗清殘檔」防法同構。**屬既存形制、非 019 引入**，且損失可逆（`git show :2:`／`git checkout --` 復原）故未升 blocker｜下次動 RUNBOOK §15、或 merge 衝突程序實際被觸發時｜出處：019 U5 收單審 advisory（2026-07-30）

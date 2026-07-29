@@ -749,9 +749,17 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   D＝`0082-three-layer-leak-scan-defence.md`／E＝`0083-team-composition-premise-two-tier-trigger.md`。
   機判＝`generate` 重算 11 檔（DECISIONS-INDEX 五列在位）＋`lint` 0 錯誤 0 警告（L8 front-matter／
   撞號／supersedes 對稱全過）
-- [ ] T035 [P] [US5] `docs/ops/BACKLOG.md` 登記 B-115 prod 機密分層遞延包（prod 加密檔＋
+- [x] T035 [P] [US5] `docs/ops/BACKLOG.md` 登記 B-115 prod 機密分層遞延包（prod 加密檔＋
   #5／#6 結構性不可測驗收＋CI 側保護；掛 prod 部署刀群）＋`docs/ops/NOTES.md` 同步 base-web
   `--no-verify` 慣例廢止（repo 文件不引用 per-machine memory 路徑）
+  ——**實做（2026-07-30）**：BACKLOG 檔頭 next-id `B-115`→`B-118`，新增三列（升冪排在 B-114 後）：
+  **B-115** prod 機密分層遞延包（四項＋「兌現前不得宣稱 prod 已納管」＋掛 ADR 0083 反轉條件②③
+  重讀點）／**B-116** `tools/`＋`.githooks/` index exec bit 零機器守衛（U1 收單審 advisory 承接；
+  drvfs 恆 0777 使人眼看不出、候選修法＝docs-sync 加 `git ls-files -s` 首欄斷言）／**B-117**
+  RUNBOOK §15.7 步驟 3 重導向覆寫權威密文檔（U5 收單審 advisory 承接；既存非本刀引入、
+  `git show :2:` 可復原故未升 blocker）。NOTES 之 base-web 慣例行改為「`--no-verify` 慣例已廢止」
+  ＋理由（hooksPath 旁路 husky／事件型繞過即真進 git）＋指路 ADR 0082 決策 5；★未引用任何
+  per-machine memory 路徑。機判＝`lint` 0 錯誤 0 警告（L9 配號單調不回收、L7 NOTES 35/40 行）
 - [ ] T036 [US5] `deploy/secrets` 命中逐檔判定（**以現場 `git grep` 為準、不以靜態數字為驗收
   基準**）：程序性引用逐檔改（清單＝research R18 表；★**排除 `docs/arc42/ARCHITECTURE.md`**
   ——該檔屬活書 as-built、**歸收刀簿記 commit、不在本 feature branch 內改**〔檔頭宣告＋
