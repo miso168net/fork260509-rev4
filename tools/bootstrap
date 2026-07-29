@@ -140,17 +140,45 @@ run_tool_test secret-value-guard
 python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
 ok "fork-delta-lint 全綠（self-test＋實掃）"
 
-# ── 6. secrets 體檢（僅檢缺檔、不碰實值）──────────────────────────────
+# ── 6. .env 單一事實來源（019 T024／T029、contracts P5.4 三級口徑）────────
+# 口徑：.env 缺失→代勞產生（自癒、不中止）；已存在→不覆寫、只讀值斷言（形制不合＝warn
+# ＋自癒指引，不 die——上機前 fail-loud 由 preflight 承載、bootstrap 不重複把關）。
+# ★SECRETS_DIR 必須寫「絕對路徑字面」：compose 讀 .env 不做 shell 展開（$HOME 字面無效），
+#   故由本腳本於 shell 側展開後寫入；產檔約束全文見 .env.example。
+ENV_FILE="$ROOT/.env"
+SECRETS_DIR_DEFAULT="$HOME/.cache/rev4-secrets"
+if [ ! -f "$ENV_FILE" ]; then
+  printf 'SECRETS_DIR=%s\n' "$SECRETS_DIR_DEFAULT" > "$ENV_FILE"
+  ok ".env 缺失→已代勞產生（SECRETS_DIR=$SECRETS_DIR_DEFAULT）"
+fi
+SECRETS_DIR="$ROOT/deploy/secrets"   # 讀值失敗時的體檢回退（＝compose 未設變數之回退口徑）
+env_line="$(grep '^SECRETS_DIR=' "$ENV_FILE" | tail -n 1 || true)"
+if [ -z "$env_line" ]; then
+  warn ".env 已存在但無 SECRETS_DIR 行——compose 將回退 ./deploy/secrets（保護失效）；自癒：echo SECRETS_DIR=$SECRETS_DIR_DEFAULT 附加進 .env"
+else
+  env_val="${env_line#SECRETS_DIR=}"
+  case "$env_val" in
+    *[!A-Za-z0-9_/.-]*|"")
+      warn ".env 之 SECRETS_DIR 為空或含空白／shell 元字元（產檔約束見 .env.example）——體檢以 deploy/secrets 回退進行" ;;
+    /*)
+      SECRETS_DIR="$env_val"
+      ok ".env SECRETS_DIR=$env_val（絕對路徑字面、形制合格）" ;;
+    *)
+      warn ".env 之 SECRETS_DIR 非絕對路徑字面（compose 不做 shell 展開）——體檢以 deploy/secrets 回退進行" ;;
+  esac
+fi
+
+# ── 7. secrets 體檢（僅檢缺檔、不碰實值；名冊＝repo 內 .example、落點隨 SECRETS_DIR）──
 missing=""
 for ex in "$ROOT"/deploy/secrets/*.example; do
   [ -e "$ex" ] || continue
-  real="${ex%.example}"
-  [ -f "$real" ] || missing="$missing $(basename "$real")"
+  real_base="$(basename "${ex%.example}")"
+  [ -f "$SECRETS_DIR/$real_base" ] || missing="$missing $real_base"
 done
 if [ -n "$missing" ]; then
-  warn "deploy/secrets 缺實值檔：$missing —— 照 deploy/secrets/README.md 自建（人對人交接）"
+  warn "SECRETS_DIR（$SECRETS_DIR）缺實值檔：$missing —— 重建：./deploy/decrypt-secrets.sh（8 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）；上機前把關＝preflight"
 else
-  ok "deploy/secrets 實值檔齊"
+  ok "SECRETS_DIR（$SECRETS_DIR）實值檔齊"
 fi
 
 # ── 摘要 ─────────────────────────────────────────────────────────────
