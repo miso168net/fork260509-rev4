@@ -705,6 +705,16 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   演練金鑰材料與 log 全刪（`$HOME/.cache/rev4-019-tmp/drill/` 移除，age 二進位保留待 T038）；
   `git status` 僅 `deploy/secrets.dev.enc.yaml`（新 data key＋新 captcha 值＝演練的預期產物）。
   ★踩坑＝**L-179**（pty 等提示必 timeout／盲餵會被 host shell 回顯 passphrase）
+  ——★**quality 第 4 輪＋收單審結清（2026-07-30、主線）**：RUNBOOK §15.7 兩實質缺陷已修
+  （commit `9455767`）——①步驟 1 唯一解密命令指向**工作樹**加密檔，而本節受眾正是 `git status`
+  顯示 `UU` 的人（該檔已含衝突標記、`sops -d` 必 `rc=1`＋stdout 0 bytes），且全節未載三方輸入
+  來源 → 補 `git show :1:／:2:／:3:` 自 index 取三方**密文**（密文落 repo 內無妨、落點兩分限制
+  的是明文）②`assert8` 失敗分支只 `echo`＝**恆回傳 0**、步驟 2 又與 `cp` 並列兩行 → 正文承諾
+  「OK 才複製」而機器不擋，人手合併掉一支 key 即把壞檔加密進權威密文檔 → 改 `return 1`＋
+  `&&` 串接（教訓＝**L-188／L-189**）。收單審七 advisory：六項同刀修畢（節首摘要句改單機三方、
+  錯訊改判準用 rc 與空輸出勿寫死字串、add/add 變體指引、中途停手清理指引、步驟 4 recipient
+  比對改可執行命令並 `&&` 串接、本備註）；一項轉 BACKLOG（步驟 3 以重導向覆寫權威密文檔＝
+  既存非本刀引入、失敗可 `git show :2:` 復原，登記歸 T035）
 
 ## Phase 7: US5 — 治理落檔（P5）
 

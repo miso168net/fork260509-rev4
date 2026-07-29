@@ -517,7 +517,9 @@ bash deploy/preflight-secrets.sh                  # 11 支齊備且健康才可 
 
 ### 15.7 加密檔 merge 衝突
 
-密文逐行不可合併，一律**雙方各自解密 → 明文三方合併 → 重加密**。
+密文逐行不可合併，一律**自 index 取三方密文 → 在你這一台逐份解密 → 明文三方合併 → 重加密**。
+★「各自解密」**不是**兩台機器各自解密再交換明文——那與 §15.2 的零機密傳遞直接衝突；全程單機、
+明文不離開你的 `$WORK`。
 
 ★**暫存明文落點兩分**（本節最易做錯的一步）：「必須落 repo 內」**只適用於要餵回容器內 sops
 的那一個檔**（步驟 3 的 `tmp/merged.yaml`）——wrapper 只掛載 `$PWD`、repo 外的檔容器讀不到，
@@ -557,10 +559,13 @@ assert8() {
 
    ★**先自 index 取三方密文、不要碰工作樹那一份**：衝突狀態下 `deploy/secrets.dev.enc.yaml`
    已被 git 寫入 `<<<<<<<` 衝突標記（本 repo 對該檔未設 merge driver，`git check-attr -a` 可複核），
-   直接餵給 `sops -d` 必 `rc=1`（`yaml: line N: mapping values are not allowed in this context`、
-   stdout 0 bytes）。三方＝`:1:` base（共同祖先）／`:2:` ours（你的）／`:3:` theirs（對方的）。
-   密文落 `tmp/` 是對的——wrapper 只掛載 `$PWD`，repo 外的檔容器讀不到；**密文非明文**，
-   落點兩分限制的是**明文**（`$WORK` 那一側）。
+   直接餵給 `sops -d` 必 **`rc=1`＋stdout 0 bytes**（stderr 形如 `yaml: line N: …`；確切訊息隨
+   衝突標記落在哪一行而異、**勿據字串判定**——判準是 `rc` 與空輸出）。三方＝`:1:` base（共同
+   祖先）／`:2:` ours（你的）／`:3:` theirs（對方的）。密文落 `tmp/` 是對的——wrapper 只掛載
+   `$PWD`，repo 外的檔容器讀不到；**密文非明文**，落點兩分限制的是**明文**（`$WORK` 那一側）。
+   ★**變體**：`git show :1:` 報 `path is in the index, but not at stage 1` ＝ **add/add 衝突**
+   （兩邊各自新建同名檔、無共同祖先，`git ls-files -u` 只列 stage 2,3）——改做 ours 與 theirs
+   **兩方**合併即可，其餘步驟不變。
 
    ```bash
    mkdir -p tmp
@@ -578,6 +583,8 @@ assert8() {
    `tr` 取**轉行界**而非 `tr -d`：提示行末尾可能只有 CR，刪掉就會與第一支 key 黏成同一行。
    `-d` 讀檔內 `sops` metadata、**不需** `--filename-override`（那是加密側才要的、見步驟 3）。
    ★三份各要一次 passphrase（B′ 單 recipient 基線＝每次解密 1 次）。`break` 讓任一份失敗即停手。
+   ★**中途停手＝就地清乾淨再重來**（步驟 4 的清理只在走完全程時才執行）：
+   `rm -rf "$WORK" && rm -f tmp/base.enc.yaml tmp/ours.enc.yaml tmp/theirs.enc.yaml`
 2. **在 `$WORK` 內**做三方合併產出 `$WORK/merged.yaml`，★合併完**必跑同一支守衛**（人手合併
    掉一支 key、貼重複、或讓某值變成需引號形，後果與步驟 1 的機器噪音完全同構：都會被步驟 3
    加密進**權威密文檔**，要等下次 `decrypt-secrets.sh` 的 P4.3 才 fail-loud，屆時壞密文可能已
@@ -597,10 +604,20 @@ assert8() {
    `./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/merged.yaml < /dev/null > deploy/secrets.dev.enc.yaml`
    ——★`--filename-override` 不可省：`path_regex` 比對的是**檔名**，對 `tmp/merged.yaml`
    比不到規則就會報 `no matching creation rules found`（或在別的規則下**悄悄換掉 recipients**）
-4. **核對加密檔 `sops.age` 的 recipient 清單與 `.sops.yaml` 逐一相符**，再刪暫存：
-   `rm -f tmp/merged.yaml tmp/base.enc.yaml tmp/ours.enc.yaml tmp/theirs.enc.yaml && rm -rf "$WORK"`
-   （漏刪 repo 內 `merged.yaml`＝完整明文長期躺在實效 777 路徑上；三份 `.enc.yaml` 是密文、
-   刪它們屬工作區衛生而非洩漏面）。最後 `git add deploy/secrets.dev.enc.yaml` 收衝突
+4. **核對加密檔 `sops.age` 的 recipient 清單與 `.sops.yaml` 逐一相符**——★**用命令核、別用眼睛**
+   （比對成立才准清暫存與 `git add`；不成立＝重加密時 recipients 被悄悄換過，見步驟 3 的
+   `--filename-override`）：
+
+   ```bash
+   diff <(grep -oE 'age1[a-z0-9]+' deploy/secrets.dev.enc.yaml | LC_ALL=C sort -u) \
+        <(grep -oE 'age1[a-z0-9]+' .sops.yaml | LC_ALL=C sort -u) \
+     && rm -f tmp/merged.yaml tmp/base.enc.yaml tmp/ours.enc.yaml tmp/theirs.enc.yaml \
+     && rm -rf "$WORK" \
+     && git add deploy/secrets.dev.enc.yaml
+   ```
+
+   （`diff` 無輸出且 `rc=0` 才往下走；漏刪 repo 內 `merged.yaml`＝完整明文長期躺在實效 777
+   路徑上，三份 `.enc.yaml` 是密文、刪它們屬工作區衛生而非洩漏面）
 
 ### 15.8 ★SSH identity 禁令與尋鑰來源
 
