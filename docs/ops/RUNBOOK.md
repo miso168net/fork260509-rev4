@@ -134,8 +134,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 - 手動還原（空庫前提）：`docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres psql -U soybean -d soybean_admin_rust < backup.sql`
 - redis／prometheus／loki／pushgateway 資料可拋棄（快取與可重累積的觀測資料）；grafana
   provisioning 資產 as-code 在 git、僅 UI 手改需另存。
-- ★**secrets 檔一併備份**：`deploy/secrets/*.txt` gitignored——若機器毀損只還原了 DB 卷而
-  secrets 檔遺失，postgres_data 內密碼與新生成 secret 不配對、全 stack 連不上（§7 postgres 列）。
+- ★**secrets 檔一併備份**：對象＝`$SECRETS_DIR` 的 11 支 `.txt`（US3 起明文已遷出 repo；取值
+  片段＝§7 抬頭，預設 `$HOME/.cache/rev4-secrets`）——**不是** repo 內 `deploy/secrets/`
+  （現只剩 `README.md` 與 `.example`，對著它備份會**備到零檔且 shell 不報錯**）。若機器毀損只
+  還原了 DB 卷而 secrets 檔遺失，postgres_data 內密碼與新生成 secret 不配對、全 stack 連不上
+  （§7 postgres 列）。有 docker 時的替代路徑＝自版控密文重解（§15.6）；無 docker＝§15.10。
 
 ## 7. 機密輪替表（生成明細→`deploy/secrets/README.md`；密文面連帶＝§15）
 
@@ -501,7 +504,19 @@ umask 077
 WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/rev4-merge.XXXXXX")"
 [ "$(stat -f -c '%T' "$WORK")" != v9fs ] && [ "$(stat -c '%a' "$WORK")" = 700 ] \
   || echo "FAIL：$WORK 落在 9p 或權限非 700——把 XDG_CACHE_HOME 指到 ext4 路徑後重來"
+
+# 明文 YAML 守衛（步驟 1 與步驟 2 共用；判準同 decrypt-secrets.sh 的 P4.3 EXPECTED_KEYS）
+KEYS8='alert_webhook_url captcha_secret grafana_admin_password jwt_secret postgres_password reaper_password redis_password refresh_token_secret'
+assert8() {
+  [ "$(wc -l < "$1")" = 8 ] \
+    && [ "$(grep -c -E "^[a-z_]+: [^\"'|>]" "$1")" = 8 ] \
+    && [ "$(sed -E 's/:.*//' "$1" | LC_ALL=C sort | paste -sd' ' -)" = "$KEYS8" ] \
+    && echo "OK：$1 恰 8 支裸量純量且 key 名相符" \
+    || echo "FAIL：$1 不是「恰 8 支裸量純量、key 名與 decrypt-secrets.sh EXPECTED_KEYS 逐一相符」——漏 key／多 key／重複／改名，或某值成引號形或區塊純量而續行已被濾掉；停手勿續"
+}
 ```
+
+★守衛只印 OK／FAIL 與檔名、**不回顯任何值**（診斷靠 FAIL 訊息窮舉的失敗形，不靠印出內容）。
 
 1. 各自解密**並正規化**（★正規化不可省，成因＝§15 節首「手動重導向」警語：裸重導向產出的檔
    含 CRLF 與 passphrase 提示行，照走步驟 3 就把提示行當成多出來的 YAML key 加密進**權威密文
@@ -513,14 +528,23 @@ WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/rev4-merge.XXXXXX")"
    tr '\r' '\n' < "$WORK/<自己>.raw" | sed -E $'s/\x1b\\[[0-9;]*[A-Za-z]//g' \
      | grep -E '^[a-z_]+: ' > "$WORK/<自己>.yaml"
    rm -f "$WORK/<自己>.raw"
-   [ "$(wc -l < "$WORK/<自己>.yaml")" = 8 ] \
-     && [ "$(grep -c -E "^[a-z_]+: [^\"'|>]" "$WORK/<自己>.yaml")" = 8 ] \
-     || echo "FAIL：不是 8 支裸量純量 key 行——解密失敗、或有值需引號／區塊純量而續行已被濾掉；停手勿續（判準同 decrypt-secrets.sh 的 key 斷言）"
+   assert8 "$WORK/<自己>.yaml"
    ```
 
    `tr` 取**轉行界**而非 `tr -d`：提示行末尾可能只有 CR，刪掉就會與第一支 key 黏成同一行。
-2. **在 `$WORK` 內**做三方合併產出 `$WORK/merged.yaml`；確認無誤後才
-   `cp "$WORK/merged.yaml" tmp/merged.yaml`——repo 內只放這一個檔、只活到步驟 4，絕不 `git add`
+2. **在 `$WORK` 內**做三方合併產出 `$WORK/merged.yaml`，★合併完**必跑同一支守衛**（人手合併
+   掉一支 key、貼重複、或讓某值變成需引號形，後果與步驟 1 的機器噪音完全同構：都會被步驟 3
+   加密進**權威密文檔**，要等下次 `decrypt-secrets.sh` 的 P4.3 才 fail-loud，屆時壞密文可能已
+   commit 給他人——而人手比機器更容易犯）；`OK` 才複製進 repo：
+
+   ```bash
+   assert8 "$WORK/merged.yaml"
+   mkdir -p tmp && cp "$WORK/merged.yaml" tmp/merged.yaml
+   ```
+
+   `mkdir -p` 不可省：`tmp/` 是 gitignored 且零 tracked 檔，**乾淨 clone 上不存在**（本節受眾
+   恰是他機拉到衝突者）；漏建即 `cp: cannot create regular file`。repo 內只放這一個檔、只活到
+   步驟 4，絕不 `git add`
 3. 重加密（★`< /dev/null` 不可省：加密不需 passphrase，把 stdin 從 tty 拔掉 wrapper 就不帶
    `-t`〔P1.2〕，輸出才不會被容器 pty 改成 CRLF、sops 的 stderr 也不會併進權威密文檔）：
    `./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/merged.yaml < /dev/null > deploy/secrets.dev.enc.yaml`
@@ -564,7 +588,10 @@ stanza 試解、每試一次就重讀一次加殼私鑰）；`updatekeys`／`rot
 ### 15.10 災復備註（無 docker 的情境）
 
 本方案的解密路徑**唯一依賴 docker**（wrapper 走官方容器、host 端刻意不裝 sops 二進位）。
-docker 壞掉或新機尚未裝 docker 時：①優先自 §6 的 secrets 檔備份直接還原落點（最快、零工具）
+docker 壞掉或新機尚未裝 docker 時：①優先自 secrets 檔備份直接還原落點（最快、零工具）——
+★備份／還原的**唯一**對象＝`$SECRETS_DIR`（§7 抬頭取值片段；預設 `$HOME/.cache/rev4-secrets`）
+的 `.txt`，**不是** repo 內 `deploy/secrets/`（US3 起那裡只剩 `README.md` 與 `.example`，
+對著它備份會**備到零檔且 shell 不報錯**、直到災復當下才發現）；備份義務全文＝§6
 ②否則臨時取官方 sops **原生二進位**（版本＝§12 末段釘版值、checksum 驗過再用），以同一把
 identity 解同一個檔——形制與容器版相同。
 ★**離線還原演練未列入本刀驗收**（brainstorm 候選 g 不升格）＝此路徑**未經實測**，災復時要

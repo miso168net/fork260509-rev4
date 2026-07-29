@@ -609,6 +609,20 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   重生 leaf／postgres `ALTER USER`／grafana `reset-admin-password` 三處路徑改 `$SECRETS_DIR`；
   §4 第 1 項 `alert_webhook_url` 路徑同步。★**未動**＝§6 備份、§9 DB 直連、§11 觀測維運三節之
   `deploy/secrets/` 殘留（本執行單元允許檔案清單外，留 T036 一併處置）
+  ——**quality 第 2 輪 blocker 修復（2026-07-30）**：①§15.7 步驟 2 的 `cp … tmp/merged.yaml` 補
+  `mkdir -p tmp`——`tmp/` 是 gitignored 且零 tracked 檔，**乾淨 clone 上不存在**（本節受眾恰是
+  他機拉到衝突者），漏建即 `cp: cannot create regular file`；機判＝`git ls-files | grep -c
+  '^tmp/'`＝0、`git check-ignore -v tmp/merged.yaml`＝`.gitignore:128`、mktemp 空目錄實跑復現
+  該錯訊、補 `mkdir -p` 後 rc=0。教訓＝L-183。②§15.7 補**人手合併守衛**：把步驟 1 的斷言抽成
+  前置 code block 的 `assert8()`（**並補 key 名集合比對**——原斷言只數行數與裸量，`captcha_secret`
+  改名仍判 PASS），步驟 1 與步驟 2 各呼叫一次；`KEYS8` 與 `decrypt-secrets.sh` 之 `EXPECTED_KEYS`
+  機判一致（兩側 sort 後字串相等）。合成假值六樣本實測：正常＝OK，少一支／改名／重複／值成引號
+  形／未正規化提示行＝全 FAIL。守衛只印 OK／FAIL 與檔名、零值回顯。教訓＝L-184。③§15.10 災復
+  第 ① 跳自帶關鍵事實（備份對象＝`$SECRETS_DIR`，非 repo 內 `deploy/secrets/`），並前移 §6 該
+  列語彙——**§6 由 T036 射程提前至本刀**：理由同 §7／§4 前移（新舊語彙並存且產出**靜默失效**
+  命令），且 §15.10 是本刀新寫、其第 ① 跳依賴 §6，被引用即不再是可延後的獨立遺留（`ls
+  deploy/secrets/*.txt` 得 No such file；真落點 11 支 `.txt`）。教訓＝L-185。★T036 剩餘射程
+  ＝§9 DB 直連、§11 觀測維運兩節之 `deploy/secrets/` 殘留（本輪未動）
 - [x] T033 [US4] **S8 撤銷演練＋反向驗證**：產演練用第二把金鑰（★age 沿用 T040 暫存二進位、
   勿重複下載）→加入→`updatekeys -y`→確認可解
   →撤銷四步→**#7 五準則逐條驗**（核心＝否定測試：舊 `enc:` stanza 貼回新檔跑原廠解密**必須
