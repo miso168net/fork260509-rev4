@@ -561,6 +561,22 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   ADR 0080 §4／BACKLOG B-107 §6／017 spec 與 tasks §4·§8·§9／brainstorm §7 等），重編即
   全數失真；改以 §7 抬頭、§12 表列雙向指路。工具版本欄**未重建**（§12 末段已存在）、改為
   §15.10 指路。機判＝`python3 tools/docs-sync.py lint` 0 錯誤 0 警告（L19 命令形語料含本檔）
+  ——**spec 第 1 輪 blocker 修復（2026-07-29）**：§15.7 步驟 1 原指示把 8 支完整明文以 host
+  shell 重導向寫進 **repo 內 `tmp/`**，理由「wrapper 只掛載 `$PWD`、repo 外的檔容器看不到」
+  對該步驟**不成立**（此檔由 host 產生、從不進容器）；而 repo 根實測 `v9fs`、`tmp/` 實測
+  `drwxrwxrwx`＝正是同刀 `deploy/decrypt-secrets.sh` 於 e5b4967 加上 fail-loud 拒絕的落點
+  （本行上方 T031 需求敘述「合併衝突（暫存必落 repo 內…）」係施工前敘述、**以本備註為準**）。
+  改為**落點兩分**：步驟 1 各自解密與三方合併過程落 **repo 外** `${XDG_CACHE_HOME:-$HOME/.cache}`
+  之 `rev4-merge.XXXXXX`（0700，附 fs／mode 自檢片段、不合即停手且明令勿退回 `tmp/`）；只有
+  步驟 3 要**當參數餵回容器內 sops** 的 `tmp/merged.yaml` 留 repo 內（wrapper 只掛 `$PWD`、
+  且 P1.2 下 stdin 管線不可用），最後一刻才 `cp` 進去、步驟 4 兩處都刪。機判＝自檢片段實跑：
+  正案 `fs=ext2/ext3`／`mode=700`、靜默 rc=0；否定案（`XDG_CACHE_HOME` 指 /mnt/d）印 FAIL 且
+  `fs=v9fs`／`mode=777`，收尾 repo `tmp/` 零殘留。errata 枚舉「落 repo 內」11 處逐處判定：
+  RUNBOOK §15.1 `set --value-file` 值檔／§15.7 步驟 3 `merged.yaml`／brainstorm enc 檔首建
+  ＝限制成立不動，decrypt-secrets.sh 兩處註解／L-171／quickstart §S8 表／T022 備註＝已是正解，
+  §15.7 步驟 1＝本次修正。教訓＝L-180。★**殘留**：`contracts/secret-pipeline.md` §P4「合併
+  衝突」列的「暫存明文必須落 repo 內」敘述仍**過寬**（該檔不在本輪允許檔清單內、未動）——
+  語意權威以 decrypt-secrets.sh 檔內界線註解＋本備註＋L-171／L-180 為準
 - [x] T032 [P] [US4] `docs/ops/RUNBOOK.md` 既有節連帶：**§7 輪替表增補「輪替後 re-encrypt 回
   加密檔」步驟**（漏此步→輪替值與加密檔脫鉤、下次 decrypt 觸發 `.new` 守衛）＋§4 人工必填
   清單增 `.wslconfig`／BitLocker 確認項＋§12 工具鏈速查增 `deploy/sops.sh` 與

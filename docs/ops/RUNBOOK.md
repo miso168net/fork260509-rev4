@@ -465,17 +465,34 @@ bash deploy/preflight-secrets.sh                  # 11 支齊備且健康才可 
 
 ### 15.7 加密檔 merge 衝突
 
-密文逐行不可合併，一律**雙方各自解密 → 明文三方合併 → 重加密**：
+密文逐行不可合併，一律**雙方各自解密 → 明文三方合併 → 重加密**。
 
-1. 各自 `./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > tmp/<自己>.yaml`
-   （★暫存明文**必須落 repo 內** gitignored 目錄——wrapper 只掛載 `$PWD`，repo 外的檔容器
-   看不到；用完即刪、絕不 `git add`）
-2. 以明文做三方合併，產出 `tmp/merged.yaml`
+★**暫存明文落點兩分**（本節最易做錯的一步）：「必須落 repo 內」**只適用於要餵回容器內 sops
+的那一個檔**（步驟 3 的 `tmp/merged.yaml`）——wrapper 只掛載 `$PWD`、repo 外的檔容器讀不到，
+且 stdin 管線在本 wrapper 下不可用（P1.2：stdin 非 tty 時不帶 `-i`）。其餘暫存明文由 **host
+shell 重導向**產生、**從不進容器**，一律落 **repo 外**的 0700 目錄：repo 根在 `/mnt/d`＝v9fs，
+`umask`／`chmod` 皆結構性 no-op，`tmp/` 實測 `drwxrwxrwx` 且 Windows 側可見——把 8 支完整明文
+放那裡正是 `deploy/decrypt-secrets.sh` 暫存落點守衛以 fail-loud 拒絕的事（FR-021／SC-005
+「`/mnt/d` 全樹零明文機密檔」；「gitignored」只擋 git 入庫、不擋檔案系統暴露）。
+
+先備妥 repo 外暫存目錄（非 v9fs 且 0700；不合即停手，**勿退回 `tmp/`**）：
+
+```bash
+umask 077
+WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/rev4-merge.XXXXXX")"
+[ "$(stat -f -c '%T' "$WORK")" != v9fs ] && [ "$(stat -c '%a' "$WORK")" = 700 ] \
+  || echo "FAIL：$WORK 落在 9p 或權限非 700——把 XDG_CACHE_HOME 指到 ext4 路徑後重來"
+```
+
+1. 各自 `./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > "$WORK/<自己>.yaml"`
+2. **在 `$WORK` 內**做三方合併產出 `$WORK/merged.yaml`；確認無誤後才
+   `cp "$WORK/merged.yaml" tmp/merged.yaml`——repo 內只放這一個檔、只活到步驟 4，絕不 `git add`
 3. 重加密：
    `./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/merged.yaml > deploy/secrets.dev.enc.yaml`
    ——★`--filename-override` 不可省：`path_regex` 比對的是**檔名**，對 `tmp/merged.yaml`
    比不到規則就會報 `no matching creation rules found`（或在別的規則下**悄悄換掉 recipients**）
-4. **核對加密檔 `sops.age` 的 recipient 清單與 `.sops.yaml` 逐一相符**，再刪暫存明文
+4. **核對加密檔 `sops.age` 的 recipient 清單與 `.sops.yaml` 逐一相符**，再刪**兩處**暫存明文：
+   `rm -f tmp/merged.yaml && rm -rf "$WORK"`（漏刪 repo 內那份＝完整明文長期躺在實效 777 路徑上）
 
 ### 15.8 ★SSH identity 禁令與尋鑰來源
 
