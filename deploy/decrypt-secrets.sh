@@ -65,21 +65,38 @@ TMP_DIR="$(mktemp -d tmp/decrypt-secrets.XXXXXX)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 RAW="$TMP_DIR/raw.out"
 
+# 暫存流雜訊＝passphrase 提示行＋ANSI 清行序列＋容器 pty 的 CRLF（wrapper P1.2 註／L-168）：
+#   ①CR 一律轉行界 ②剝 ANSI CSI 序列（失敗診斷與拆 key 兩路共用此正規化）
+ESC=$'\x1b'
+normalize_raw() {
+    tr '\r' '\n' < "$RAW" | sed -E "s/${ESC}\[[0-9;]*[A-Za-z]//g"
+}
+
 echo "即將解密：sops 會要求輸入 identity passphrase（提示可能不顯示於畫面）——請直接輸入後按 Enter。"
 SOPS_RC=0
 ./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > "$RAW" || SOPS_RC=$?
 if [ "$SOPS_RC" -ne 0 ]; then
-    echo "FAIL：sops 解密失敗（rc=$SOPS_RC）——sops 輸出如下（解密失敗、不含明文）：" >&2
-    tr -d '\r' < "$RAW" >&2 || true
+    echo "FAIL：sops 解密失敗（rc=$SOPS_RC）——sops 輸出如下（資料行已濾除）：" >&2
+    # ★RAW 同時承載容器 stdout 與 stderr（wrapper -t＝單一 pty 流、L-168），故「解密失敗
+    #   就不含明文」只是 sops 正常錯誤路徑（MAC 檢查早於 Emit）的性質、不是本腳本的保證：
+    #   已 Emit 才異常結束者（stdout 寫入失敗、passphrase 過關後收 SIGINT）RAW 即含明文。
+    #   註解斷言防不了洩漏——倒出前先濾掉 key 行（含已知 key 名任意位置）及其縮排續行
+    #   （＝解密 YAML 的全部承載面，涵蓋引號形與區塊純量形），只留診斷訊息。
+    KEY_RE="($(IFS='|'; echo "${EXPECTED_KEYS[*]}")):|^[a-z_]+:"
+    normalize_raw | awk -v keyre="$KEY_RE" '
+        $0 ~ keyre         { skip = 1; redacted++; next }
+        /^[ \t]*$/         { next }               # CRLF 轉行界留下的空殘行（不計數、不解除 skip）
+        skip && /^[ \t]/   { redacted++; next }   # 區塊純量的縮排續行＝仍是資料
+                           { skip = 0; print }
+        END { if (redacted) printf "      （另有 %d 行疑似機密資料已濾除、不顯示）\n", redacted }
+    ' >&2 || true
     exit "$SOPS_RC"
 fi
 
 # ---- 本地拆 key（不重呼容器）----
-# 暫存流雜訊＝passphrase 提示行＋ANSI 清行序列＋容器 pty 的 CRLF（wrapper P1.2 註）：
-#   ①CR 一律轉行界 ②剝 ANSI CSI 序列 ③只認「key: value」行、值只切第一個「冒號空白」
-ESC=$'\x1b'
+# 正規化後只認「key: value」行、值只切第一個「冒號空白」
 CLEAN="$TMP_DIR/clean.yaml"
-tr '\r' '\n' < "$RAW" | sed -E "s/${ESC}\[[0-9;]*[A-Za-z]//g" > "$CLEAN"
+normalize_raw > "$CLEAN"
 
 declare -A VALS
 while IFS= read -r line; do
@@ -104,9 +121,29 @@ for k in "${!VALS[@]}"; do
         *) EXTRA+=("$k") ;;
     esac
 done
-if [ "${#MISSING[@]}" -ne 0 ] || [ "${#EXTRA[@]}" -ne 0 ]; then
+# 非裸量純量斷言（P4.3 同族：靜默壞值一律翻成吵鬧失敗）
+#   sops（go-yaml v3）只在值能當裸量純量時吐裸量；否則吐雙引號／單引號／區塊純量形，
+#   而本腳本逐行拆 key 拿到的是「含引號字元的原樣 token」、無法還原原值——逐字寫入即壞值。
+#   ★空值案更會架空上面的「值為空」判定：吐出的是 2 字元的 ""、非空。
+#   2026-07-29 sops v3.13.3-alpine 實測形制（隔離沙箱、暫代金鑰、假值探針）：
+#     空字串→ ""｜含「冒號空白」→ 'a: b'｜含「井號」→ 'v #f'｜前後帶空白→ 'trail '｜
+#     含換行→ |- 加縮排續行｜以 " ' | > 以外字元開頭（含 - : ~ =）→ 裸量、逐行拆解正確。
+#   故判準＝值首字元落 " ' | > 四者即 FAIL 指名（零新依賴、不誤傷任何裸量值）。
+NONPLAIN=()
+for k in "${EXPECTED_KEYS[@]}"; do
+    [ -z "${VALS[$k]+x}" ] && continue
+    case "${VALS[$k]}" in
+        '"'*|"'"*|'|'*|'>'*) NONPLAIN+=("$k") ;;
+    esac
+done
+if [ "${#MISSING[@]}" -ne 0 ] || [ "${#EXTRA[@]}" -ne 0 ] || [ "${#NONPLAIN[@]}" -ne 0 ]; then
     [ "${#MISSING[@]}" -ne 0 ] && echo "FAIL：解密結果缺 key（或值為空）：${MISSING[*]}" >&2
     [ "${#EXTRA[@]}" -ne 0 ] && echo "FAIL：解密結果含非預期 key：${EXTRA[*]}" >&2
+    if [ "${#NONPLAIN[@]}" -ne 0 ]; then
+        echo "FAIL：下列 key 的值不是 YAML 裸量純量（引號形或區塊純量形），本腳本無法還原原值：${NONPLAIN[*]}" >&2
+        echo "      成因＝該值為空、含「冒號空白」或「井號」、前後帶空白、或含換行。" >&2
+        echo "      處置＝./deploy/sops.sh edit deploy/secrets.dev.enc.yaml 改成不需引號的單行值後重跑。" >&2
+    fi
     echo "FAIL：key 斷言不符＝零寫入退出。修復加密檔後重跑；絕不落到 generate 造亂數路徑。" >&2
     exit 1
 fi

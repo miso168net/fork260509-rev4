@@ -1,4 +1,4 @@
-<!-- next: L-170 -->
+<!-- next: L-171 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -14,6 +14,8 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
 - **L-153**｜macOS 於 UTF-8 locale 下，bash 把「$var 緊鄰全形字元」的全形首 byte 吞進變數名（libc 字元分類差異；set -u 下炸 unbound variable、無 -u 則靜默展開空；系統 bash 3.2 與 homebrew 5.3 同炸；WSL2/glibc 不受影響）——shell 腳本 $var 緊鄰非 ASCII 一律寫 ${var} 形；臨時繞法 LC_ALL=C（L-142 同族）。2026-07-19 tools/bootstrap:30 實證（RUNBOOK 驗證輪 macOS）。
 - **L-168**｜docker `-t`（容器 pty）互動程式＋stdout 重導向＝三重雜訊同流入檔：①提示行寫進重導向檔而非螢幕（pty 驅動監看 pty 流永遠等不到提示＝結構性 hang；互動 user 則盲打）②ANSI 清行序列（ESC[F ESC[K）黏在首資料行 ③全輸出被 pty ONLCR 改 CRLF。而改用 `-i` 無 `-t` 想繞開＝sops 之類 term.ReadPassword 對 pipe stdin 直接失敗（rc=128、吵鬧不 hang——此半邊反而是 P1.2 要的性質）。另 sops 加密時 `--age` **不能**繞過 `.sops.yaml` 規則比對：config 存在且 path 不匹配→`no matching creation rules` 即使帶 `--age`（實驗性加密須 `--config` 指到臨時 catch-all 規則檔）。
   防：捕捉互動容器 stdout 前先假定「提示＋ANSI＋CRLF 與資料同流」——拆資料一律 `tr '\r' '\n'`＋剝 CSI 序列＋只認資料行形（deploy/decrypt-secrets.sh 的 key 行 parser 即此形）；pty 盲餵驅動改監看**重導向目標檔**出現提示字樣再餵（勿監看 pty 流）；臨時加密實驗帶 `--config` 臨時規則檔。｜出處：019 U3（T022 施工實測；probe 全程見 tasks T018／T022 備註）
+- **L-170**｜「只認 `key: value` 行」的自製 YAML 逐行拆解，只在值恰好是**裸量純量**時正確——sops（go-yaml v3）對不能當裸量的值改吐引號形／區塊純量形，拆出來的是**含引號字元的原樣 token**，逐字寫檔即靜默壞值：2026-07-29 sops v3.13.3-alpine 真容器實測＝空字串吐 `""`（2 byte，還會**架空**「值為空」那條斷言，因為 `""` 非空）／含「冒號空白」吐 `'a: b'`（多 2 byte 引號）／含「井號」吐 `'v #f'`／前後帶空白吐 `'trail '`／含換行吐 `|-` 加縮排續行；反之以 `- : ~ =` 等開頭者仍是裸量、拆解正確。下游 preflight 只測 `-f`／`-s`，2 byte 壞檔照樣放行。**同族第二坑**：容器 pty 是**單流**（stdout 與 stderr 同流入捕捉檔），故失敗分支把捕捉檔整份倒進 stderr＝明文洩漏面——「解密失敗就不含明文」只是 sops 正常錯誤路徑（MAC 檢查早於 Emit）的性質、**不是腳本自己的保證**，已 Emit 後才死（寫入失敗／SIGINT）即整份明文上終端與日誌；程式碼裡寫「不含明文」的**註解不是防護**。**第三坑（驗證側）**：以 `script(1)` 開 pty 驅動時，若其 stdin 已 EOF，pty 會把 Ctrl-@ 回顯成**字面兩 byte `^@`**（0x5e 0x40，非 NUL——`cat -A` 顯示相同、必須 `xxd` 才分得出）黏在首資料行前，害首個 key 不匹配而報「缺 xxx」，且隨無關的腳本改動時有時無、極像 Heisenbug。
+  防：①值形制一律**斷言而非猜測**——首字元落 `" ' | >` 四者即 fail-loud 指名（零依賴、不誤傷任何裸量值），把靜默壞值翻成吵鬧失敗；②任何「把捕捉檔倒給人看」的失敗分支，倒出前先濾掉 key 行**及其縮排續行**（區塊純量形的承載面），只留診斷訊息；③pty 驅動測試把 stdin 撐開（如 `sleep N | script -qec …`），並以 `xxd` 而非 `cat -A` 判前導雜訊；④改動前先跑**對照組**（同一 harness 餵 `git show HEAD:` 版本），才分得清「我改壞的」與「harness 假象」。｜出處：019 U3 quality 第 1 輪 blocker 修復（隔離沙箱＋暫代 age 金鑰＋假值探針，全程未觸真機密）
 
 ## 〔git／worktree／submodule〕
 

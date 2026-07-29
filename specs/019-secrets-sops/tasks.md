@@ -315,6 +315,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   被濾）；權限自證 drvfs（v9fs）分支＝WARN 不中止（chmod 結構性 no-op、US3 遷移消滅）、
   其他 fs 不為 700＝FAIL。正向全跑 rc=0、8 支 WRITTEN、11 支 sha256 前後全 OK（含 3 composite
   未動）；非互動 rc=1 即紅不 hang；exec bit `git ls-files -s`＝100755
+  ——**quality 第 1 輪 blocker 修復（2026-07-29）**：①補**非裸量純量斷言**（值首字元落 `" ' | >` 即 FAIL 指名、零寫入）——原逐行拆 key 只對裸量正確，sops 對空值吐 `""`、對含「冒號空白」吐單引號包裹，兩者都被逐字寫進機密檔且「值為空」斷言被架空（真容器對照組實測：修正前 rc=0 且 jwt_secret.txt=2 byte／alert_webhook_url.txt 多 2 byte 引號；修正後 rc=1 零寫入指名）；②失敗分支**濾除資料行後才倒 sops 輸出**——容器 pty 單流使捕捉檔同時承載 stdout 與 stderr，「已 Emit 後才失敗」即整份明文上終端（stub 實測：修正前 8 值全印、修正後 0 明文＋濾除行數計數，sops 正常錯誤診斷完整保留）。回歸：全裸量案 8 支 byte 數與 sha256 前 8 碼前後一致；現行 8 值經性質檢查全屬裸量、不受新斷言影響。詳 L-170
 - [x] T023 [US2] **S4／S5 驗收**：加解密最小往返（#1）＋加密檔形制三條＋五要求逐條否定測試
   （刪 key→零寫入報錯｜構造 `alert_webhook_url` 差異→產 `.new` 原檔不變｜`xxd` 驗無 `0a`
   無 `0d`｜leaf 與 composite 內嵌值 byte 數一致｜owner 非 `root:root`｜非互動呼叫吵鬧失敗）；
