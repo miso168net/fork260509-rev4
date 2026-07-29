@@ -299,7 +299,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   key 名明文 8 支逐字符合；`_unencrypted` 唯一命中＝sops metadata 之 `unencrypted_suffix`
   記錄行、非 key 名；alert_webhook_url 依現值 sha256 基準（9848…dd3e）如實搬移、
   byte 級一致證據收 T023 往返驗
-- [ ] T022 [US2] 新增 `deploy/decrypt-secrets.sh`（contracts §P4 五要求）：tty 守衛（非互動
+- [x] T022 [US2] 新增 `deploy/decrypt-secrets.sh`（contracts §P4 五要求）：tty 守衛（非互動
   **吵鬧失敗**、不得 hang）→ **`source .env`（存在時）、`SECRETS_DIR` 未設時回退
   `deploy/secrets`**（與 T012 值比對工具同一回退口徑；★`.env` 於 T024 才建立，此回退是 US2
   能在 US3 之前獨立驗證的前提）→ `mkdir -p`＋`chmod 700`**自建 0700 子目錄**
@@ -341,6 +341,14 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   →binary store 退化＝單一 `data: ENC[` 密文塊、key 名不可見（帶 `--config` 臨時 catch-all
   規則檔實驗、實驗檔已刪；★`--age` 不能繞過 config 規則比對＝L-168）；⑥§S5 第七列（P4.6）
   已補列。全程 fed=1（單 recipient 恰 1 次提示、與閘 #3 基線一致）
+  ——**補測（2026-07-29、spec review 第 1 輪修後）**：原 `.new` 為 `chmod 600`，而腳本 WARN
+  自陳的補救＝`mv .new` 蓋回（同 fs＝rename、mode 原樣保留）→ 落點檔終值變 600、違反
+  P4.7／FR-022 且只在開 obs／metrics 軌時才炸。已改 `.new` 一併 644；隔離 ext4 沙箱
+  （`$HOME/.cache/rev4-019-tmp/verify-p47`、stub `sops.sh` 餵 8 key＋pty，全程未觸 repo 工作樹
+  與 `deploy/secrets/`）機判：修前 `.new`＝600、mv 後落點 600（複現）；修後 8 支＋`.new` 皆 644、
+  mv 後落點 644、`xxd` 末 byte 仍非 0a／0d、原檔於 mv 前未被覆寫（P4.5 不變）；
+  `bash -n`＋`shellcheck -S warning` 全綠。repo 內 `deploy/secrets/alert_webhook_url.txt`
+  sha256 仍 9848…dd3e（未動）
 
 ## Phase 5: US3 — 明文離開 /mnt/d（SECRETS_DIR 遷移）（P3）
 

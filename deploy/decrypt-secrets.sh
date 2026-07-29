@@ -118,8 +118,12 @@ for k in "${EXPECTED_KEYS[@]}"; do
     v="${VALS[$k]}"
     if [ -f "$dst" ] && ! printf '%s' "$v" | cmp -s - "$dst"; then
         # 現值 ≠ 解密值：另存 .new、不覆寫（decrypt 不得成為靜默覆寫路徑）
+        # ★.new 亦為 644（不是 600）：WARN 指示的補救＝`mv .new` 蓋回，mv 於同 fs＝rename、
+        #   mode 原樣保留——.new 若為 600，蓋回後落點檔終值即 600、違反 P4.7／FR-022，
+        #   且只在開 obs／metrics 軌時才炸（grafana 472／postgres-exporter 65534／
+        #   redis-exporter 59000 全部 Permission denied）。目錄本身 700，644 不擴大暴露面。
         printf '%s' "$v" > "$dst.new"
-        chmod 600 "$dst.new"
+        chmod 644 "$dst.new"
         NEW_SAVED+=("$k")
         echo "  ${k}.txt DIFF→已另存 ${k}.txt.new（原檔不動、請人工比對取捨）"
     else

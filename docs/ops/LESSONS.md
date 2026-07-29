@@ -1,4 +1,4 @@
-<!-- next: L-169 -->
+<!-- next: L-170 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -31,6 +31,8 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
 
 - **L-102**｜把多支 migration squash 成單支後，用「已知清單逐項在場」驗收會漏掉「基準有、產物沒有」的反向缺項——雙庫互證八軌全綠仍漏 2 支索引（索引軌只單向點名在場、未做集合 diff），缺陷潛伏到閘 1 雙向比對才現形。
   防：結構驗收一律雙向集合 diff（右缺＝多、左缺＝漏、同時列出），不用單向清單點名。｜出處：002-schema-baseline U3（gate1 抓 sys_casbin_policy_archive 2 索引漏摺）
+- **L-169**｜權限／owner 之類「終值型」契約不變式，happy path 綠不代表成立——腳本自陳的**補救指示**是另一條會改變終值的路徑：decrypt-secrets.sh 正向寫出 644 全過，但差異守衛的 `.new` 給 600，而 WARN 教人 `mv .new` 蓋回（同 fs＝rename、**mode 原樣保留**、非重建檔），落點檔終值遂成 600、違反 P4.7／FR-022，且只在開 obs／metrics 軌時才炸（grafana 472／postgres-exporter 65534／redis-exporter 59000 全 Permission denied）＝延遲且遠離現場的爆點。
+  防：①凡契約寫「終值必為 X」，驗收要沿**腳本自己印出的每條補救／分支路徑**各走一遍量測終值，不只主線；②暫存／staging 檔（`.new`／`.tmp`／`.bak`）的 mode 一律設成**落點檔的終值**，別預設「暫存就該更緊」——`mv`／`rename` 不會替你重算 mode；③這類缺陷用隔離 fs 沙箱＋stub 掉互動相依（此處 stub `sops.sh`）即可機判複現，不必真跑完整解密。｜出處：019 U3 spec review 第 1 輪（deploy/decrypt-secrets.sh `.new` 600→644）
 
 ## 〔文件紀律〕
 
