@@ -5,7 +5,7 @@ date: 2026-07-29
 status: draft
 supersedes: []
 superseded_by: []
-provenance: "rev4:2026-07-28 019-secrets-sops brainstorm §3（user 親決私鑰 B′ 傾向＋SECRETS_DIR 2′）／§9 ADR-B 綱要＋research R7／R8／R9／R14＋spec FR-009~FR-012＋tasks T004／T005／T007 三閘實測（2026-07-28~29）＋user 重拍三點定案（2026-07-29、#11 反轉後）＋T019 儀式拍板 C 案（2026-07-28、T002 併問）"
+provenance: "rev4:2026-07-28 019-secrets-sops brainstorm §3（user 親決私鑰 B′ 傾向＋SECRETS_DIR 2′）／§9 ADR-B 綱要＋research R7／R8／R9／R14＋spec FR-009~FR-012＋tasks T004／T005／T007 三閘實測（2026-07-28~29）＋user 重拍三點定案（2026-07-29、#11 反轉後）＋user 產鑰儀式拍板 C 案（2026-07-28、T002 釘版呈報時併決）"
 tags: [security, secrets, sops, age, deployment]
 ---
 
@@ -33,8 +33,17 @@ identity）與 **SECRETS_DIR 解密明文落點**（解法 2 ext4 持久 vs 2′
 3. **閘 #3 失敗之預拍退路連帶調整＝僅退方式 A（明文 identity＋chmod 600）**、SECRETS_DIR
    已在解法 2 不再降（本輪 #3 實測全過、退路未動用，條款保留供金鑰輪替等再驗情境）。
 4. 解密腳本**自建 0700 子目錄**要求維持（縱深防禦、與落點無關；contracts §P4）。
+5. **正式鑰產製儀式＝C 案**（2026-07-28、T002 釘版呈報時併問、user 選定；**本決策 5 即此
+   拍板的唯一權威落點**，tasks／RUNBOOK 等執行面文件只留指路、不複述）：
+   - **施工期**：agent 以拋棄式 passphrase 產一把「暫代正式鑰」（B′ 形制、機制全走、pty 驅動
+     互動），019 全刀施工與演練（含 T033 撤銷演練）因而全自動、零人工中斷。
+   - **收刀期**：finishing 階段由 user 親產真鑰，走 RUNBOOK 加人四步（零機密傳遞）＋對暫代鑰
+     的撤銷四步；撤銷連帶輪替 7 支 leaf 實值，`alert_webhook_url` 不輪替（該值為 user 已填
+     真值、保 SC-007）。
+   - **誠實登記**：暫代鑰 passphrase 存在於對話紀錄＝**視同已洩露**；故上列收刀期兩組步驟是
+     硬性義務、非可選收尾——019 未完成該義務前，版控內密文的實質保護等同無。
 
-**user 重拍三點定案與理由（2026-07-29、#11 反轉後）**：
+**user 重拍三點定案與理由（2026-07-29、#11 反轉後；＝上列決策 1~3、不涉決策 4／5）**：
 
 - ①SECRETS_DIR＝解法 2：#11 實證 live 通道（Windows 側經 UNC 讀取）對 2 與 2′ 暴露相同，
   2′ 的差異化收益收窄至 at-rest（不落 vhdx）與關機即清，換不回每次開機重跑解密儀式的代價；
@@ -94,16 +103,9 @@ identity）與 **SECRETS_DIR 解密明文落點**（解法 2 ext4 持久 vs 2′
   真實守門非裝飾。**單 recipient 提示次數基線＝每次 `sops -d` 恰 1 次**（多 recipient 值由
   T033 雙金鑰在場時實測、RUNBOOK 不寫死）。
 - **結論**：過——B′ 定案、預拍退路未動用。
-- **對設計的影響**：T019 依 B′ 形制產正式鑰；wrapper（T018）`-it` 條件化與 tty 守衛（T022）
-  的技術根據獲實證；pinentry 前置（T006）已落 conf、`GPG_TTY` 屬 session 變數由 RUNBOOK
-  （T031）承載。
-
-## 儀式拍板引用（C 案、2026-07-28 T002 併問）
-
-正式鑰產製走 **C 案**（tasks T019 註記為權威）：agent 以拋棄式 passphrase 產「暫代正式鑰」
-（B′ 形制、機制全走、pty 驅動互動）全自動施工；收刀 finishing 時 user 親產真鑰走加人四步＋
-對暫代鑰撤銷四步（含 7 支 leaf 值輪替；`alert_webhook_url` 不動、保 SC-007）；暫代鑰
-passphrase 留於對話紀錄＝**視同已洩露**、於此誠實登記。
+- **對設計的影響**：T019 依 B′ 形制產暫代正式鑰（儀式走決策 5 之 C 案）；wrapper（T018）
+  `-it` 條件化與 tty 守衛（T022）的技術根據獲實證；pinentry 前置（T006）已落 conf、
+  `GPG_TTY` 屬 session 變數由 RUNBOOK（T031）承載。
 
 ## 後果
 

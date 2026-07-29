@@ -24,7 +24,9 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   工具版本欄，供 T003／**T040**／T018／T019 取用
   ——**拍板（2026-07-28）**：①Betterleaks v1.7.1 ②sops v3.13.3-alpine（index digest
   ae501277…140ea 本輪對 ghcr 逐字複核相符）③age v1.3.1——三者皆＝研究當日值＝現查最新穩定；
-  已記 RUNBOOK §12 版本欄。**併問儀式拍板＝C 案**（詳 T019 註記）
+  已記 RUNBOOK §12 版本欄。**併問儀式拍板＝C 案**（拍板全文＝ADR
+  `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`「決策」節第 5 點；
+  施工面見 T019）
 - [x] T003 安裝掃描器並驗證：依 T002 拍板版本下載 `betterleaks_<VER>_linux_x64.tar.gz`
   （★版號無 `v` 前綴、架構寫 `x64`）＋`checksums.txt`（★檔名不含版號）→ `sha256sum -c`
   驗證 → 安裝至 PATH → `betterleaks version` 確認與拍板值一致（不符即中止、依 §6 紀律）
@@ -113,8 +115,10 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   逐閘記「怎麼跑／實測輸出／結論／對設計的影響」；#3 失敗時另記退路生效與 SECRETS_DIR 降階
   ——**實做（2026-07-29）**：落檔 `0080-age-identity-bprime-secretsdir-solution2.md`
   （status: draft、格式對齊 0077）：三閘逐閘四欄實測欄（#2 過引 T004 證據／#11 反轉雙側
-  數據＋user 重拍三點定案與理由／#3 本輪全過 B′ 定案、退路未動用）＋C 案儀式拍板引用
-  （T019 註記為權威）＋解法 2 at-rest 代價誠實登記；正文完稿歸 T034（Phase 7 US5 治理）、
+  數據＋user 重拍三點定案與理由／#3 本輪全過 B′ 定案、退路未動用）＋C 案產鑰儀式拍板落
+  「決策」節第 5 點（★2026-07-29 改正：原落成獨立「引用」節、與 T019 互指權威成循環錨且
+  兩段近乎逐字鏡像；現 ADR 為唯一權威落點、tasks 側只留指路一行——坑與防法見 L-166）
+  ＋解法 2 at-rest 代價誠實登記；正文完稿歸 T034（Phase 7 US5 治理）、
   收刀轉 accepted
   ——★**重拍連帶註記**：上方任務文「#3 失敗時另記退路生效與 SECRETS_DIR 降階」屬 2′ 基準原文；
   #11 反轉重拍後退路**僅退方式 A、不含 SECRETS_DIR 降階**（ADR 0080 決策 3），且本輪 #3 全過
@@ -258,10 +262,10 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `age-v<VER>-linux-amd64.tar.gz`（★**無 checksums 檔**——完整性以 release API 的 `digest`
   欄位比對 `sha256sum`）→ 依 T007 定案產鑰（B′：`age-keygen | age -p`／退路 A：明文＋
   `chmod 600`）→ `xxd` 驗尾端無 CR → **二進位用完即刪**；以 `age-keygen -y` 取 recipient 公鑰
-  ——★**儀式拍板（2026-07-28、T002 併問、user 選 C 案）**：agent 以拋棄式 passphrase 產
-  「暫代正式鑰」（B′ 形制、機制全走、pty 驅動互動）全自動施工；收刀 finishing 時 user 親產
-  真鑰走加人四步＋對暫代鑰撤銷四步（含 7 支 leaf 值輪替；`alert_webhook_url` 不動、保
-  SC-007）；暫代鑰 passphrase 留於對話紀錄＝視同已洩露、誠實記入 ADR-B
+  ——★**儀式拍板＝C 案**（拍板全文、誠實登記與收刀義務見 ADR
+  `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`「決策」節第 5 點
+  ＝唯一權威落點）：**本任務只產「暫代正式鑰」**（agent 拋棄式 passphrase、B′ 形制、pty
+  驅動全自動）；真鑰產製與暫代鑰撤銷／輪替屬**收刀 finishing 義務**、不在本任務範圍
 - [ ] T020 [US2] 新增 `.sops.yaml`（contracts §P2 五條）：單一 `creation_rules`、
   `path_regex` **錨定式**（★比對用 `MatchString`＝非錨定子字串命中）、`age:` 用 YAML 清單形、
   **不設六個範圍選項任一**（預設 `unencrypted_suffix="_unencrypted"`＝全加密）；寫完**驗證
@@ -383,7 +387,9 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   正式 ADR**；改為 **ext4 at-rest 殘餘風險誠實登記**〔明文長駐 `ext4.vhdx`＋補償三面〕之總表化。
   施工標的＝**既存 draft `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`
   完稿並轉 accepted**、非另立新檔）（自洽論證＋退路預拍〔重拍後僅退方式 A〕＋#11 反轉條件與
-  反轉實測＋**SSH identity 禁令**＋passphrase 政策〔diceware≥6＋離線備份義務〕；T008 實測欄
+  反轉實測＋**SSH identity 禁令**＋passphrase 政策〔diceware≥6＋離線備份義務〕
+  ＋**產鑰儀式 C 案拍板**〔已落「決策」節第 5 點、本 ADR 為其唯一權威落點：暫代鑰 passphrase
+  視同已洩露之登記，與收刀期真鑰產製／撤銷四步／7 支 leaf 輪替之硬性義務〕；T008 實測欄
   已於 Phase 2〔Foundational〕併入）／
   **C** 加密資產形狀（dev 單檔 8 key／prod 不建含目標形狀備忘／`ca.key` 不進含重評條件／
   命名紅線／不設範圍選項）／**D** 掃描三層防線定位（事件型×狀態型×確定性互補；三 repo 覆蓋；
