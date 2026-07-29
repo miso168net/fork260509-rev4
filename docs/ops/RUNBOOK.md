@@ -541,36 +541,53 @@ assert8() {
   [ "$(wc -l < "$1")" = 8 ] \
     && [ "$(grep -c -E "^[a-z_]+: [^\"'|>]" "$1")" = 8 ] \
     && [ "$(sed -E 's/:.*//' "$1" | LC_ALL=C sort | paste -sd' ' -)" = "$KEYS8" ] \
-    && echo "OK：$1 恰 8 支裸量純量且 key 名相符" \
-    || echo "FAIL：$1 不是「恰 8 支裸量純量、key 名與 decrypt-secrets.sh EXPECTED_KEYS 逐一相符」——漏 key／多 key／重複／改名，或某值成引號形或區塊純量而續行已被濾掉；停手勿續"
+    && { echo "OK：$1 恰 8 支裸量純量且 key 名相符"; return 0; }
+  echo "FAIL：$1 不是「恰 8 支裸量純量、key 名與 decrypt-secrets.sh EXPECTED_KEYS 逐一相符」——漏 key／多 key／重複／改名，或某值成引號形或區塊純量而續行已被濾掉；停手勿續" >&2
+  return 1
 }
 ```
 
-★守衛只印 OK／FAIL 與檔名、**不回顯任何值**（診斷靠 FAIL 訊息窮舉的失敗形，不靠印出內容）。
+★守衛只印 OK／FAIL 與檔名、**不回顯任何值**（診斷靠 FAIL 訊息窮舉的失敗形，不靠印出內容）；
+★**FAIL 走 `return 1`**（非只印字）——下面每處都以 `&&` 串接，守衛不擋就等於沒有守衛。
 
 1. 各自解密**並正規化**（★正規化不可省，成因＝§15 節首「手動重導向」警語：裸重導向產出的檔
    含 CRLF 與 passphrase 提示行，照走步驟 3 就把提示行當成多出來的 YAML key 加密進**權威密文
    檔**——要等下次 `bash deploy/decrypt-secrets.sh` 的 key 斷言才炸，屆時壞密文可能已 commit
    給他人）：
 
+   ★**先自 index 取三方密文、不要碰工作樹那一份**：衝突狀態下 `deploy/secrets.dev.enc.yaml`
+   已被 git 寫入 `<<<<<<<` 衝突標記（本 repo 對該檔未設 merge driver，`git check-attr -a` 可複核），
+   直接餵給 `sops -d` 必 `rc=1`（`yaml: line N: mapping values are not allowed in this context`、
+   stdout 0 bytes）。三方＝`:1:` base（共同祖先）／`:2:` ours（你的）／`:3:` theirs（對方的）。
+   密文落 `tmp/` 是對的——wrapper 只掛載 `$PWD`，repo 外的檔容器讀不到；**密文非明文**，
+   落點兩分限制的是**明文**（`$WORK` 那一側）。
+
    ```bash
-   ./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > "$WORK/<自己>.raw"
-   tr '\r' '\n' < "$WORK/<自己>.raw" | sed -E $'s/\x1b\\[[0-9;]*[A-Za-z]//g' \
-     | grep -E '^[a-z_]+: ' > "$WORK/<自己>.yaml"
-   rm -f "$WORK/<自己>.raw"
-   assert8 "$WORK/<自己>.yaml"
+   mkdir -p tmp
+   for s in 1:base 2:ours 3:theirs; do
+     git show ":${s%%:*}:deploy/secrets.dev.enc.yaml" > "tmp/${s#*:}.enc.yaml"
+   done
+   for n in base ours theirs; do
+     ./deploy/sops.sh -d "tmp/$n.enc.yaml" > "$WORK/$n.raw" \
+       && tr '\r' '\n' < "$WORK/$n.raw" | sed -E $'s/\x1b\\[[0-9;]*[A-Za-z]//g' \
+            | grep -E '^[a-z_]+: ' > "$WORK/$n.yaml" \
+       && rm -f "$WORK/$n.raw" && assert8 "$WORK/$n.yaml" || break
+   done
    ```
 
    `tr` 取**轉行界**而非 `tr -d`：提示行末尾可能只有 CR，刪掉就會與第一支 key 黏成同一行。
+   `-d` 讀檔內 `sops` metadata、**不需** `--filename-override`（那是加密側才要的、見步驟 3）。
+   ★三份各要一次 passphrase（B′ 單 recipient 基線＝每次解密 1 次）。`break` 讓任一份失敗即停手。
 2. **在 `$WORK` 內**做三方合併產出 `$WORK/merged.yaml`，★合併完**必跑同一支守衛**（人手合併
    掉一支 key、貼重複、或讓某值變成需引號形，後果與步驟 1 的機器噪音完全同構：都會被步驟 3
    加密進**權威密文檔**，要等下次 `decrypt-secrets.sh` 的 P4.3 才 fail-loud，屆時壞密文可能已
    commit 給他人——而人手比機器更容易犯）；`OK` 才複製進 repo：
 
    ```bash
-   assert8 "$WORK/merged.yaml"
-   mkdir -p tmp && cp "$WORK/merged.yaml" tmp/merged.yaml
+   assert8 "$WORK/merged.yaml" && mkdir -p tmp && cp "$WORK/merged.yaml" tmp/merged.yaml
    ```
+
+   ★`&&` 串接不可拆成兩行：守衛只印 FAIL 而不擋，壞檔照樣被步驟 3 加密進**權威密文檔**。
 
    `mkdir -p` 不可省：`tmp/` 是 gitignored 且零 tracked 檔，**乾淨 clone 上不存在**（本節受眾
    恰是他機拉到衝突者）；漏建即 `cp: cannot create regular file`。repo 內只放這一個檔、只活到
@@ -580,8 +597,10 @@ assert8() {
    `./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/merged.yaml < /dev/null > deploy/secrets.dev.enc.yaml`
    ——★`--filename-override` 不可省：`path_regex` 比對的是**檔名**，對 `tmp/merged.yaml`
    比不到規則就會報 `no matching creation rules found`（或在別的規則下**悄悄換掉 recipients**）
-4. **核對加密檔 `sops.age` 的 recipient 清單與 `.sops.yaml` 逐一相符**，再刪**兩處**暫存明文：
-   `rm -f tmp/merged.yaml && rm -rf "$WORK"`（漏刪 repo 內那份＝完整明文長期躺在實效 777 路徑上）
+4. **核對加密檔 `sops.age` 的 recipient 清單與 `.sops.yaml` 逐一相符**，再刪暫存：
+   `rm -f tmp/merged.yaml tmp/base.enc.yaml tmp/ours.enc.yaml tmp/theirs.enc.yaml && rm -rf "$WORK"`
+   （漏刪 repo 內 `merged.yaml`＝完整明文長期躺在實效 777 路徑上；三份 `.enc.yaml` 是密文、
+   刪它們屬工作區衛生而非洩漏面）。最後 `git add deploy/secrets.dev.enc.yaml` 收衝突
 
 ### 15.8 ★SSH identity 禁令與尋鑰來源
 
