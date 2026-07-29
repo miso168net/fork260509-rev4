@@ -33,7 +33,8 @@ if [ ! -f .sops.yaml ] || [ ! -f deploy/secrets.dev.enc.yaml ]; then
     exit 1
 fi
 
-# ---- 落點解析（019 P5.1；generate／preflight／setup-reaper-role 同口徑）：環境變數優先
+# ---- 落點解析（019 P5.2 五支賦值型消費者之一；generate／preflight／setup-reaper-role
+#      ／tools/secret-value-guard.py 同口徑，消費者聯集七處＝契約 P5.1）：環境變數優先
 #      （與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行（★不整檔 source
 #      ——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，含錢字號小括號
 #      ／反引號之值 source 時會被執行）→ 皆缺回退 deploy/secrets ----

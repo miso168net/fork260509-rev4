@@ -308,6 +308,11 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   **縱深防禦、與落點無關**，見 ADR 0080 決策 4）→ wrapper 收 stdout（`umask 077`、**不用 `--output`／`-i`**
   避免 root 產物）→ **key 數與名稱斷言、不符零寫入＋非零退出＋指名缺哪個 key** → 逐檔
   `printf '%s'`（無尾端換行）＋`chmod 644` → **現值 ≠ 解密值則另存 `.txt.new` 不覆寫**
+  ——**★as-built 勘誤（2026-07-29、U4 specc）**：本列「`source .env`」屬施工前敘述、**已作廢**；
+  as-built 為**不整檔 `source`**、只嚴格解析 `SECRETS_DIR=` 一行（與 generate／preflight／
+  setup-reaper-role／`tools/secret-value-guard.py` 同口徑；理由＝值內 `$()`／反引號 `source`
+  時會被執行）。落點口徑與消費者聯集**一律以契約 §P5.1 為準**（同語意勘誤同刀處置：T025 列
+  已載、契約 P5.1／P5.2 與四腳本註解同輪改齊）
   ——**實做（2026-07-29）**：契約全落＋兩個實測接地——①單次 `sops -d`（B′ 單 recipient
   恰 1 次提示、pty 實測 fed=1）收全 YAML 至 0700 暫存目錄（trap 即刪；★落點於 quality
   第 2 輪自 repo 內 `tmp/` 改至 `$XDG_CACHE_HOME`〔回退 `$HOME/.cache`〕，見下方第 2 輪修復記）；
@@ -596,6 +601,10 @@ T001 → T002 → T003
 - **T040（age 二進位）為 T007 硬前置**（T007 要實跑 `age-keygen`／`age -p`；二進位由 T007
   ／T019／T033 共用、清理承接＝T038 收刀終驗）。
 - **T025 三處同刀齊改**：任一未改則該處無條件賦值靜默吃掉外部值（preflight 回 OK、compose 掛掉）。
+  ——**★as-built 勘誤（2026-07-29、U4 specc）**：本列與 Phase 5 **Goal** 之「三腳本」數目**已作廢**
+  ——賦值型消費者實為**五支**（＋`decrypt-secrets.sh`＋`tools/secret-value-guard.py`），**完整消費者
+  聯集七處**（另含 compose 與 `tools/bootstrap`）之**唯一權威清單＝契約 §P5.1**；落點類變更動手前
+  一律先枚舉該列（L-174 防法①），勿據本檔任一單列推定全集。
 - **T030 遷移五步順序即契約**：刪舊落點必為最後一步（提前刪＝容器 bind 舊 inode、下次重啟才炸）。
 - **T039（編號後補、執行序在 T030 之後）**＝SC-003 後半乾淨重建全鏈；需 US3 全部接線完成才有意義。
 - **Phase 2 三閘的 blocking 範圍**＝US2／US3／US4；US5 經 US2~US4 鏈遞移依賴、US1 則完全不受

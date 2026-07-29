@@ -13,8 +13,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# SECRETS_DIR 解析（019 P5.1／P5.2 三處同刀齊改之第三同步點；generate／preflight／decrypt
-# 同口徑）：環境變數優先（與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行
+# SECRETS_DIR 解析（019 P5.2 五支賦值型消費者同刀齊改之一；generate／preflight／decrypt
+# ／tools/secret-value-guard.py 同口徑，消費者聯集七處＝契約 P5.1）：
+# 環境變數優先（與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行
 # （★不整檔 source——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，
 # 含錢字號小括號／反引號之值 source 時會被執行）→ 皆缺回退 repo 內 deploy/secrets。
 if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
