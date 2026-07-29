@@ -52,6 +52,11 @@ if [ -z "${SECRETS_DIR:-}" ] && [ -f "$REPO_ROOT/.env" ]; then
     fi
 fi
 SECRETS_DIR="${SECRETS_DIR:-$SCRIPT_DIR/secrets}"
+# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支賦值型解析器同刀齊改、契約 P5.1）：
+# compose 以**專案目錄**（＝repo 根）解析相對值、guard 以 repo 根 join；本腳本若逕用相對值
+# 即以 **CWD** 錨定＝自 repo 子目錄執行時本檢查與 compose 看的是**不同目錄**，於是出現
+# 「preflight 全綠、compose 掛空目錄」的假綠（本檢查正是 fail-loud 承載者、假綠最致命）。
+case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$REPO_ROOT/$SECRETS_DIR" ;; esac
 
 # 與 generate-secrets.sh 同一份十一機密清單（grafana_admin_password 僅 grafana[profiles:obs,metrics]
 # 消費、但一律生成納入預檢——免 --profile obs 時 compose 對缺檔自動建空目錄、grafana $__file{}

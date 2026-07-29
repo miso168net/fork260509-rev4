@@ -51,6 +51,10 @@ if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
   fi
 fi
 SECRETS_DIR="${SECRETS_DIR:-deploy/secrets}"
+# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支同刀齊改、契約 P5.1）：本腳本首行已
+# `cd` 至 repo 根，故相對值本就等價；此處**顯式錨定**是為與 generate／preflight 同形——
+# 依賴 `cd` 屬隱性保證，日後若被移除即靜默改以 CWD 錨定、與 compose 分裂。
+case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$PWD/$SECRETS_DIR" ;; esac
 
 PW_FILE="$SECRETS_DIR/reaper_password.txt"
 if [ ! -s "$PW_FILE" ]; then

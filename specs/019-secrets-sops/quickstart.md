@@ -137,6 +137,12 @@ T030 施工時補列）；
 若其中任一改讀 `.env` 落點回 `rc=0`（＝「preflight 說可 up、compose 掛空目錄」）即為 blocker。
 對照組 `unset SECRETS_DIR` → 三方同解新落點；`SECRETS_DIR=/tmp/rev4-nonexistent` → 環境變數仍
 勝出 `.env`（preflight 指名該路徑缺檔）。
+＋★**`SECRETS_DIR` 相對路徑之錨定基準**（019 U4 quality 第 4 輪補；契約 §P5.1）：**自 repo
+子目錄**執行（例 `cd deploy`）並帶 `SECRETS_DIR=rel/dir`，同跑 `preflight-secrets.sh`、
+`python3 ../tools/secret-value-guard.py check`、（於 repo 根）`docker compose config` →
+**三方必須同解為 repo 根之 `rel/dir`**（非 CWD 相對），且 preflight **必須 `rc=1` 指名缺檔**。
+若 preflight 印「齊備且健康、可 up」而 compose 指向別處＝**假綠 blocker**（該目錄零檔、`up`
+會自動建空目錄當 secret 掛入；generate 更會把明文寫進 repo 樹內而值比對層掃不到＝L-178）。
 
 **完成判準**：`/mnt/d` 全樹零明文機密檔；＋新落點在**版控面外**之機判（019 U3 遺留
 advisory 一、T030 施工時補列）——`git check-ignore` 與 `git ls-files --error-unmatch` 對

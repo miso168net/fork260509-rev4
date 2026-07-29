@@ -85,6 +85,12 @@ if [ -z "${SECRETS_DIR:-}" ] && [ -f "$REPO_ROOT/.env" ]; then
     fi
 fi
 SECRETS_DIR="${SECRETS_DIR:-$SCRIPT_DIR/secrets}"
+# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支賦值型解析器同刀齊改、契約 P5.1）：
+# 環境變數帶「相對路徑」時，compose 以**專案目錄**（＝repo 根）解析、guard 以 repo 根 join，
+# 而本腳本若逕用相對值即以 **CWD** 錨定——自 repo 子目錄執行就與 compose 指向不同目錄，
+# 且雙方各自 rc=0＝靜默分裂（實測：preflight 印「齊備且健康、可 up」而 compose 掛另一個空
+# 目錄；本腳本更會把明文寫進 CWD 相對目錄、落回 /mnt/d repo 樹內而 guard 掃不到）。
+case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$REPO_ROOT/$SECRETS_DIR" ;; esac
 mkdir -p "$SECRETS_DIR"
 
 # --compose-only 前置斷言（019 P5.5）：8 支來源檔在位且非空、缺任一即報錯退出（絕不代生成）
