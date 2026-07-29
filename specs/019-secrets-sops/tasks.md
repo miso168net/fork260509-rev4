@@ -315,7 +315,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   被濾）；權限自證 drvfs（v9fs）分支＝WARN 不中止（chmod 結構性 no-op、US3 遷移消滅）、
   其他 fs 不為 700＝FAIL。正向全跑 rc=0、8 支 WRITTEN、11 支 sha256 前後全 OK（含 3 composite
   未動）；非互動 rc=1 即紅不 hang；exec bit `git ls-files -s`＝100755
-- [ ] T023 [US2] **S4／S5 驗收**：加解密最小往返（#1）＋加密檔形制三條＋五要求逐條否定測試
+- [x] T023 [US2] **S4／S5 驗收**：加解密最小往返（#1）＋加密檔形制三條＋五要求逐條否定測試
   （刪 key→零寫入報錯｜構造 `alert_webhook_url` 差異→產 `.new` 原檔不變｜`xxd` 驗無 `0a`
   無 `0d`｜leaf 與 composite 內嵌值 byte 數一致｜owner 非 `root:root`｜非互動呼叫吵鬧失敗）；
   **否定測試**：故意以錯誤副檔名順序加密一次觀察退化為整檔加密後刪除實驗檔；
@@ -327,6 +327,20 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   ★**施工時同步補列**：`quickstart.md` §S5 表現為六列、**尚未含本項**（contracts §P4.6 已註明
   以本行為唯一權威落點）——本任務施工時把本項補成 §S5 第七列，使劇本與 T023 一致；未補列前
   照 §S5 逐列核對者必漏跑本項
+  ——**實測（2026-07-29、全數過；解密互動一律 pty 盲餵暫代 passphrase）**：
+  ①往返：管線 rc=0、8 支 WRITTEN、11 支 sha256 前後全 OK（#1 還原一致＋SC-007）；
+  ②形制：`git diff`（加入 enc 之 commit）新增行 `key: ENC[AES256_GCM` 恰 8、key 名明文 8 支；
+  ③明文中間產物已刪＋`git status`／`git diff --cached` 零殘留；④否定逐條——刪 key（解密→
+  濾掉 jwt_secret→重加密置換）→rc=1 指名 `jwt_secret`＋11 支 sha256 全未動（零寫入）＋
+  `git checkout --` 復原；alert_webhook_url 差異（暫改 enc 內值）→7 支 WRITTEN＋
+  `alert_webhook_url.txt.new`（內容 sha256＝構造值）＋原檔 sha256 前中後三查皆 9848…dd3e
+  39 bytes（SC-007）、驗完 rm .new＋checkout 復原；`xxd` 8 支末 byte 皆非 0a/0d；
+  leaf↔composite 內嵌值 byte 級比對 3 對全 OK；owner 全 1000:1000＝id -u/-g 非 root；
+  非互動 rc=1 即紅不 hang；★P4.6 新否定＝755 父目錄（ext4）下 SECRETS_DIR 指入→子目錄
+  `stat -c %a`＝700、8 支 644 全寫出、驗完刪暫存父目錄；⑤錯誤副檔名 `secrets.env.enc`
+  →binary store 退化＝單一 `data: ENC[` 密文塊、key 名不可見（帶 `--config` 臨時 catch-all
+  規則檔實驗、實驗檔已刪；★`--age` 不能繞過 config 規則比對＝L-168）；⑥§S5 第七列（P4.6）
+  已補列。全程 fed=1（單 recipient 恰 1 次提示、與閘 #3 基線一致）
 
 ## Phase 5: US3 — 明文離開 /mnt/d（SECRETS_DIR 遷移）（P3）
 

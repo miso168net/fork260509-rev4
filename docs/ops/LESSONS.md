@@ -1,4 +1,4 @@
-<!-- next: L-168 -->
+<!-- next: L-169 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -12,6 +12,8 @@ L-001~L-101（rev3 教訓種子全量）☞ LESSONS-001-101.md。
 - **L-107**｜base-web `pnpm gen-route`（sa gen-route）是互動式新增-route 精靈、`-T` 無 TTY 會卡在 `please enter route name`，非 headless 重生成器；route 實際由運行中 dev 容器的 ElegantVueRouter vite plugin 於 .vue file-add 事件自動生成。
   防：base-web 驗收只跑容器內 `pnpm typecheck`＋`pnpm lint`（勿在腳本串 `pnpm gen-route`——會卡）；route 生成靠 dev 容器 plugin 自動觸發、手填 meta（roles/icon/order）regen 保留。｜出處：004 單元④ 實測
 - **L-153**｜macOS 於 UTF-8 locale 下，bash 把「$var 緊鄰全形字元」的全形首 byte 吞進變數名（libc 字元分類差異；set -u 下炸 unbound variable、無 -u 則靜默展開空；系統 bash 3.2 與 homebrew 5.3 同炸；WSL2/glibc 不受影響）——shell 腳本 $var 緊鄰非 ASCII 一律寫 ${var} 形；臨時繞法 LC_ALL=C（L-142 同族）。2026-07-19 tools/bootstrap:30 實證（RUNBOOK 驗證輪 macOS）。
+- **L-168**｜docker `-t`（容器 pty）互動程式＋stdout 重導向＝三重雜訊同流入檔：①提示行寫進重導向檔而非螢幕（pty 驅動監看 pty 流永遠等不到提示＝結構性 hang；互動 user 則盲打）②ANSI 清行序列（ESC[F ESC[K）黏在首資料行 ③全輸出被 pty ONLCR 改 CRLF。而改用 `-i` 無 `-t` 想繞開＝sops 之類 term.ReadPassword 對 pipe stdin 直接失敗（rc=128、吵鬧不 hang——此半邊反而是 P1.2 要的性質）。另 sops 加密時 `--age` **不能**繞過 `.sops.yaml` 規則比對：config 存在且 path 不匹配→`no matching creation rules` 即使帶 `--age`（實驗性加密須 `--config` 指到臨時 catch-all 規則檔）。
+  防：捕捉互動容器 stdout 前先假定「提示＋ANSI＋CRLF 與資料同流」——拆資料一律 `tr '\r' '\n'`＋剝 CSI 序列＋只認資料行形（deploy/decrypt-secrets.sh 的 key 行 parser 即此形）；pty 盲餵驅動改監看**重導向目標檔**出現提示字樣再餵（勿監看 pty 流）；臨時加密實驗帶 `--config` 臨時規則檔。｜出處：019 U3（T022 施工實測；probe 全程見 tasks T018／T022 備註）
 
 ## 〔git／worktree／submodule〕
 
