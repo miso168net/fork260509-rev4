@@ -309,13 +309,31 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   避免 root 產物）→ **key 數與名稱斷言、不符零寫入＋非零退出＋指名缺哪個 key** → 逐檔
   `printf '%s'`（無尾端換行）＋`chmod 644` → **現值 ≠ 解密值則另存 `.txt.new` 不覆寫**
   ——**實做（2026-07-29）**：契約全落＋兩個實測接地——①單次 `sops -d`（B′ 單 recipient
-  恰 1 次提示、pty 實測 fed=1）收全 YAML 至 `tmp/decrypt-secrets.XXXXXX/`（gitignored、
-  trap 即刪）；②★容器 pty 單流雜訊實測＝提示行＋ANSI 清行序列（ESC[F ESC[K）黏在首資料行
+  恰 1 次提示、pty 實測 fed=1）收全 YAML 至 0700 暫存目錄（trap 即刪；★落點於 quality
+  第 2 輪自 repo 內 `tmp/` 改至 `$XDG_CACHE_HOME`〔回退 `$HOME/.cache`〕，見下方第 2 輪修復記）；
+  ②★容器 pty 單流雜訊實測＝提示行＋ANSI 清行序列（ESC[F ESC[K）黏在首資料行
   ＋全輸出 CRLF——拆 key 前先 `tr '\r' '\n'`＋剝 CSI 序列、只認 `key: value` 行（提示行天然
   被濾）；權限自證 drvfs（v9fs）分支＝WARN 不中止（chmod 結構性 no-op、US3 遷移消滅）、
   其他 fs 不為 700＝FAIL。正向全跑 rc=0、8 支 WRITTEN、11 支 sha256 前後全 OK（含 3 composite
   未動）；非互動 rc=1 即紅不 hang；exec bit `git ls-files -s`＝100755
   ——**quality 第 1 輪 blocker 修復（2026-07-29）**：①補**非裸量純量斷言**（值首字元落 `" ' | >` 即 FAIL 指名、零寫入）——原逐行拆 key 只對裸量正確，sops 對空值吐 `""`、對含「冒號空白」吐單引號包裹，兩者都被逐字寫進機密檔且「值為空」斷言被架空（真容器對照組實測：修正前 rc=0 且 jwt_secret.txt=2 byte／alert_webhook_url.txt 多 2 byte 引號；修正後 rc=1 零寫入指名）；②失敗分支**濾除資料行後才倒 sops 輸出**——容器 pty 單流使捕捉檔同時承載 stdout 與 stderr，「已 Emit 後才失敗」即整份明文上終端（stub 實測：修正前 8 值全印、修正後 0 明文＋濾除行數計數，sops 正常錯誤診斷完整保留）。回歸：全裸量案 8 支 byte 數與 sha256 前 8 碼前後一致；現行 8 值經性質檢查全屬裸量、不受新斷言影響。詳 L-170
+  ——**quality 第 2 輪 blocker 修復（2026-07-29）**：**明文暫存落點遷出 repo 內 `tmp/`**——
+  原以 `mktemp -d tmp/decrypt-secrets.XXXXXX` 把「8 支完整明文」落在 /mnt/d（v9fs：`umask 077`
+  與 `chmod` 皆結構性 no-op，實跑 `ls -ld tmp`＝`drwxrwxrwx`、Windows 側可見），與同檔上方
+  為 `SECRETS_DIR` 承認並 WARN 的性質同因，且**不隨 US3 落點遷移消失**（T024~T030 無一涵蓋此
+  落點）＝FR-021／SC-005 要消滅的暴露面。改落 `${XDG_CACHE_HOME:-$HOME/.cache}` 下之
+  `rev4-decrypt.XXXXXX`（0700），並補**落點性質斷言**（fs 為 `v9fs` 或 mode≠700 即 FAIL＋處置
+  指引；斷言**早於** `sops` 呼叫＝不合格時零明文產生）。可行性依據＝此檔由 host shell 重導向
+  產生、不進容器，contracts §P4「合併衝突」列之「暫存明文必須落 repo 內（wrapper 只掛載
+  `$PWD`）」只約束**要餵回 sops 加密**的輸入檔，不約束 host 收的輸出。隔離沙箱機判（ext4、
+  stub `sops.sh` 餵 8 支假值＋pty，全程未觸真機密與 repo 工作樹；落點以 stub 內
+  `exec 9>&1`＋`readlink -f /proc/self/fd/9` 探得）：對照組（`git show HEAD:` 版）RAW＝
+  `<repo>/tmp/decrypt-secrets.*/raw.out`；修正後 RAW＝`$HOME/.cache/rev4-decrypt.*/raw.out`、
+  沙箱 repo 內**未生成 `tmp/`**、離場零殘留；否定案（`XDG_CACHE_HOME` 指 /mnt/d 路徑）rc=1、
+  stub `sops` **未被呼叫**、零檔寫出；SIGKILL 硬砍殘留案＝殘留目錄落 `$HOME/.cache`、
+  `stat -c %a`＝700（原版則為 /mnt/d 之 777）。回歸：修正前後 8 支寫出檔 sha256 前 8 碼、
+  byte 數、mode 644 全等；`bash -n`＋`shellcheck -S warning` 全綠；repo 內
+  `deploy/secrets/alert_webhook_url.txt` sha256 仍 9848…（39 bytes、未動）。詳 L-171
 - [x] T023 [US2] **S4／S5 驗收**：加解密最小往返（#1）＋加密檔形制三條＋五要求逐條否定測試
   （刪 key→零寫入報錯｜構造 `alert_webhook_url` 差異→產 `.new` 原檔不變｜`xxd` 驗無 `0a`
   無 `0d`｜leaf 與 composite 內嵌值 byte 數一致｜owner 非 `root:root`｜非互動呼叫吵鬧失敗）；
@@ -350,6 +368,10 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   mv 後落點 644、`xxd` 末 byte 仍非 0a／0d、原檔於 mv 前未被覆寫（P4.5 不變）；
   `bash -n`＋`shellcheck -S warning` 全綠。repo 內 `deploy/secrets/alert_webhook_url.txt`
   sha256 仍 9848…dd3e（未動）
+  ——**補測（2026-07-29、quality 第 2 輪修後）**：新增第八列驗收＝**明文暫存落點**
+  （FR-021／SC-005）——正向 RAW 落 `$XDG_CACHE_HOME`／`$HOME/.cache` 之 0700 目錄且離場清除；
+  否定＝`XDG_CACHE_HOME` 指 /mnt/d 路徑 → rc=1、`sops` 未被呼叫、零檔寫出。實測結果詳 T022
+  第 2 輪修復記；`quickstart.md` §S5 表已同步補為八列
 
 ## Phase 5: US3 — 明文離開 /mnt/d（SECRETS_DIR 遷移）（P3）
 

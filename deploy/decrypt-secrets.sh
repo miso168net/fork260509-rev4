@@ -13,6 +13,8 @@
 #   P4.3 key 數與名稱斷言：缺／多 key＝零寫入＋非零退出＋指名（絕不落到 generate 造亂數路徑）
 #   P4.1／P5.7 逐檔 printf '%s' 寫入（無尾端換行）；P4.7 檔 644
 #   P4.5 現值 ≠ 解密值 → 另存 <name>.txt.new＋警示、不覆寫；現值＝解密值 → 照寫（冪等）
+#   FR-021／SC-005 明文暫存落點：$XDG_CACHE_HOME（回退 $HOME/.cache）之 0700 暫存目錄、
+#     非 repo 內 tmp/（/mnt/d＝9p、chmod no-op＝實效 777）；落點性質不符即 fail-loud
 #   單次 sops -d 收全 YAML 再本地拆 key——B′ 下每次容器呼叫都要 1 次 passphrase，
 #   絕不逐 key --extract 重呼容器
 
@@ -59,10 +61,25 @@ fi
 EXPECTED_KEYS=(postgres_password redis_password jwt_secret refresh_token_secret
                captcha_secret reaper_password grafana_admin_password alert_webhook_url)
 
-# ---- 單次 sops -d 收全 YAML 至 repo 內 gitignored 暫存（umask 077 已生效）----
-mkdir -p tmp
-TMP_DIR="$(mktemp -d tmp/decrypt-secrets.XXXXXX)"
+# ---- 單次 sops -d 收全 YAML 至暫存（明文中間產物；落點必須離開 /mnt/d）----
+# ★不得落 repo 內 tmp/：/mnt/d＝9p（v9fs），umask／chmod 皆結構性 no-op（同上方 SECRETS_DIR
+#   權限自證分支所承認的性質）——暫存檔會以實效 777、Windows 側可見的形式承載 8 支完整明文，
+#   正是 FR-021／SC-005「/mnt/d 全樹零明文機密檔」要消滅的暴露面，且不隨 US3 落點遷移而消失。
+# ★本檔由 host shell 重導向產生、不進容器（wrapper 只掛載 $PWD 供 sops 讀 enc 檔），故不受
+#   contracts §P4「合併衝突」列之「暫存明文必須落 repo 內」限制——該限只適用於要餵回 sops
+#   加密的檔（wrapper 只掛載 $PWD、repo 外的檔容器讀不到）。
+TMP_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}"
+mkdir -p "$TMP_ROOT"
+TMP_DIR="$(mktemp -d "$TMP_ROOT/rev4-decrypt.XXXXXX")"
 trap 'rm -rf "$TMP_DIR"' EXIT
+TMP_FS="$(stat -f -c '%T' "$TMP_DIR")"
+TMP_MODE="$(stat -c '%a' "$TMP_DIR")"
+if [ "$TMP_FS" = "v9fs" ] || [ "$TMP_MODE" != "700" ]; then
+    echo "FAIL：暫存明文落點 $TMP_DIR 不安全（fs=$TMP_FS、mode=$TMP_MODE；需非 v9fs 且 700）。" >&2
+    echo "      成因＝\$HOME（或 \$XDG_CACHE_HOME）落在 /mnt/* 之 9p 上、chmod 為 no-op。" >&2
+    echo "      處置＝將 XDG_CACHE_HOME 指到 ext4 路徑（如 /home/\$USER/.cache）後重跑。" >&2
+    exit 1
+fi
 RAW="$TMP_DIR/raw.out"
 
 # 暫存流雜訊＝passphrase 提示行＋ANSI 清行序列＋容器 pty 的 CRLF（wrapper P1.2 註／L-168）：

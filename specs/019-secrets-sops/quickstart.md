@@ -101,6 +101,7 @@
 | 產物 owner 與 mode（P4.7＋P1.6） | 目錄 700／檔 644／owner＝本人 uid:gid | 觀察是否出現 `root:root`（P1.6 對策失效的信號） |
 | tty 守衛（P4.2） | 互動情境正常 | 非互動呼叫 → **吵鬧失敗**（不得 hang、不得寫出帶 CR 的檔） |
 | 落點自建 0700 子目錄（P4.6） | `mkdir -p`＋`chmod 700`＋權限自證（縱深防禦、與落點無關；ADR 0080 決策 4） | 將 `SECRETS_DIR` 指入**權限非 0700 的父目錄**（如 `chmod 755` 暫存父目錄）下跑解密 → `stat -c %a` 子目錄**仍必為 `700`**；驗完刪除暫存父目錄（T023 施工時補列＝契約 §P4.6 所命） |
+| 明文暫存落點（FR-021／SC-005；★非 P4 編號＝spec 需求代號） | RAW／CLEAN 落 `${XDG_CACHE_HOME:-$HOME/.cache}` 之 `rev4-decrypt.XXXXXX`（0700）、**不落 repo 內 `tmp/`**（/mnt/d＝9p、`chmod` no-op＝實效 777、Windows 側可見），離場 trap 清除 | 把 `XDG_CACHE_HOME` 指到 `/mnt/*` 路徑下跑解密 → **rc=1＋指名 fs／mode**，且斷言早於 `sops` 呼叫＝**零明文產生、零檔寫出**；驗完刪除該暫存路徑 |
 
 **★ 紀律**：`alert_webhook_url` 現值為 user 已填真值（39 bytes）——**測試絕不以刪該檔為手段**；
 差異情境以複本或暫時改 enc 檔內值構造，驗完復原並 byte 級比對現值未變（SC-007）。
