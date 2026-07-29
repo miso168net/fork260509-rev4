@@ -22,7 +22,9 @@
 - SECRETS_DIR＝**解法 2′ `/dev/shm/rev4-secrets`**（tmpfs；與 B′ 唯一自洽組合）；**#11 為結論
   反轉條件**（U1 首波實測；反轉→**升級 user 重拍、非 agent 自決**）。
   ★重拍（2026-07-29、#11 反轉後）：SECRETS_DIR 改**解法 2＝`$HOME/.cache/rev4-secrets`**、
-  私鑰維持 B′、#3 退路僅退方式 A——詳 tasks T005 備註與 ADR 0080。
+  私鑰維持 B′、#3 退路僅退方式 A——拍板全文與理由＝ADR
+  `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`「決策」節第 1~3 點
+  與其下「user 重拍三點定案與理由」段（唯一權威落點）。
 - prod 加密檔＝**不建**（dev 單檔單規則；prod 目標形狀入 ADR 備忘）；切檔粒度＝**dev 一檔 8 key**；
   ca.key＝**不進 SOPS**（維持可重生、ADR 記重評條件）。
 - 團隊組成（A-4）＝「**將來可能有非工程師**」→ ADR 記「必須分兩層」為待觸發架構決定；
@@ -117,8 +119,8 @@
 解密後明文自 9p（權限恆 777）遷至 tmpfs；compose 與全部腳本經單一事實來源（`.env`）取得落點；
 遷移不產生假性完成；觀測軌全開仍讀得到機密。
 ★重拍（2026-07-29、#11 反轉後）：遷入落點改**解法 2＝`$HOME/.cache/rev4-secrets`（ext4 持久）**、
-非 tmpfs；「明文離開 /mnt/d」之 US3 目標、單一事實來源接線與五步遷移程序皆不變——詳 tasks
-T005 備註與 ADR 0080。
+非 tmpfs；「明文離開 /mnt/d」之 US3 目標、單一事實來源接線與五步遷移程序皆不變——落點拍板值
+詳 ADR 0080「決策」節第 2 點。
 
 **Why this priority**: 消除 9p 777 缺口＝本刀威脅模型主收益之一；依賴 US2 的解密管線與 U1
 實測閘（#2／#11）。
@@ -314,7 +316,7 @@ T005 備註與 ADR 0080。
 - **identity**: age 私鑰檔（B′＝passphrase 加密內容）；根信物＝腦中 passphrase（B′）或檔案
   本身（退路 A）。
 - **SECRETS_DIR**: 解密明文落點，單一事實來源＝`.env`；拍板值 `/dev/shm/rev4-secrets`。
-  ★重拍（2026-07-29、#11 反轉後）：改 `$HOME/.cache/rev4-secrets`、詳 tasks T005 備註與 ADR 0080。
+  ★重拍（2026-07-29、#11 反轉後）：改 `$HOME/.cache/rev4-secrets`、詳 ADR 0080「決策」節第 2 點。
 - **allowlist／規則集**: `.gitleaks.toml`＝誤報圈定＋DSN 自訂規則；三 repo 共用。
 - **hook 面**: 外層 `.githooks/`（含源倉用 hook 目錄）＋兩源倉 `core.hooksPath` 指向設定
   （per-machine、bootstrap 冪等）。

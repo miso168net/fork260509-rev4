@@ -64,12 +64,14 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   解法 2 與 2′ 暴露相同、2′ 差異化收益收窄至 at-rest（不落 vhdx）與關機即清。
   ——與 2′ 拍板前提相悖之兩個停工級判準例逐字命中→**status blocked、SECRETS_DIR 2 vs 2′
   比較基礎由 user 重裁**；T006/T040/T007/T008 未動工（B′×2′ 自洽耦合、待重拍後續跑）
-  ——★**重拍定案（2026-07-29、user 三點）**：①SECRETS_DIR＝**解法 2＝`$HOME/.cache/rev4-secrets`**
-  （ext4 持久、免開機儀式；at-rest 代價＝明文長駐 ext4.vhdx、誠實入 ADR 0080）；②私鑰**維持
-  B′**（passphrase 加密 identity）——理由＝#11 事實下唯一不怕「Windows 側讀走檔案」的 at-rest
-  信物，且 identity 保護的是跨 git 歷史與未來輪替的根信物、與現值暴露正交；③閘 #3 失敗之預拍
-  退路連帶調整＝**僅退方式 A（明文 identity）、SECRETS_DIR 已在 2 不再降**。閘就此結清、
-  續跑 T006 起
+  ——★**重拍定案（2026-07-29、user 三點）**：拍板全文與三點理由＝ADR
+  `docs/arc42/decisions/0080-age-identity-bprime-secretsdir-solution2.md`「決策」節第 1~3 點
+  與其下「user 重拍三點定案與理由」段（＝**唯一權威落點**）；**本任務範圍止於閘 #11 實測與
+  升級 user 重裁**——重拍值之落地屬 T024（`.env` 定值）／T031（RUNBOOK 常駐語意）等下游任務。
+  閘就此結清、續跑 T006 起
+  （★2026-07-29 改正：本備註原就近複述三點全文，與 ADR 該節近乎逐字鏡像，且下游八處寫
+  「詳 T005 備註與 ADR 0080」＝雙頭權威；現拍板收歸 ADR、tasks 側只留指路——同型坑與防法
+  見 L-166，本輪才掃到之因見 L-167）
 - [x] T006 [P] pinentry 前置（research R8）：建 `~/.gnupg/gpg-agent.conf` 寫入
   `pinentry-program /usr/bin/pinentry-curses`＋`GPG_TTY` 設定 → `gpgconf --reload gpg-agent`
   （本機該檔原不存在＝零衝突覆蓋風險；純終端 session 下預設 pinentry-gnome3 可能彈不出）
@@ -100,7 +102,7 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   生效：方式 A（明文 identity＋`chmod 600`）＋SECRETS_DIR 降解法 2＝`$HOME/.cache/rev4-secrets`
   （ext4 持久、免開機儀式；compose 與腳本零改動、只換 `.env` 一個值）——記入 ADR、不停工**
   ——**實測（2026-07-29）閘 #3 全過→B′ 定案、退路未動用**（重拍後退路＝僅退方式 A、
-  SECRETS_DIR 已在 2；詳 T005 備註）：全程 pty 驅動（python pty、零人工）——
+  SECRETS_DIR 已在 2；詳 ADR 0080「決策」節第 3 點）：全程 pty 驅動（python pty、零人工）——
   ①`age-keygen | age -p` 產拋棄式 passphrase 加殼 identity（371 bytes、開頭
   `age-encryption.org/v1`＋binary scrypt 段、`xxd` 驗尾端無 CR〔末 byte 0x64〕）；
   ②sops 官方容器（digest 釘版）`--age` 公鑰加密最小檔（不用 `.sops.yaml`）＝key 名明文、
@@ -301,14 +303,14 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
 
 **Goal**: 明文自 9p（權限恆 777）遷至 tmpfs；compose 與三腳本經單一事實來源取得落點。
 ★重拍（2026-07-29、#11 反轉後）：遷入落點改**解法 2＝`$HOME/.cache/rev4-secrets`（ext4 持久）**、
-非 tmpfs；接線與五步遷移程序不變（見 T024 備註與 ADR 0080）。
+非 tmpfs（落點拍板值＝ADR 0080「決策」節第 2 點；`.env` 落地見 T024）；接線與五步遷移程序不變。
 **Independent Test**: spec US3——遷移五步＋落點驗證＋觀測軌全開讀取，全程機判。
 **依賴**: Phase 2（T004／T005）＋US2（T022 解密管線）。
 
 - [ ] T024 [US3] 新增 `.env.example`（tracked）＋`tools/bootstrap` 代勞產生 `.env`
   （gitignored）：`SECRETS_DIR` 依 T005 結果定值（拍板值 `/dev/shm/rev4-secrets`
   ★重拍（2026-07-29、#11 反轉後）：**重拍值＝`$HOME/.cache/rev4-secrets`、原 2′ 拍板值作廢**、
-  詳 T005 備註與 ADR 0080）；
+  詳 ADR 0080「決策」節第 2 點）；
   ★**退路分支（機械化 #3 之「自動生效」）**：若 T007 判 #3 失敗，`SECRETS_DIR` 改寫
   **`$HOME/.cache/rev4-secrets`**（＝解法 2、ext4 持久；**寫入形式與 2′ 完全相同、只換值**、
   compose 與腳本零改動）；`.gitignore` 既有規則已覆蓋、無須加行
@@ -355,7 +357,7 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `git pull` 即可用」是錯的）／撤銷四步（★`rotate -i --rm-age` **逐檔一行**——`rotate` 只吃
   第一個位置參數、其餘靜默略過且 exit code 不變）／金鑰與 passphrase 遺失（★備份含 passphrase
   本身）／開機儀式（2′ 下每次開機重跑解密；★重拍（2026-07-29）：此段改寫為**解法 2 常駐語意
-  ——毋需每開機重解密**、詳 T005 備註與 ADR 0080）／合併衝突（暫存必落 repo 內、重加密後核對
+  ——毋需每開機重解密**、詳 ADR 0080「決策」節第 2 點）／合併衝突（暫存必落 repo 內、重加密後核對
   `sops.age` 清單）／災復備註（g 不升格之代償）／工具版本記錄欄（T002 三支拍板值）／
   ★**SSH identity 禁令與尋鑰來源注意事項**（FR-012 的 RUNBOOK 面落點：sops 尋鑰為**聯集載入**
   且會零設定自動探測 `~/.ssh/id_ed25519` 與 `id_rsa`——禁以 SSH 金鑰充當 identity；切換取鑰
