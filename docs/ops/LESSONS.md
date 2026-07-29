@@ -1,4 +1,4 @@
-<!-- next: L-179 -->
+<!-- next: L-180 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -330,3 +330,18 @@ L-102~L-150（rev4 波 0～018 治理硬化）☞ LESSONS-102-150.md。
   ｜出處：2026-07-29 019 U4 quality 審第 4 輪（實證：`cd deploy && SECRETS_DIR=rel/dir` 下
   preflight 修前指 `deploy/rel/dir` 假綠、修後與 guard、compose config 三方同指
   repo 根 `rel/dir` 並正確 FAIL 指名缺檔；四支 `bash -n` 綠、`.env` 正常路徑零回歸）。
+
+- **L-179**｜**自動化「互動式解密」時，「等提示才餵」與「盲餵」各有一個坑，兩個都會咬人**——
+  019 撤銷演練以 pty 驅動 `deploy/decrypt-secrets.sh`：①**等提示才餵＝必然 timeout**。腳本把
+  sops 的 stdout（提示行與解密輸出**同一條容器 pty 流**）重導向進暫存檔，pty 流上因此**永遠
+  不會出現** `Enter passphrase…`；以該字串當觸發錨的驅動器就一直等到自己的 deadline，看起來
+  像「解密卡死」，實際是**觸發錨選在一條被重導向的流上**。②改盲餵（以腳本自己印的預告行為
+  錨）解決 timeout，卻踩第二格：預告行是 **host shell** 印的、此時容器還沒接管 tty，寫進去的
+  字元被 host 行編輯**回顯**——passphrase 於是以明文留在捕捉檔與畫面 scrollback（實測同一支
+  驅動器的 `ECHO_LEAK` 欄位由 0 變 1；換成容器已接管後才餵的呼叫則恆 0）。
+  ｜防法：①判斷「提示是否看得到」以**該流有沒有被重導向**為準，別用「互動程式總會印提示」
+  推定；②盲餵的捕捉檔一律**視同機密**（700 目錄、驗畢即刪），且驅動器要有 `ECHO_LEAK`
+  之類**機判欄位**（捕捉檔中 passphrase 出現次數）——只看畫面看不出回顯；③這條同時是**操作面
+  結論**：真人操作也一樣，搶在容器起來前打字就會把 passphrase 打在畫面上——RUNBOOK §15 已
+  收錄「等容器起來再輸入」的提醒。｜出處：2026-07-29 019 U5（T033 撤銷演練；首次呼叫
+  timeout 120s 零寫入、改盲餵後 rc=0／8 支 WRITTEN／零 `.new`）

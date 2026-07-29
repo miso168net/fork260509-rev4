@@ -537,7 +537,7 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
 **Independent Test**: spec US4——以演練用第二把金鑰跑完整撤銷演練＋輪替一支機密驗證加密檔同步。
 **依賴**: US2（資產存在）。
 
-- [ ] T031 [US4] `docs/ops/RUNBOOK.md` 新增 SOPS 營運段群：編輯機密（`sops edit`→decrypt→
+- [x] T031 [US4] `docs/ops/RUNBOOK.md` 新增 SOPS 營運段群：編輯機密（`sops edit`→decrypt→
   `up -d --force-recreate`、**不用 `restart`**）／加人與換機四步（零機密傳遞；★「換機
   `git pull` 即可用」是錯的）／撤銷四步（★`rotate -i --rm-age` **逐檔一行**——`rotate` 只吃
   第一個位置參數、其餘靜默略過且 exit code 不變）／金鑰與 passphrase 遺失（★備份含 passphrase
@@ -551,11 +551,28 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   且會零設定自動探測 `~/.ssh/id_ed25519` 與 `id_rsa`——禁以 SSH 金鑰充當 identity；切換取鑰
   來源後必跑 #10 反向驗證）／★**#13 passphrase 提示次數**：只記 T033 實測值與量測條件、
   **不寫死次數**
-- [ ] T032 [P] [US4] `docs/ops/RUNBOOK.md` 既有節連帶：**§7 輪替表增補「輪替後 re-encrypt 回
+  ——**實做（2026-07-29）**：落成 **RUNBOOK 新增 §15「SOPS 機密營運」十小節**（15.1 編輯機密／
+  15.2 加人換機四步／15.3 撤銷四步＋五準則／15.4 輪替後 re-encrypt／15.5 金鑰與 passphrase
+  遺失／15.6 落點缺檔補救〔★開機儀式段依重拍改述為常駐語意：重開機與 `wsl --shutdown` 後明文
+  仍在、三觸發情境才重跑〕／15.7 merge 衝突／15.8 SSH 禁令與五類尋鑰來源／15.9 #13 提示次數
+  實測表〔只記實測值與量測條件〕／15.10 災復備註〔g 不升格之代償：解密唯一依賴 docker、
+  離線還原路徑未經實測之誠實登記〕）＋節首 GPG_TTY session 前置與「等容器起來再輸入」時機
+  警語。★**節號採新增 §15、不重編 §1~§14**——外層對 RUNBOOK 節號的引用達 8 處（README §4／
+  ADR 0080 §4／BACKLOG B-107 §6／017 spec 與 tasks §4·§8·§9／brainstorm §7 等），重編即
+  全數失真；改以 §7 抬頭、§12 表列雙向指路。工具版本欄**未重建**（§12 末段已存在）、改為
+  §15.10 指路。機判＝`python3 tools/docs-sync.py lint` 0 錯誤 0 警告（L19 命令形語料含本檔）
+- [x] T032 [P] [US4] `docs/ops/RUNBOOK.md` 既有節連帶：**§7 輪替表增補「輪替後 re-encrypt 回
   加密檔」步驟**（漏此步→輪替值與加密檔脫鉤、下次 decrypt 觸發 `.new` 守衛）＋§4 人工必填
   清單增 `.wslconfig`／BitLocker 確認項＋§12 工具鏈速查增 `deploy/sops.sh` 與
   `deploy/decrypt-secrets.sh`
-- [ ] T033 [US4] **S8 撤銷演練＋反向驗證**：產演練用第二把金鑰（★age 沿用 T040 暫存二進位、
+  ——**實做（2026-07-29）**：①§7 表下新增首條 bullet「每一列做完都要接 re-encrypt 回加密檔
+  （程序＝§15.4）」＋漏做症狀（DIFF→`.txt.new` 不覆寫、他機拿回舊值）＋composite 不進加密檔
+  之限定；抬頭同步加「密文面連帶＝§15」；②§4 新增第 6 項「磁碟加密與 swap 面確認」
+  （BitLocker `manage-bde -status` 與 `.wslconfig` 的 `swap`，皆人工確認無機判；連回 ADR 0080
+  at-rest 誠實登記與 §15.6 常駐語意）；③§12 速查表增兩列（`./deploy/sops.sh <sops 參數>`／
+  `bash deploy/decrypt-secrets.sh`，第三欄註明需 docker／需互動 tty）。本任務**自證**＝T033
+  第③步輪替 captcha_secret 後照 §15.4 回寫，decrypt 復跑零 `.new`
+- [x] T033 [US4] **S8 撤銷演練＋反向驗證**：產演練用第二把金鑰（★age 沿用 T040 暫存二進位、
   勿重複下載）→加入→`updatekeys -y`→確認可解
   →撤銷四步→**#7 五準則逐條驗**（核心＝否定測試：舊 `enc:` stanza 貼回新檔跑原廠解密**必須
   失敗於 MAC 驗證**；rotate 前後值密文必變；recipient 清單前後不含被撤銷者；人工確認 dev 檔
@@ -564,6 +581,49 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   量測 passphrase 提示次數並記錄（FR-024 後半；RUNBOOK 只記實測值與量測條件、**不寫死次數**）
   →演練金鑰移除、痕跡不入版控（C 案下本演練全自動——暫代鑰＝當前正式鑰、agent 知其
   passphrase；#13 以 pty 驅動量測）
+  ——**實測（2026-07-29、全程 pty 驅動、演練鑰用拋棄式 passphrase；演練資產全限
+  `$HOME/.cache/rev4-019-tmp/drill/`、驗畢全刪）**：
+  ①**演練鑰**＝沿用 T040 age v1.3.1 二進位 `age-keygen | age -p`（**B′ 形制**、371 bytes、
+  開頭 `age-encryption.org/v1`、尾 byte 0x15 無 CR）；加入 `.sops.yaml` 第 2 順位 →
+  `updatekeys -y` rc=0（提示 1 次）→ recipient 2 把、key 數 8；★**updatekeys 不換 data key**
+  ——8 值密文指紋逐一比對**全同**（R13 語意實證）；以演練鑰為**唯一 identity**（暫代鑰
+  `keys.txt` 暫移出＋`SOPS_AGE_KEY_FILE` 指定）實解 rc=0、8 key 全出。
+  ②**順序陷阱**：故意先 `rotate -i`（不帶 `--rm-age`、`.sops.yaml` 仍含演練鑰）→ 8 值密文
+  **全變**（新 data key）但 recipient 仍 2 把 → 以**待撤銷**的演練鑰為唯一 identity 解密
+  **rc=0 成功**＝中間狀態一旦 commit 撤銷即為假（實證非推論）；復原至 updatekeys 後狀態
+  （`cmp` 逐 byte 相同）再以原子指令重做。
+  ③**撤銷四步**：`.sops.yaml` 移除（與演練前逐 byte 相同）→
+  `rotate -i --rm-age <演練公鑰> deploy/secrets.dev.enc.yaml`（**逐檔一行**）rc=0 →
+  輪替可重生 leaf **captcha_secret**（`rm` 後 `deploy/generate-secrets.sh` 零參數：僅該支
+  GENERATED、其餘 10 支 SKIPPED；`b58c1c45`／64 bytes → `b46fca9e`／64 bytes、mode 644）→
+  **re-encrypt 回加密檔**（`sops set --value-file`＝值不進命令列與 process 參數；T032 §15.4
+  自證）→ decrypt 復跑 rc=0／8 支 WRITTEN／**零 DIFF 零 `.txt.new`**（US4 情境 2）→
+  preflight 綠（11 支齊備、CR 零命中、composite 一致）→ `up -d --force-recreate rust-api`
+  健康、容器內 `/run/secrets/captcha_secret` sha256 前 8 碼＝落點新值 `b46fca9e`。
+  ★`alert_webhook_url` 全程未動（`98483895`／39 bytes、SC-007）；rev3 容器集合前後 diff 零行。
+  ④**#7 五準則**：①核心否定測試＝把**撤銷前**版本中屬演練鑰的 `enc:` stanza 貼回新檔的
+  `sops.age` 清單（repo 內 gitignored `tmp/`、驗畢即刪），以演練鑰跑原廠 `sops -d` →
+  **rc=25 失敗於 MAC 驗證**（`Could not decrypt with AES_GCM: cipher: message authentication
+  failed`）、**零明文行**；②recipient 清單＝1（演練公鑰在 `.sops.yaml` 與加密檔皆 0 命中）；
+  ③rotate 前後 8 值密文**全變**（8/8）；④dev 檔不含 prod 級機密＝**流程保證**（8 key 全為本機
+  `generate-secrets.sh` 所生 dev 值＋user 自填之 dev webhook；prod 加密檔本刀**不建**、遞延
+  B-115）；⑤前置＝演練鑰已備妥（見①）。
+  ⑤**#10 反向驗證**：`~/.config/sops/age/keys.txt` 改名移出＋`env -u SOPS_AGE_KEY
+  -u SOPS_AGE_KEY_FILE -u SOPS_AGE_KEY_CMD` → `sops -d` **rc=128 必敗**
+  （`Failed to get the data key required to decrypt the SOPS file.`＋該公鑰 `FAILED`）、
+  提示 0 次、零明文；★另記尋鑰面事實：本機 `~/.ssh` 無 `id_ed25519`／`id_rsa` 兩個**預設探測
+  檔名**，且 wrapper 不掛 `~/.ssh`＝容器內結構性構不到 SSH 來源（FR-012 禁令的現場旁證）。
+  驗畢**立即復原**（600）。
+  ⑥**#13 實測**（雙 recipient 在場時量）：以**第 2 順位** identity 解密＝**2 次** passphrase
+  提示（`Enter passphrase for identity 'SOPS_AGE_KEY_FILE'` ×2）；對照組**第 1 順位**＝1 次；
+  單 recipient 基線（T007／T022）＝1 次 → 規律＝**提示次數＝該 identity 之 stanza 順位**。
+  RUNBOOK §15.9 只記此表與量測條件（sops v3.13.3-alpine＋age v1.3.1、pty 驅動）、**不寫死次數**。
+  ⑦**收尾機判**：`.sops.yaml` 與演練前 `cmp` 逐 byte 相同；加密檔 recipient＝**1**、
+  `sops -d` rc=0 且 key 數＝**8**；演練公鑰於兩份資產 0 命中；落點 11 支 sha256 與基準比對
+  **僅 captcha_secret 一支變動**（新值已記於③、3 支 composite 未動且 preflight 判一致）；
+  演練金鑰材料與 log 全刪（`$HOME/.cache/rev4-019-tmp/drill/` 移除，age 二進位保留待 T038）；
+  `git status` 僅 `deploy/secrets.dev.enc.yaml`（新 data key＋新 captcha 值＝演練的預期產物）。
+  ★踩坑＝**L-179**（pty 等提示必 timeout／盲餵會被 host shell 回顯 passphrase）
 
 ## Phase 7: US5 — 治理落檔（P5）
 

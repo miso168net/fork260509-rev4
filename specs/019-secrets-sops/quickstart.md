@@ -184,7 +184,15 @@ recipient 一起加密（該中間狀態只要被 commit 一次，撤銷即為�
 一次解密、**數 passphrase 提示次數**並記錄實測值與量測條件（recipient 數、排序位置）。
 **RUNBOOK 只記實測值與條件、不寫死次數**（上游行為未有官方保證、兩來源曾未收斂）。
 
-**收尾**：演練用金鑰移除、演練痕跡不入版控。
+**收尾（★機判、019 U5 補列——原僅一句文字要求，逐列核對者會漏掉「資產是否真的復原」）**：
+演練用金鑰移除、演練痕跡不入版控；**`.sops.yaml` 與 `deploy/secrets.dev.enc.yaml` 必須復原至
+單 recipient**——`grep -c 'recipient:' deploy/secrets.dev.enc.yaml`＝**1**、`.sops.yaml` 與演練
+前逐 byte 相同（`cmp -s`）、`sops -d` **rc=0 且 key 數＝8**；落點 11 支 sha256 與演練前基準
+相符（★演練中被輪替的那一支例外——須記其新舊 sha256 前 8 碼與 byte 數，並跑
+`deploy/preflight-secrets.sh` 確認 composite 一致）。
+
+**★ 承接註記**：撤銷演練必然使加密檔換掉 data key（8 值密文全變）＝該檔的 `git diff`
+**是預期產物、要 commit**；「復原」指的是 recipient 清單與可解性，不是 byte 級還原。
 
 ---
 
