@@ -357,9 +357,16 @@ lint 條款速覽（018 新增五條）——severity 三分：ERROR＝exit 1 �
 `deploy/decrypt-secrets.sh`（把密文寫成 `$SECRETS_DIR` 的明文檔）。★所有命令一律**自 repo 根**
 執行——wrapper 只掛載 `$PWD`，換目錄跑就找不到 `.sops.yaml`。
 
-**每個新終端 session 的互動前置**：`export GPG_TTY=$(tty)`——★`GPG_TTY` 是 **session 環境變數、
-不是 `gpg-agent.conf` 的合法選項**（寫進該 conf 不生效、也不報錯）；缺值時純終端 session 下
-pinentry 可能找不到 tty。pinentry 本體設定（`pinentry-program`）才住 `~/.gnupg/gpg-agent.conf`。
+★**本管線零 gpg 前置——不需要 `export GPG_TTY=$(tty)`、也不需要 pinentry**（該前置源自
+research R8 的 gpg 期假設，ADR 0080 拍板 age B′ 後已無承載面）：B′ 的 passphrase 由 sops 內嵌
+的 age **直接讀容器內 `/dev/tty`**，全程不經 gpg-agent／pinentry——①wrapper 只轉發
+`SOPS_AGE_KEY`／`_FILE`／`_CMD` 三變數（`deploy/sops.sh` P1.4：未以 `-e` 列出者一律被靜默
+丟棄），host 端 `export` 的 `GPG_TTY` 根本到不了跑 sops 的容器②釘版映像內無 `gpg`／`gpg2`／
+`pinentry`（`command -v` rc=127）且無 `/root/.gnupg`③`.sops.yaml` 與加密檔皆**零 PGP
+recipient**。故 `GPG_TTY` 在此是空操作，**passphrase 提示異常不要往這個方向查**（真因＝下段
+「輸入 passphrase 的時機」：提示行與輸出同流被收進檔案，L-179）。〔存查：`GPG_TTY` 是 session
+環境變數、**不是 `gpg-agent.conf` 的合法選項**——寫進該 conf 不生效也不報錯；`pinentry-program`
+才住該 conf。兩者對本管線都不生效。〕
 
 ★**輸入 passphrase 的時機**：`deploy/decrypt-secrets.sh` 把 sops 的提示行與解密輸出收進同一條
 容器 pty 流、再倒進暫存檔，所以**畫面上常看不到提示**——看到腳本自己印的預告行後，**等容器
@@ -397,8 +404,29 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-rec
 
    ```bash
    mkdir -p ~/.config/sops/age && chmod 700 ~/.config/sops/age
-   age-keygen | age -p > ~/.config/sops/age/keys.txt && chmod 600 ~/.config/sops/age/keys.txt
+   KEYS=~/.config/sops/age/keys.txt   # ★同機產第二把時改指同目錄非預設檔名（見下方註記）
+   if [ -e "$KEYS" ]; then
+     echo "FAIL：$KEYS 已存在——覆蓋＝永久銷毀既有私鑰、版控內密文即刻不可解；停手"
+   elif ( set -o pipefail; umask 077; age-keygen | age -p > "$KEYS.new" ); then
+     mv "$KEYS.new" "$KEYS" && chmod 600 "$KEYS" && echo "OK：$KEYS 已產出"
+   else
+     rm -f "$KEYS.new"; echo "FAIL：產鑰未完成（passphrase 中斷／取不到 tty）——既有檔未動、殘檔已清"
+   fi
    ```
+
+   ★**絕不可簡寫成 `age-keygen | age -p > <keys.txt> && chmod 600 <keys.txt>`**：shell 在
+   `age` 起跑**之前**就把目標檔截斷，passphrase 打錯／Ctrl-C／取不到 tty 時檔案已成 0 byte
+   且 `&& chmod` 不會執行（實測：無 tty 下 `age -p` rc=1、既存 31 byte 檔已成 0 byte）——在
+   **已持鑰**的機器上照打即不可逆銷毀唯一私鑰，後果就是 §15.5 末條的「版控內密文永久不可解」。
+   上式先寫 `.new` 再 `mv`＝失敗時既有檔一 byte 未動；`[ -e ]` 那道是覆蓋前的最後一道閘。
+
+   ★**同機第二把**（撤銷演練／接手備援＝§15.3 準則 5 與 §15.9 第 3 列的前提）：把 `KEYS` 改指
+   **同目錄下的非預設檔名**（例 `~/.config/sops/age/keys-drill.txt`）——wrapper 只唯讀掛載
+   `~/.config/sops/age` 這一個目錄，放別處容器讀不到；用時 `SOPS_AGE_KEY_FILE` 必須給**容器內
+   路徑**（`/root/.config/sops/age/<檔名>`，容器 `HOME=/root`）。★給 host 路徑不會停手：sops
+   只把「開不到該檔」併進聚合錯誤、繼續走聯集裡的其他來源（含預設 `keys.txt`）——**你以為在用
+   第二把、其實用的是第一把**（§15.8 聯集語意；實測錯誤字串＝`failed to open SOPS_AGE_KEY_FILE
+   file: open /home/…/keys.txt: no such file or directory`）。預設路徑那把**絕不覆蓋**。
 
    產出應為 `age-encryption.org/v1` 開頭的**密文**（明文私鑰是 `AGE-SECRET-KEY-1…` 開頭＝
    passphrase 那一步沒生效，重做）；公鑰＝`age-keygen` 過程印出的 `Public key: age1…` 那行。
@@ -440,7 +468,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-rec
 2. `recipient:` 清單前後確實不含被撤銷者。
 3. rotate 前後**每個值的密文必變**（未變＝data key 沒換）。
 4. 人工確認 dev 檔內不含 prod 等級機密（★此條**測不出來、只能靠流程保證**）。
-5. 前置：接手／演練用的第二把金鑰已備妥（撤銷前先確認自己還解得開）。
+5. 前置：接手／演練用的第二把金鑰已備妥（撤銷前先確認自己還解得開）。★產法＝§15.2 步驟 1，
+   **同機第二把務必走該步驟的「同機第二把」註記**（非預設檔名＋`SOPS_AGE_KEY_FILE` 給容器內
+   路徑）——照預設路徑再產一次即銷毀第一把。
 
 ★**只驗「被撤銷者解不開 HEAD」＝假通過**——錯誤流程（只做 updatekeys、或先 rotate 後
 updatekeys）下也會通過。

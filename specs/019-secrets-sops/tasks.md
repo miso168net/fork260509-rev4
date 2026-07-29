@@ -79,6 +79,11 @@ bash 腳本與 hook 走 fixture 演練機判（否定測試為主）；[P] 僅�
   一致、免備份）→ 寫入 pinentry-program 一行（mode 600）→ `gpgconf --reload gpg-agent` rc=0
   → 讀回逐字相符；`GPG_TTY` 屬 session 環境變數、非 gpg-agent.conf 合法選項＝以 session
   `export GPG_TTY=$(tty)` 落實、RUNBOOK 面落地歸 T031
+  ——★**後續改判（2026-07-30、U5 quality 第 3 輪）**：本任務兩項產物（`gpg-agent.conf` 的
+  `pinentry-program`、session `GPG_TTY`）在 ADR 0080 拍板 age B′ 之後**對本管線結構性無效**
+  （wrapper 不轉發該變數／釘版映像無 gpg 與 pinentry／零 PGP recipient），RUNBOOK §15 節首已
+  改寫為「零 gpg 前置」＋真因指路；本勾選保留為**研究期實測紀錄**、不再是營運前置。
+  詳 T031 之「quality 第 3 輪」備註①與 L-186
 - [x] T040 **age 二進位取得**（★編號後補、**執行序在 T006 之後 T007 之前**、見 Dependencies；T007 的硬前置——T007 要實跑 `age-keygen` 與 `age -p`，而全清單
   原僅 T019 取得 age 且用完即刪、host 現況無此工具）：依 T002 拍板之 age 版本自官方 GitHub
   release 下載 `age-v<拍板版本>-linux-amd64.tar.gz`，**以該版本 release API 的 `digest` 欄位
@@ -623,6 +628,31 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   命令），且 §15.10 是本刀新寫、其第 ① 跳依賴 §6，被引用即不再是可延後的獨立遺留（`ls
   deploy/secrets/*.txt` 得 No such file；真落點 11 支 `.txt`）。教訓＝L-185。★T036 剩餘射程
   ＝§9 DB 直連、§11 觀測維運兩節之 `deploy/secrets/` 殘留（本輪未動）
+  ——**quality 第 3 輪 blocker 修復（2026-07-30）**：①§15 節首之 **GPG_TTY 前置作廢改判**——
+  上方本任務需求敘述（「★**GPG_TTY 前置**（T006 移交…寫進 SOPS 營運段）」）與本備註前段
+  （「＋節首 GPG_TTY session 前置…警語」）**均以本行為準**：該前置源自 research R8 的 gpg 期
+  假設，ADR 0080 拍板 age B′ 後**結構性無承載面**——wrapper 只 `-e` 轉發 `SOPS_AGE_*` 三變數
+  （P1.4 自載「未列出者靜默丟棄」）故 host 端 `export` 到不了容器；釘版映像內 `command -v gpg
+  gpg2 pinentry pinentry-curses` rc=127 且無 `/root/.gnupg`；`.sops.yaml` 與加密檔 `grep -ci
+  pgp` 皆 0。節首改寫為「零 gpg 前置」＋三條結構理由＋把提示異常導向真因（L-179 的提示落檔），
+  T006 那條「非 gpg-agent.conf 合法選項」的事實留作存查。★ADR 0080 行 110「`GPG_TTY` 屬 session
+  變數由 RUNBOOK 承載」仍成立（RUNBOOK 仍載此條目、語意轉為「不需要＋為何」）；`spec.md` 行 297
+  之綱要字面「GPG_TTY session 前置」屬**本執行單元允許檔案清單外**，留 T034／T036 指路文字連帶
+  勘誤。教訓＝L-186。②§15.2 步驟 1 產鑰指令補**不可逆銷毀守衛**：原式 `age-keygen | age -p >
+  ~/.config/sops/age/keys.txt && chmod 600 …` 由 shell 在 `age` 起跑前即截斷目標檔，失敗時
+  （passphrase 打錯／Ctrl-C／無 tty）檔案已 0 byte 且 `chmod` 不執行——而 §15.3 準則 5 與 §15.9
+  第 3 列都預設同機有第二把、§15 卻僅此一處產鑰配方且寫死預設路徑，已持鑰機器照打即銷毀唯一
+  私鑰（後果＝同節 §15.5 末條「版控內密文永久不可解」）。改為 `[ -e ]` 前置閘＋`.new` 暫寫後
+  `mv`＋失敗清殘檔（`set -o pipefail` 涵蓋 `age-keygen` 側失敗），並補「同機第二把」註記
+  （非預設檔名；`SOPS_AGE_KEY_FILE` 須給**容器內**路徑，給 host 路徑 sops 不停手、改用聯集裡
+  的預設 `keys.txt`＝以為在用第二把其實是第一把）＋§15.3 準則 5 回指。機判＝以 RUNBOOK 該
+  code block **逐字**抽出實跑四案（假 age stub 與真 age v1.3.1 二進位）：首產得 mode 600／
+  既有檔在場印 FAIL 且 sha256 前 8 碼與 byte 數前後不變／`age` 失敗與 `age-keygen` 失敗均
+  FAIL 且零殘檔零建檔；反證原式＝無 tty 下 `age -p` rc=1、既存 31 byte 檔已成 0 byte。
+  容器內路徑事實實證＝映像 `HOME=/root`、以 host 路徑跑 wrapper `-d` 得
+  `failed to open SOPS_AGE_KEY_FILE file: … no such file or directory`（stdout 全程導 `/dev/null`、
+  rc=128 零明文）。★`.sops.yaml`、`deploy/secrets.dev.enc.yaml`、`~/.config/sops/age/` 全程
+  **零改動**（僅唯讀取用）。教訓＝L-187
 - [x] T033 [US4] **S8 撤銷演練＋反向驗證**：產演練用第二把金鑰（★age 沿用 T040 暫存二進位、
   勿重複下載）→加入→`updatekeys -y`→確認可解
   →撤銷四步→**#7 五準則逐條驗**（核心＝否定測試：舊 `enc:` stanza 貼回新檔跑原廠解密**必須
