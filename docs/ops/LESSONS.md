@@ -1,4 +1,4 @@
-<!-- next: L-175 -->
+<!-- next: L-177 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -404,3 +404,40 @@ L-174｜**落點類設計變更的「消費者清單」漏一支＝該防線靜�
   （L-158）。｜出處：2026-07-29 019 U4 spec 審抓出（實證：`env -u SECRETS_DIR … check` 印
   skip 且 rc=0；修＝補與四腳本逐字同口徑的三級解析〔環境變數→`.env` 只嚴格解析該一行、
   非法值吵鬧失敗不靜默回退→回退 `deploy/secrets`〕＋7 案單元測試，端到端反證回 rc=1 指名）。
+
+L-175｜**「設定檔讀值」的兩支解析器只要偵測面不等寬，窄的那支就會靜默回退到舊行為**——019
+  把落點 `SECRETS_DIR` 寫進 repo 根 `.env` 後，compose 用自己的 dotenv 解析器讀，六支自寫
+  消費者（四支 deploy 腳本＋`tools/secret-value-guard.py`＋`tools/bootstrap`）用 `grep
+  '^SECRETS_DIR='` 讀。compose 那支接受 UTF-8 BOM／行首空白／`export ` 前綴／等號兩側空白
+  ／CRLF 行尾，窄樣式對前四形一律**漏認並靜默回退**舊落點（`rc=0`、零訊息）：compose 掛得到
+  新落點、容器跑得動、operator 毫無異狀，唯獨 pre-commit 的裸值比對層從此掃空目錄恆 `skip`
+  （＝L-174 才剛關掉的失守面經另一條路復發），且 decrypt 會把 8 支明文寫回 repo 內 `/mnt/d`
+  舊落點（9p、chmod no-op、實效 777）。CRLF 形更是四支腳本 FAIL（訊息還指稱「空白／shell
+  元字元」＝與真因不符）而 guard 與 compose 正常採用的 4:1 分裂。★補償控制當時也不成立：
+  bootstrap 同用窄樣式，其 warn 文字「compose 將回退（保護失效）」與實測相反，等於用錯誤
+  診斷把人導離真因。｜防法：①**寬進窄出**——偵測樣式必須寬到涵蓋權威解析器接受的每一種
+  行形（撈出「對方會讀到的那一行」），值校驗才收窄成嚴格白名單；漏認一形＝多一條靜默回退
+  路徑，而回退恰恰是「看起來全綠」的那個方向 ②同一組語料跑**三方矩陣**（權威解析器／自寫
+  shell／自寫 python）逐案對答案，任一案分裂即 blocker——單支自測全綠證明不了跨支一致
+  ③錯誤訊息要能指向真因：CR 既非空白也非 shell 元字元，卻被歸進那條訊息＝診斷失真
+  ④「非法值吵鬧失敗」的紀律若只套在**值**上、不套在**行形**上，等於留了個靜默後門。
+  ｜出處：2026-07-29 019 U4 quality 審抓出（實證：compose v5.3.1 六形皆解析為新落點，窄樣式
+  四形回退舊落點 rc=0；修＝六處同刀改寬樣式＋guard 4 案單元測試〔退回窄樣式即 3 紅〕，
+  八形三方矩陣逐案同解）。
+
+L-176｜**寫檔守住 byte-identical，讀取比對卻用命令替換＝不變式在比對面破功**——019 機密檔
+  一律 `printf '%s'` 寫入（零尾端換行）並立 CR 護欄，但 preflight 的 composite↔leaf 一致性
+  與 generate 的 dual-write drift 判定都用 `[ "$(cat f)" = "$v" ]`：命令替換會剝掉尾端換行，
+  於是「檔尾多一個 LF」這一格對兩者**結構性失明**——實測 `redis_password.txt` 尾多一個 LF
+  （15 byte、健康值 14 byte）時 preflight 仍回「齊備且健康、可 up」`rc=0`，compose 卻會把
+  15 byte 密碼掛進 redis、把內嵌 14 byte 版本的 `redis_url` 掛進 rust-api＝認證必失敗而
+  上機前的 fail-loud 承載者放行；generate 同情境印 SKIPPED、劣化不修復。尾端換行正是編輯器
+  覆存最常見的產物（與 CRLF 同一個編輯器、同一次覆存），而護欄當初只立了 CR 那一半。
+  ｜防法：①位元組不變式的檢查也要走位元組——`printf '%s' "$v" | cmp -s - "$f"`，不用
+  `$(cat)` 字串相等（decrypt 當時已是這個形，是三支消費者裡唯一真的在驗位元組的）
+  ②護欄要對著**不變式**寫、不要對著**單一已知劣化樣本**寫：CR 護欄的判準若寫成「零換行
+  字元」（`stat -c %s` ＝ 剝除 CR／LF 後 byte 數），LF 這格從一開始就在射程內
+  ③fixture 的劣化樣本要跨形取樣（尾附字串／尾 CR／尾 LF／中段換行），只測一種就只守一種。
+  ｜出處：2026-07-29 019 U4 quality 審抓出（修＝preflight 加 LF 護欄、preflight 與 generate
+  比對改 `printf | cmp`；機判＝尾 LF 組 rc=1 指名、尾 CR 對照組維持原訊息、真 drift 組仍抓、
+  generate 連動重寫至與健康對照組同 sha256 前 8 碼且重跑冪等）。

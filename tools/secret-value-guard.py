@@ -36,7 +36,13 @@ EDGE_HIT = "E" * 8       # self-test 邊界紅樣本：恰達現行下界、必�
 EDGE_SKIP = "E" * 7      # self-test 邊界綠樣本：恰低於現行下界、不比對
 
 RE_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
-RE_ENV_SECRETS_DIR = re.compile(r"^SECRETS_DIR=(.*)$")
+# .env 行形偵測＝**寬樣式**（019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env
+# 解析器接受 UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾。行首錨定
+# `SECRETS_DIR=` 的窄樣式對這五形一律漏認並**靜默回退** repo 內舊落點——本層於是改掃
+# 空目錄、印 skip 且 rc=0，裸值格結構性失守而全綠（＝L-174 經另一條路復發）。
+# 寬進窄出：寬樣式撈出 compose 會讀到的那一行，值再套下方嚴格白名單。
+RE_ENV_SECRETS_DIR = re.compile(
+    r"^[ \t]*(?:export[ \t]+)?SECRETS_DIR[ \t]*=[ \t]*(.*?)[ \t]*$")
 # .env 值字元白名單：與 deploy 四腳本 case 樣式 `*[!A-Za-z0-9_/.-]*` 逐字同集合。
 RE_ENV_VALUE_OK = re.compile(r"^[A-Za-z0-9_/.-]+$")
 
@@ -65,6 +71,8 @@ def resolve_secrets_dir(root, env=None):
     ★不整檔 source／不引 dotenv：compose 的 `.env` 允許不加引號的含空白值、井號語意亦與
     shell 不同。★`.env` 有該鍵但值非法＝**吵鬧失敗**（回錯誤訊息）而非靜默回退——靜默回退
     會讓本層改掃 repo 內舊落點、明明沒在守卻回綠（假綠）。
+    ★**行形偵測寬、值校驗窄**（019 U4）：偵測面必須涵蓋 compose 會讀到的每一種行形
+    （BOM／縮排／export 前綴／等號兩側空白／CRLF），否則漏認即靜默回退＝同一個假綠。
     回 `(絕對路徑, None)` 或 `(None, 錯誤訊息)`。
     """
     env = os.environ if env is None else env
@@ -74,7 +82,8 @@ def resolve_secrets_dir(root, env=None):
     envfile = os.path.join(root, ".env")
     if os.path.isfile(envfile):
         raw_val = None
-        with open(envfile, encoding="utf-8", errors="replace") as fh:
+        # utf-8-sig＝剝首行 UTF-8 BOM（compose 同口徑；Windows 側編輯器覆存常見）
+        with open(envfile, encoding="utf-8-sig", errors="replace") as fh:
             for raw in fh:
                 m = RE_ENV_SECRETS_DIR.match(raw.rstrip("\r\n"))
                 if m:
@@ -347,6 +356,48 @@ class TestResolveSecretsDir(unittest.TestCase):
     def test_dotenv_last_occurrence_wins(self):
         root = self._root("SECRETS_DIR=/tmp/first\nSECRETS_DIR=/tmp/last\n")
         self.assertEqual(resolve_secrets_dir(root, {})[0], "/tmp/last")
+
+    def test_compose_accepted_line_forms_all_recognised(self):
+        """★寬進窄出（019 U4）：compose 的 .env 解析器接受的行形——export 前綴／行首縮排／
+        等號兩側空白／UTF-8 BOM／CRLF 行尾／值尾空白——本層必須全部認得。行首錨定
+        `SECRETS_DIR=` 的窄樣式對前四形**靜默回退** repo 內舊落點（修前實測四形皆回
+        root/deploy/secrets 且 err 為 None）→ pre-commit 掃到空目錄、印 skip 且 rc=0，
+        裸值格結構性失守而全綠（L-174 經另一條路復發）。
+        compose v5.3.1 實測：六形全部解析為新落點。"""
+        for label, body in (("export 前綴", "export SECRETS_DIR=/tmp/rev4-new\n"),
+                            ("行首縮排", "  SECRETS_DIR=/tmp/rev4-new\n"),
+                            ("等號前後空白", "SECRETS_DIR = /tmp/rev4-new\n"),
+                            ("UTF-8 BOM", "﻿SECRETS_DIR=/tmp/rev4-new\n"),
+                            ("CRLF 行尾", "SECRETS_DIR=/tmp/rev4-new\r\n"),
+                            ("值尾空白", "SECRETS_DIR=/tmp/rev4-new   \n")):
+            root = self._root(body)
+            sdir, err = resolve_secrets_dir(root, {})
+            self.assertIsNone(err, label)
+            self.assertEqual(sdir, "/tmp/rev4-new", label)
+
+    def test_last_occurrence_wins_across_line_forms(self):
+        """後者勝須跨行形成立：舊值裸行＋新值 export 行 → 必取新值。窄樣式修前取舊值、
+        compose 取新值，兩邊 rc 皆 0 零錯誤＝契約 P5.1 違反後果欄的「compose 讀新落點、
+        腳本查舊落點」。"""
+        root = self._root("SECRETS_DIR=/tmp/old\nexport SECRETS_DIR=/tmp/new\n")
+        self.assertEqual(resolve_secrets_dir(root, {})[0], "/tmp/new")
+
+    def test_lookalike_key_not_matched(self):
+        """寬樣式不得寬到吃掉別的鍵（compose 亦不會把它當 SECRETS_DIR）。"""
+        root = self._root("EXTRA_SECRETS_DIR=/tmp/nope\n")
+        sdir, err = resolve_secrets_dir(root, {})
+        self.assertIsNone(err)
+        self.assertEqual(sdir, os.path.join(root, DEFAULT_SECRETS_DIR))
+
+    def test_wide_form_illegal_value_still_rejected_loudly(self):
+        """★寬進**窄出**：行形放寬 ≠ 值放寬——寬行形下的相對路徑／元字元／空值仍吵鬧失敗。"""
+        for body in ("export SECRETS_DIR=deploy/secrets\n",
+                     "  SECRETS_DIR=/tmp/$(id)\n",
+                     "SECRETS_DIR = \n"):
+            root = self._root(body)
+            sdir, err = resolve_secrets_dir(root, {})
+            self.assertIsNone(sdir, body)
+            self.assertIsNotNone(err, body)
 
     def test_fallback_when_no_env_var_no_dotenv(self):
         root = self._root()

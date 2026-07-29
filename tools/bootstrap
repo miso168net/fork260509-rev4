@@ -152,11 +152,17 @@ if [ ! -f "$ENV_FILE" ]; then
   ok ".env 缺失→已代勞產生（SECRETS_DIR=$SECRETS_DIR_DEFAULT）"
 fi
 SECRETS_DIR="$ROOT/deploy/secrets"   # 讀值失敗時的體檢回退（＝compose 未設變數之回退口徑）
-env_line="$(grep '^SECRETS_DIR=' "$ENV_FILE" | tail -n 1 || true)"
+# ★偵測寬、取值窄（019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env 解析器接受
+#   UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，行首錨定 `SECRETS_DIR=` 的
+#   窄樣式對這五形一律漏認（實測 compose v5.3.1 五形皆解析為新落點）——體檢會據此以舊落點
+#   進行、並印出與實情相反的「compose 將回退」診斷，把 operator 導離真因。
+env_line="$(sed -e "1s/^$(printf '\357\273\277')//" -e 's/\r$//' "$ENV_FILE" \
+            | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 || true)"
 if [ -z "$env_line" ]; then
   warn ".env 已存在但無 SECRETS_DIR 行——compose 將回退 ./deploy/secrets（保護失效）；自癒：echo SECRETS_DIR=$SECRETS_DIR_DEFAULT 附加進 .env"
 else
-  env_val="${env_line#SECRETS_DIR=}"
+  env_val="$(printf '%s\n' "$env_line" \
+             | sed -E 's/^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
   case "$env_val" in
     *[!A-Za-z0-9_/.-]*|"")
       warn ".env 之 SECRETS_DIR 為空或含空白／shell 元字元（產檔約束見 .env.example）——體檢以 deploy/secrets 回退進行" ;;

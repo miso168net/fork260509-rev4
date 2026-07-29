@@ -17,10 +17,18 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # 環境變數優先（與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行
 # （★不整檔 source——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，
 # 含錢字號小括號／反引號之值 source 時會被執行）→ 皆缺回退 repo 內 deploy/secrets。
+# ★偵測寬、取值窄（019 U4 quality 修；五處解析器同刀齊改）：compose 的 .env 解析器接受
+# UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，行首錨定 `SECRETS_DIR=` 的窄
+# 樣式對這五形一律漏認並**靜默回退**舊落點（實測 compose v5.3.1 五形皆解析為新落點）＝契約
+# P5.1 違反後果欄的「compose 讀新落點、腳本查舊落點」——本腳本正是 fail-loud 承載者，回退
+# 即「preflight 查舊落點回 OK、compose 掛新落點」。故偵測用寬樣式撈出 compose 會讀到的那一
+# 行、再對其值套下方嚴格白名單：寬進窄出，永不落入靜默回退。
 if [ -z "${SECRETS_DIR:-}" ] && [ -f "$REPO_ROOT/.env" ]; then
-    _line="$(grep '^SECRETS_DIR=' "$REPO_ROOT/.env" | tail -n 1 || true)"
+    _line="$(sed -e "1s/^$(printf '\357\273\277')//" -e 's/\r$//' "$REPO_ROOT/.env" \
+             | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 || true)"
     if [ -n "$_line" ]; then
-        _val="${_line#SECRETS_DIR=}"
+        _val="$(printf '%s\n' "$_line" \
+                | sed -E 's/^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
         case "$_val" in
             *[!A-Za-z0-9_/.-]*|"")
                 echo "FAIL：.env 之 SECRETS_DIR 為空或含空白／shell 元字元——拒用（產檔約束見 .env.example）" >&2
@@ -59,11 +67,22 @@ fi
 
 # 019 T027①：CR 護欄——printf '%s' 管線寫檔應零 CR；任何 CR＝內容已劣化
 # （CRLF 編輯器覆存／pty 流未剝 CR 直落檔），值進 URL／密碼尾即靜默壞。
+# ★U4 quality 補 LF 護欄：CR 護欄照不到「尾端多一個 LF」，而下方 composite 一致性檢查用
+#   命令替換取值比較（$(cat) 剝尾端換行）對它**結構性失明**——實測 redis_password.txt 尾多
+#   一個 LF 時 preflight 仍回「齊備且健康、可 up」rc=0，而 compose 會把 15 byte 的密碼掛進
+#   redis 容器、把內嵌 14 byte 版本的 redis_url 掛進 rust-api，認證必失敗。尾端換行正是編輯器
+#   覆存最常見的產物（與 CRLF 同一個編輯器、同一次覆存）。
+#   判準＝檔案零換行字元（P4.1／P5.7 之 printf '%s' 寫檔形不變式的可機檢投影）：
+#   比對 stat 位元組數與剝除 CR／LF 後的位元組數，兩者不等即劣化。
 CR="$(printf '\r')"
 cr_hit=()
+nl_hit=()
 for name in "${REQUIRED[@]}"; do
-    if LC_ALL=C grep -q "$CR" "$SECRETS_DIR/${name}.txt"; then
+    f="$SECRETS_DIR/${name}.txt"
+    if LC_ALL=C grep -q "$CR" "$f"; then
         cr_hit+=("${name}.txt")
+    elif [ "$(stat -c '%s' "$f")" -ne "$(LC_ALL=C tr -d '\n' < "$f" | wc -c)" ]; then
+        nl_hit+=("${name}.txt")
     fi
 done
 if [ "${#cr_hit[@]}" -gt 0 ]; then
@@ -71,16 +90,24 @@ if [ "${#cr_hit[@]}" -gt 0 ]; then
     echo "→ 重跑 ./deploy/decrypt-secrets.sh（printf 管線寫檔、零 CR）後再驗。"
     exit 1
 fi
+if [ "${#nl_hit[@]}" -gt 0 ]; then
+    echo "FAIL：下列 secret 檔含換行字元（printf '%s' 寫檔形應零換行；尾端換行會讓 composite"
+    echo "      一致性檢查失明、容器拿到與 composite 不符的值）：${nl_hit[*]}"
+    echo "→ 重跑 ./deploy/decrypt-secrets.sh（8 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）後再驗。"
+    exit 1
+fi
 
 # 019 T027②：composite↔leaf 一致性（複用 generate-secrets.sh 之期望值組合式）——
 # 防「塞入密碼已過期的 database_url 也回 OK」；訊息只指名檔案、絕不印值。
+# ★比對走 printf 接 cmp 的**位元組**比對（與 decrypt P4.5 同一形）：命令替換會剝尾端換行，
+#   字串相等比較對尾端換行失明（上方 LF 護欄已先擋、此處為縱深防禦、不靠護欄的執行序）。
 PG_PASS="$(cat "$SECRETS_DIR/postgres_password.txt")"
 RD_PASS="$(cat "$SECRETS_DIR/redis_password.txt")"
 RP_PASS="$(cat "$SECRETS_DIR/reaper_password.txt")"
 drift=()
-[ "$(cat "$SECRETS_DIR/database_url.txt")" = "postgres://soybean:${PG_PASS}@postgres:5432/soybean_admin_rust" ] || drift+=("database_url.txt")
-[ "$(cat "$SECRETS_DIR/redis_url.txt")" = "redis://:${RD_PASS}@redis:6379" ] || drift+=("redis_url.txt")
-[ "$(cat "$SECRETS_DIR/reaper_database_url.txt")" = "postgres://reaper:${RP_PASS}@postgres:5432/soybean_admin_rust" ] || drift+=("reaper_database_url.txt")
+printf '%s' "postgres://soybean:${PG_PASS}@postgres:5432/soybean_admin_rust" | cmp -s - "$SECRETS_DIR/database_url.txt" || drift+=("database_url.txt")
+printf '%s' "redis://:${RD_PASS}@redis:6379" | cmp -s - "$SECRETS_DIR/redis_url.txt" || drift+=("redis_url.txt")
+printf '%s' "postgres://reaper:${RP_PASS}@postgres:5432/soybean_admin_rust" | cmp -s - "$SECRETS_DIR/reaper_database_url.txt" || drift+=("reaper_database_url.txt")
 if [ "${#drift[@]}" -gt 0 ]; then
     echo "FAIL：composite 與 leaf 不一致（drift）：${drift[*]}"
     echo "→ 跑 ./deploy/generate-secrets.sh --compose-only 由 leaf 現值重組 composite。"

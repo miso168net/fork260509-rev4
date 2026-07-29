@@ -411,6 +411,14 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   `SECRETS_DIR=` 一行（U3 遺留 advisory 四：白名單字元類拒空白／shell 元字元、絕對路徑字面
   斷言、環境變數優先＝compose 口徑）；機判＝元字元值與相對路徑值皆 rc=1 拒用（含 `$()`
   探針值未被執行）、env var 蓋過 .env、`bash -n`＋`shellcheck -S warning` 全綠
+  ——★**U4 quality 第 1 輪補修（行形偵測寬進窄出）**：原「行首錨定 `SECRETS_DIR=`」窄樣式
+  比 compose 的 `.env` 解析面窄，四形（`export ` 前綴／行首縮排／等號兩側空白／UTF-8 BOM）
+  **靜默回退**舊落點、CRLF 形則四腳本 FAIL 而 guard 與 compose 正常採用＝五支解析器分裂。
+  修＝六處解析器（四腳本＋guard＋`tools/bootstrap`）同刀齊改：偵測用寬樣式撈出 compose 會
+  讀到的那一行（剝首行 BOM 與行尾 CR、容許縮排／`export `／等號兩側空白、值尾空白修剪、
+  `tail -n 1` 後者勝），值仍套原嚴格白名單。機判＝同一組 `.env` 語料八形三方（compose
+  v5.3.1 `config` ／preflight 實跑／guard `check`）逐案同解；非法值四案（相對路徑／元字元／
+  空值／引號形）維持 rc=1 吵鬧失敗；guard 新增 4 案單元測試（40 tests OK，退回窄樣式即 3 紅）
 - [x] T026 [US3] `deploy/generate-secrets.sh` 功能改：加 `--compose-only` 旗標（缺 leaf
   **報錯退出、不生成**——防靜默造新亂數）＋權限終值改 **644**（原 600 會使三個非 root service
   在開 obs／metrics 軌時 Permission denied）；★`printf '%s'` 寫檔形**不得改為 echo**
@@ -418,6 +426,12 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   （7 leaf＋alert_webhook_url）在位非空——全在位 rc=0 只重組 3 composite（leaf 記 PRESENT
   不動）、刪 jwt_secret 後 rc=1 指名且**未代生成**（刪檔仍缺＝零生成實證）；權限終值
   目錄 700＋檔 644（stat 實測）；printf 寫檔形未動；未知旗標 exit 64
+  ——★**U4 quality 第 1 輪補修（dual-write 判定改位元組比對）**：`gen_composite` 原用
+  `[ "$(cat "$file")" = "$value" ]`，命令替換剝尾端換行 → 對「composite 檔尾多一個 LF」
+  判為相等、印 SKIPPED、rc=0＝劣化未修復（P5.7 byte-identical 不變式在讀取比對面破功）。
+  修＝改 `printf '%s' "$value" | cmp -s - "$file"`（與 decrypt P4.5 同形）。機判（假值
+  fixture）＝尾多一 LF 的 `redis_url.txt` 35 byte → 判 drift 連動重寫至 34 byte、sha256
+  前 8 碼與健康對照組同為 `91a0e680`，再跑一次 SKIPPED 且零改動（冪等）
 - [x] T027 [US3] `deploy/preflight-secrets.sh` 增強：①CR 偵測護欄（命中即 FAIL）②composite↔
   leaf 一致性檢查（複用既有期望值組合式；防「塞入密碼已過期的 `database_url` 也回 OK」）
   ③成功句改**陣列長度插值**（現硬編碼「十一個」、免每刀追改）
@@ -425,6 +439,15 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   drift 於 database_url → rc=1 指名＋指路 `--compose-only` 重組、重組後復綠；③成功句
   `${#REQUIRED[@]}` 插值實印「11 個…（落點路徑；CR 零命中、composite 一致）」；
   訊息全程只指名檔案、零值輸出
+  ——★**U4 quality 第 1 輪補修（LF 護欄＋一致性改位元組比對）**：CR 護欄照不到「尾端多一個
+  LF」，而②的一致性用 `$(cat)` 字串相等比較（剝尾端換行）對它結構性失明——修前實證：
+  `redis_password.txt` 尾多一個 LF（15 byte，健康值 14 byte）時 preflight 仍印「11 個必須
+  secret 檔齊備且健康…可 up」rc=0，而 compose 會把 15 byte 密碼掛進 redis、把內嵌 14 byte
+  版本的 `redis_url` 掛進 rust-api＝認證必失敗。修＝①CR 迴圈同輪加 LF 護欄（`stat -c %s`
+  ≠ 剝除 CR／LF 後 byte 數即 FAIL 指名）②三條 composite 比對改 `printf '%s' … | cmp -s -`。
+  機判（同沙箱假值 fixture）＝健康組 rc=0；尾 LF 組 rc=1 指名 `redis_password.txt`；尾 CR
+  對照組維持原 CR 訊息 rc=1；真 drift 組（`redis_url` 換舊密碼）維持 rc=1 指名並指路
+  `--compose-only`；`--compose-only` 重組後復綠
 - [x] T028 [P] [US3] `docker-compose.yml` 頂層 `secrets:` 10 條目改帶預設值變數展開（未設變數
   時回退專案相對路徑）；★`reaper_password` 不進 compose 是設計（僅 setup-reaper-role 直讀）、
   **勿誤補**；dev 與 example 兩 compose 檔零改動
@@ -439,6 +462,11 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   ——**實測（2026-07-29）**：.env 缺失實跑＝代勞產生＋繼續跑（非 die）；體檢名冊仍取 repo 內
   `deploy/secrets/*.example`、實值在位檢查隨 SECRETS_DIR；T039 清空落點實跑＝warn 級列 11 缺檔
   ＋rc=0（重建指引改指 decrypt＋--compose-only）；掃描器／hooksPath 斷言維持 die 級未動
+  ——★**U4 quality 第 1 輪補修（第六處解析器同步放寬）**：bootstrap 讀值同用窄樣式，四形
+  漏認即以舊落點體檢，且印出的 warn「compose 將回退 ./deploy/secrets（保護失效）」與實測
+  相反（compose 並未回退）＝用錯誤診斷把 operator 導離真因。修＝同 T025 寬樣式；機判＝
+  六形（含 BOM／CRLF）皆印「絕對路徑字面、形制合格」並以新落點體檢，無 SECRETS_DIR 行時
+  才回退（此時 compose 確實回退＝診斷語與實情一致），相對路徑值維持 warn 級回退
 - [x] T030 [US3] **遷移執行＋S6／S7 驗收**：依 contracts §P6 五步（`down`→decrypt→設值
   `up -d`→**逐容器 `docker inspect` 驗來源皆非 `/mnt/d`**→**確認後才**刪舊落點）；＋未設變數時
   `docker compose config` 回退驗證（#4）＋`--profile obs --profile metrics` 全開驗三個非 root

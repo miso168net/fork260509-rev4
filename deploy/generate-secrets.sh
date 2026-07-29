@@ -52,10 +52,17 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # 環境變數優先（與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行
 # （★不整檔 source——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，
 # 含錢字號小括號／反引號之值 source 時會被執行）→ 皆缺回退 repo 內 deploy/secrets。
+# ★偵測寬、取值窄（019 U4 quality 修；五處解析器同刀齊改）：compose 的 .env 解析器接受
+# UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，行首錨定 `SECRETS_DIR=` 的窄
+# 樣式對這五形一律漏認並**靜默回退**舊落點（實測 compose v5.3.1 五形皆解析為新落點）＝契約
+# P5.1 違反後果欄的「compose 讀新落點、腳本查舊落點」。故偵測用寬樣式撈出 compose 會讀到的
+# 那一行、再對其值套下方嚴格白名單：寬進窄出，永不落入靜默回退。
 if [ -z "${SECRETS_DIR:-}" ] && [ -f "$REPO_ROOT/.env" ]; then
-    _line="$(grep '^SECRETS_DIR=' "$REPO_ROOT/.env" | tail -n 1 || true)"
+    _line="$(sed -e "1s/^$(printf '\357\273\277')//" -e 's/\r$//' "$REPO_ROOT/.env" \
+             | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 || true)"
     if [ -n "$_line" ]; then
-        _val="${_line#SECRETS_DIR=}"
+        _val="$(printf '%s\n' "$_line" \
+                | sed -E 's/^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
         case "$_val" in
             *[!A-Za-z0-9_/.-]*|"")
                 echo "FAIL：.env 之 SECRETS_DIR 為空或含空白／shell 元字元——拒用（產檔約束見 .env.example）" >&2
@@ -157,12 +164,16 @@ echo "=== Step 2: 生成 composite secret（dual-write 由 leaf 組合）==="
 # gen_composite <name> <expected-value>：
 #   檔案缺、--force、或現值 ≠ 期望值（leaf 重生／單獨改動＝drift）→ 重寫（GENERATED）；
 #   否則 SKIPPED。內容比對取代「本次是否重生」旗標——連 leaf 在腳本之外被改動的 drift 也修復。
+# ★比對走 printf 接 cmp 的**位元組**比對（與 decrypt P4.5、preflight T027② 同一形；019 U4
+#   quality 修）：命令替換 $(cat) 會剝掉尾端換行，字串相等比較對「檔尾多一個 LF」結構性失明
+#   ——實測 redis_url.txt 尾多一個 LF 時判為相等、印 SKIPPED、rc=0，劣化未修復（P5.7 之
+#   byte-identical 不變式失效）。
 gen_composite() {
     local name="$1"
     local value="$2"
     local file="$SECRETS_DIR/${name}.txt"
     clear_dir_placeholder "$file"
-    if [ -f "$file" ] && [ "$FORCE" -eq 0 ] && [ "$(cat "$file")" = "$value" ]; then
+    if [ -f "$file" ] && [ "$FORCE" -eq 0 ] && printf '%s' "$value" | cmp -s - "$file"; then
         STATUS["$name"]="SKIPPED"
     else
         if [ -f "$file" ] && [ "$FORCE" -eq 0 ]; then

@@ -38,10 +38,19 @@ fi
 #      （與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行（★不整檔 source
 #      ——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，含錢字號小括號
 #      ／反引號之值 source 時會被執行）→ 皆缺回退 deploy/secrets ----
+# ★偵測寬、取值窄（019 U4 quality 修；五處解析器同刀齊改）：compose 的 .env 解析器接受
+#   UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，而行首錨定 `SECRETS_DIR=`
+#   的窄樣式對這五形一律漏認並**靜默回退**舊落點——實測 compose v5.3.1 五形全部解析為新
+#   落點，即契約 P5.1 違反後果欄的「compose 讀新落點、腳本查舊落點」（decrypt 更會據此把
+#   8 支明文寫回 repo 內 /mnt/d 舊落點＝違反 FR-021／SC-005）。故偵測改用寬樣式撈出
+#   compose 會讀到的那一行（同 tail -n 1 後者勝口徑），再對其值套下方嚴格白名單：寬進窄出，
+#   四形一律「正確採用」或「吵鬧失敗」，永不落入靜默回退。
 if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
-    _line="$(grep '^SECRETS_DIR=' .env | tail -n 1 || true)"
+    _line="$(sed -e "1s/^$(printf '\357\273\277')//" -e 's/\r$//' .env \
+             | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 || true)"
     if [ -n "$_line" ]; then
-        _val="${_line#SECRETS_DIR=}"
+        _val="$(printf '%s\n' "$_line" \
+                | sed -E 's/^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
         case "$_val" in
             *[!A-Za-z0-9_/.-]*|"")
                 echo "FAIL：.env 之 SECRETS_DIR 為空或含空白／shell 元字元——拒用（產檔約束見 .env.example）" >&2

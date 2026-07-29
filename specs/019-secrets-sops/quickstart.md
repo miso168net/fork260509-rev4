@@ -124,6 +124,12 @@ T030 施工時補列）；
 
 **否定測試**：跳過 `down` 直接改值 `up -d` → 觀察輸出為 `Starting` 而非 `Recreated`（config-hash
 相同、不觸發重建）＝假性完成的信號 → 復原後照正確順序重做。
+＋★**`.env` 行形三方矩陣**（019 U4 quality 補；契約 §P5.1 行形寬進窄出）：同一份 `.env` 逐案改寫成
+`export ` 前綴／行首縮排／等號兩側空白／UTF-8 BOM／CRLF 行尾五形，每案跑
+`docker compose config | grep 'file:'`、`./deploy/preflight-secrets.sh`、
+`python3 tools/secret-value-guard.py check` → **三方必須解析出同一個落點**；任一案分裂
+（典型＝腳本／guard 回退 `deploy/secrets` 而 compose 用新落點、且雙方 `rc=0` 零訊息）
+即為 blocker——那正是「compose 掛得到、容器跑得動、唯獨 pre-commit 不再守」的假綠。
 
 **完成判準**：`/mnt/d` 全樹零明文機密檔；＋新落點在**版控面外**之機判（019 U3 遺留
 advisory 一、T030 施工時補列）——`git check-ignore` 與 `git ls-files --error-unmatch` 對
