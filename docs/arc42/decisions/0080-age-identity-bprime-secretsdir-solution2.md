@@ -2,17 +2,12 @@
 id: "0080"
 title: 私鑰 B′（passphrase 加殼 identity）× SECRETS_DIR 解法 2（$HOME/.cache/rev4-secrets）——三實測閘定案與 #11 反轉後重拍
 date: 2026-07-29
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-28 019-secrets-sops brainstorm §3（user 親決私鑰 B′ 傾向＋SECRETS_DIR 2′）／§9 ADR-B 綱要＋research R7／R8／R9／R14＋spec FR-009~FR-012＋tasks T004／T005／T007 三閘實測（2026-07-28~29）＋user 重拍三點定案（2026-07-29、#11 反轉後）＋user 產鑰儀式拍板 C 案（2026-07-28、T002 釘版呈報時併決）"
 tags: [security, secrets, sops, age, deployment]
 ---
-
-> **draft 狀態說明**：本檔於 `specs/019-secrets-sops/tasks.md` Phase 2（Foundational 三實測閘）
-> 結清時立骨架與實測欄；正文完稿（自洽論證全文、SSH identity 禁令、passphrase 政策 diceware≥6
-> 與離線備份義務、tmpfs／ext4 殘餘風險誠實登記之總表化）歸同檔 **T034（Phase 7 US5 治理）**，
-> 收刀時轉 accepted。
 
 ## 背景
 
@@ -54,6 +49,67 @@ identity）與 **SECRETS_DIR 解密明文落點**（解法 2 ext4 持久 vs 2′
   的 at-rest 信物——讀走的是密文、根信物在腦中；且 identity 保護的是**跨 git 歷史與未來輪替
   的根信物**，與「現值明文暴露面」正交（現值另由落點與掃描防線承載）。
 - ③退路連帶調整：SECRETS_DIR 既已定在 2，退路只剩私鑰維度＝僅退方式 A。
+
+## 自洽論證（私鑰方式 × 落點的四格矩陣）
+
+**判準**：一個組合自洽，當且僅當**根信物（identity）的保護強度 ≥ 現值明文的保護強度**。
+否則為現值付出的代價（開機儀式、每次解密的摩擦）買不到等值的保護——防護強度由最弱環節決定，
+而根信物是最弱環節時，換掉現值落點只是換一個地方放同樣讀得到的東西。
+
+| 組合 | 自洽性 | 說明 |
+|---|---|---|
+| A × 2（私鑰明文 × ext4 持久） | **不自洽** | #11 事實下 Windows 側可經 UNC 讀走 `keys.txt` 明文＝一次讀取即取得**全部 git 歷史與未來輪替**的解密能力；現值明文只是同一次讀取的附帶品 |
+| A × 2′（私鑰明文 × tmpfs） | **不自洽（且代價最高）** | 現值每次開機重解密（儀式代價全付），根信物卻明文長駐——付了儀式的錢，保護等級仍由私鑰決定 |
+| B′ × 2′ | 自洽（brainstorm 原拍） | 在「tmpfs 使 Windows 側構不到明文」的**假設**下成立；#11 實測推翻該假設 |
+| **B′ × 2（本決策）** | **自洽** | 讀走 identity 檔得到的是密文、根信物在腦中；現值明文的暴露面另由落點（離開 9p 777）＋三層掃描防線（擋入庫面）承載 |
+
+**B′ 的正面論證**：identity 保護的是**跨 git 歷史與未來輪替的根信物**，與「現值明文暴露面」
+正交——現值可以輪替（RUNBOOK §7＋§15.4），根信物一旦洩漏則版控內所有歷史版本的密文永久
+可解。兩者不可互相代償，故必須各自有防線。
+
+**退路預拍（#3 失敗時）＝僅退方式 A**（明文 identity＋`chmod 600`），SECRETS_DIR 不降階
+（決策 3）。本輪 #3 實測全過、**退路未動用**。條款保留供金鑰輪替等再驗情境；**若日後真的
+動用退路，必須同刀補記兩件事**：①根信物降為「檔案本身」＝上表 A×2 的不自洽格當場成立、
+須明文登記接受；②重評 ADR 0083 之問題 B 反轉條件①（#3 失敗且方式 A 殘餘風險不可接受）。
+
+**#11 反轉條件的定義與其再反轉**：brainstorm 拍 2′ 時預留的反轉條件為「**若** Windows 側
+docker client 能定址 WSL 內部路徑，**則** 2 vs 2′ 的比較基礎改變、本題回頭重拍，且必須
+**升級 user 重裁、非 agent 自決**」。該條件已實測命中（見下方閘 #11 欄）並依約升級、重拍
+定案。**再反轉的觸發條件**（記於此供日後重評）：若 Docker Desktop 或 WSL 側關閉 UNC 通道
+（例如改用純 WSL 引擎、或 `\\wsl.localhost` 與 `\\wsl$` 別名被停用），2′ 的差異化收益
+（at-rest 不落 vhdx＋關機即清）回復，決策 2 應重評——屆時的比較基礎是「重跑解密儀式的
+日常代價 vs 恢復的 at-rest 收益」。
+
+## 附屬規則：SSH identity 禁令與尋鑰來源
+
+**禁令**：①**禁止以 SSH 金鑰充當 SOPS identity**；②**切換取鑰來源後必須緊接 #10 反向驗證**
+（把預期不生效的來源移走／`unset` 後解密**必須失敗**；仍解得開＝切換未生效）。
+
+技術根據（sops 原始碼核實，research R10）：`loadIdentities` 是**聯集載入、非 first-match**，
+依序收集五類來源——SSH（`SOPS_AGE_SSH_PRIVATE_KEY_FILE`／`_CMD`／**零設定自動探測
+`~/.ssh/id_ed25519` 與 `~/.ssh/id_rsa`**）→ `SOPS_AGE_KEY` → `SOPS_AGE_KEY_FILE` →
+`SOPS_AGE_KEY_CMD` → 預設 `~/.config/sops/age/keys.txt`。兩個後果：**聯集語意**使「切換來源」
+後舊來源仍可能默默生效（故 #10 不可省）；**SSH 預設探測**使爆炸半徑意外綁上 SSH 私鑰。
+
+**禁令的必要性不因現況而降低**：現場旁證顯示本機 `~/.ssh` 無那兩個預設探測檔名、且 wrapper
+不掛載 `~/.ssh`＝容器內結構性構不到 SSH 來源（tasks T033 ⑤）。但禁令護的是**日後為了省事把
+SSH 金鑰接上去**的那個動作——一旦接上，同一把私鑰同時是 git 遠端存取憑證與機密解密的根信物，
+任一面洩漏即兩面同時失守。此禁令同時封死 ADR 0083 所列問題 B 反轉條件④。
+
+## 附屬規則：passphrase 政策與離線備份義務
+
+- **強度**：diceware **≥6 詞**（或等強度）。理由＝#11 事實下 identity 檔可能被讀走，此時唯一
+  防線是 passphrase 的**離線**暴力破解成本；age 的 scrypt 加殼提供 work factor，但 work
+  factor 不能替代熵。
+- **離線備份義務含 passphrase 本身**：B′ 的根信物是腦中的 passphrase——遺失即該 identity
+  永久失效（走加人流程重加入）；若它是**唯一** recipient，版控內密文即永久不可解
+  （RUNBOOK §15.5）。故備份對象＝**identity 檔 ＋ passphrase 本身**，且兩者不得存放於同一處
+  （放同一處＝把加殼的意義歸零）。
+- **紅線**：**不得以 `SOPS_AGE_KEY` 環境變數注入私鑰值**（brainstorm 拍板）——環境變數會
+  出現在 process 環境、容器 inspect、shell 歷史與 CI log，等同把根信物散佈到不可控面。
+- **產鑰是一次性人工儀式**：`age -p` 的 passphrase 一律經 `/dev/tty` 讀取、官方無
+  passphrase-from-file 旗標＝**結構上不可無頭自動化**。施工期以拋棄式 passphrase 的暫代鑰
+  代行（決策 5 之 C 案）、收刀期由 user 親產真鑰。
 
 ## 三閘實測欄
 
@@ -111,9 +167,29 @@ identity）與 **SECRETS_DIR 解密明文落點**（解法 2 ext4 持久 vs 2′
 
 ## 後果
 
-- 明文長駐 `ext4.vhdx`（解法 2 的 at-rest 代價）＝有意識接受並誠實登記；補償面＝①私鑰 B′
-  使根信物不隨檔案讀走②三層掃描防線擋入庫面③RUNBOOK §4 人工清單之 BitLocker 確認項。
-- 免開機儀式：`wsl --shutdown` 後明文仍在、compose 直接可起；RUNBOOK 開機儀式段改寫為
-  常駐語意（T031）。
-- `/dev/shm` 相關的 swap 殘餘風險登記隨 2′ 作廢；改登記 ext4 at-rest 面（T034 完稿總表化）。
-- （其餘後果隨 T034 完稿補齊。）
+### 殘餘風險總表（誠實登記——記載的是「還沒被消滅的」，不是「已經解決的」）
+
+| # | 殘餘風險 | 為何仍在 | 補償控制 | 判定 |
+|---|---|---|---|---|
+| 1 | **明文長駐 `ext4.vhdx`（at-rest）** | 解法 2 的定義性代價：明文寫在持久檔系統上，關機不清 | ①私鑰 B′＝根信物不隨檔案被讀走②三層掃描防線擋入庫面（ADR 0082）③RUNBOOK §4 人工清單之 BitLocker／`.wslconfig` swap 確認項 | 有意識接受（user 重拍理由①） |
+| 2 | **Windows 側經 UNC 可讀 WSL 內任何檔案（live 通道）** | Docker Desktop／WSL 的既有互通設計；`\\wsl.localhost` 與舊別名 `\\wsl$` 皆可達，600 權限對 Windows 側無效 | 同 #1 之①②；此通道對解法 2 與 2′ **暴露相同**（閘 #11 實測④）——換落點消不掉它 | 有意識接受；再反轉條件見「自洽論證」節 |
+| 3 | **明文暫存與捕捉檔的落點** | 解密管線與合併衝突程序都會產生完整明文的中間檔 | 落點強制 `${XDG_CACHE_HOME:-$HOME/.cache}` 之 0700 目錄＋**fs／mode 斷言早於 `sops` 呼叫**（不合格＝零明文產生）；contracts §P4、RUNBOOK §15.7 | 已消滅 repo 內落點；殘餘＝同 #1（仍在 ext4） |
+| 4 | **暫代正式鑰的 passphrase 視同已洩露** | 施工期由 agent 以拋棄式 passphrase 產鑰（決策 5 之 C 案），該值存在於對話紀錄 | 無技術補償——**唯一出路是收刀期的真鑰產製＋撤銷四步＋7 支 leaf 輪替**（決策 5 之硬性義務） | **019 未完成該義務前，版控內密文的實質保護等同無** |
+| 5 | **磁碟加密與 swap 面無機器驗收** | BitLocker 狀態與 `.wslconfig` 的 `swap` 設定屬 Windows 側人工確認、無 repo 內可跑的判準 | RUNBOOK §4 人工必填清單第 6 項（`manage-bde -status`／`.wslconfig`） | 誠實登記為人工項、不偽裝成驗收 |
+| 6 | **日常摩擦：每次解密輸一次 passphrase** | B′ 的定義性代價（單 recipient 基線＝每次 `sops -d` 恰 1 次；多 recipient 時次數＝該 identity 之 stanza 順位） | 落點持久＝解密頻率低（只在落點缺檔時跑，非每次開機）；提示次數實測表＝RUNBOOK §15.9 | 已拍代價 |
+
+**★ 隨 2′ 作廢而不得寫回的登記**：`/dev/shm` 的 tmpfs swap 殘餘風險、以及「重開機即清空」
+所蘊含的一切保護主張——2′ 未被採用，把它的風險或收益寫進本 ADR 都是失真。
+
+### 其他後果
+
+- **免開機儀式**：`wsl --shutdown` 後明文仍在、compose 直接可起。RUNBOOK 的「開機儀式」段
+  已改寫為**常駐語意**＋「落點缺檔時的補救步驟」（§15.6）；US3 驗收情境 5 的觸發條件亦
+  隨之由「重開機」改為「落點缺檔」——**反轉後照原文驗收只會得到假綠**（原委見 L-162）。
+- **這個反向性質不升格為驗收項**：驗證它需要真的 `wsl --shutdown`（破壞性、屬人工一次性
+  確認），升格只會製造無對應 task 的孤兒驗收。
+- **落點成為跨消費者的單一事實來源**：`SECRETS_DIR` 由 repo 根 `.env` 承載，消費者聯集
+  七處（唯一權威清單＝`contracts/secret-pipeline.md` §P5.1）——**漏列任一支即該處靜默失效
+  且全綠**（實證與防法＝L-174／L-175／L-177／L-178）。
+- **私鑰目錄不隨 repo 移動**：identity 落 `~/.config/sops/age/keys.txt`（目錄 700、檔 600），
+  與 repo 生命週期解耦；換機＝走加人四步（RUNBOOK §15.2），不搬私鑰檔。

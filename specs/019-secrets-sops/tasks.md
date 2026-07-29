@@ -722,7 +722,7 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
 **Independent Test**: spec US5——對照綱要逐支核 ADR 欄位；BACKLOG／NOTES／指路文字逐處核。
 **依賴**: 前四者結果（實測欄位、驗收證據）。
 
-- [ ] T034 [US5] ADR 5 支落 `docs/arc42/decisions/`（0079 起、一決策一檔、綱要＝brainstorm §9）：
+- [x] T034 [US5] ADR 5 支落 `docs/arc42/decisions/`（0079 起、一決策一檔、綱要＝brainstorm §9）：
   **A** 選型 SOPS+age（四理由＋誠實收窄＋零維運硬約束＋digest 釘版＋**cosign 不啟用之誠實
   登記**＋age 取得路徑）／**B** 私鑰 B′×SECRETS_DIR **解法 2**（★重拍 2026-07-29、#11 反轉後：
   原綱要之「SECRETS_DIR 2′」與「**tmpfs swap 殘餘風險誠實登記**」兩項**隨 2′ 作廢、不得寫回
@@ -737,6 +737,18 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   命名紅線／不設範圍選項）／**D** 掃描三層防線定位（事件型×狀態型×確定性互補；三 repo 覆蓋；
   base-web `--no-verify` 慣例廢止；**compose 向後相容取捨之誠實登記**）／**E** 團隊組成前提
   （將來可能有非工程師→兩層架構待觸發決定）＋問題 B 四條件延後登記
+  ——**實做（2026-07-30）五支全數 `status: accepted`**：A＝`0079-secrets-toolchain-sops-age.md`
+  （四理由＋對 dotenvx 誠實收窄「只贏多 recipient 與宣告式 per-path 兩項」＋零維運落選名單＋
+  digest 釘版與 registry 成對紀律＋root 產物對策 B＋cosign 不啟用登記＋age 取得走 release API
+  `digest` 現查〔無 checksums 檔〕）／B＝既存 `0080-*.md` **正文完稿並轉 accepted**（新增自洽論證
+  四格矩陣＋退路動用時的兩項補記義務＋#11 反轉條件定義與**再反轉觸發條件**＋SSH identity 禁令與
+  五類尋鑰來源＋passphrase 政策〔diceware≥6、備份含 passphrase 本身且與 identity 分處、
+  `SOPS_AGE_KEY` 紅線〕＋**殘餘風險六列總表**〔ext4 at-rest／UNC live 通道／暫存落點／暫代鑰
+  視同已洩露／磁碟加密無機判／B′ 日常摩擦〕＋「2′ 作廢後不得寫回」明令；三閘實測欄與決策 5
+  C 案原文逐字保留）／C＝`0081-encrypted-asset-shape-dev-single-file.md`／
+  D＝`0082-three-layer-leak-scan-defence.md`／E＝`0083-team-composition-premise-two-tier-trigger.md`。
+  機判＝`generate` 重算 11 檔（DECISIONS-INDEX 五列在位）＋`lint` 0 錯誤 0 警告（L8 front-matter／
+  撞號／supersedes 對稱全過）
 - [ ] T035 [P] [US5] `docs/ops/BACKLOG.md` 登記 B-115 prod 機密分層遞延包（prod 加密檔＋
   #5／#6 結構性不可測驗收＋CI 側保護；掛 prod 部署刀群）＋`docs/ops/NOTES.md` 同步 base-web
   `--no-verify` 慣例廢止（repo 文件不引用 per-machine memory 路徑）
