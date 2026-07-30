@@ -303,6 +303,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | `bash tools/bootstrap` | 新機重建／舊機體檢 | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；營運程序＝§15） | 否（需 docker） |
 | `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出 8 支明文（composite 另跑 generate `--compose-only`） | 否（需 docker＋互動 tty） |
+| `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（B′ 加殼；＝§15.2 步驟 1 機器化版：覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設名 | 否（需真 tty；age 缺席時需網路） |
 
 退出碼注意：schema-gate/wire-schema＝差異 1、環境不可用 2、用法錯 64；docs-sync refresh
 的 stack 不在走 exit 1——判讀看是哪支工具的哪個碼、勿一概當失敗。
@@ -425,6 +426,17 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-rec
 1. 新機／新成員**自產** age 金鑰（B′＝passphrase 加殼；`age`／`age-keygen` 屬**一次性工具、
    不常駐**——依 §12 末段釘版值自官方 GitHub release 取得、以 release API 的 digest 欄位驗
    `sha256sum` 後使用，產完鑰即可刪；產鑰須在**真終端**跑，`age -p` 的 passphrase 走 `/dev/tty`）：
+
+   ★**優先跑機器化版**（守衛與自檢內建、age 缺席時自動取得並驗 digest；省略檔名＝預設
+   `keys.txt`，同機第二把給非預設名如 `keys-drill.txt`）：
+
+   ```bash
+   bash deploy/generate-age-key.sh              # 第一把
+   bash deploy/generate-age-key.sh keys-drill.txt   # 同機第二把（撤銷演練／備援）
+   ```
+
+   下方 inline 形與該腳本**同口徑**，供腳本不可用時手動照打（★兩者任一改動須同刀對齊、
+   否則就是 L-199 那類「手冊片段與實作各寫一份而漂移」）：
 
    ```bash
    mkdir -p ~/.config/sops/age && chmod 700 ~/.config/sops/age

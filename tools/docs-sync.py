@@ -6559,6 +6559,20 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(tuple(m.group(1).split()), tools_test_roster())
         self.assertIn("tools/fork-delta-lint.py", hook)   # 無 test 介面、走聯集觸發
 
+    def test_age_version_pinned_consistently_in_script_and_runbook(self):
+        """★釘版值兩處相等（019 final review 後補）：`deploy/generate-age-key.sh` 的
+        `AGE_VERSION` 與 RUNBOOK §12「機密工具鏈釘版」欄的 age 版本字面必須逐字相同。
+        成因＝腳本要離線自足故只能硬編碼，而版本欄是人讀權威；兩處漂移＝手冊說 A、腳本抓 B
+        （同族失效已記 L-190／L-197：凡「同一事實抄成兩份」就要有機器閘釘住）。單邊改即紅。"""
+        script = _read(ROOT, "deploy/generate-age-key.sh") or ""
+        m = re.search(r"^AGE_VERSION=(v[0-9][0-9.]*)$", script, re.M)
+        self.assertIsNotNone(m, msg="generate-age-key.sh 的 AGE_VERSION 釘版行不見了")
+        book = _read(ROOT, "docs/ops/RUNBOOK.md") or ""
+        b = re.search(r"age \*\*(v[0-9][0-9.]*)\*\*", book)
+        self.assertIsNotNone(b, msg="RUNBOOK §12 的 age 釘版字面不見了")
+        self.assertEqual(m.group(1), b.group(1),
+                         msg="腳本 AGE_VERSION 與 RUNBOOK §12 age 釘版值不一致")
+
     def test_hook_scan_pins_scanner_config_explicitly(self):
         """★掃描器設定檔**顯式指定、不靠自動探索**（019 final review 實證）：探索模式下
         `.gitleaks.toml` 缺席時 betterleaks **靜默降級為內建規則庫並回 rc=0**——自訂 DSN
