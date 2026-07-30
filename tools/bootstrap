@@ -5,7 +5,9 @@
 #       並斷言最原始源基線（fork260509-soybean-admin-base @ example、CLAUDE.md §1）與
 #       pin 一致性；舊機重跑＝純體檢。任何斷言失敗→exit 2＋指名處置；分歧類問題只警告
 #       （⚠）不自動 reset、絕不半套。
-# 不含：deploy/secrets/*.txt 實值（僅體檢缺檔，實值人對人交接、見 deploy/secrets/README.md）；
+# 不含：機密實值（僅體檢 SECRETS_DIR 下缺檔；★019 起實值不再人對人交接——重建走
+#       ./deploy/decrypt-secrets.sh〔8 支〕＋ ./deploy/generate-secrets.sh --compose-only〔3 composite〕，
+#       見 deploy/secrets/README.md）；
 #       dev stack 起法（見 specs/001 quickstart）。
 # 測試掛點：RV4_BASEWEB_SRC_URL／RV4_RUSTAPI_SRC_URL 可覆寫 clone 來源（file:// 亦可）。
 set -euo pipefail

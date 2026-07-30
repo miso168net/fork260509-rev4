@@ -4,8 +4,10 @@
 #   失敗才切 env-wrapper 備案）。
 # ★寫法坑（R4）：本 yaml 經 volume 掛載進容器、不經 compose 插值——單 $ 即可；
 #   只有 compose environment 值才需 $$ 雙寫（docker-compose.yml grafana 段 GF_SECURITY_ADMIN_PASSWORD 即彼形）。
-# URL 永不明文進版本庫：真值住 deploy/secrets/alert_webhook_url.txt（gitignored、generate-secrets
-#   placeholder 形＋preflight REQUIRED；T002 as-built）。
+# URL 永不明文進版本庫：真值住 $SECRETS_DIR/alert_webhook_url.txt（★019 US3 起落點由 repo 根
+#   .env 的 SECRETS_DIR 決定、未設才回退 repo 內 deploy/secrets；generate-secrets placeholder 形
+#   ＋preflight REQUIRED；T002 as-built）。密文權威來源＝deploy/secrets.dev.enc.yaml 之
+#   alert_webhook_url key（019）。
 apiVersion: 1
 
 contactPoints:

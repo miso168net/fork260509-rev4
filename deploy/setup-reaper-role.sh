@@ -3,7 +3,8 @@
 #
 # 分工（data-model §5、research R5、ADR 0072）：
 #   m012 migration＝CREATE ROLE reaper NOLOGIN＋GRANT（零密碼）；本腳本＝ALTER ROLE reaper
-#   LOGIN PASSWORD（密碼讀自 deploy/secrets/reaper_password.txt、gitignored）。
+#   LOGIN PASSWORD（密碼讀自 $SECRETS_DIR/reaper_password.txt；★019 US3 起落點由 repo 根 .env
+#   的 SECRETS_DIR 決定、未設才回退 repo 內 deploy/secrets——解析口徑見下）。
 # 密碼紀律（FR-013）：SQL 走 psql stdin heredoc——密碼零進 host process list、零進版本庫；
 #   輸出只印狀態不印值。可重跑（ALTER ROLE 冪等）。
 # 前置：stack 已 up（postgres healthy）＋m012 已套用（role 不存在→psql 非零退出 fail-loud）

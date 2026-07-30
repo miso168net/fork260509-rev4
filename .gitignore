@@ -66,7 +66,9 @@ deploy/.env
 .dev.vars
 
 # Docker secrets — 實際 secret 檔 gitignored、.example 範本 git-tracked
-# .json（redis_exporter 需要 JSON 格式 password file、無法用 plain text）
+# .json：早期方案殘留規則——現行 compose 的 redis_exporter 走 sh-wrapper `cat` plain txt
+#        （見 docker-compose.yml redis_exporter entrypoint），無任何 JSON 形機密檔在用；
+#        規則本身無害故保留為未來 JSON 形機密的預防性守衛（019 T036 勘誤）
 /deploy/secrets/*.txt
 /deploy/secrets/*.txt.new
 !/deploy/secrets/*.txt.example

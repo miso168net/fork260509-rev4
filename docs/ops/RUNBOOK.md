@@ -224,10 +224,12 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
   `curl -X DELETE http://127.0.0.1:49091/metrics/job/reaper`（清無 reaper_job label 之舊組、
   不及上列兩分組）→ 兩 job 各跑一輪 execute 重建健康心跳（§8 一次性真刪雙命令）。
 - **psql 直連**（debug 埠 45432）：
-  `PGPASSWORD="$(cat deploy/secrets/postgres_password.txt)" psql -h 127.0.0.1 -p 45432 -U soybean -d soybean_admin_rust`
+  `PGPASSWORD="$(cat "$SECRETS_DIR/postgres_password.txt")" psql -h 127.0.0.1 -p 45432 -U soybean -d soybean_admin_rust`
+  （★`$SECRETS_DIR` 取值片段＝§7 抬頭；US3 起明文已不在 repo 內 `deploy/secrets/`）
   ；容器內免密形＝`docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres psql -U soybean -d soybean_admin_rust`
 - **redis-cli 直連**（debug 埠 46379）：
-  `redis-cli -h 127.0.0.1 -p 46379 -a "$(cat deploy/secrets/redis_password.txt)" --no-auth-warning`
+  `redis-cli -h 127.0.0.1 -p 46379 -a "$(cat "$SECRETS_DIR/redis_password.txt")" --no-auth-warning`
+  （`$SECRETS_DIR` 同上）
 - ★debug 埠（42079/45432/46379）繞過 front-nginx 限流與 op-log 稽核／facade 不變式——
   驗收一律走 front-nginx 全鏈路；直連寫入僅限 debug、勿當常規維運面。
 
@@ -248,7 +250,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 ## 11. 觀測層維運
 
 - **grafana 入口**：`http://127.0.0.1:43000`、帳號 `admin`、密碼＝
-  `deploy/secrets/grafana_admin_password.txt` 現值（曾 CLI 輪替過則以 DB 內值為準、見 §7）。
+  `$SECRETS_DIR/grafana_admin_password.txt` 現值（取值片段＝§7 抬頭；★US3 起**不是** repo 內
+  `deploy/secrets/`；曾 CLI 輪替過則以 DB 內值為準、見 §7）。
 - **provisioning 生效**：dashboards json＝30s 週期熱掃（`dashboards/provider.yaml`
   updateIntervalSeconds: 30、UI 不可覆寫）；datasource／alerting（rules／contact-points／
   notification-policies）無週期掃描設定、啟動時讀入——改動後
@@ -261,7 +264,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 - **字典板重算**：`deploy/grafana-provisioning/dashboards/json/backend-msg-dict.json`＝機器
   生成物——改 locale 後跑 `python3 tools/docs-sync.py generate`、嚴禁手改。
 - **dev webhook 收器**（告警投遞驗收專用）：`sh deploy/dev-webhook-sink.sh start|cat|stop`
-  ＋alert_webhook_url.txt 填 `http://rev4-dev-webhook-sink:8080/alert`＋restart grafana；
+  ＋alert_webhook_url.txt 填該收器位址（形如 `http://<容器名>:8080/alert`、容器名＝腳本內
+  `NAME` 變數；★不在文件寫出完整字面＝L-190）＋restart grafana；
   驗畢必 stop＋還原 URL（§4）。
 
 ## 12. 工具鏈速查（★python 工具一律直跑或 `python3` 前綴、bash 前綴＝假失敗 L-129/L-143）

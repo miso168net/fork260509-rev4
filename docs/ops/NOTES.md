@@ -3,9 +3,10 @@
 - 波 0（001~003）＋波 1（004~008）＋admin 家族（009~013）＋014-user-center＋015-pwd-custody＋
   016-observability＋017-audit-retention＋輕量軌三例（B-059／B-104／維護批）全收；憲法現版
   v1.14.0。各刀成果與判準詳 events/STATE、git 即史。
-- ★維運待辦（016 遺留）：`deploy/secrets/alert_webhook_url.txt` 現值＝dev 收器 URL（收器已撤、
-  投遞失敗重試無害）、正式接收端 URL 待 user 自填；obs＋metrics 觀測件現全 up、jobs sidecar
-  屬 opt-in 未常駐。
+- ★維運待辦（016 遺留）：`$SECRETS_DIR/alert_webhook_url.txt` 現值＝dev 收器 URL（收器已撤、
+  投遞失敗重試無害）、正式接收端 URL 待 user 自填——★019 起落點已遷出 repo、密文權威來源＝
+  `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；obs＋metrics 觀測件現全
+  up、jobs sidecar 屬 opt-in 未常駐。
 - **018-governance-hardening 已收刀**（2026-07-28）：治理工具鏈與編排紀律硬化——B-111 四支
   工具補 .py＋CLAUDE.md 範本三件（六件套⑥／次輪前饋／三欄表）＋docs-sync 五新條款（L16 憑證
   掃描／L17 pin 互證／L18 events 實證／L19 命令形／L20 空集合守衛）＋lint 三段式摘要＋tools-cli
