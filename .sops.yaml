@@ -3,9 +3,10 @@
 # P2.2 僅一條 creation_rules（first-match-wins、第二條起被靜默忽略）
 # P2.4 不設六個範圍選項任一：預設 unencrypted_suffix="_unencrypted"＝全加密
 # P2.5 連帶紀律：加密檔 key 名禁 _unencrypted 後綴（該後綴無法藉「不設定」規避）
-# recipient＝age 公鑰清單（YAML 清單形；公鑰非機密）。目前唯一 recipient＝019 施工期
-# 暫代正式鑰（C 案、ADR 0080 決策 5）；收刀 finishing 時由 user 真鑰替換＋撤銷暫代鑰。
+# recipient＝age 公鑰清單（YAML 清單形；公鑰非機密）。現行唯一 recipient＝maintainer 真鑰
+# （2026-07-30 收刀金鑰儀式產、passphrase 僅存持鑰者腦中）；019 施工期暫代鑰已依 §15.3 四步
+# 原子撤銷（rotate -i --rm-age＋7 leaf 值輪替；驗收含否定測試 MAC-fail）。加人→RUNBOOK §15.2。
 creation_rules:
   - path_regex: ^deploy/secrets\.dev\.enc\.yaml$
     age:
-      - age1g0yn0akuh9x3msxeyhuhakc6njfa290mmzwvxdc0dpnly47mhdlqec0vya
+      - age1d9guthsymfhw4p2z3xepgxcktn7626vvcy30rt920wdeg0gx494qgwum2n
