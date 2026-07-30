@@ -57,7 +57,12 @@ L-151~L-175（019 施工期前段）☞ LESSONS-151-175.md。
   一律子字串掃」並在劇本逐面寫出命令，禁止任何一面留「併核」這種未指定判準的字眼；②可觸及面
   掃法＝`git rev-list --all --objects` 取全物件 → `git cat-file --batch` 串流 → 命中者以
   `rev-list --objects` **反查路徑**（路徑才看得出是文件還是機密檔），另限縮 `<merge-base>..HEAD`
-  算出「本刀新引入」子集；③命中≠0 必走**分流表**：真機密→輪替＋改寫歷史（缺一即未結清）／
+  算出「本刀新引入」子集；★**掃描母體不限物件型別、且 unreachable 面要加跑 `--no-reflogs`**
+  （019 final review 兩項實證：機密值也可能寫在 **commit message**〔本 repo 有 1 筆 016 期 commit
+  物件含該值〕，只掃 blob 對整個型別失明——改用 `git cat-file --batch-all-objects --batch` 掃全
+  物件；而 `git fsck --unreachable` 預設把 reflog 當根，**僅 reflog 可觸及的舊 blob 看不到**、
+  `prune --expire=now` 亦不清，需 `git reflog expire --expire-unreachable=now --all` 再 `gc`）；
+  ③命中≠0 必走**分流表**：真機密→輪替＋改寫歷史（缺一即未結清）／
   dev 佔位無憑證材料→可判已接受殘餘但必須誠實登記，**不得寫成「未進歷史」或「暴露面已關閉」**；
   ④凡自己剛在同一段文字裡指出某判準失明，就把該段所有沿用舊判準之處一併枚舉改掉（同 CLAUDE.md
   勘誤紀律：禁止只修被點名那一處）。

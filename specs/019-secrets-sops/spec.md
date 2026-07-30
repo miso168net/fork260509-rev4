@@ -196,6 +196,12 @@
   exist」警告不可作為唯一防線。
 - 加密檔 git merge 衝突：依 RUNBOOK 程序（雙方解密→明文三方合併→重加密→核對 recipient 清單
   一致），暫存明文限 repo 內 gitignored 目錄。
+  ★**as-built 勘誤（2026-07-30、019 U3／U5）**：本句兩處為施工前口徑——①「暫存明文限 repo 內」
+  **已作廢**、改為**落點兩分**（只有要當參數餵回容器內 sops 的那一個檔落 repo 內；其餘由 host
+  shell 重導向產生、從不進容器者一律落 repo 外 0700 且非 v9fs 目錄——repo 根在 `/mnt/d`＝9p、
+  `chmod` no-op、實效 777；L-171／L-180）；②「雙方解密」**不是**兩機各自解密再交換明文（與零
+  機密傳遞衝突）——as-built ＝自 index 取三方密文、在單機逐份解密（L-188）。
+  **唯一權威操作程序＝RUNBOOK §15.7**；契約面見 `contracts/secret-pipeline.md` §P7。
 - passphrase 遺失（B′）：該 identity 永久失效＝走加人流程重加入；離線備份義務含 passphrase 本身。
 - U1 閘反轉：#2 失敗→方案形狀改環境變數注入＝**升級 user 重拍**；#11 反轉→**升級 user 重拍**
   SECRETS_DIR（2 vs 2′ 比較基礎改變）；#3 失敗→預拍退路（方式 A＋解法 2＝

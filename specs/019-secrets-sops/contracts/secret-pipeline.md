@@ -56,7 +56,7 @@
 | P4.3 (c) | key 數與名稱斷言，不符 → **零寫入 + 非零退出 + 指名缺哪個 key** | 刻意刪 enc 檔一 key → 管線必紅；**絕不可**落到 `generate-secrets.sh` 靜默造新亂數的路徑 |
 | P4.4 (d) | 輸出目錄 `mkdir -p` + `chmod 700`，且**早於任何 `up`** | 目錄不存在時 docker daemon 會以 root 建出 `drwxr-xr-x root root`，使用者不能寫也不能刪 |
 | P4.5 (e) | 現值 ≠ 解密值 → 另存 `<name>.txt.new` + 警示，**不覆寫** | 構造 `alert_webhook_url` 差異 → 必產 `.new`；此為 decrypt 引入的**原本不存在的覆寫路徑**，`generate` 印 SKIPPED、`preflight` 只檢存在與非空，兩者都不告警 |
-| P4.6 | 落點自建 **0700 子目錄** | ★原理由「`/dev/shm` 為 `drwxrwxrwt`（world-writable）」屬 2′ 原值、隨重拍作廢（2026-07-29、#11 反轉後改 `$HOME/.cache/rev4-secrets`＝`drwx------`；ADR 0080）；要求維持＝縱深防禦、與落點無關——否定測試：將 `SECRETS_DIR` 指入**權限非 0700 的父目錄**下跑解密，`stat -c %a` 子目錄**仍必為 `700`**（**唯一權威落點＝`tasks.md` T023 之否定測試列舉**；`quickstart.md` §S5「解密管線五要求與否定測試」之表**現為六列、尚未列入本項**——待 T023 施工時同步補列〔已記於 T023 重拍連帶〕，補列前一律以 T023 為準，勿據 §S5 逐列核對推定本項不存在；★§S 亦為跨檔同號不同義之命名空間〔`quickstart.md` §S6＝落點遷移五步、`contracts/scan-gates.md` §S6＝三層互補不變式，兩者皆不含權限斷言〕，引用必附檔名） |
+| P4.6 | 落點自建 **0700 子目錄** | ★原理由「`/dev/shm` 為 `drwxrwxrwt`（world-writable）」屬 2′ 原值、隨重拍作廢（2026-07-29、#11 反轉後改 `$HOME/.cache/rev4-secrets`＝`drwx------`；ADR 0080）；要求維持＝縱深防禦、與落點無關——否定測試：將 `SECRETS_DIR` 指入**權限非 0700 的父目錄**下跑解密，`stat -c %a` 子目錄**仍必為 `700`**（**唯一權威落點＝`tasks.md` T023 之否定測試列舉**；★**已於 T023 施工時同步補列**（2026-07-30 final review 清時效性殘留：`quickstart.md` §S5「解密管線五要求與否定測試」之表現為**八列**、本項已在其中；原註「現為六列、尚未列入」屬施工前狀態、作廢）；★§S 亦為跨檔同號不同義之命名空間〔`quickstart.md` §S6＝落點遷移五步、`contracts/scan-gates.md` §S6＝三層互補不變式，兩者皆不含權限斷言〕，引用必附檔名） |
 | P4.7 | 檔案權限終值 **644**、目錄 **700** | 600 → grafana(472)／postgres-exporter(65534)／redis-exporter(59000) 全部 Permission denied，且**只在開 obs／metrics 軌時才炸** |
 
 ---

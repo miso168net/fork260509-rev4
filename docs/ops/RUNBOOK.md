@@ -158,7 +158,11 @@ elif [ -z "${SECRETS_DIR:-}" ]; then
     | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 \
     | sed -E 's/^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
 fi
-[ -d "$SECRETS_DIR" ] || echo "FAIL：SECRETS_DIR 取值失敗（.env 缺該行？）——先跑 bash tools/bootstrap"
+# ★守衛驗**實檔**而非目錄存在：`[ -d ]` 對「回退到 repo 內 deploy/secrets」也成立（該目錄現只剩
+#   README 與 .example），於 .env 被寫壞〔如值寫成相對路徑〕時會靜默放行，而下表 `ALTER USER`
+#   拿 `$(cat …)` 讀到空字串＝把密碼改成空（019 final review 實證）。
+[ -s "$SECRETS_DIR/postgres_password.txt" ] \
+  || echo "FAIL：$SECRETS_DIR 下讀不到機密實值——.env 值非法（須絕對路徑字面）或落點未解密；先跑 bash tools/bootstrap 與 ./deploy/decrypt-secrets.sh"
 ```
 
 ★上段與五支賦值型消費者**逐字同口徑**（契約 §P5.1）：env 優先 → `.env` 只嚴格解析該一行

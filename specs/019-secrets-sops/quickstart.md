@@ -236,10 +236,18 @@ SC-008 處置慣例）。
 結構性失明、會回報假綠。判準升級為**內容子字串比對**：`git fsck --unreachable` 逐筆
 `git cat-file blob` 讀出、判是否含任一落點現值為子字串（只印 SHA 前 8 碼與 size、**不印內容**）
 → 非零即 `git prune --expire=now` → 反證「含機密之 unreachable blob 數＝0」。
-★**三面同一判準**（L-196；漏一面即假綠）——①**unreachable**（`git fsck --unreachable`）
+★**三面同一判準**（L-196；漏一面即假綠）——①**unreachable**（`git fsck --unreachable`
+——★另加 `--no-reflogs` 跑第二次：預設把 reflog 當根，**僅 reflog 可觸及的舊 blob 看不到**、
+`prune --expire=now` 也不清它們〔019 final review 實證多見 2 支〕；要出清走
+`git reflog expire --expire-unreachable=now --all` 再 `git gc --prune=now`）
 ②**HEAD tree**（`git ls-tree -r HEAD` × `git cat-file --batch`）③**可觸及面**
 （`git rev-list --all --objects` 全物件 × `git cat-file --batch`，命中者以 `rev-list --objects`
 反查路徑，另限縮 `<merge-base>..HEAD` 得「本刀新引入」子集）——**三面一律跑子字串掃**。
+★**掃描母體不限物件型別**（019 final review 實證）：機密值也可能寫在 **commit message**（本 repo
+實掃即有 1 筆 016 期 commit 物件含 `alert_webhook_url` 現值、已在 default branch），只掃 blob 對
+整個物件型別失明——收刀終驗一律以 `git cat-file --batch-all-objects --batch` 掃**全物件**
+（型別統計一併記錄：tree／blob／commit 各若干），命中者依型別分流（commit message 內含＝
+改寫歷史才能移除，判斷同下方分流表）。
 ★**可觸及面絕不可用 SHA 交集／`cat-file -e` 判否**：那是 L-191 已點名失明的 SHA 相等判準，
 對「檔案**內含**機密」永遠回 0；本刀第一次寫這步就踩了（unreachable 面已升級、可觸及面用回舊
 判準＝假的「未進歷史」）。
