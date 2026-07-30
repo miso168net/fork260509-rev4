@@ -4,8 +4,13 @@
 #   失敗才切 env-wrapper 備案）。
 # ★寫法坑（R4）：本 yaml 經 volume 掛載進容器、不經 compose 插值——單 $ 即可；
 #   只有 compose environment 值才需 $$ 雙寫（docker-compose.yml grafana 段 GF_SECURITY_ADMIN_PASSWORD 即彼形）。
-# URL 永不明文進版本庫：真值住 deploy/secrets/alert_webhook_url.txt（gitignored、generate-secrets
-#   placeholder 形＋preflight REQUIRED；T002 as-built）。
+# URL 不以完整字面進版本庫：真值住 $SECRETS_DIR/alert_webhook_url.txt（★019 US3 起落點由 repo 根
+#   .env 的 SECRETS_DIR 決定、未設才回退 repo 內 deploy/secrets；generate-secrets placeholder 形
+#   ＋preflight REQUIRED；T002 as-built）。密文權威來源＝deploy/secrets.dev.enc.yaml 之
+#   alert_webhook_url key（019）。
+# ★誠實登記（019 U6）：現值＝dev 佔位（dev 收器的容器內部位址），仍可由
+#   deploy/dev-webhook-sink.sh 的 NAME 常數＋埠＋路徑推導＝**dev-only 已接受殘餘**（L-190）；
+#   故上句是「不含完整字面」、不是「不可推導」。正式接收端 URL 填入後即不可由 tracked 檔推導。
 apiVersion: 1
 
 contactPoints:

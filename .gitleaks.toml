@@ -1,0 +1,58 @@
+# .gitleaks.toml — rev4 三 repo 共用機密掃描設定（019 U1；contracts/scan-gates.md §S1）
+#
+# ★僅用 gitleaks 子集欄位（[extend]／[[rules]]／[[rules.allowlists]]／頂層 [[allowlists]]
+#   的 targetRules）——禁 Betterleaks 專屬 CEL 欄位（validate／filter／tokenEfficiency），
+#   保 Betterleaks 與 gitleaks 雙向可攜（research R1：Betterleaks 依序找 .betterleaks.toml
+#   → fallback 本檔名）。
+# ★[extend] useDefault：自訂 config 會「取代」內建規則庫——必須以 extend 機制保留預設
+#   規則，否則 KEY=value 廣譜偵測全滅＝防線自廢。
+# ★allowlist 紀律（research R5）：逐條 condition = "AND"＋paths×regexes 並用＋顯式
+#   regexTarget；嚴禁整檔放行——condition 預設 OR、漏寫即退化為過寬放行且不報錯
+#   （本 schema 最大靜默失效點；否定測試＝quickstart S2）。
+# 誤報基線＝T009 全歷史現場重建（2026-07-28、493 commits、21 findings、全數誤報）：
+#   docs/ops/events.jsonl pins.api 40-hex ×20（generic-api-key）＋
+#   specs/017-audit-retention/quickstart.md curl -u 命令替換示例 ×1（curl-auth-user）；
+#   deploy/secrets/*.txt.example 零命中。
+
+[extend]
+useDefault = true
+
+# ── 自訂規則：DSN 帳密 URL（research R6；FR-003）─────────────────────────
+# 本專案 3 支 composite（database_url／redis_url／reaper_database_url）正是此形、落在
+# 預設規則庫盲區。密碼段首字元排除 $／<／{ ——`${VAR}`、`$(cmd)`、`<pw>`、`{name}` 屬
+# 結構性佔位、必非真值（文件例句免逐檔放行）；user 段可空（redis://:pw@host 形）。
+[[rules]]
+id = "rev4-dsn-credential-url"
+description = "DSN 帳密 URL（postgres(ql)/redis/mysql 的 user:password@ 形連線字串）"
+regex = '''(?i)\b(?:postgres(?:ql)?|redis|mysql)://[^:@/\s'"]*:[^$<{@\s'"][^@\s'"]*@'''
+keywords = ["postgres://", "postgresql://", "redis://", "mysql://"]
+
+# 文件玩具示例（T009 基線與現樹 grep 圈定）：僅 specs 設計文件內的教學用假憑證三元組，
+# 逐字面圈定、不放行任何真值形。
+[[rules.allowlists]]
+description = "specs 設計文件內的 DSN 教學示例（u:p@h／user:pw@host／reaper:HEX@postgres）"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^specs/.*\.md$''']
+regexes = ['''://(?:u:p@h|user:pw@host|reaper:HEX@postgres)''']
+
+# ── 內建規則誤報圈定（T009 基線；FR-002）─────────────────────────────────
+# events.jsonl 收刀簿記三欄 40-hex commit SHA（merge／pins.web／pins.api）：圈定至欄位
+# 層級——regexTarget=match 釘住「欄名＋恰 40-hex」的命中片段本身，同檔其他欄或非 40-hex
+# 值不放行。
+[[allowlists]]
+description = "events.jsonl 簿記三欄（merge/pins.web/pins.api）之 40-hex commit SHA"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''^docs/ops/events\.jsonl$''']
+regexes = ['''(?:merge|web|api)"\s*:\s*"[0-9a-f]{40}"''']
+
+# 017 quickstart 的 curl -u 示例：密碼位是 $(cat …) 命令替換、結構性非真值。
+[[allowlists]]
+description = "017 quickstart S6 的 curl -u admin:$(cat …) 命令替換示例"
+targetRules = ["curl-auth-user"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^specs/017-audit-retention/quickstart\.md$''']
+regexes = ['''curl -s -u admin:"\$\(cat deploy/secrets/grafana_admin_password\.txt\)"''']

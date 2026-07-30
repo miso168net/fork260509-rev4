@@ -1,0 +1,19 @@
+#!/bin/sh
+# 兩源倉（base-web／rust-api）專用 pre-commit — 僅 Betterleaks 樣式掃描（019 scan-gates §S1）。
+# ★零 python 依賴、毫秒級、不 source 任何 lib（scan-range.sh 只承載 pre-push 面）；
+#   不觸發上游 husky／pnpm 鏈。寄宿外層 repo、由 bootstrap 設 core.hooksPath 指到本目錄
+#   （per-machine、源倉樹零改動）；config 以 dirname 自我定位取外層 .gitleaks.toml
+#   （源倉自身樹無此檔）。
+# 事件型語意：--no-verify 繞過＝機密真進 git 歷史、不可逆；pre-push 第二層同套規則再攔。
+HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# ★--redact 不可省（預設 0＝明文噴終端）；git 子命令（禁 protect/detect）；原生二進位
+#   （容器不帶 GIT_INDEX_FILE → commit -a 掃 0 bytes 靜默漏報）。
+betterleaks git --config "$HOOK_DIR/../.gitleaks.toml" --pre-commit --staged --redact --verbose --exit-code 2
+rc=$?
+[ "$rc" -eq 0 ] && exit 0
+if [ "$rc" -eq 2 ]; then
+  echo "[pre-commit] ✗ 機密樣式命中（上方輸出含 rule id 與檔案行、值已遮蔽）——移除後重試；誤報→修外層 .gitleaks.toml allowlist、絕不 --no-verify" >&2
+else
+  echo "[pre-commit] ✗ 掃描器本身異常（exit $rc）、非機密命中——跑外層 bash tools/bootstrap 檢修（安裝／版本斷言）" >&2
+fi
+exit 1

@@ -3,9 +3,13 @@
 - 波 0（001~003）＋波 1（004~008）＋admin 家族（009~013）＋014-user-center＋015-pwd-custody＋
   016-observability＋017-audit-retention＋輕量軌三例（B-059／B-104／維護批）全收；憲法現版
   v1.14.0。各刀成果與判準詳 events/STATE、git 即史。
-- ★維運待辦（016 遺留）：`deploy/secrets/alert_webhook_url.txt` 現值＝dev 收器 URL（收器已撤、
-  投遞失敗重試無害）、正式接收端 URL 待 user 自填；obs＋metrics 觀測件現全 up、jobs sidecar
-  屬 opt-in 未常駐。
+- ★維運待辦（016 遺留）：`$SECRETS_DIR/alert_webhook_url.txt` 現值＝dev 收器 URL（收器已撤、
+  投遞失敗重試無害）、正式接收端 URL 待 user 自填——★019 起落點已遷出 repo、密文權威來源＝
+  `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；obs＋metrics 觀測件現全
+  up、jobs sidecar 屬 opt-in 未常駐。
+- ★**019 收刀未結硬性義務（兩組、皆非可選、細節見 BACKLOG 該列）**：①**finishing**＝user 親產真鑰＋撤銷暫代鑰（其 passphrase 已在對話紀錄＝視同洩露）＋輪替 7 支 leaf（`alert_webhook_url` 不輪替＝保 SC-007）；
+  未做完＝版控內密文的實質保護等同無；權威＝ADR 0080 決策 5、程序＝RUNBOOK §15.2／§15.3／§7＋§15.4、歸屬＝**B-120**。②**簿記 commit**＝活書 `ARCHITECTURE.md` §7「機密」段兩處＋§8「機密內容」列一處與 as-built 相反
+  （§7＝落點已遷出 repo／`CHANGE-ME` 黑名單須補 6 支射程；§8＝慣例與守門兩欄仍是 018 單層狀態，須改寫為 ADR 0082 三層並存＋pre-push 三 repo），依紀律不在 feature branch 改而歸收刀簿記（`arch_impact` 須含 §7 **與 §8**；lint L6(b) 只擋帳面不符、不擋遺漏）；歸屬＝**B-122**。
 - **018-governance-hardening 已收刀**（2026-07-28）：治理工具鏈與編排紀律硬化——B-111 四支
   工具補 .py＋CLAUDE.md 範本三件（六件套⑥／次輪前饋／三欄表）＋docs-sync 五新條款（L16 憑證
   掃描／L17 pin 互證／L18 events 實證／L19 命令形／L20 空集合守衛）＋lint 三段式摘要＋tools-cli
@@ -17,8 +21,10 @@
   B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；B-101（casbin
   按鈕碼與 buttons 聯集漂移）；B-094（未刪選單分頁截斷）。
 - base-web 改動走 fork-delta 原行紀律（★lint 一律 `python3 tools/fork-delta-lint.py` 直跑——bash 跑假紅
-  ＝L-143；以 example 為基線機器強制、掛 pre-commit 於 base-web pin 變動時擋）；base-web worktree
-  commit 一律 `--no-verify`；★`.vue` template 標記用 `<!-- -->`（L-119）。
+  ＝L-143；以 example 為基線機器強制、掛 pre-commit 於 base-web pin 變動時擋）；★**base-web worktree
+  commit 的 `--no-verify` 慣例已廢止**（019）——hooksPath 指向外層即結構性旁路上游 husky、原始理由
+  （躲 husky 跑 pnpm install）消失，而 `--no-verify` 會同時繞過機密掃描（事件型：繞過一次即真進 git、
+  下次不再抓）；詳 ADR 0082 決策 5；★`.vue` template 標記用 `<!-- -->`（L-119）。
 - ★治理工具已改名補 `.py`（B-111／018 U1）：`tools/docs-sync.py`／`schema-gate.py`／`fork-delta-lint.py`
   ／`wire-schema.py`——他機舊 session 照打舊名＝檔不存在即 fail-loud；隨 git sync 自然傳播。
 - ★新 i18n key 加入後 CDP 前需 restart base-web（vite 未必熱載新字典、否則顯 raw key、L-015）；

@@ -81,3 +81,8 @@
 | 0076 | accepted | 2026-07-21 | 稽核 retention 自動清理——遵憲 J3 自記＋reaper 權限最小擴張（B-016 本體、兌現 0075 預留條款） | — | 0075 | — |
 | 0077 | accepted | 2026-07-28 | 憑證內容掃描閘——外層 tracked 全量＋pin bump 增量掃 submodule、窄樣式集高確信、無 inline 豁免 | — | — | — |
 | 0078 | accepted | 2026-07-28 | events.jsonl append-only 例外——機器可證語意不變的格式正規化允許動既有列（獨立勘誤 commit 逐筆附證據） | — | — | — |
+| 0079 | accepted | 2026-07-30 | 機密管理選型＝SOPS＋age——零維運硬約束下的公鑰信封模型，官方容器 digest 釘版、cosign 不啟用 | — | — | — |
+| 0080 | accepted | 2026-07-29 | 私鑰 B′（passphrase 加殼 identity）× SECRETS_DIR 解法 2（$HOME/.cache/rev4-secrets）——三實測閘定案與 #11 反轉後重拍 | — | — | — |
+| 0081 | accepted | 2026-07-30 | 加密資產形狀——dev 單檔 8 key、prod 不建（目標形狀備忘）、ca.key 不進 SOPS、命名紅線與不設範圍選項 | — | — | — |
+| 0082 | accepted | 2026-07-30 | 機密洩漏三層掃描防線定位——事件型廣譜 × 狀態型窄樣式 × 值比對確定性互補並存、三 repo 覆蓋 | — | — | — |
+| 0083 | accepted | 2026-07-30 | 團隊組成前提——「將來可能有非工程師」⇒ 兩層架構為待觸發架構決定；個人密碼管理器選型延後＋四反轉條件 | — | — | — |

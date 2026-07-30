@@ -18,6 +18,8 @@ fork260509-rev4/
 │   ├── ops/BACKLOG-DEFERRED.md      滯後卷：user 拍板滯後的待辦（滯後≠完成、回收時點見條目）
 │   ├── ops/LESSONS.md               坑與防法 L-NNN（append-only、滿卷分卷）
 │   ├── ops/LESSONS-001-101.md       封存卷：rev3 教訓種子全量（errata 仍就地修）
+│   ├── ops/LESSONS-102-150.md       封存卷：rev4 波 0～018 治理硬化（同上）
+│   ├── ops/LESSONS-151-175.md       封存卷：019 施工期前段（同上）
 │   ├── ops/RUNBOOK.md               dev stack 操作手冊：起停／輪替／備份／維運端點
 │   ├── ops/events.jsonl             事件源：收刀／review／里程碑（機器讀；人讀 MILESTONES）
 │   ├── brainstorms/                 各刀 Phase 0 產出（史料；000＝退役的啟動書）

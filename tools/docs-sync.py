@@ -1852,7 +1852,8 @@ def compute_snapshot_reference(root):
 # G7 tools-cli 真表／L19 命令形 lint（contracts G5/G7；FR-014）
 # ---------------------------------------------------------------------------
 
-TOOLS_PY = ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema")
+TOOLS_PY = ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema",
+            "secret-value-guard")
 TOOLS_SH = ("bootstrap", "wf-watchdog")
 TOOLS_CLI_MD = f"{GENERATED_DIR}/reference/tools-cli.md"
 SH_USAGE_HEAD = 10     # bash 用法行只認檔頭前 N 行的註解（再深＝內文敘述、非介面說明）
@@ -1918,7 +1919,7 @@ def sh_usage_line(source):
 
 
 def compute_tools_cli(root):
-    """六支工具掃源 → 真表 rows（python 四支＝子命令集；bash 兩支＝存在＋用法行）。"""
+    """TOOLS_PY／TOOLS_SH 名冊掃源 → 真表 rows（python＝子命令集；bash＝存在＋用法行）。"""
     rows = []
     for name in TOOLS_PY:
         rel = f"tools/{name}.py"
@@ -1936,10 +1937,14 @@ def compute_tools_cli(root):
 
 def gen_tools_cli(rows):
     """真表 md（GEN_HEADER＋每工具一節；data-model §7）。"""
+    # ★抬頭支數由 rows 現算、不寫死字面：寫死時名冊增減只改得到節數、抬頭原封不動，生成檔
+    # 當場自我矛盾且全套件仍綠（019 U1 實證：名冊進 secret-value-guard 後抬頭仍稱「六支」、
+    # 實列七節）。字面斷言＝test_tools_roster_is_pinned_and_table_renders_seven_sections。
+    n_py = sum(1 for r in rows if r["lang"] == "python")
     parts = [GEN_HEADER, "# reference/tools-cli — 治理工具命令真表", "",
-             "來源＝tools/ 六支工具掃源（python 四支＝分派表字串比較字面、去重排序；bash 兩支"
-             "＝存在與檔頭用法行）。消費者＝lint L19 命令形條款（語料＝CLAUDE.md／README.md／"
-             "docs/ops/RUNBOOK.md 三件活手冊）＋人讀。\n"]
+             f"來源＝tools/ {len(rows)} 支工具掃源（python {n_py} 支＝分派表字串比較字面、"
+             f"去重排序；bash {len(rows) - n_py} 支＝存在與檔頭用法行）。消費者＝lint L19 "
+             "命令形條款（語料＝CLAUDE.md／README.md／docs/ops/RUNBOOK.md 三件活手冊）＋人讀。\n"]
     for row in rows:
         parts.append(f"## {row['rel']}")
         parts.append(f"- 語言：{row['lang']}")
@@ -5769,11 +5774,12 @@ _FAKE_EQ = 'if cmd == "{}":\n    pass\n'
 _FAKE_ELIF = 'elif cmd == "{}":\n    pass\n'
 _FAKE_IN = 'if cmd in ("{}", "{}"):\n    pass\n'
 _FAKE_TOOLS = (("docs-sync", ("generate", "lint")), ("fork-delta-lint", ()),
-               ("schema-gate", ("gate1", "gate2")), ("wire-schema", ("extract",)))
+               ("schema-gate", ("gate1", "gate2")), ("wire-schema", ("extract",)),
+               ("secret-value-guard", ("check",)))
 
 
 def _tools_fixture(d):
-    """自建 root 的 tools/ 六支最小工具源（python 四支帶分派表、bash 兩支帶檔頭）。"""
+    """自建 root 的 tools/ 最小工具源（支數與清單一律以 _FAKE_TOOLS 名冊為準、不留硬編數字）。"""
     for name, subs in _FAKE_TOOLS:
         body = "".join(_FAKE_EQ.format(s) for s in subs) or "# 無分派表、直跑\n"
         _wfile(d, f"tools/{name}.py", "#!/usr/bin/env python3\n" + body)
@@ -5810,19 +5816,23 @@ class TestToolsCliTruthTable(unittest.TestCase):
         self.assertIsNone(sh_usage_line("#!/bin/sh\n# 用途：只有用途註解\n"))
         self.assertIsNone(sh_usage_line("#\n" * SH_USAGE_HEAD + "# 用法：太深\n"))
 
-    def test_tools_roster_is_pinned_and_table_renders_six_sections(self):
+    def test_tools_roster_is_pinned_and_table_renders_seven_sections(self):
         """★名冊字面釘死：只迭代 TOOLS_PY／TOOLS_SH 的斷言是套套邏輯（常數縮水＝斷言跟著
         縮水、全綠存活），連帶 RE_CMD_PY／RE_CMD_OLD 也由同一常數 join 而成——名冊少一支＝
         真表少一節（SC-006 失守）＋該工具的 L19 子命令比對與舊名禁令一併靜默下線。"""
         self.assertEqual(TOOLS_PY,
-                         ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema"))
+                         ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema",
+                          "secret-value-guard"))
         self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
-        heads = [ln for ln in gen_tools_cli(compute_tools_cli(ROOT)).splitlines()
-                 if ln.startswith("## ")]
-        self.assertEqual(len(heads), 6, msg=str(heads))
+        md = gen_tools_cli(compute_tools_cli(ROOT))
+        heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
+        self.assertEqual(len(heads), 7, msg=str(heads))
+        # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
+        # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（019 U1 實證）。
+        self.assertIn("來源＝tools/ 7 支工具掃源（python 5 支", md)
 
-    def test_compute_and_render_six_tools(self):
-        """真表六節俱全：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
+    def test_compute_and_render_every_rostered_tool(self):
+        """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
         with tempfile.TemporaryDirectory() as d:
             _tools_fixture(d)
             md = gen_tools_cli(compute_tools_cli(d))
@@ -5885,7 +5895,7 @@ class TestCmdFormLint(unittest.TestCase):
                              msg=sub)
 
     def test_old_name_without_py_is_error(self):
-        """②舊名禁令：四支不帶 .py 的路徑形命中即 ERROR（B-111 長期機器化）。"""
+        """②舊名禁令：TOOLS_PY 名冊各支不帶 .py 的路徑形命中即 ERROR（B-111 長期機器化）。"""
         f = self._f("勘誤跑 `tools/docs-sync errata 某詞`\n")
         self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
         self.assertIn("舊名", f[0]["msg"])
@@ -6500,7 +6510,8 @@ class TestGateWiring(unittest.TestCase):
     文、實測觸發次數（非只驗字面在）。沙盒建在系統 tmp（native fs、非 drvfs），十次乾跑
     合計約 0.7s。"""
 
-    BASE = ["tools/docs-sync.py check", "tools/docs-sync.py lint"]
+    BASE = ["tools/secret-value-guard.py check",
+            "tools/docs-sync.py check", "tools/docs-sync.py lint"]
 
     @classmethod
     def setUpClass(cls):
@@ -6514,6 +6525,12 @@ class TestGateWiring(unittest.TestCase):
             _wfile(d, f"tools/{name}.py", STUB_TOOL)
         _wfile(d, "base-web", "gitlink 佔位：本測只驗觸發條件、不建真 submodule\n")
         _wfile(d, "docs/ops/NOTES.md", "非工具檔（平時情境用）\n")
+        # ★真 hook 現以 `--config <hook 目錄>/../.gitleaks.toml` 顯式指定掃描器設定
+        # （019 final review：靠自動探索時 config 缺席會**靜默降級成內建規則並 rc=0**，
+        # 顯式帶則 rc=1 落入「掃描器本身異常」分支＝吵鬧失敗）。沙盒缺該檔時掃描階段即
+        # exit 1、樁工具零呼叫——那是 hook 行為正確而**沙盒不保真**，故此處補最小合法
+        # 設定檔（`extend.useDefault` 保內建規則；本節只驗觸發接線、不驗規則內容）。
+        _wfile(d, ".gitleaks.toml", "[extend]\n  useDefault = true\n")
 
     @classmethod
     def tearDownClass(cls):
@@ -6542,8 +6559,36 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(tuple(m.group(1).split()), tools_test_roster())
         self.assertIn("tools/fork-delta-lint.py", hook)   # 無 test 介面、走聯集觸發
 
+    def test_age_version_pinned_consistently_in_script_and_runbook(self):
+        """★釘版值兩處相等（019 final review 後補）：`deploy/generate-age-key.sh` 的
+        `AGE_VERSION` 與 RUNBOOK §12「機密工具鏈釘版」欄的 age 版本字面必須逐字相同。
+        成因＝腳本要離線自足故只能硬編碼，而版本欄是人讀權威；兩處漂移＝手冊說 A、腳本抓 B
+        （同族失效已記 L-190／L-197：凡「同一事實抄成兩份」就要有機器閘釘住）。單邊改即紅。"""
+        script = _read(ROOT, "deploy/generate-age-key.sh") or ""
+        m = re.search(r"^AGE_VERSION=(v[0-9][0-9.]*)$", script, re.M)
+        self.assertIsNotNone(m, msg="generate-age-key.sh 的 AGE_VERSION 釘版行不見了")
+        book = _read(ROOT, "docs/ops/RUNBOOK.md") or ""
+        b = re.search(r"age \*\*(v[0-9][0-9.]*)\*\*", book)
+        self.assertIsNotNone(b, msg="RUNBOOK §12 的 age 釘版字面不見了")
+        self.assertEqual(m.group(1), b.group(1),
+                         msg="腳本 AGE_VERSION 與 RUNBOOK §12 age 釘版值不一致")
+
+    def test_hook_scan_pins_scanner_config_explicitly(self):
+        """★掃描器設定檔**顯式指定、不靠自動探索**（019 final review 實證）：探索模式下
+        `.gitleaks.toml` 缺席時 betterleaks **靜默降級為內建規則庫並回 rc=0**——自訂 DSN
+        規則與兩條 allowlist 一併下線，而 hook 只看 rc，於是一路綠（實測同一 DSN fixture：
+        無 config rc=0／放回 rc=2）；顯式帶則 config 缺席即 rc=1、落入「掃描器本身異常」
+        分支＝吵鬧失敗。此案釘住兩支 hook 皆顯式帶（拿掉任一即紅）——沙盒 fixture 有該檔，
+        故少了本案時「移除 --config」會全綠存活（防恆綠、同 L-159 教訓）。"""
+        for rel in (HOOK_REL, ".githooks-submodule/pre-commit"):
+            text = _read(ROOT, rel) or ""
+            line = re.search(r"^betterleaks git .*$", text, re.M)
+            self.assertIsNotNone(line, msg=f"{rel} 的樣式掃描行不見了")
+            self.assertIn("--config ", line.group(0),
+                          msg=f"{rel} 掃描行未顯式帶 --config＝config 缺席時靜默降級")
+
     def test_bootstrap_runs_every_tool_test(self):
-        """G9 體檢節無條件全跑：三行 run_tool_test 被刪即紅（與 hook 同一名冊對賬）。"""
+        """G9 體檢節無條件全跑：run_tool_test 逐行被刪即紅（與 hook 同一名冊對賬）。"""
         text = _read(ROOT, BOOTSTRAP_REL)
         self.assertIsNotNone(text)
         self.assertEqual(tuple(RE_BOOTSTRAP_TEST.findall(text)), tools_test_roster())
@@ -6601,7 +6646,7 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
 
     def test_dry_run_triggers_only_the_staged_tools_test(self):
-        """情境②三支全 staged＝三支全觸發（順序＝名冊序）；情境③只 staged 一支＝另兩支
+        """情境②名冊全 staged＝全支觸發（順序＝名冊序）；情境③只 staged 一支＝其餘各支
         不得被拖下水（條件是逐支比對、不是「有工具改動就全跑」）。"""
         roster = tools_test_roster()
         self.assertEqual(self._run([f"tools/{n}.py" for n in roster]),
@@ -6622,9 +6667,10 @@ class TestGateWiring(unittest.TestCase):
         ★四分支逐一驗：hook 首行是 #!/bin/sh 且全檔無 set -e，行尾 `|| exit 1` 被拿掉＝該
         動作非零時被完全忽略、續跑並以 0 收場（＝全庫閘可被一行編輯靜默關掉）。只驗其中
         一支＝覆蓋率 1/4，另三支的保護被拆時全套件仍綠。"""
-        # 分支 a：check 非零→立即 exit，lint 與後續全不得跑（log 只有 check 一行）。
+        # 分支 a：check 非零→立即 exit，lint 與後續全不得跑（log＝值比對＋check 兩行——
+        # 019 起值比對層在 docs-sync 之前、屬事件型防線，見 hook 註解）。
         self.assertEqual(self._run(["docs/ops/NOTES.md"], fail="docs-sync.py"),
-                         (1, ["tools/docs-sync.py check"]))
+                         (1, self.BASE[:2]))
         # 分支 b：只讓 lint 非零（同一支工具、以子命令區分）→ check 跑完、hook 仍 exit 1。
         self.assertEqual(self._run(["docs/ops/NOTES.md"], fail="docs-sync.py", fail_sub="lint"),
                          (1, self.BASE))

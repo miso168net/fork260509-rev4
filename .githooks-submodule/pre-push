@@ -1,0 +1,7 @@
+#!/bin/sh
+# 兩源倉（base-web／rust-api）專用 pre-push — 機密掃描第二層（019 scan-gates §S3）。
+# 以 dirname "$0" 自我定位後 source 外層共用 lib（★不硬編碼外層絕對路徑）；零 python 依賴。
+HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$HOOK_DIR/../.githooks/lib/scan-range.sh"
+SCAN_CONFIG="$HOOK_DIR/../.gitleaks.toml"
+scan_push_ranges || exit 1

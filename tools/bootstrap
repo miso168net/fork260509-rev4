@@ -5,7 +5,9 @@
 #       並斷言最原始源基線（fork260509-soybean-admin-base @ example、CLAUDE.md §1）與
 #       pin 一致性；舊機重跑＝純體檢。任何斷言失敗→exit 2＋指名處置；分歧類問題只警告
 #       （⚠）不自動 reset、絕不半套。
-# 不含：deploy/secrets/*.txt 實值（僅體檢缺檔，實值人對人交接、見 deploy/secrets/README.md）；
+# 不含：機密實值（僅體檢 SECRETS_DIR 下缺檔；★019 起實值不再人對人交接——重建走
+#       ./deploy/decrypt-secrets.sh〔8 支〕＋ ./deploy/generate-secrets.sh --compose-only〔3 composite〕，
+#       見 deploy/secrets/README.md）；
 #       dev stack 起法（見 specs/001 quickstart）。
 # 測試掛點：RV4_BASEWEB_SRC_URL／RV4_RUSTAPI_SRC_URL 可覆寫 clone 來源（file:// 亦可）。
 set -euo pipefail
@@ -34,6 +36,17 @@ esac
 # ── 1. hooks ─────────────────────────────────────────────────────────
 git -C "$ROOT" config core.hooksPath .githooks
 ok "core.hooksPath=.githooks"
+
+# 掃描器斷言（019 scan-gates §S4；★die 級——缺席時 hook 會以 exit 127 擋掉每次 commit
+# 且訊息難解，體檢須先 fail-loud；版本釘定值＝RUNBOOK §12 拍板、升版先改拍板再改此值）
+BETTERLEAKS_VER="1.7.1"
+BETTERLEAKS_GET="處置：下載 https://github.com/betterleaks/betterleaks/releases/download/v${BETTERLEAKS_VER}/betterleaks_${BETTERLEAKS_VER}_linux_x64.tar.gz 與同頁 checksums.txt（檔名不含版號）→ sha256sum -c checksums.txt --ignore-missing 驗證 → 解壓 betterleaks 至 ~/.local/bin"
+command -v betterleaks >/dev/null 2>&1 \
+  || die "betterleaks 缺席（三層掃描防線之樣式層）——${BETTERLEAKS_GET}"
+bl_ver="$(betterleaks version 2>/dev/null || true)"
+[ "$bl_ver" = "$BETTERLEAKS_VER" ] \
+  || die "betterleaks 版本（${bl_ver:-讀不到}）≠ 釘定 ${BETTERLEAKS_VER}——${BETTERLEAKS_GET}"
+ok "betterleaks ${BETTERLEAKS_VER} 就緒（釘版斷言過）"
 
 # ── 2. 源倉（缺才 clone、幂等）────────────────────────────────────────
 ensure_src() { # $1=目錄 $2=URL $3=名
@@ -91,6 +104,17 @@ ensure_worktree() { # $1=源倉 $2=目錄名 $3=分支
 ensure_worktree "$BASEWEB_SRC" "base-web" "rev4-admin-base-web"
 ensure_worktree "$RUSTAPI_SRC" "rust-api" "rev4-admin-rust-api"
 
+# 兩源倉 hooksPath 佈署＋讀值斷言（019 scan-gates §S5；per-machine git config、源倉工作樹
+# 零改動）：★絕對路徑指向外層 .githooks-submodule（相對路徑會相對於源倉根、必錯）；
+# 冪等（重跑＝再設同值）。他機 clone 未跑 bootstrap＝源倉無防線，由本斷言在體檢時暴露。
+for wt in base-web rust-api; do
+  git -C "$ROOT/$wt" config core.hooksPath "$ROOT/.githooks-submodule"
+  hp="$(git -C "$ROOT/$wt" config core.hooksPath || echo '')"
+  [ "$hp" = "$ROOT/.githooks-submodule" ] \
+    || die "$wt core.hooksPath 讀值（${hp:-未設}）≠ 預期——自癒：git -C $ROOT/$wt config core.hooksPath $ROOT/.githooks-submodule"
+done
+ok "兩源倉 core.hooksPath＝外層 .githooks-submodule（樣式掃描防線就位）"
+
 # ── 4. pin 一致性（分歧只警告；判讀＝回外層更新 pin 方向、CLAUDE.md §3）──
 check_pin() { # $1=目錄名
   local pin head
@@ -114,20 +138,55 @@ run_tool_test() { # $1=工具名（不含 .py）；失敗才吐明細，成功�
 run_tool_test docs-sync
 run_tool_test schema-gate
 run_tool_test wire-schema
+run_tool_test secret-value-guard
 python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
 ok "fork-delta-lint 全綠（self-test＋實掃）"
 
-# ── 6. secrets 體檢（僅檢缺檔、不碰實值）──────────────────────────────
+# ── 6. .env 單一事實來源（019 T024／T029、contracts P5.4 三級口徑）────────
+# 口徑：.env 缺失→代勞產生（自癒、不中止）；已存在→不覆寫、只讀值斷言（形制不合＝warn
+# ＋自癒指引，不 die——上機前 fail-loud 由 preflight 承載、bootstrap 不重複把關）。
+# ★SECRETS_DIR 必須寫「絕對路徑字面」：compose 讀 .env 不做 shell 展開（$HOME 字面無效），
+#   故由本腳本於 shell 側展開後寫入；產檔約束全文見 .env.example。
+ENV_FILE="$ROOT/.env"
+SECRETS_DIR_DEFAULT="$HOME/.cache/rev4-secrets"
+if [ ! -f "$ENV_FILE" ]; then
+  printf 'SECRETS_DIR=%s\n' "$SECRETS_DIR_DEFAULT" > "$ENV_FILE"
+  ok ".env 缺失→已代勞產生（SECRETS_DIR=$SECRETS_DIR_DEFAULT）"
+fi
+SECRETS_DIR="$ROOT/deploy/secrets"   # 讀值失敗時的體檢回退（＝compose 未設變數之回退口徑）
+# ★偵測寬、取值窄（019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env 解析器接受
+#   UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，行首錨定 `SECRETS_DIR=` 的
+#   窄樣式對這五形一律漏認（實測 compose v5.3.1 五形皆解析為新落點）——體檢會據此以舊落點
+#   進行、並印出與實情相反的「compose 將回退」診斷，把 operator 導離真因。
+env_line="$(sed -e "1s/^$(printf '\357\273\277')//" -e 's/\r$//' "$ENV_FILE" \
+            | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 || true)"
+if [ -z "$env_line" ]; then
+  warn ".env 已存在但無 SECRETS_DIR 行——compose 將回退 ./deploy/secrets（保護失效）；自癒：echo SECRETS_DIR=$SECRETS_DIR_DEFAULT 附加進 .env"
+else
+  env_val="$(printf '%s\n' "$env_line" \
+             | sed -E 's/^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
+  case "$env_val" in
+    *[!A-Za-z0-9_/.-]*|"")
+      warn ".env 之 SECRETS_DIR 為空或含空白／shell 元字元（產檔約束見 .env.example）——體檢以 deploy/secrets 回退進行" ;;
+    /*)
+      SECRETS_DIR="$env_val"
+      ok ".env SECRETS_DIR=$env_val（絕對路徑字面、形制合格）" ;;
+    *)
+      warn ".env 之 SECRETS_DIR 非絕對路徑字面（compose 不做 shell 展開）——體檢以 deploy/secrets 回退進行" ;;
+  esac
+fi
+
+# ── 7. secrets 體檢（僅檢缺檔、不碰實值；名冊＝repo 內 .example、落點隨 SECRETS_DIR）──
 missing=""
 for ex in "$ROOT"/deploy/secrets/*.example; do
   [ -e "$ex" ] || continue
-  real="${ex%.example}"
-  [ -f "$real" ] || missing="$missing $(basename "$real")"
+  real_base="$(basename "${ex%.example}")"
+  [ -f "$SECRETS_DIR/$real_base" ] || missing="$missing $real_base"
 done
 if [ -n "$missing" ]; then
-  warn "deploy/secrets 缺實值檔：$missing —— 照 deploy/secrets/README.md 自建（人對人交接）"
+  warn "SECRETS_DIR（$SECRETS_DIR）缺實值檔：$missing —— 重建：./deploy/decrypt-secrets.sh（8 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）；上機前把關＝preflight"
 else
-  ok "deploy/secrets 實值檔齊"
+  ok "SECRETS_DIR（$SECRETS_DIR）實值檔齊"
 fi
 
 # ── 摘要 ─────────────────────────────────────────────────────────────
