@@ -1,18 +1,24 @@
 # deploy/secrets — Secret 管理說明
 
 ★**019 起本目錄只剩 `README.md`（本檔）與 `*.txt.example` 範本**——機密**明文實值已遷出 repo**，
-落點由 repo 根 `.env` 的 `SECRETS_DIR` 決定（拍板預設 `$HOME/.cache/rev4-secrets`；未設 `.env`
-時**才**回退本目錄＝`./deploy/secrets`）。**權威來源＝ `deploy/secrets.dev.enc.yaml`**
-（8 key 密文、**tracked**、以 SOPS+age 加密）；營運全程序＝`docs/ops/RUNBOOK.md` §15。
+落點＝`SECRETS_DIR`，**取值口徑三級**（唯一權威清單＝`specs/019-secrets-sops/contracts/secret-pipeline.md`
+P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但為空」≠「未設」＝吵鬧失敗、不代猜）
+②repo 根 `.env` **只嚴格解析 `SECRETS_DIR=` 一行**（明令禁整檔 `source`；行形偵測與 compose 等寬
+＝接受 BOM／`export ` 前綴／等號兩側空白／CRLF，值校驗才收窄）③皆缺**才**回退本目錄
+＝`deploy/secrets`。拍板預設值＝`$HOME/.cache/rev4-secrets`（`.env.example` 有註解範例）。
+唯一例外＝`tools/bootstrap` 依 P5.1 分工**只讀 `.env`、不吃環境變數**（體檢用途）。
+**權威來源＝ `deploy/secrets.dev.enc.yaml`**（8 key 密文、**tracked**、以 SOPS+age 加密）；
+營運全程序＝`docs/ops/RUNBOOK.md` §15。
 
 **請勿將真實 secret 值 commit 進版本庫。**（三層掃描防線會擋，但擋不住已經進歷史的東西。）
 
-```bash
-# 落點取值（本檔以下命令共用；未設 .env 時回退 ./deploy/secrets）
-SECRETS_DIR="$(grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' .env \
-  | tail -n 1 | sed -E 's/^[^=]*=[[:space:]]*//; s/[[:space:]]+$//')"
-SECRETS_DIR="${SECRETS_DIR:-./deploy/secrets}"
-```
+★**本檔刻意不附落點解析片段**（019 U6 quality 第 3 輪移除）：下列命令全是腳本呼叫、**腳本自己按上述
+三級口徑解析**，貼進 shell 前不必先設變數。文件裡貼一段可複製的 `grep .env` 片段＝多一支不受 P5.1
+消費者清單管束的**影子解析器**——移除的那段不讀環境變數（違反①）、且缺 UTF-8 BOM 與 CR 剝除＝
+偵測窄於 compose，於 BOM 形 `.env` 會**靜默回退**到 019 後已零 `.txt` 的本目錄（L-175／L-178 實證：
+回退恰是「看起來全綠」的方向）。人要在 shell 裡取得落點路徑時，**唯一權威片段住
+`docs/ops/RUNBOOK.md` §7 抬頭**——它刻意不設回退、取值失敗即印 `FAIL`（該節下表 `ALTER USER`
+讀到空字串會把密碼改成空）。
 
 ## 取得機密的方式（三條路徑，依情境擇一）
 

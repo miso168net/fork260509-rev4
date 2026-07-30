@@ -940,9 +940,21 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   較長片段 `errata '拒收（boot panic 指名該機密）'` 只回 **2 處、漏掉活書**〔活書用詞為「server boot
   拒收（panic」，長片段不匹配〕；★處置後重跑會多出本段與 B-122 的**後設引用**＝自指噪音，判讀時
   排除 `docs/ops/BACKLOG.md` 與 `specs/019-secrets-sops/**`）。★活書 §7 現 **59/60 行**（L7 單節
-  配額），收刀改寫須淨零或淨減、否則同刀調配額；收刀事件 `arch_impact` 須含 `§7`。
-  ——**generate／check／lint**：`generate` 重算 11 檔、`lint` **0 錯誤 0 警告**（3 條款 fail-safe 跳過
-  ＝L6 events 基準面／L16 兩 gitlink 未 staged）；`check` 於 stage 生成物後一致；工作樹收斂
+  配額），收刀改寫須淨零或淨減、否則同刀調配額。
+  ★**第 3 輪補正：失真面不只 §7，`§8 橫切概念`「機密內容」列同樣是 018 單層狀態**——慣例欄仍寫
+  「樣式集走窄集合高確信（不含泛熵值與 `password=` 類）」、守門欄只列 `docs-sync lint` L16 一道，
+  與 019 as-built（ADR 0082 決策 1 三層並存＝Betterleaks 廣譜／L16 窄集／`secret-value-guard.py`
+  值比對，正是補上「泛熵值」那格；＋決策 3 之 pre-push 第二層三 repo 同套）相反。本刀對 §8 原為
+  **零登記**（`grep -rn '§8\|橫切概念' specs/019-secrets-sops/*.md docs/ops/BACKLOG.md` 僅一筆指
+  017 的無關命中），已併入 B-122 第③條；**收刀事件 `arch_impact` 須含 `§7` 與 `§8`**（§8 現
+  21/90 行、配額充足非阻因）。
+  ——**generate／check／lint**：`generate` 重算 11 檔；`lint` **0 錯誤**（3 條款 fail-safe 跳過
+  ＝L6 events 基準面／L16 兩 gitlink 未 staged）；`check` 於 stage 生成物後一致；工作樹收斂。
+  ★**警告數是量測時點值、不是收刀恆值**（第 3 輪補正）：本行原記「0 警告」係 3415dc9 當時實況，
+  其後 U6 quality 三輪 fix 各自 append 教訓（L-194～L-198），主卷 tokens 越過 L7 之 WARN 門檻
+  22500 → 現況 `lint` **0 錯誤／1 警告**（該 1 筆＝L7｜`docs/ops/LESSONS.md`｜24783 tokens、ERROR 餘裕 217）。
+  故**收刀判準＝0 錯誤 ＋ 警告恰為該 1 筆 L7**，可行動歸屬＝**BACKLOG B-121**（其自身觸發條件
+  已達成）；要求「0 警告」等於逼本刀分卷，而 B-121 明載不宜同刀做
   ——**LESSONS 節歸屬整理（前四單元 carryover）＋本輪 append**：詳本檔 Phase 8 末「LESSONS 主卷
   節歸屬整理」段
 
@@ -960,9 +972,13 @@ L-172~L-190）掛在該節，**其中零筆與 CDP 或 mock 有關**（L-152 講
 「L 號｜舊節→新節｜移動或原位」＝**40 筆／移動 34／原位 6**，新節分佈 7／2／2／5／9／1／6／8。
 **獨立反證**（不採信腳本自陳）：`git show HEAD:` 版與現檔各 `grep -v '^## '｜grep -v '^$'｜sort`
 後 `cmp` **逐 byte 相同（462 行）**；條目數 40→40；空白行 45→49（＝每個新節標題各多一行、恰差 4）；
-節標題 4→8。**分卷判定**：整理＋本輪 append 後主卷 **21598 tokens**（lint L7 之 WARN 22500／硬上限
-25000）→ **未逼近、本刀不切封存卷**（機判＝`token_count` 實算；若日後越 22500 再依既有慣例切，
-三項機判＝兩卷 L 號聯集等於切前集合、交集為空、逐筆 byte 級零漂移）。
+節標題 4→8。**分卷判定（★下列 token 數是量測時點值、會被後續輪次自己的 append 推翻）**：整理＋
+U6 收單當時（`3415dc9`）主卷 **21598 tokens**（lint L7 之 WARN 22500／硬上限 25000）→ **當時未逼近**。
+★**第 3 輪重算**：其後 U6 quality 三輪 fix 續 append L-194～L-198，現況主卷 **24783 tokens
+＝已越 WARN 22500、未達 ERROR 25000**（機判＝`token_count` 實算＝UTF-8 bytes÷3），`lint` 因此
+常態多一筆 L7 警告 → **仍判本刀不切封存卷**，理由與可行動歸屬＝**BACKLOG B-121**（同刀 L 號仍在
+增修、切了製造 diff 噪音；且切法拍板〔號段優先 vs 改以主題切〕未定，主卷 8 個主題節與號段正交）。
+日後切時三項機判＝兩卷 L 號聯集等於切前集合、交集為空、逐筆 byte 級零漂移。
 **本輪 append 三筆**（次序＝發現序，next-id L-191→L-194）：**L-191** 值比對層擋下 commit ≠ 機密沒進
 物件庫＋L-158 稽核法對「文件內含機密」失明（→〔git／worktree／submodule〕，緊接 L-158）｜
 **L-192** 量 staged 段成本的零污染 harness（→〔review／驗收方法論〕）｜**L-193** byte 級健檢印出
