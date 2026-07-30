@@ -1,22 +1,21 @@
 # NOTES — 當前意圖／下一步
 
 - 波 0（001~003）＋波 1（004~008）＋admin 家族（009~013）＋014-user-center＋015-pwd-custody＋
-  016-observability＋017-audit-retention＋輕量軌三例（B-059／B-104／維護批）全收；憲法現版
-  v1.14.0。各刀成果與判準詳 events/STATE、git 即史。
+  016-observability＋017-audit-retention＋018-governance-hardening＋019-secrets-sops＋
+  輕量軌三例（B-059／B-104／維護批）全收；憲法現版 v1.14.0。各刀成果與判準詳
+  events/STATE、git 即史。
 - ★維運待辦（016 遺留）：`$SECRETS_DIR/alert_webhook_url.txt` 現值＝dev 收器 URL（收器已撤、
   投遞失敗重試無害）、正式接收端 URL 待 user 自填——★019 起落點已遷出 repo、密文權威來源＝
-  `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；obs＋metrics 觀測件現全
-  up、jobs sidecar 屬 opt-in 未常駐。
-- ★**019 收刀未結硬性義務（兩組、皆非可選、細節見 BACKLOG 該列）**：①**finishing**＝user 親產真鑰＋撤銷暫代鑰（其 passphrase 已在對話紀錄＝視同洩露）＋輪替 7 支 leaf（`alert_webhook_url` 不輪替＝保 SC-007）；
-  未做完＝版控內密文的實質保護等同無；權威＝ADR 0080 決策 5、程序＝RUNBOOK §15.2／§15.3／§7＋§15.4、歸屬＝**B-120**。②**簿記 commit**＝活書 `ARCHITECTURE.md` §7「機密」段兩處＋§8「機密內容」列一處與 as-built 相反
-  （§7＝落點已遷出 repo／`CHANGE-ME` 黑名單須補 6 支射程；§8＝慣例與守門兩欄仍是 018 單層狀態，須改寫為 ADR 0082 三層並存＋pre-push 三 repo），依紀律不在 feature branch 改而歸收刀簿記（`arch_impact` 須含 §7 **與 §8**；lint L6(b) 只擋帳面不符、不擋遺漏）；歸屬＝**B-122**。
-- **018-governance-hardening 已收刀**（2026-07-28）：治理工具鏈與編排紀律硬化——B-111 四支
-  工具補 .py＋CLAUDE.md 範本三件（六件套⑥／次輪前饋／三欄表）＋docs-sync 五新條款（L16 憑證
-  掃描／L17 pin 互證／L18 events 實證／L19 命令形／L20 空集合守衛）＋lint 三段式摘要＋tools-cli
-  真表＋pre-commit 條件觸發＋bootstrap 體檢接線；測試 212→347；ADR 0077/0078 accepted；
-  SC-008 依校正基準過（提速追蹤＝B-113）。詳 events/STATE。
+  `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；觀測件（obs／metrics
+  profiles）現非常駐、要用再 up；jobs sidecar 屬 opt-in 未常駐。
+- **019-secrets-sops 已收刀**（2026-07-30）：機密管理——SOPS+age 密文入版控（8 key 單檔＋
+  digest 釘版 wrapper＋P4 fail-loud 解密管線）＋明文遷出 repo（SECRETS_DIR 三級解析五消費端
+  同口徑）＋三層掃描防線（Betterleaks×L16×value-guard、pre-push 三 repo）＋RUNBOOK §15 十小節
+  ＋ADR 0079~0083；收刀金鑰儀式完成（user 真鑰上位、暫代鑰原子撤銷五準則、7 leaf 實值輪替、
+  SC-007 保全）；測試 347→349、pin 逐字未變。詳 events/STATE。
 - **下一步：待 user 拍板下一波範圍**（BACKLOG 候選：B-102 changePassword 節流、B-027/B-028
-  auth 家族、B-037/B-042/B-081/B-013 prod 部署組等）。
+  auth 家族、B-037/B-042/B-081/B-013 prod 部署組等；另 B-125〔host 暫存命名雙軌統一〕屬
+  拍板級、觸發時機見該列）。
 - 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；B-103（滯後卷）；
   B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；B-101（casbin
   按鈕碼與 buttons 聯集漂移）；B-094（未刪選單分頁截斷）。

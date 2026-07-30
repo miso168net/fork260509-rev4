@@ -226,11 +226,12 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   server）、rust-api（axum）、migrate（one-shot）、postgres、redis。migrate 是啟動閘門：
   postgres 健康後先跑 migration、成功結束 rust-api 才起——schema 就緒先於 API；migration
   失敗＝整體啟動失敗（up --wait 非零退出），不存在半初始化環境。
-- **機密**：十一支檔案型 secrets（deploy/secrets/、實值 gitignored；含觀測層 grafana 管理
-  密碼／alert webhook URL〔佔位形、真值 user 自填且 `--force` 不重置〕／reaper 憑證組）；
-  生成腳本冪等、leaf 重生連動 composite 重寫（dual-write 不變式）；preflight 預檢缺檔即
-  指名攔截；`CHANGE-ME` 開頭佔位值被 server boot 拒收（panic 指名該機密）。對照表與
-  不變式明細住 deploy/secrets/README.md。
+- **機密**：權威來源＝tracked 密文 `deploy/secrets.dev.enc.yaml`（8 key、SOPS+age B′）；明文
+  落點已遷出 repo 至 `$SECRETS_DIR`（真值＝repo 根 `.env`、預設 `$HOME/.cache/rev4-secrets`；
+  `deploy/secrets/` 只剩 README 與 `.example`）——`decrypt-secrets.sh` 解密、三支 composite 由
+  leaf 重組（dual-write 不變式）；preflight 預檢 11 支缺檔即指名攔截；`CHANGE-ME` 佔位黑名單
+  ＝rust-api／migration／reaper 各自 `starts_with`、射程僅 6 支（其餘 5 支不過這道）。對照表
+  與不變式明細住 deploy/secrets/README.md、密文營運＝RUNBOOK §15。
 - **熱重載**：後端 watchexec 重編重啟、前端 vite 熱更新，兩者皆輪詢偵測檔案變更——WSL2
   9p 掛載不產生 fs 事件、事件制 watcher 失效。原始碼 bind-mount 進容器、依賴與編譯產物
   以 named volume mask。
@@ -294,7 +295,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 | 快照新鮮度 | 加 migration 的刀必於單元邊界重跑 `python3 tools/docs-sync.py refresh`→`generate` 並隨該 commit 入庫 | pre-commit `docs-sync check` 攔快照↔生成物漂移（離線秒級）；快照↔實庫一致由本紀律＋收官重跑 refresh 驗 diff 空收斂 |
 | logging | 後端 log 全環境 JSON 單行事件（dev/prod 單一形）；每請求一 request span 掛 sanitize 後 `trace_id`（白名單 `[0-9a-zA-Z._-]`＋64 上限、單一 seam＝log↔稽核 join 鍵）；completion event（`target=http.request`、path 級過濾 `APP_LOG_EXCLUDE_PATHS` 預設空＝全記） | test_support JsonLogCapture 與 production 同形 subscriber、非 JSON 行即 panic＋sanitize 矩陣測＋completion 契約測（容器內 `cargo test --lib`、016 首建） |
 | metrics | 自訂 counter 宣告即於 obs.rs 單點 pre-register 顯式 0（服務重啟首刮即在；label 值集與發射點同錨）；新增 counter 的刀必同步擴 pre-register＝慣例；HTTP 層 endpoint label 未命中路由收斂常數 `unmatched`（防無界基數） | obs.rs pre-register 測＋`/metrics` scrape 斷言（容器內 `cargo test --lib`）＋quickstart S3 判準①全序列收口（016 首建） |
-| 機密內容 | 憑證類機密字面（PEM／OPENSSH 私鑰頭、AWS access key、GitHub token／PAT 形）不入版控；樣式集走窄集合高確信（不含泛熵值與 password= 類、漏報面有意識接受＝ADR 0077）；豁免無 inline marker、僅得走工具常數白名單＋ADR | pre-commit `python3 tools/docs-sync.py lint` 之 L16：外層 tracked 全量（含 staged 新增行面）＋pin bump 時 submodule 舊 pin→新 pin 增量掃；每次執行連帶紅綠 self-test 防恆綠（018 首建） |
+| 機密內容 | 機密字面不入版控；掃描三層並存（ADR 0082 決策 1）＝Betterleaks 事件型廣譜（DSN／`KEY=value` 形、`.gitleaks.toml`）×L16 狀態型窄集高確信（憑證字面四類）×`tools/secret-value-guard.py` 值比對確定性層（泛熵值由此層補上；盲區恰三格＝明文缺席 skip fail-open／僅外層 repo／只掃 staged 新增行、對 tracked 既存明文結構性失明〔B-118、L-190〕）；三層聯集仍不覆蓋「未收錄形制且非本 repo 現值」＝漏報面有意識接受（ADR 0077 敘述接續為 0082 後果節）；豁免無 inline marker、僅得走工具常數白名單＋ADR | pre-commit 三閘（Betterleaks＋`docs-sync.py lint` L16＋value-guard）；pre-push 第二層三 repo 同套（ADR 0082 決策 3＋4：hooks 目錄共用一檔生效三處、掃 push 之 commit 範圍；已知邊界＝`core.hooksPath` per-machine、補償＝bootstrap 斷言）；L16 每次執行連帶紅綠 self-test 防恆綠（018 首建、019 擴三層） |
 
 route 全集等快變事實住 generated/reference/routes。
 
