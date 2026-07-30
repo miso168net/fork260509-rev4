@@ -358,7 +358,10 @@ commit 零誤擋（不建任何 SOPS 資產即可完整驗證）。
   照 §S5 逐列核對者必漏跑本項
   ——**實測（2026-07-29、全數過；解密互動一律 pty 盲餵暫代 passphrase）**：
   ①往返：管線 rc=0、8 支 WRITTEN、11 支 sha256 前後全 OK（#1 還原一致＋SC-007）；
-  ②形制：`git diff`（加入 enc 之 commit）新增行 `key: ENC[AES256_GCM` 恰 8、key 名明文 8 支；
+  ②形制：`git diff`（加入 enc 之 commit）新增行 `grep -cE '^\+[a-z_]+: ENC\[AES256_GCM'` 恰 8、
+  key 名明文 8 支（★命令形勘誤 2026-07-30 U6：原記 `key: ENC[AES256_GCM` 實跑得 **0**——8 支
+  key 名無一以 `key` 結尾，照抄該樣式者會得到「零加密值」的反向結論；數字 8 本身為真，
+  同族勘誤＝ADR 0081「後果」節第 1 條）；
   ③明文中間產物已刪＋`git status`／`git diff --cached` 零殘留；④否定逐條——刪 key（解密→
   濾掉 jwt_secret→重加密置換）→rc=1 指名 `jwt_secret`＋11 支 sha256 全未動（零寫入）＋
   `git checkout --` 復原；alert_webhook_url 差異（暫改 enc 內值）→7 支 WRITTEN＋

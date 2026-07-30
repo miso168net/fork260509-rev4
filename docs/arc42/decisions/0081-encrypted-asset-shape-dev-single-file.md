@@ -97,7 +97,7 @@ recipient 逐字等於正式公鑰（**規則供鑰自證**）；錨定否定探
 ## 後果
 
 - **加密檔的 `git diff` 是可 review 的**：key 名明文 8 支、值全 `ENC[AES256_GCM…`（實測
-  `grep -cE 'key: ENC\['`＝8）。這使「這次動了哪支機密」在 review 面可見。
+  `grep -cE '^[a-z_]+: ENC\['`＝8）。這使「這次動了哪支機密」在 review 面可見。
 - **撤銷演練必然產生加密檔 diff**：`rotate` 換 data key ＝ 8 值密文全變，**該 diff 是預期
   產物、要 commit**；「復原」指的是 recipient 清單與可解性，不是 byte 級還原。
 - **權限粒度＝檔案，不是 secret**：同檔 8 key 對所有 recipient 一視同仁；這是決策 1 重評
