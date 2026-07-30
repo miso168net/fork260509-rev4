@@ -805,16 +805,115 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T037 [P] **S9 秒級量測**（SC-009）：★**量法依 L-155 硬性規定**——**以 `perf_counter`
+- [x] T037 [P] **S9 秒級量測**（SC-009）：★**量法依 L-155 硬性規定**——**以 `perf_counter`
   直接包兩段（掃描器呼叫／值比對工具）各自連跑數次取中位數**，**絕不可用整鏈 `time` 前後差量**
   （drvfs 牆鐘變異 ±1.5s 大於被測成本、018 U2 曾量出負值）；T001 整鏈基線僅供數量級粗判。
   ★**機判門檻（出處 SC-009）：兩段合計中位數 ≤5s；值比對工具自測增量 ≤3s**。記「純碼 commit」
   與「治理檔 commit」兩情境；超標則記錄成本結構並掛 BACKLOG（比照 018 SC-008 處置）
-- [ ] T038 **S10 治理完備＋收刀前終驗**：quickstart S1~S10 全機判單通＋SC-001~010 逐條勾稽；
+  ——**實測（2026-07-30、量法逐字依 L-155：`perf_counter` 直接包單一子行程、n=7 取中位數；
+  ★零整鏈 `time` 差量）**：
+  ①**harness（不污染索引與物件庫；教訓＝L-192）**——`cp .git/index` 至暫存＋全程帶
+  `GIT_INDEX_FILE`，以 `git update-index --add --cacheinfo <mode>,<既有 blob SHA>,<新路徑>` 把
+  **已在庫的 blob** 掛到新路徑（`git add` 會寫新 blob＝L-158／L-191 殘留源，`--cacheinfo` 零新物件）；
+  **harness 保真機判**＝掃描器 `--verbose` 自報 `scanned ~41353 bytes` **逐字等於**掛入四檔
+  byte 數總和 41353（不相符即量到空索引＝`.githooks/pre-commit` 註解所載同型假象）；量完
+  `git status --porcelain` 零行。
+  ②**情境甲：純碼 commit**（staged＝4 檔／680 新增行／41353 bytes shell 碼）——
+  段1 樣式掃描 `betterleaks git --pre-commit --staged --redact --verbose --exit-code 2`
+  中位 **0.134s**（min 0.129／max 0.159、rc 全 0）；段2 值比對 `python3
+  tools/secret-value-guard.py check` 中位 **0.183s**（min 0.172／max 0.245、rc 全 0）
+  → **兩段合計中位 0.318s ≤ 5s＝PASS**（餘裕 15.7 倍）。
+  ③**情境乙：治理檔 commit**——staged＝本 T037／T038 簿記 commit 之**真實索引**（4 檔／330 新增行
+  ＝`tasks.md`＋`LESSONS.md`＋`quickstart.md`＋`docs/generated/STATE.md`；掃描器自報
+  `scanned ~36099 bytes`＝**新增內容**面，與情境甲之「新檔全量 41353」互為 harness 保真對照）——
+  段1 中位 **0.185s**（min 0.176／max 0.238）、段2 中位 **0.230s**（min 0.211／max 0.326、rc 全 0）
+  → **兩段合計中位 0.415s ≤ 5s＝PASS**（餘裕 12.0 倍）。★本單元未動工具本體，故「自測觸發」那一段
+  依其成本**與 staged 內容無關**之性質獨立量（下列④）、不假造 staged 情境。
+  ④**自測增量**（值比對工具本體 staged 時之條件觸發段 `python3 tools/secret-value-guard.py test`；
+  成本與 staged 內容無關故獨立量）＝中位 **0.194s**（min 0.181／max 0.259、rc 全 0、內部
+  `Ran 41 tests in 0.113s OK`）→ **≤ 3s＝PASS**（餘裕 15.5 倍）。
+  ⑤**判定：SC-009 兩條門檻皆 PASS、零超標、不掛 BACKLOG**（對照 T001 整鏈基線中位 51.8s＝新增
+  兩段合計佔比 ~0.6%＝無數量級劣化；整鏈絕對值受 drvfs I/O 稅主導、依 L-155 不作秒級增量判準）。
+  ⑥`quickstart.md` §S9 已補「怎麼造出被量的 staged 狀態（★不得用 `git add`）」一段＝把本輪 harness
+  寫成劇本可執行步驟（原節只寫量法、未寫如何取得 staged 狀態，照最順手的 `git add` 做即製造殘留）
+- [x] T038 **S10 治理完備＋收刀前終驗**：quickstart S1~S10 全機判單通＋SC-001~010 逐條勾稽；
   `python3 tools/docs-sync.py generate`＋`check`＋`lint` 全綠、工作樹收斂；ADR 5 支轉 accepted
   （含三閘實測欄）；踩坑逐筆 append `docs/ops/LESSONS.md`；★清理 019 暫存
   `$HOME/.cache/rev4-019-tmp/`（age 二進位＋tarball＋release-api.json——T040 產出、
   T007／T019／T033 共用之**唯一清理點**；清後 `ls` 反證不存在）
+  ——**實測（2026-07-30、全過）**：
+  ★**S1~S8 勾稽口徑**＝每節註明「本輪重跑」或「引用既有機判證據並附出處」，引用型一律指到
+  commit SHA 或本檔 tasks 備註位置（劇本節序之例外＝S4 後半排在 S6 之後，見 quickstart 檔頭）：
+  **S1**（SC-001 8 格四形×兩路徑）＝**引用** T017 實測①＋其「殘項→主線結清」段（裸值格 fixture
+  blob prune 與 `cat-file -e` 反證）；**S2**（SC-002）＝**本輪重跑**帶 `.gitleaks.toml` 全歷史掃描
+  ＝`scanned ~5.52 MB`／**no leaks found**／rc=0，簿記不誤擋樣本**引用** T017③（457482b、0c59450
+  逐筆 `git show <c>:.githooks/pre-commit | grep -c` 為 1／1）＋本刀後續每一筆 commit 皆經新閘
+  （本輪 78e0831 即含全鏈綠輸出）；**S3**（三 repo 覆蓋＋pre-push）＝**本輪重跑** `core.hooksPath`
+  三 repo 讀值（外層 `.githooks`；兩源倉皆絕對路徑指向外層 `.githooks-submodule`），pre-push 三情境
+  與兩源倉實擋**引用** T017②④；**S4**（SC-003）＝前半**引用** T023①②、後半乾淨重建全鏈**引用**
+  T039；**S5**（SC-004／007／008）＝**引用** T023④~⑥ 八列否定測試＋兩輪 quality 補測，並**本輪重跑**
+  正向面（`preflight-secrets.sh` rc=0 印「11 個必須 secret 檔齊備且健康（落點路徑；CR 零命中、
+  composite 一致）。可 up。」）；**S6**（SC-005）＝**本輪重跑**逐容器掛載物理化斷言（L-172 防法：
+  `docker inspect` 之 `Mounts.Source` 經 `os.path.realpath` 物理化後比對）＝**7 筆 `/run/secrets/*`
+  掛載全落 `$HOME/.cache/rev4-secrets`、落 `/mnt/d` 者 0 筆**（obs／metrics 8 件現為 opt-in 已 stop
+  ＝T039 收尾狀態），遷移五步順序與 #4 回退**引用** T030；**S7**（SC-005 後半、三非 root service）
+  ＝**引用** T030 之 S7 段（472／65534／59000 容器內 `id -u` 與 sha256 前 8 碼實證、grafana
+  `/api/health` database ok、`pg_up=1`／`redis_up=1`）——本輪未重開觀測軌（opt-in、避免動 stack）；
+  **S8**（SC-006）＝**引用** T033 全段（#7 五準則含 MAC 失敗 rc=25、#10 反向驗證 rc=128、#13 提示
+  次數表、收尾七項機判）；**S9**＝**本輪實測**（詳 T037）；**S10**＝本輪逐項（下列）。
+  ——**SC-001~010 逐條勾稽**：SC-001 過（引用 T017①②）｜SC-002 過（本輪全歷史零 finding＋
+  T017③ 兩筆真簿記樣本＋本刀其後每筆 commit 實跑）｜SC-003 過（引用 T039）｜SC-004 過（引用
+  T023④＋本輪 preflight 正向 rc=0）｜SC-005 過（本輪 7/7 掛載物理化零 `/mnt/d`＋本輪 repo 全樹
+  增量複核：以 11 支現值之 7 種 byte 數預篩得 50 檔、sha256 交集**0 命中**；全碟面引用 T030 之
+  7890 檔預篩零命中）｜SC-006 過（引用 T033）｜SC-007 過（本輪 `alert_webhook_url.txt`＝39 bytes、
+  sha256 前 8 碼 `98483895` 與 T021 基準相符；`.new` 觸發面引用 T023④）｜SC-008 過（**本輪重驗、
+  改布林斷言形**：11/11 之「尾端非 CR/LF」「全檔零 CR」「mode 644」「owner 非 root」四欄全 True、
+  目錄 mode 700、composite↔leaf 一致性由 preflight `cmp` 比對承載；★原以 `tail -c1 | xxd` 列印
+  末 byte＝機密值切片、當場改判並重驗，教訓＝**L-193**）｜SC-009 過（詳 T037：0.318s／0.194s
+  對門檻 5s／3s）｜SC-010 過（本節⑦項全備）。
+  ——**S10 ①~⑧ 逐項**：①ADR 五支 `status: accepted`（0079／0080／0081／0082／0083 逐檔 front-matter
+  實讀；0080 三閘實測欄 grep 命中 6）②RUNBOOK 落地＝`### 15.` 小節數 **10**、§7 「每一列做完都要接
+  re-encrypt」條在位（行 168）、§4 `manage-bde`／`.wslconfig` 兩項在位、§12 速查兩列（`sops.sh`／
+  `decrypt-secrets.sh`）在位 ③B-115 登記在位 ④NOTES 之 base-web `--no-verify` 慣例廢止句在位
+  ⑤`deploy/secrets` 逐檔判定完成（T036、現場 grep 213 命中／47 檔）⑥`deploy/secrets/README.md`
+  四處對齊（預檢語意／`--force` 不重置 `alert_webhook_url`／目錄 700 檔 644 之 chmod 注記與 9p
+  no-op 說明／十一機密對照表）⑦**暫存清理**：`rm -rf $HOME/.cache/rev4-019-tmp/`（age 二進位＋
+  tarball＋release-api.json，27 MB）→ 反證 `ls -d` rc≠0「No such file or directory」、`test -e` rc=1；
+  `$HOME/.cache/rev4-secrets` 與 `~/.config/sops/age/keys.txt` **未受影響**（前者 11 支在位、
+  後者 371 bytes mode 600）⑧**物件庫終驗（本輪新增、教訓＝L-191）**：L-158 舊稽核法（`hash-object`
+  × `fsck --unreachable` 取 **SHA 交集**）得交集 0＝**假綠**——升級為**內容子字串比對**後抓到
+  **2 筆 unreachable blob（54857／2228 bytes）含 `alert_webhook_url` 現值**（＝T036 首次嘗試被
+  值比對層擋下時 `git add` 已寫入的修前版；擋的是 commit、不是 `git add`）；兩者皆不可由任一 ref
+  觸及（`rev-list --all --objects` 命中 False）＝未進歷史、只需 prune。結清＝`git prune --expire=now`
+  → 反證兩 blob `cat-file -e` rc≠0、**含機密之 unreachable blob 數＝0**、HEAD tree 全 tracked 檔
+  子字串掃**命中 0**、工作樹零行。`quickstart.md` §S10 已補⑧項與 L-193 之輸出禁令句。
+  ——**generate／check／lint**：`generate` 重算 11 檔、`lint` **0 錯誤 0 警告**（3 條款 fail-safe 跳過
+  ＝L6 events 基準面／L16 兩 gitlink 未 staged）；`check` 於 stage 生成物後一致；工作樹收斂
+  ——**LESSONS 節歸屬整理（前四單元 carryover）＋本輪 append**：詳本檔 Phase 8 末「LESSONS 主卷
+  節歸屬整理」段
+
+★**LESSONS 主卷節歸屬整理（前四單元 carryover、2026-07-30 U6 結清）**：分卷後主卷只剩 4 節，而
+`append` 一律落在**最後一節**〔CDP／mock 驗收〕下——40 筆裡 **34 筆**（L-151／L-152／L-155~L-167／
+L-172~L-190）掛在該節，**其中零筆與 CDP 或 mock 有關**（L-152 講 pin bump、L-174 起講落點解析），
+標題已不描述內容＝事實上的 append 尾巴。處置＝**逐筆 byte 級不改內容、只改節歸屬**：沿用封存卷
+既有分類名（環境與工具鏈／git・worktree・submodule／流程與編排／review・驗收方法論／文件紀律／
+後端・DB・redis），另新增兩節承接本刀特有叢集＝**〔機密與落點接線（SOPS／SECRETS_DIR／解析口徑）〕**
+（L-174~L-178、L-190）與**〔營運手冊可執行性（RUNBOOK／程序）〕**（L-182~L-189）；主卷〔CDP／mock
+驗收〕清空後移除該節標題（封存卷該節不動）。
+**機判三道**（腳本＝暫存區 `lessons_resection.py`，dry-run 先跑）：①**parser 保真**——以原節序＋原
+歸屬重組必須與原檔 **byte 級相同**（不同即停手不寫檔；實跑 PASS、40 筆／原 4 節）②**逐筆 byte 級
+零漂移**——每個 L 號 block 文字新舊全等、L 號集合相等（PASS）③**去向對照全表**——逐筆印
+「L 號｜舊節→新節｜移動或原位」＝**40 筆／移動 34／原位 6**，新節分佈 7／2／2／5／9／1／6／8。
+**獨立反證**（不採信腳本自陳）：`git show HEAD:` 版與現檔各 `grep -v '^## '｜grep -v '^$'｜sort`
+後 `cmp` **逐 byte 相同（462 行）**；條目數 40→40；空白行 45→49（＝每個新節標題各多一行、恰差 4）；
+節標題 4→8。**分卷判定**：整理＋本輪 append 後主卷 **21598 tokens**（lint L7 之 WARN 22500／硬上限
+25000）→ **未逼近、本刀不切封存卷**（機判＝`token_count` 實算；若日後越 22500 再依既有慣例切，
+三項機判＝兩卷 L 號聯集等於切前集合、交集為空、逐筆 byte 級零漂移）。
+**本輪 append 三筆**（次序＝發現序，next-id L-191→L-194）：**L-191** 值比對層擋下 commit ≠ 機密沒進
+物件庫＋L-158 稽核法對「文件內含機密」失明（→〔git／worktree／submodule〕，緊接 L-158）｜
+**L-192** 量 staged 段成本的零污染 harness（→〔review／驗收方法論〕）｜**L-193** byte 級健檢印出
+末 byte＝印出機密值切片（→〔review／驗收方法論〕）。append 後再跑一次逐筆比對：既有 40 筆
+**byte 級漂移 0**、新增恰 `['L-191','L-192','L-193']`、遺失 0。
 
 ## Dependencies
 

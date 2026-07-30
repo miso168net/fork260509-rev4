@@ -205,6 +205,15 @@ recipient 一起加密（該中間狀態只要被 commit 一次，撤銷即為�
 （018 U2 以整跑差量甚至量出負值）。T001 的整鏈 `time` 基線**僅供「有無數量級劣化」粗判**。
 記錄「純碼 commit」與「治理檔 commit（工具本體 staged、自測觸發）」兩情境。
 
+**怎麼造出被量的 staged 狀態（★不得用 `git add`）**：兩段成本皆正比於 staged 內容，故必須有真的
+staged 狀態；但 `git add` 會把內容寫成新 blob 留在物件庫（＝L-158／L-191 的殘留源、還要收尾 prune）。
+作法＝`cp .git/index` 到暫存後全程帶 `GIT_INDEX_FILE`，以
+`git update-index --add --cacheinfo <mode>,<既有 blob SHA>,<新路徑>` 把**已在庫的 blob 掛到新路徑**
+（零新物件、真索引與工作樹零改動）；**harness 保真機判**＝掃描器 `--verbose` 自報的
+`scanned ~N bytes` 須等於掛入檔案 byte 數總和（不相符＝量到空索引，同型假象見
+`.githooks/pre-commit` 註解「容器不帶 `GIT_INDEX_FILE` 掃 0 bytes 靜默漏報」）。量完以
+`git status --porcelain` 零行反證未污染。詳 L-192。
+
 **期望（機判門檻，SC-009）**：本刀**新增兩段（樣式掃描＋值比對）合計中位數 ≤5s**；值比對工具
 本體 staged 時其**自測增量 ≤3s**。★判準用**增量**不用絕對總時——基線本身受 drvfs I/O 稅主導
 （018 實測全鏈約 46~47s），絕對秒數不具比較意義。超標→記錄成本結構並掛 BACKLOG（比照 018
@@ -220,6 +229,17 @@ SC-008 處置慣例）。
 ⑤`deploy/secrets` 命中逐檔判定完成（**以現場 `git grep` 為準、不以靜態數字為驗收基準**；
 程序性引用改、歷史文件不改、生成物由 generate 重算）；⑥`deploy/secrets/README.md` 四處
 （預檢語意／force 語意／chmod 注記／對照表）已對齊實際行為；⑦清理 019 暫存
-`$HOME/.cache/rev4-019-tmp/`（T038 唯一清理點）——清後 `ls` 反證不存在。
+`$HOME/.cache/rev4-019-tmp/`（T038 唯一清理點）——清後 `ls` 反證不存在；
+⑧**物件庫終驗（L-191；★不可只做 S1 收尾那一次）**——本刀期間**任何**被事件型防線擋下的 commit
+都已把 staged 內容寫成 unreachable blob（擋的是 commit、不是 `git add`），且 S1 收尾的 L-158 稽核法
+（`git hash-object <機密檔>` × `git fsck --unreachable` 取 **SHA 交集**）對「**文件內含**機密值」
+結構性失明、會回報假綠。判準升級為**內容子字串比對**：`git fsck --unreachable` 逐筆
+`git cat-file blob` 讀出、判是否含任一落點現值為子字串（只印 SHA 前 8 碼與 size、**不印內容**）
+→ 非零即 `git prune --expire=now` → 反證「含機密之 unreachable blob 數＝0」；併核 HEAD tree
+（`git ls-files` × `git show HEAD:` 子字串掃）與 `git rev-list --all --objects` 可觸及面，以區分
+「只需 prune」與「已進歷史＝要輪替＋改寫歷史」。
 
 **期望**：全數齊備且與實測結果一致；`docs-sync.py lint` 全綠、`generate` 後無 diff。
+★**機密值輸出禁令貫穿全節**（L-193）：byte 級健檢一律寫成**布林斷言**並只印 True／False 與 byte 數
+（`b[-1] not in (0x0a, 0x0d)`、`b'\r' not in b`）——`tail -c1 | xxd` 之類會把機密值的 byte 印上終端；
+需要指紋時用 sha256 前 8 碼（雜湊、非值切片）。
