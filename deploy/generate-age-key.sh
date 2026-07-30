@@ -23,7 +23,13 @@ set -euo pipefail
 AGE_VERSION=v1.3.1
 AGE_ASSET="age-$AGE_VERSION-linux-amd64.tar.gz"   # 平台＝WSL2 x86-64（本專案唯一目標平台）
 
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/rev4-admin-keygen"
+# ★暫存目錄名＝**repo 目錄名**（非 compose project name `rev4-admin`、非刀號）：同一台機器
+#   並存 fork260509-rev1~rev4 四代與其他專案（work260730-rev1 等），repo 名才是零撞名的穩定
+#   識別。★既有 host 路徑仍用短代號家族（`rev4-secrets`＝ADR 0080 決策 1 拍板值、
+#   `rev4-decrypt.XXXXXX`／`rev4-merge.XXXXXX`＝已審腳本與手冊之 mktemp 模板）——**刻意不動**：
+#   前者改動＝改拍板並重跑落點遷移（compose 掛載來源）、後者改了反而與拍板值不一致。
+#   兩軌並存之統一屬拍板級、已登記 BACKLOG。
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4"
 KEYDIR="$HOME/.config/sops/age"
 KEYNAME="${1:-keys.txt}"
 KEYS="$KEYDIR/$KEYNAME"
