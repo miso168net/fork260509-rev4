@@ -79,7 +79,13 @@ SECRETS_DIR="${SECRETS_DIR:-./deploy/secrets}"
   原檔一個 byte 都不動（守衛全文＝`specs/019-secrets-sops/contracts/secret-pipeline.md` §P4.5）。
 - 佔位值在場**仍會過 preflight**——preflight 檢的是「在位／非空／零 CR 零 LF／composite 與 leaf
   逐位元組一致」，**不判斷值是否為真實 URL**；佔位期間告警投遞必失敗、屬預期（投遞失敗不影響
-  規則狀態與業務）。真正擋佔位值的是 server config 的黑名單（見下方「佔位值黑名單」）。
+  規則狀態與業務）。
+- ★**這支機密沒有任何閘會攔佔位值**——下方「佔位值黑名單」對它**結構性到不了**：①rust-api 全樹
+  不讀 `alert_webhook_url`（`grep -rn alert_webhook rust-api/` 零命中；唯一消費者＝grafana
+  provisioning 的 `$__file` 注入，見上方對照表該列），黑名單住 server config、跑不到不消費的檔；
+  ②守衛實作是**前綴**比對（`value.starts_with("CHANGE-ME")`）而腳本佔位字面以 `https://` 起頭
+  （`https://CHANGE-ME.invalid/...`），即使被讀也必不命中。故留著佔位值**不會有任何東西出聲**，
+  唯一徵狀是告警投遞靜默失敗——**填真值全靠人記得**（此缺口已登記 B-119）。
 
 ## Dual-write 不變式
 
@@ -100,4 +106,10 @@ SECRETS_DIR="${SECRETS_DIR:-./deploy/secrets}"
 - **版控**：實值 `.txt` 不入版控（`.gitignore` 擋回退落點、遷出後更在 repo 之外）；
   `.txt.example`（內容 `CHANGE-ME-placeholder`）tracked；密文 `deploy/secrets.dev.enc.yaml` tracked。
 - **佔位值黑名單**：`CHANGE-ME` 開頭值被 server config 拒收（boot panic 指名該機密）——
-  誤把 `.example` 內容當真值用會在啟動時立即被抓出。
+  誤把 `.example` 內容當真值用會在啟動時立即被抓出。★**射程＝經 rust-api／migration／reaper
+  讀取的 6 支**（`jwt_secret`／`refresh_token_secret`／`captcha_secret`／`database_url`／
+  `redis_url`／`reaper_database_url`）：守衛是那三支程式自己的 `starts_with("CHANGE-ME")`，
+  **不是全域閘**。其餘 5 支（`postgres_password`／`redis_password`／`grafana_admin_password`／
+  `reaper_password`／`alert_webhook_url`）由 postgres／redis／grafana／設密腳本消費、**不過這道
+  黑名單**——那幾支填錯只能靠該服務自己起不來或功能失效看出（`alert_webhook_url` 連這都沒有，
+  見上方特例節）。

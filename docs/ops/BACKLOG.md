@@ -1,4 +1,4 @@
-<!-- next: B-119 -->
+<!-- next: B-120 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -39,3 +39,4 @@
 - B-116｜`tools/` 與 `.githooks/` 之 index exec bit（100755）零機器守衛：drvfs 恆顯示 0777、`ls` 看不出 index 裡是 100644 還是 100755，全靠人記得 `git update-index --chmod=+x`（019 兩支新腳本 `deploy/sops.sh`／`deploy/decrypt-secrets.sh` 皆屬此形、雖已逐支 `git ls-files -s` 驗過 100755，但下一支工具入名冊時同坑必重演）。候選修法＝docs-sync 加一條 lint，對名冊內可執行腳本斷言 `git ls-files -s` 首欄＝100755｜下次新增可執行腳本、或動 `TOOLS_PY` 名冊時｜出處：019 U1 收單審 advisory（2026-07-29）
 - B-117｜RUNBOOK §15.7 步驟 3 以 shell 重導向覆寫**權威密文檔**：`./deploy/sops.sh -e … > deploy/secrets.dev.enc.yaml` 由 shell 在 sops 起跑前即截斷目標檔，加密失敗（規則比不到／私鑰不可用／docker 不在）時該檔先成 0 byte；與同節 §15.2 產鑰已立的「`[ -e ]` 前置閘＋寫 `.new` 再 `mv`＋失敗清殘檔」防法同構。**屬既存形制、非 019 引入**，且損失可逆（`git show :2:`／`git checkout --` 復原）故未升 blocker｜下次動 RUNBOOK §15、或 merge 衝突程序實際被觸發時｜出處：019 U5 收單審 advisory（2026-07-30）
 - B-118｜值比對層（`tools/secret-value-guard.py`）**只掃 `git diff --cached` 新增行**＝對「已存在於 tracked 檔的機密現值」結構性失明：既存明文永遠不觸發，直到某次無關改動動到那一行才忽然擋 commit（019 U6 實證：`alert_webhook_url` 現值自 016 起明文寫在兩支 tracked 檔的說明文字裡、三層防線皆不響——樣式層 URL 形不中、狀態型 L16 之 `CRED_PATTERNS` 四類窄樣式不中、值比對層只看新增行）。候選修法＝加一個一次性全樹模式（讀落點現值 × 掃 `git ls-files` 全檔、只印檔名行號不印值），供導入時盤點與定期體檢；是否入 pre-commit 需先量成本（全樹掃描非增量）｜下次擴充 guard、或新機導入既有 repo 時｜出處：019 U6 T036（L-190）
+- B-119｜`alert_webhook_url` 留佔位值**零閘可攔**：preflight 只檢在位／非空／零 CR LF（不判 URL 真偽）；`CHANGE-ME` 前綴黑名單住 rust-api 而此檔唯一消費者是 grafana provisioning（`grep -rn alert_webhook rust-api/` 零命中），且腳本佔位字面以 `https://` 起頭故前綴比對結構性必不命中——留佔位的唯一徵狀是告警投遞靜默失敗。同族殘留＝`postgres_password`／`redis_password`／`grafana_admin_password`／`reaper_password` 亦不過黑名單（各靠該服務自己起不來看出，比 webhook 響）。候選修法＝preflight 加一條「已知佔位字面清單」比對（不看值語意、只比字面，故不需新增機密處理面），命中即 WARN 或非零退出（是否阻擋需拍——佔位期照設計是可過的合法狀態）｜下次動 preflight、或告警投遞真的要上線時｜出處：019 U6 spec 第 1 輪 blocker 2（L-194）

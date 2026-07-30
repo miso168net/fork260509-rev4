@@ -802,6 +802,18 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   `deploy/secrets/grafana_admin_password.txt` 係 allowlist **比對樣式**、必須逐字等於 017 quickstart
   歷史文件內的字面、**動即放行過寬**故不得改），其餘 28 檔全屬歷史文件（brainstorms／001·004·016·017·019
   specs 產物／ADR 0071·0079·0081·0082／LESSONS 過去式紀錄／BACKLOG 之 B-115·B-117 條目）＝**不改**
+  ——**spec 第 1 輪 blocker 修復（2026-07-30）**：③本任務「預檢語意」改寫時在 `deploy/secrets/README.md`
+  的 alert_webhook_url 特例節（commit `deac134`）新增了一句「真正擋佔位值的是 server config 的黑名單」
+  ——對這支機密**為假**：rust-api 全樹不讀此檔（`grep -rn alert_webhook rust-api/` 零命中、唯一消費者
+  是 grafana provisioning 的 `$__file`），且守衛是前綴比對 `starts_with("CHANGE-ME")` 而佔位字面以
+  `https://` 起頭故必不命中。已改述為「零閘＋兩條結構理由＋唯一徵狀是投遞靜默失敗」，並補「佔位值
+  黑名單」條之**射程**（＝經 rust-api／migration／reaper 讀取的 6 支；另 5 支不過此閘）。缺口本身
+  登記 **B-119**、教訓＝**L-194**。
+  ④**`spec.md` 行 297 之 GPG_TTY 綱要字面連帶勘誤仍未落地**——該檔在本執行單元允許檔案清單
+  **之外**（U5 的清單亦然，見 T032 備註末段），故**兩輪皆無法自行修**；本輪不再指派給任何 task，
+  **改為升級主線處置**（U6 spec 第 1 輪 blocker 1）。待改處＝FR-023 該項移除或加 ★重拍註，寫法照抄
+  同 FR 內「開機儀式」那三行的現成範本；as-built 權威＝`docs/ops/RUNBOOK.md` §15 節首「本管線零 gpg
+  前置」＋三條結構理由。
 
 ## Phase 8: Polish & Cross-Cutting
 
