@@ -265,7 +265,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
   生成物——改 locale 後跑 `python3 tools/docs-sync.py generate`、嚴禁手改。
 - **dev webhook 收器**（告警投遞驗收專用）：`sh deploy/dev-webhook-sink.sh start|cat|stop`
   ＋alert_webhook_url.txt 填該收器位址（形如 `http://<容器名>:8080/alert`、容器名＝腳本內
-  `NAME` 變數；★不在文件寫出完整字面＝L-190）＋restart grafana；
+  `NAME` 變數；★不在文件寫出完整字面＝L-190——★該形只消除**逐字共用**、不消除可推導性：
+  dev 佔位現值仍可由腳本 `NAME`＋埠＋路徑重建，屬 **dev-only 已接受殘餘**〔收器容器內部位址、
+  無憑證材料〕；正式接收端 URL 填入後即不可推導）＋restart grafana；
   驗畢必 stop＋還原 URL（§4）。
 
 ## 12. 工具鏈速查（★python 工具一律直跑或 `python3` 前綴、bash 前綴＝假失敗 L-129/L-143）

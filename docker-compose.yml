@@ -225,7 +225,8 @@ services:
     secrets:
       - grafana_admin_password
       # 016-observability T012：alerting contact point webhook URL（provisioning yaml 內
-      # $__file{/run/secrets/alert_webhook_url} 讀取；URL 永不明文進版本庫）
+      # $__file{/run/secrets/alert_webhook_url} 讀取；URL 不以完整字面進版本庫——★dev 佔位現值
+      # 仍可由 deploy/dev-webhook-sink.sh 之 NAME 推導＝dev-only 已接受殘餘、L-190）
       - alert_webhook_url
     volumes:
       - grafana_data:/var/lib/grafana
