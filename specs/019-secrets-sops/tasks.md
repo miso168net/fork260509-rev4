@@ -760,7 +760,7 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   `git show :2:` 可復原故未升 blocker）。NOTES 之 base-web 慣例行改為「`--no-verify` 慣例已廢止」
   ＋理由（hooksPath 旁路 husky／事件型繞過即真進 git）＋指路 ADR 0082 決策 5；★未引用任何
   per-machine memory 路徑。機判＝`lint` 0 錯誤 0 警告（L9 配號單調不回收、L7 NOTES 35/40 行）
-- [ ] T036 [US5] `deploy/secrets` 命中逐檔判定（**以現場 `git grep` 為準、不以靜態數字為驗收
+- [x] T036 [US5] `deploy/secrets` 命中逐檔判定（**以現場 `git grep` 為準、不以靜態數字為驗收
   基準**）：程序性引用逐檔改（清單＝research R18 表；★**排除 `docs/arc42/ARCHITECTURE.md`**
   ——該檔屬活書 as-built、**歸收刀簿記 commit、不在本 feature branch 內改**〔檔頭宣告＋
   docs-sync L6(b) 閘〕）／歷史文件不改／生成物由
@@ -770,6 +770,38 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   ★**RUNBOOK 面已由 T032 提前處置 §4 第 1 項與 §7 全節**（2026-07-30 quality 第 1 輪 blocker）
   ——本任務仍須以現場 `git grep` 為準複核，剩餘已知殘留＝§6 備份條、§9 DB 直連兩條、§11 grafana
   密碼條（檔頭指路之 `deploy/secrets/README.md` 屬**仍存在的檔**、不是殘留）
+  ——**實做（分兩批；2026-07-30）**：
+  ①**第一批八檔**（commit `deac134`）：`.gitignore`（`.json` 規則註解勘誤）／`deploy/dev-webhook-sink.sh`／
+  `deploy/grafana-provisioning/alerting/contact-points.yml`／`deploy/setup-reaper-role.sh`／`tools/bootstrap`／
+  `docs/ops/NOTES.md`／`docs/ops/RUNBOOK.md`（§9 psql 與 redis-cli 直連、§11 grafana 密碼路徑）／
+  `deploy/secrets/README.md`（全面改寫，四處描述＝預檢語意／`--force` 語意／chmod 注記／機密對照表
+  同刀對齊）。★同 commit 另有主線處置：值比對層擋下首次嘗試（真發現）——`alert_webhook_url` 現值
+  恰為 dev 收器容器內部 DNS 位址、同一字面自 016 起明文寫在兩支 tracked 檔說明文字裡；已改不完整形、
+  全樹盤點命中歸零（教訓 L-190、衍生 B-118）。
+  ②**第二批四檔逐檔判定**（本輪；只核檔頭註解／訊息文字／摘要指路句是否仍寫死 repo 內落點而與
+  as-built 不符）：**`deploy/generate-secrets.sh` 判定為相符、不動**（4 命中——檔頭第 6 行已作
+  `$SECRETS_DIR/*.txt；落點解析見下、未設回退 deploy/secrets`、Step 5 摘要句已作
+  `完成。$SECRETS_DIR/*.txt 已就緒`，其餘 3 處係 U4 解析器註解與空字串 FAIL 訊息之回退語意描述、
+  逐字為真）；**`deploy/preflight-secrets.sh` 判定為相符、不動**（3 命中全屬同型回退語意描述；
+  FAIL 訊息第 76 行與 OK 訊息第 133 行皆已插值 `$SECRETS_DIR`、零寫死）；**`docker-compose.yml`
+  判定為相符、不動**（11 命中＝10 條 `file:` 之 `${SECRETS_DIR:-./deploy/secrets}` 預設值展開
+  ＋1 條 T028 設計註解；回退語彙係 #4 向後相容之刻意設計、非殘留）；**`.dockerignore` 判定為不符
+  →已改**（原註解「機密與私鑰——絕不得進 build daemon」對該目錄之現況失真：US3 後常態只剩 README
+  與 11 支 `.txt.example`，讀者可能據此判本行過時而刪除，而刪除恰好敞開「`SECRETS_DIR` 未設時
+  compose 與各腳本回退寫明文入 repo」這條路）；修＝**只加四行註解**說明主落點已移出 repo、
+  本行守的是回退落點、不得刪，`deploy/secrets/` 規則行本體零改動。機判＝`git diff -U0` 之新增行
+  經 `grep -cvE '^\+#'`＝**0**（全為 `#` 註解形、零規則語意變動）。
+  ——**現場 `git grep "deploy/secrets"` 收尾盤點（本輪即時值、非靜態基準）**：全樹 **213 命中／47 檔**；
+  程序性 13 檔逐檔＝`.dockerignore` 2（改後）／`.gitignore` 5／`dev-webhook-sink.sh` 2／
+  `generate-secrets.sh` 4／`contact-points.yml` 2／`preflight-secrets.sh` 3／`secrets/README.md` 6／
+  `setup-reaper-role.sh` 5／`docker-compose.yml` 11／**`docs/arc42/ARCHITECTURE.md` 2＝本刀不改**
+  （活書 as-built、歸收刀簿記）／`NOTES.md` 1／`RUNBOOK.md` 21／`tools/bootstrap` 6；
+  **生成物 `docs/generated/**` 零命中**（與 R18 一致）；非 R18 表之 34 檔另行分流——本刀新建營運檔
+  6 支（`.env.example`／`.gitleaks.toml`／`.sops.yaml`／`deploy/sops.sh`／`deploy/decrypt-secrets.sh`／
+  `tools/secret-value-guard.py`）逐處複核皆 as-built 為真（`.gitleaks.toml` 第 58 行之
+  `deploy/secrets/grafana_admin_password.txt` 係 allowlist **比對樣式**、必須逐字等於 017 quickstart
+  歷史文件內的字面、**動即放行過寬**故不得改），其餘 28 檔全屬歷史文件（brainstorms／001·004·016·017·019
+  specs 產物／ADR 0071·0079·0081·0082／LESSONS 過去式紀錄／BACKLOG 之 B-115·B-117 條目）＝**不改**
 
 ## Phase 8: Polish & Cross-Cutting
 
