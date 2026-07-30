@@ -823,8 +823,9 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   中位 **0.134s**（min 0.129／max 0.159、rc 全 0）；段2 值比對 `python3
   tools/secret-value-guard.py check` 中位 **0.183s**（min 0.172／max 0.245、rc 全 0）
   → **兩段合計中位 0.318s ≤ 5s＝PASS**（餘裕 15.7 倍）。
-  ③**情境乙：治理檔 commit**——staged＝本 T037／T038 簿記 commit 之**真實索引**（4 檔／330 新增行
-  ＝`tasks.md`＋`LESSONS.md`＋`quickstart.md`＋`docs/generated/STATE.md`；掃描器自報
+  ③**情境乙：治理檔 commit**——staged＝本 T037／T038 簿記 commit 之**真實索引**（**量測時點**：
+  4 檔／330 新增行＝`tasks.md`＋`LESSONS.md`＋`quickstart.md`＋`docs/generated/STATE.md`；
+  ★最終 commit 之 diffstat 較此略多幾行＝插入本備註本身所致，被量的是量測時點那個索引；掃描器自報
   `scanned ~36099 bytes`＝**新增內容**面，與情境甲之「新檔全量 41353」互為 harness 保真對照）——
   段1 中位 **0.185s**（min 0.176／max 0.238）、段2 中位 **0.230s**（min 0.211／max 0.326、rc 全 0）
   → **兩段合計中位 0.415s ≤ 5s＝PASS**（餘裕 12.0 倍）。★本單元未動工具本體，故「自測觸發」那一段
