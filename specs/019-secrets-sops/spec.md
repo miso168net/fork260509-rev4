@@ -300,6 +300,14 @@
   ★重拍（2026-07-29、#11 反轉後）：「開機儀式」段名保留、**內容改寫為解法 2 常駐語意**
   （重開機後明文仍在、無須重跑解密；內容改述為「落點缺檔時的補救步驟」）——重拍原委詳
   ADR 0080「後果」節。
+  ★**作廢（2026-07-30、U5 as-built 改判）**：上列「GPG_TTY session 前置（T006 移交）」一項
+  **不再是 MUST 落地項**——該前置源自 research R8 的 gpg 期假設，ADR 0080 拍板 age B′ 後已無
+  承載面：B′ 的 passphrase 由 sops 內嵌的 age 直接讀容器內 `/dev/tty`，全程不經 gpg-agent／
+  pinentry（①wrapper 只 `-e` 轉發 `SOPS_AGE_KEY`／`_FILE`／`_CMD` 三變數，host 端 export 的
+  `GPG_TTY` 到不了容器 ②釘版映像內無 `gpg`／`pinentry` ③零 PGP recipient）。RUNBOOK 落地面
+  改為**反向記載**「本管線零 gpg 前置、passphrase 提示異常不要往這個方向查」——as-built 權威
+  ＝RUNBOOK §15 節首；T006 之勾選保留為研究期實測紀錄（詳 tasks T006 之「quality 第 3 輪」
+  備註與 L-186）。
 - **FR-024**: 撤銷演練 MUST 過 #7 五準則（否定測試核心）；#13 提示次數 MUST 實測記錄且
   RUNBOOK 不寫死。
 - **FR-025**: ADR 5 支（0079 起、一決策一檔、綱要＝brainstorm §9）MUST accepted；U1 三閘
