@@ -148,9 +148,23 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 貼進 shell 前先設好本變數（取值口徑同 `deploy/*.sh` 的寬樣式解析）：
 
 ```bash
-export SECRETS_DIR="$(grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' .env | tail -n 1 | sed -E 's/.*=[[:space:]]*//')"
+# ★三級口徑之①：已 export 且非空即沿用——**絕不以 .env 覆寫**（覆寫＝你設的落點被靜默換掉，
+#   而下表的 ALTER USER 會拿被換掉的那份密碼去改運行中 DB＝契約 P5.1 那條「腳本查一處、
+#   compose 掛另一處」搬到最危險的一格）。已 export 但為空＝吵鬧失敗（同五支腳本）。
+if [ "${SECRETS_DIR+set}" = set ] && [ -z "$SECRETS_DIR" ]; then
+  echo "FAIL：SECRETS_DIR 已匯出為空字串——要用 .env 的值請先 unset SECRETS_DIR"
+elif [ -z "${SECRETS_DIR:-}" ]; then
+  export SECRETS_DIR="$(sed -e "1s/^$(printf '\357\273\277')//" -e 's/\r$//' .env \
+    | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
+fi
 [ -d "$SECRETS_DIR" ] || echo "FAIL：SECRETS_DIR 取值失敗（.env 缺該行？）——先跑 bash tools/bootstrap"
 ```
+
+★上段與五支賦值型消費者**逐字同口徑**（契約 §P5.1）：env 優先 → `.env` 只嚴格解析該一行
+（剝 UTF-8 BOM 與 CR、容 `export ` 前綴與等號兩側空白）→ 皆缺才由 `[ -d ]` 吵鬧失敗。
+★`grep` 請確認是真 GNU grep（`/usr/bin/grep`）——某些互動 shell 的 `grep` 是會吃掉 BOM 的
+shim，用它測 BOM 形會得到假綠（U6 quality 實證）。
 
 下表「重生 leaf」＝`rm "$SECRETS_DIR/<機密>.txt"` → `bash deploy/generate-secrets.sh`（零參數：
 缺則補新亂數值＋drift 偵測連動重寫 composite；2026-07-19 沙箱實測僅該 leaf＋其 composite 變動、
