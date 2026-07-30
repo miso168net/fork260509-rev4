@@ -899,15 +899,48 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   後者 371 bytes mode 600）⑧**物件庫終驗（本輪新增、教訓＝L-191）**：L-158 舊稽核法（`hash-object`
   × `fsck --unreachable` 取 **SHA 交集**）得交集 0＝**假綠**——升級為**內容子字串比對**後抓到
   **2 筆 unreachable blob（54857／2228 bytes）含 `alert_webhook_url` 現值**（＝T036 首次嘗試被
-  值比對層擋下時 `git add` 已寫入的修前版；擋的是 commit、不是 `git add`）；兩者皆不可由任一 ref
-  觸及（`rev-list --all --objects` 命中 False）＝未進歷史、只需 prune。結清＝`git prune --expire=now`
-  → 反證兩 blob `cat-file -e` rc≠0、**含機密之 unreachable blob 數＝0**、HEAD tree 全 tracked 檔
-  子字串掃**命中 0**、工作樹零行。`quickstart.md` §S10 已補⑧項與 L-193 之輸出禁令句。
+  值比對層擋下時 `git add` 已寫入的修前版；擋的是 commit、不是 `git add`）。結清＝`git prune
+  --expire=now` → 反證兩 blob `cat-file -e` rc≠0、**含機密之 unreachable blob 數＝0**、HEAD tree
+  全 tracked 檔子字串掃**命中 0**、工作樹零行。
+  ★**可觸及面判準更正（quality 第 2 輪 blocker 1；教訓＝L-196）**：本項原記「兩者皆不可由任一 ref
+  觸及（`rev-list --all --objects` 命中 False）＝未進歷史、只需 prune」——該推論**為假**。「那兩個
+  blob 的 SHA 不在 rev-list」是真、但它是 **SHA 相等判準**，正是同一輪 L-191 親自點名「對『檔案
+  **內含**機密』結構上碰不到」的失明形：unreachable 面已升級為子字串比對，可觸及面卻用回舊判準。
+  改以**同一子字串判準**重掃可觸及面（`git rev-list --all --objects` 3536 個具路徑物件 →
+  `git cat-file --batch` 串流、1717 個 blob 逐筆判是否含 11 支落點現值任一為子字串；全程只印
+  SHA 前 8 碼／size／命中數）＝**含 `alert_webhook_url` 現值之可觸及 blob 20 個**，經
+  `rev-list --objects` 反查路徑全落兩檔＝`docs/ops/RUNBOOK.md` **19 個歷史版**＋
+  `deploy/dev-webhook-sink.sh` **1 個舊版**（逐路徑量化：RUNBOOK 可觸及 63 版其中 19 含、
+  dev-webhook-sink.sh 6 版其中 1 含、`contact-points.yml` 12 版 0、`docker-compose.yml` 11 版 0）；
+  限縮本刀新引入面（`git rev-list --objects 2517de6..HEAD`）＝**12 個、全為 RUNBOOK**
+  ＝**該值已進歷史**（且多數由本刀自己寫入、於 HEAD 版才改述掉）。
+  **分流判定＝不觸發輪替＋不改寫歷史**：該值為 dev 收器容器內部位址（`docker` 網段外不可解析、
+  無憑證材料、收器已撤），b3905a2 已把四處敘述改為「不以完整字面進版本庫」＋明載可推導性
+  ＝**dev-only 已接受殘餘**；HEAD tree 子字串掃 0（改述已生效）、unreachable 面 0（prune 已生效）。
+  **劇本補強**（否則同一步會再生產假綠）：`quickstart.md` §S10 ⑧ 改寫為「三面（unreachable／
+  HEAD tree／rev-list 可觸及）**同一子字串判準**＋命中≠0 後的**分流表**（真機密→輪替＋改寫歷史；
+  dev-only 佔位→ADR／commit 誠實登記）」，並補「可觸及面命中不可用 SHA 交集判否」一句；
+  教訓 append **L-196**。`quickstart.md` §S10 亦已含⑧項與 L-193 之輸出禁令句。
   ⑨**收刀 finishing 硬性義務的可行動歸屬（U6 quality 第 1 輪補列）**：ADR 0080 決策 5 之收刀期
   兩組步驟（真鑰產製＋撤銷四步＋7 支 leaf 輪替）本檔明載「不在本任務範圍」（T019 備註）、40 項
   全勾故無未勾項承接，原 NOTES／BACKLOG 亦零命中（`grep -n '真鑰\|撤銷四步\|暫代'` 兩檔 rc=1）
   ＝該義務只活在 ADR 正文與已勾選備註裡；結清＝**BACKLOG B-120 登記**（觸發條件＝019 收刀
   finishing、merge 前必做）＋NOTES ★一句，`quickstart.md` §S10 併補⑨項使其進入驗收面。
+  ⑩**活書 as-built 修正義務的可行動歸屬（U6 quality 第 2 輪補列；⑨ 同一結構缺口之第二實例）**：
+  `docs/arc42/ARCHITECTURE.md` §7「機密」段兩處與 as-built 相反——(a) 該段首句「十一支檔案型 secrets
+  （`deploy/secrets/`、實值 gitignored」（019 已遷落點、權威＝tracked 密文，原述只對回退落點成立）
+  (b) 同段末句「`CHANGE-ME` 開頭佔位值被 server boot 拒收（panic 指名該機密）」（泛稱句失真，須比照
+  0525997 對 README 的處置補射程＝僅 6 支經 rust-api／migration／reaper 讀取）。活書屬 as-built、
+  **依紀律不在本 branch 改而歸收刀簿記 commit**，故本刀能做且必須做的是**歸屬**：原義務只活在
+  `plan.md`／`research.md`／已勾選 tasks 備註（`grep -n 'ARCHITECTURE\|活書'` 於 BACKLOG／NOTES／
+  quickstart 三檔皆 0 命中），而被援引為補償的 lint **L6(b) 並非義務閘**（`lint_arch_impact` 只對
+  claimed 與 changed 兩個差集發 ERROR，兩者同為空即零 findings）。結清＝**BACKLOG B-122 登記**
+  ＋NOTES ★一句＋`quickstart.md` §S10 補⑩項（含「不可援引 L6(b) 當補償閘」與勘誤枚舉關鍵詞取最短
+  共同片段之注記——**本輪處置前實測**：短片段 `errata 'panic 指名該機密'` 回 **3 個實質落點含活書**，
+  較長片段 `errata '拒收（boot panic 指名該機密）'` 只回 **2 處、漏掉活書**〔活書用詞為「server boot
+  拒收（panic」，長片段不匹配〕；★處置後重跑會多出本段與 B-122 的**後設引用**＝自指噪音，判讀時
+  排除 `docs/ops/BACKLOG.md` 與 `specs/019-secrets-sops/**`）。★活書 §7 現 **59/60 行**（L7 單節
+  配額），收刀改寫須淨零或淨減、否則同刀調配額；收刀事件 `arch_impact` 須含 `§7`。
   ——**generate／check／lint**：`generate` 重算 11 檔、`lint` **0 錯誤 0 警告**（3 條款 fail-safe 跳過
   ＝L6 events 基準面／L16 兩 gitlink 未 staged）；`check` 於 stage 生成物後一致；工作樹收斂
   ——**LESSONS 節歸屬整理（前四單元 carryover）＋本輪 append**：詳本檔 Phase 8 末「LESSONS 主卷

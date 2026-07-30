@@ -235,14 +235,34 @@ SC-008 處置慣例）。
 （`git hash-object <機密檔>` × `git fsck --unreachable` 取 **SHA 交集**）對「**文件內含**機密值」
 結構性失明、會回報假綠。判準升級為**內容子字串比對**：`git fsck --unreachable` 逐筆
 `git cat-file blob` 讀出、判是否含任一落點現值為子字串（只印 SHA 前 8 碼與 size、**不印內容**）
-→ 非零即 `git prune --expire=now` → 反證「含機密之 unreachable blob 數＝0」；併核 HEAD tree
-（`git ls-files` × `git show HEAD:` 子字串掃）與 `git rev-list --all --objects` 可觸及面，以區分
-「只需 prune」與「已進歷史＝要輪替＋改寫歷史」。
+→ 非零即 `git prune --expire=now` → 反證「含機密之 unreachable blob 數＝0」。
+★**三面同一判準**（L-196；漏一面即假綠）——①**unreachable**（`git fsck --unreachable`）
+②**HEAD tree**（`git ls-tree -r HEAD` × `git cat-file --batch`）③**可觸及面**
+（`git rev-list --all --objects` 全物件 × `git cat-file --batch`，命中者以 `rev-list --objects`
+反查路徑，另限縮 `<merge-base>..HEAD` 得「本刀新引入」子集）——**三面一律跑子字串掃**。
+★**可觸及面絕不可用 SHA 交集／`cat-file -e` 判否**：那是 L-191 已點名失明的 SHA 相等判準，
+對「檔案**內含**機密」永遠回 0；本刀第一次寫這步就踩了（unreachable 面已升級、可觸及面用回舊
+判準＝假的「未進歷史」）。
+★**命中≠0 後的分流表**（此步是「只需 prune」vs「已進歷史」的**唯一**判準、不可含糊）：
+（a）**真機密**（憑證／金鑰／可用於認證之值）→ **輪替該值＋改寫歷史**（`filter-repo`／
+BFG）＋所有持有方同步，二者缺一即未結清；（b）**dev 佔位／不可外部解析之內部位址**且經評估
+無憑證材料 → 可判**已接受殘餘**，但必須**誠實登記**（ADR 殘餘風險欄或 commit 訊息寫明「值已在
+歷史、不改寫、理由與失效條件」），不得寫成「未進歷史」或「暴露面已關閉」。
 ⑨**收刀 finishing 硬性義務的可行動歸屬**（U6 quality 補列）：ADR 0080 決策 5 之收刀期兩組步驟
 （user 親產真鑰＋暫代鑰撤銷四步＋7 支 leaf 輪替）在 tasks.md 明載「不在本任務範圍」、而 40 項
 全勾＝無未勾項可承接——核 **BACKLOG 登記 B-120**（`grep -c 'B-120' docs/ops/BACKLOG.md` ≥1）
 ＋NOTES 同步一句。缺此登記＝該義務只活在 ADR 正文與**已勾選**的備註裡（L-165 型缺口），
 而 ADR 0080 殘餘風險 #4 自陳「未完成前版控內密文的實質保護等同無」。
+⑩**活書 as-built 修正的可行動歸屬**（U6 quality 第 2 輪補列）：`docs/arc42/ARCHITECTURE.md` 屬活書、
+依紀律**不在 feature branch 改**而歸收刀簿記 commit——故 feature branch 上唯一可驗的是**歸屬存在**：
+核 **BACKLOG 登記 B-122**（`grep -c 'B-122' docs/ops/BACKLOG.md` ≥1）＋NOTES 同步一句，且該列須逐條
+指名活書失真處（本刀＝§7「機密」段之落點敘述與 `CHANGE-ME` 黑名單射程兩處）。
+★**不可援引 lint L6(b) 當補償閘**：L6(b) 只對「宣稱 `arch_impact` 節集」與「簿記活書實際變動節集」
+兩個**差集**發 ERROR——收刀若宣稱空集合又不動活書，兩者同為空、零 findings 全綠（它擋帳面不符、
+不擋遺漏）。★併跑**勘誤枚舉**確認沒有「只修被點名那一處」：對每個被改述的泛稱句跑
+`python3 tools/docs-sync.py errata '<句中關鍵詞>'`，逐處標明已修／歷史文件不改／歸收刀，
+且關鍵詞須取**最短共同片段**（窄化即漏枚舉——本刀實證：以較長片段查會漏掉活書那一處）；
+判讀時排除治理檔（BACKLOG／tasks／本檔）內談論該句的**後設引用**＝自指噪音、非待處置落點。
 
 **期望**：全數齊備且與實測結果一致；`docs-sync.py lint` 全綠、`generate` 後無 diff。
 ★**機密值輸出禁令貫穿全節**（L-193）：byte 級健檢一律寫成**布林斷言**並只印 True／False 與 byte 數
