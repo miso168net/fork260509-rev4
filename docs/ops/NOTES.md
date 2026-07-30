@@ -7,6 +7,9 @@
   投遞失敗重試無害）、正式接收端 URL 待 user 自填——★019 起落點已遷出 repo、密文權威來源＝
   `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；obs＋metrics 觀測件現全
   up、jobs sidecar 屬 opt-in 未常駐。
+- ★**019 收刀 finishing 未結硬性義務**（未做完＝版控內密文的實質保護等同無）：暫代正式鑰 passphrase
+  已在對話紀錄＝視同洩露 → finishing 須 user 親產真鑰＋撤銷暫代鑰＋輪替 7 支 leaf（`alert_webhook_url`
+  不輪替＝保 SC-007）；權威＝ADR 0080 決策 5、程序＝RUNBOOK §15.2／§15.3／§7＋§15.4、歸屬＝B-120。
 - **018-governance-hardening 已收刀**（2026-07-28）：治理工具鏈與編排紀律硬化——B-111 四支
   工具補 .py＋CLAUDE.md 範本三件（六件套⑥／次輪前饋／三欄表）＋docs-sync 五新條款（L16 憑證
   掃描／L17 pin 互證／L18 events 實證／L19 命令形／L20 空集合守衛）＋lint 三段式摘要＋tools-cli

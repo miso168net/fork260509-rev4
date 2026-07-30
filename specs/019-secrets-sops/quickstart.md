@@ -238,6 +238,11 @@ SC-008 處置慣例）。
 → 非零即 `git prune --expire=now` → 反證「含機密之 unreachable blob 數＝0」；併核 HEAD tree
 （`git ls-files` × `git show HEAD:` 子字串掃）與 `git rev-list --all --objects` 可觸及面，以區分
 「只需 prune」與「已進歷史＝要輪替＋改寫歷史」。
+⑨**收刀 finishing 硬性義務的可行動歸屬**（U6 quality 補列）：ADR 0080 決策 5 之收刀期兩組步驟
+（user 親產真鑰＋暫代鑰撤銷四步＋7 支 leaf 輪替）在 tasks.md 明載「不在本任務範圍」、而 40 項
+全勾＝無未勾項可承接——核 **BACKLOG 登記 B-120**（`grep -c 'B-120' docs/ops/BACKLOG.md` ≥1）
+＋NOTES 同步一句。缺此登記＝該義務只活在 ADR 正文與**已勾選**的備註裡（L-165 型缺口），
+而 ADR 0080 殘餘風險 #4 自陳「未完成前版控內密文的實質保護等同無」。
 
 **期望**：全數齊備且與實測結果一致；`docs-sync.py lint` 全綠、`generate` 後無 diff。
 ★**機密值輸出禁令貫穿全節**（L-193）：byte 級健檢一律寫成**布林斷言**並只印 True／False 與 byte 數

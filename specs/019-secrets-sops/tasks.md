@@ -887,7 +887,7 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   目錄 mode 700、composite↔leaf 一致性由 preflight `cmp` 比對承載；★原以 `tail -c1 | xxd` 列印
   末 byte＝機密值切片、當場改判並重驗，教訓＝**L-193**）｜SC-009 過（詳 T037：0.318s／0.194s
   對門檻 5s／3s）｜SC-010 過（本節⑦項全備）。
-  ——**S10 ①~⑧ 逐項**：①ADR 五支 `status: accepted`（0079／0080／0081／0082／0083 逐檔 front-matter
+  ——**S10 ①~⑨ 逐項**：①ADR 五支 `status: accepted`（0079／0080／0081／0082／0083 逐檔 front-matter
   實讀；0080 三閘實測欄 grep 命中 6）②RUNBOOK 落地＝`### 15.` 小節數 **10**、§7 「每一列做完都要接
   re-encrypt」條在位（行 168）、§4 `manage-bde`／`.wslconfig` 兩項在位、§12 速查兩列（`sops.sh`／
   `decrypt-secrets.sh`）在位 ③B-115 登記在位 ④NOTES 之 base-web `--no-verify` 慣例廢止句在位
@@ -903,6 +903,11 @@ rc=0＝FR-007／US1 情境 4／SC-001 裸值格結構性失守卻全綠**。修�
   觸及（`rev-list --all --objects` 命中 False）＝未進歷史、只需 prune。結清＝`git prune --expire=now`
   → 反證兩 blob `cat-file -e` rc≠0、**含機密之 unreachable blob 數＝0**、HEAD tree 全 tracked 檔
   子字串掃**命中 0**、工作樹零行。`quickstart.md` §S10 已補⑧項與 L-193 之輸出禁令句。
+  ⑨**收刀 finishing 硬性義務的可行動歸屬（U6 quality 第 1 輪補列）**：ADR 0080 決策 5 之收刀期
+  兩組步驟（真鑰產製＋撤銷四步＋7 支 leaf 輪替）本檔明載「不在本任務範圍」（T019 備註）、40 項
+  全勾故無未勾項承接，原 NOTES／BACKLOG 亦零命中（`grep -n '真鑰\|撤銷四步\|暫代'` 兩檔 rc=1）
+  ＝該義務只活在 ADR 正文與已勾選備註裡；結清＝**BACKLOG B-120 登記**（觸發條件＝019 收刀
+  finishing、merge 前必做）＋NOTES ★一句，`quickstart.md` §S10 併補⑨項使其進入驗收面。
   ——**generate／check／lint**：`generate` 重算 11 檔、`lint` **0 錯誤 0 警告**（3 條款 fail-safe 跳過
   ＝L6 events 基準面／L16 兩 gitlink 未 staged）；`check` 於 stage 生成物後一致；工作樹收斂
   ——**LESSONS 節歸屬整理（前四單元 carryover）＋本輪 append**：詳本檔 Phase 8 末「LESSONS 主卷
