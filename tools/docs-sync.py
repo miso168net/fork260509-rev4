@@ -6525,6 +6525,12 @@ class TestGateWiring(unittest.TestCase):
             _wfile(d, f"tools/{name}.py", STUB_TOOL)
         _wfile(d, "base-web", "gitlink 佔位：本測只驗觸發條件、不建真 submodule\n")
         _wfile(d, "docs/ops/NOTES.md", "非工具檔（平時情境用）\n")
+        # ★真 hook 現以 `--config <hook 目錄>/../.gitleaks.toml` 顯式指定掃描器設定
+        # （019 final review：靠自動探索時 config 缺席會**靜默降級成內建規則並 rc=0**，
+        # 顯式帶則 rc=1 落入「掃描器本身異常」分支＝吵鬧失敗）。沙盒缺該檔時掃描階段即
+        # exit 1、樁工具零呼叫——那是 hook 行為正確而**沙盒不保真**，故此處補最小合法
+        # 設定檔（`extend.useDefault` 保內建規則；本節只驗觸發接線、不驗規則內容）。
+        _wfile(d, ".gitleaks.toml", "[extend]\n  useDefault = true\n")
 
     @classmethod
     def tearDownClass(cls):
@@ -6552,6 +6558,20 @@ class TestGateWiring(unittest.TestCase):
         self.assertIsNotNone(m, msg="pre-commit 條件觸發段的工具名冊行不見了")
         self.assertEqual(tuple(m.group(1).split()), tools_test_roster())
         self.assertIn("tools/fork-delta-lint.py", hook)   # 無 test 介面、走聯集觸發
+
+    def test_hook_scan_pins_scanner_config_explicitly(self):
+        """★掃描器設定檔**顯式指定、不靠自動探索**（019 final review 實證）：探索模式下
+        `.gitleaks.toml` 缺席時 betterleaks **靜默降級為內建規則庫並回 rc=0**——自訂 DSN
+        規則與兩條 allowlist 一併下線，而 hook 只看 rc，於是一路綠（實測同一 DSN fixture：
+        無 config rc=0／放回 rc=2）；顯式帶則 config 缺席即 rc=1、落入「掃描器本身異常」
+        分支＝吵鬧失敗。此案釘住兩支 hook 皆顯式帶（拿掉任一即紅）——沙盒 fixture 有該檔，
+        故少了本案時「移除 --config」會全綠存活（防恆綠、同 L-159 教訓）。"""
+        for rel in (HOOK_REL, ".githooks-submodule/pre-commit"):
+            text = _read(ROOT, rel) or ""
+            line = re.search(r"^betterleaks git .*$", text, re.M)
+            self.assertIsNotNone(line, msg=f"{rel} 的樣式掃描行不見了")
+            self.assertIn("--config ", line.group(0),
+                          msg=f"{rel} 掃描行未顯式帶 --config＝config 缺席時靜默降級")
 
     def test_bootstrap_runs_every_tool_test(self):
         """G9 體檢節無條件全跑：run_tool_test 逐行被刪即紅（與 hook 同一名冊對賬）。"""
