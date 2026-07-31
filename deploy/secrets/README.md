@@ -7,7 +7,7 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
 ＝接受 BOM／`export ` 前綴／等號兩側空白／CRLF，值校驗才收窄）③皆缺**才**回退本目錄
 ＝`deploy/secrets`。拍板預設值＝`$HOME/.cache/fork260509-rev4/secrets`（ADR 0084 統一樹；`.env.example` 有註解範例）。
 唯一例外＝`tools/bootstrap.sh` 依 P5.1 分工**只讀 `.env`、不吃環境變數**（體檢用途）。
-**權威來源＝ `deploy/secrets.dev.enc.yaml`**（8 key 密文、**tracked**、以 SOPS+age 加密）；
+**權威來源＝ `deploy/secrets.dev.enc.yaml`**（10 key 密文、**tracked**、以 SOPS+age 加密）；
 營運全程序＝`docs/ops/RUNBOOK.md` §15。
 
 **請勿將真實 secret 值 commit 進版本庫。**（三層掃描防線會擋，但擋不住已經進歷史的東西。）
@@ -23,7 +23,7 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
 ## 取得機密的方式（三條路徑，依情境擇一）
 
 ```bash
-./deploy/decrypt-secrets.sh                # ★主路徑：自加密檔還原 8 支（7 leaf＋alert_webhook_url）
+./deploy/decrypt-secrets.sh                # ★主路徑：自加密檔還原 10 支（9 leaf＋alert_webhook_url）
 ./deploy/generate-secrets.sh --compose-only # 由 leaf 重組 3 支 composite（缺 leaf＝報錯退出、絕不代生成）
 ./deploy/preflight-secrets.sh               # 上機前把關（缺檔／CR／LF／composite drift 一律非零退出）
 ```
@@ -36,7 +36,7 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
 
 ```bash
 ./deploy/generate-secrets.sh          # 冪等：已存在跳過（SKIPPED）、缺則補（GENERATED）
-./deploy/generate-secrets.sh --force  # 亂數生成的十支全重生（alert_webhook_url 不在範圍）
+./deploy/generate-secrets.sh --force  # 亂數生成的十二支全重生（alert_webhook_url 不在範圍）
 ```
 
 > ★**與加密檔的關係**：`generate` 產的是**落點明文**，加密檔**不會自己跟著變**。任何以
@@ -55,10 +55,10 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
 > 絕不可手動改單一 leaf 檔（如 `postgres_password.txt`）而不重跑腳本——腳本會以**逐位元組**
 > 比對偵測 drift 並連動重寫 composite；跳過腳本手改則兩處不一致、連線必失敗。
 
-## 十一機密對照表（secret 檔 ↔ 消費服務 ↔ env 變數）
+## 十三機密對照表（secret 檔 ↔ 消費服務 ↔ env 變數）
 
-★口徑：**11 檔**＝7 leaf＋3 composite＋1 user 自填；**10** 進 compose（`reaper_password` 不進、
-由 `setup-reaper-role.sh` 直讀）；**8** 入加密檔（7 leaf＋`alert_webhook_url`；composite 不進、
+★口徑：**13 檔**＝9 leaf＋3 composite＋1 user 自填；**12** 進 compose（`reaper_password` 不進、
+由 `setup-reaper-role.sh` 直讀）；**10** 入加密檔（9 leaf＋`alert_webhook_url`；composite 不進、
 由 `generate --compose-only` 重生）。引用機密數量時必言明是哪一個口徑。
 
 | secret 檔 | 類型 | 入加密檔 | 消費服務 | env 變數／注入方式 |
@@ -70,6 +70,8 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
 | `captcha_secret.txt` | leaf（base64 48） | ✓ | rust-api | `APP_CAPTCHA_SECRET_FILE`（007 captcha challenge HS256 密鑰） |
 | `reaper_password.txt` | leaf（hex 24） | ✓ | 設密部署腳本（016；**不進 compose**） | psql `ALTER ROLE reaper LOGIN PASSWORD ...`（stdin heredoc、密碼絕不進 migration） |
 | `grafana_admin_password.txt` | leaf（base64 24） | ✓ | grafana（016、profiles:obs/metrics） | `GF_SECURITY_ADMIN_PASSWORD: $__file{/run/secrets/grafana_admin_password}`（grafana file provider） |
+| `smtp_password.txt` | leaf（base64 24） | ✓ | rust-api | `APP_SMTP_PASSWORD_FILE`（020 SMTP 寄信；dev 亂數不消費——dev 走 mailpit 無認證；prod 真值＝Gmail app password、填法依 RUNBOOK Gmail 節） |
+| `email_verify_secret.txt` | leaf（base64 48） | ✓ | rust-api | `APP_EMAIL_VERIFY_SECRET_FILE`（020 信箱驗證憑據 HS256 密鑰——與 jwt／refresh／captcha 隔離的第四把） |
 | `database_url.txt` | composite | — | rust-api、migrate | `APP_DATABASE_URL_FILE`（migrate 真連庫；server 驗在場＋非空＋非佔位） |
 | `redis_url.txt` | composite | — | rust-api | `APP_REDIS_URL_FILE` |
 | `reaper_database_url.txt` | composite | — | reaper sidecar（016） | `APP_DATABASE_URL_FILE`（最小權限 DB 身分 reaper 連線） |

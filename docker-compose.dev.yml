@@ -71,6 +71,16 @@ services:
       # resources/ip2region.xdb 對不上實際位置、dev region 解析恆降級、稽核 region 恆空）。
       # prod 映像 COPY＋路徑設定仍屬部署刀（B-081 主體、L-084 四處 COPY）。
       XDB_FILEPATH: /app/xdb/resources/ip2region.xdb
+      # ═══ 020-email-verify dev 覆寫七鍵（data-model §5；base Gmail 形→dev mailpit 形；
+      #     APP_SMTP_USERNAME 不設鍵＝空語意＝跳過 AUTH、dev 亦不設）═══
+      APP_SMTP_HOST: mailpit
+      APP_SMTP_PORT: "1025"
+      APP_SMTP_STARTTLS: "false"
+      APP_MAIL_FROM: dev@rev4.local
+      APP_MAIL_DISPLAY_NAME: rev4-admin dev
+      APP_MAIL_REPLY_TO: dev@rev4.local
+      # 主旨後綴（dev 設 [dev]＝非空合法；base 不設鍵＝無後綴）
+      APP_MAIL_SUBJECT_SUFFIX: "[dev]"
     # watcher 不宜當 PID 1：tini 接管訊號轉發
     init: true
     volumes:
@@ -101,6 +111,26 @@ services:
     #   只改 command 會被當 watcher 參數
     entrypoint: ["cargo", "run", "--bin", "migration"]
     command: ["up"]
+
+  # ═══ 020-email-verify dev 收信件（mailpit、dev-only——prod compose 零 mailpit 痕跡＝SC-008）═══
+  # SMTP 1025 內網（rust-api 經服務名 mailpit:1025 直達、免 host 埠）；UI＋REST API 綁
+  # 127.0.0.1:8025（★8025 配號＝SDD 拍定字面、雖與 dev 4xxxx 慣例不同；★IPv4 字面、絕不
+  # localhost）；E2E 斷言走 /api/v1/search?query=to:… 撈信抽碼（research R2）。
+  mailpit:
+    image: axllent/mailpit:v1.30.6
+    expose:
+      - "1025"
+    ports:
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      # CMD 形直呼容器內建 readyz 子命令（與 curl http://127.0.0.1:8025/readyz 同口徑）
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - rev4_net
 
   postgres:
     ports:

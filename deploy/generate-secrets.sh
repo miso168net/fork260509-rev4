@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
-# deploy/generate-secrets.sh — rev4-admin 十一機密一鍵生成（001-compose-stack；007 增 captcha_secret；
-# 016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password）
+# deploy/generate-secrets.sh — rev4-admin 十三機密一鍵生成（001-compose-stack；007 增 captcha_secret；
+# 016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password；
+# 020 增 smtp_password／email_verify_secret）
 # 用法：./deploy/generate-secrets.sh [--force|--compose-only]
 #
-# 十一機密（$SECRETS_DIR/*.txt；落點解析見下、未設回退 deploy/secrets）：
+# 十三機密（$SECRETS_DIR/*.txt；落點解析見下、未設回退 deploy/secrets）：
 #   leaf      postgres_password（hex 24、URL-safe）／redis_password（hex 24、URL-safe）
 #   leaf      jwt_secret（base64 48）／refresh_token_secret（base64 48）
 #   leaf      captcha_secret（base64 48；007-login-throttle challenge HS256）
 #   leaf      reaper_password（hex 24、URL-safe；016 reaper 最小權限 DB 身分、設密另走部署腳本）
 #   leaf      grafana_admin_password（base64 24；016 grafana GF $__file{} 檔注入、非 URL）
+#   leaf      smtp_password（base64 24；020 SMTP 密碼——dev 亂數 leaf 未消費、prod 真值＝Gmail
+#             app password 依 RUNBOOK §15.4 回寫；★亂數非 CHANGE-ME——config 對佔位值 panic）
+#   leaf      email_verify_secret（base64 48；020 驗證憑據 HS256 獨立金鑰、仿 captcha_secret 形）
 #   composite database_url ＝ postgres://soybean:<postgres_password>@postgres:5432/soybean_admin_rust
 #   composite redis_url    ＝ redis://:<redis_password>@redis:6379
 #   composite reaper_database_url ＝ postgres://reaper:<reaper_password>@postgres:5432/soybean_admin_rust
@@ -23,9 +27,9 @@
 #
 # 冪等語意：
 #   - 零參數：已存在跳過（SKIPPED）、缺則補（GENERATED）。
-#   - --force：亂數生成的十支全重生；alert_webhook_url 屬 user 自填設定值、
+#   - --force：亂數生成的十二支全重生；alert_webhook_url 屬 user 自填設定值、
 #     不在 --force 範圍（重生佔位無輪替價值、反毀 user 已填真值）。
-#   - --compose-only（019 P5.5）：只重組 3 composite；8 支來源檔（7 leaf＋alert_webhook_url）
+#   - --compose-only（019 P5.5）：只重組 3 composite；10 支來源檔（9 leaf＋alert_webhook_url）
 #     缺任一＝報錯退出、絕不代生成——防靜默造新亂數（每台機器各拿到不同值、與加密檔脫鉤）。
 #   - dual-write 連動：composite 以「期望值 vs 檔案現值」逐位元組比對判定——涵蓋
 #     ①leaf 本次重生 ②leaf 曾單獨改動（比 composite 新） ③僅缺 composite
@@ -93,16 +97,17 @@ SECRETS_DIR="${SECRETS_DIR:-$SCRIPT_DIR/secrets}"
 case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$REPO_ROOT/$SECRETS_DIR" ;; esac
 mkdir -p "$SECRETS_DIR"
 
-# --compose-only 前置斷言（019 P5.5）：8 支來源檔在位且非空、缺任一即報錯退出（絕不代生成）
+# --compose-only 前置斷言（019 P5.5）：10 支來源檔在位且非空、缺任一即報錯退出（絕不代生成）
 if [ "$COMPOSE_ONLY" -eq 1 ]; then
     MISSING_SRC=()
     for name in postgres_password redis_password jwt_secret refresh_token_secret \
-                captcha_secret reaper_password grafana_admin_password alert_webhook_url; do
+                captcha_secret reaper_password grafana_admin_password smtp_password \
+                email_verify_secret alert_webhook_url; do
         [ -s "$SECRETS_DIR/${name}.txt" ] || MISSING_SRC+=("${name}.txt")
     done
     if [ "${#MISSING_SRC[@]}" -ne 0 ]; then
         echo "FAIL：--compose-only 缺來源檔（不生成、防靜默造新亂數）：${MISSING_SRC[*]}" >&2
-        echo "      → 先跑 ./deploy/decrypt-secrets.sh 重建 8 支（7 leaf＋alert_webhook_url）後重試。" >&2
+        echo "      → 先跑 ./deploy/decrypt-secrets.sh 重建 10 支（9 leaf＋alert_webhook_url）後重試。" >&2
         exit 1
     fi
 fi
@@ -134,7 +139,7 @@ clear_dir_placeholder() {
 }
 
 # ============================================================
-# Step 1: leaf secret ×7
+# Step 1: leaf secret ×9
 # ============================================================
 echo "=== Step 1: 生成 leaf secret ==="
 
@@ -164,10 +169,18 @@ if [ "$COMPOSE_ONLY" -eq 0 ]; then
     # grafana_admin_password（016 obs）：僅經 GF_SECURITY_ADMIN_PASSWORD=$__file{...} 檔注入、
     # 非 URL → base64 安全（rev3 018 同形）。
     gen_leaf "grafana_admin_password" -base64 24
+    # smtp_password（020 email-verify）：dev＝亂數 leaf（rust-api 對 mailpit 不 AUTH、未消費）；
+    # prod 真值＝Gmail app password、依 RUNBOOK §15.4 回寫加密檔。★亂數非 CHANGE-ME 佔位——
+    # config env_or_file 對佔位值 panic、會炸 dev boot（research R9）。非 URL → base64 安全。
+    gen_leaf "smtp_password"        -base64 24
+    # email_verify_secret（020 email-verify）：驗證憑據 HS256 獨立金鑰（與 jwt/refresh/captcha
+    # 隔離）；仿 captcha_secret 的 HS256 密鑰形＝base64 48。
+    gen_leaf "email_verify_secret"  -base64 48
 else
-    # --compose-only：前置斷言已證 7 leaf 在位非空、此處只記狀態（不生成、不改動）
+    # --compose-only：前置斷言已證 9 leaf 在位非空、此處只記狀態（不生成、不改動）
     for name in postgres_password redis_password jwt_secret refresh_token_secret \
-                captcha_secret reaper_password grafana_admin_password; do
+                captcha_secret reaper_password grafana_admin_password smtp_password \
+                email_verify_secret; do
         STATUS["$name"]="PRESENT"
     done
 fi
@@ -251,8 +264,9 @@ chmod 644 "$SECRETS_DIR"/*.txt
 echo ""
 echo "=== Secret 生成摘要 ==="
 for name in postgres_password redis_password jwt_secret refresh_token_secret \
-            captcha_secret reaper_password grafana_admin_password database_url \
-            redis_url reaper_database_url alert_webhook_url; do
+            captcha_secret reaper_password grafana_admin_password smtp_password \
+            email_verify_secret database_url redis_url reaper_database_url \
+            alert_webhook_url; do
     printf "  %-26s %s\n" "${name}.txt" "${STATUS[$name]}"
 done
 echo ""

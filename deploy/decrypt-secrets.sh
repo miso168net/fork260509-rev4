@@ -42,13 +42,13 @@ fi
 #   UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，而行首錨定 `SECRETS_DIR=`
 #   的窄樣式對這五形一律漏認並**靜默回退**舊落點——實測 compose v5.3.1 五形全部解析為新
 #   落點，即契約 P5.1 違反後果欄的「compose 讀新落點、腳本查舊落點」（decrypt 更會據此把
-#   8 支明文寫回 repo 內 /mnt/d 舊落點＝違反 FR-021／SC-005）。故偵測改用寬樣式撈出
+#   10 支明文寫回 repo 內 /mnt/d 舊落點＝違反 FR-021／SC-005）。故偵測改用寬樣式撈出
 #   compose 會讀到的那一行（同 tail -n 1 後者勝口徑），再對其值套下方嚴格白名單：寬進窄出，
 #   四形一律「正確採用」或「吵鬧失敗」，永不落入靜默回退。
 # ★空字串邊界（019 U4 quality 修；五支賦值型解析器同刀齊改）：「已匯出但為空」≠「未設」——
 #   shell 環境已勝出 .env，compose 的 ${SECRETS_DIR:-./deploy/secrets} 對空字串直接吃預設值、
 #   回退 repo 內舊落點且**不讀 .env 該鍵**；而 [ -z ] 把空字串當未設、續往 .env 取新落點＝
-#   本腳本把 8 支明文寫進 .env 新落點、compose 卻掛 repo 內舊落點，即 P5.1 違反後果欄那條路
+#   本腳本把 10 支明文寫進 .env 新落點、compose 卻掛 repo 內舊落點，即 P5.1 違反後果欄那條路
 #   的另一入口，且破在靜默方向。空字串無合法用途（要走回退請 unset），故吵鬧失敗指名真因。
 if [ "${SECRETS_DIR+set}" = set ] && [ -z "$SECRETS_DIR" ]; then
     echo "FAIL：SECRETS_DIR 已匯出為空字串——compose 會忽略 .env 並回退 ./deploy/secrets（repo 內舊落點）。" >&2
@@ -96,14 +96,16 @@ if [ "$DIR_MODE" != "700" ]; then
     fi
 fi
 
-# ---- 8 key 名單（＝deploy/secrets.dev.enc.yaml 全集；7 leaf＋alert_webhook_url；
-#      composite 三支由 generate-secrets.sh 自 leaf 重生、不進加密檔）----
+# ---- 10 key 名單（＝deploy/secrets.dev.enc.yaml 全集；9 leaf＋alert_webhook_url；020 增
+#      smtp_password／email_verify_secret；composite 三支由 generate-secrets.sh 自 leaf 重生、
+#      不進加密檔）----
 EXPECTED_KEYS=(postgres_password redis_password jwt_secret refresh_token_secret
-               captcha_secret reaper_password grafana_admin_password alert_webhook_url)
+               captcha_secret reaper_password grafana_admin_password smtp_password
+               email_verify_secret alert_webhook_url)
 
 # ---- 單次 sops -d 收全 YAML 至暫存（明文中間產物；落點必須離開 /mnt/d）----
 # ★不得落 repo 內 tmp/：/mnt/d＝9p（v9fs），umask／chmod 皆結構性 no-op（同上方 SECRETS_DIR
-#   權限自證分支所承認的性質）——暫存檔會以實效 777、Windows 側可見的形式承載 8 支完整明文，
+#   權限自證分支所承認的性質）——暫存檔會以實效 777、Windows 側可見的形式承載 10 支完整明文，
 #   正是 FR-021／SC-005「/mnt/d 全樹零明文機密檔」要消滅的暴露面，且不隨 US3 落點遷移而消失。
 # ★本檔由 host shell 重導向產生、不進容器（wrapper 只掛載 $PWD 供 sops 讀 enc 檔），故不受
 #   contracts §P7「合併衝突」列之「暫存明文必須落 repo 內」限制——該限只適用於要餵回 sops
@@ -243,4 +245,4 @@ if [ "${#NEW_SAVED[@]}" -ne 0 ]; then
     echo "WARN：下列機密現值與加密檔不一致、已另存 .txt.new（原檔未覆寫）：${NEW_SAVED[*]}" >&2
     echo "      人工比對後：採加密檔值＝mv .new 蓋回；保留現值＝刪 .new 並依 RUNBOOK 輪替程序回寫加密檔。" >&2
 fi
-echo "完成：$SECRETS_DIR 之 8 支 key 檔已就緒（composite 另跑 ./deploy/generate-secrets.sh 重組）。"
+echo "完成：$SECRETS_DIR 之 10 支 key 檔已就緒（composite 另跑 ./deploy/generate-secrets.sh 重組）。"
