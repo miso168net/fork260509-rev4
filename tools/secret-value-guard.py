@@ -12,10 +12,15 @@
           可辨識 skip 提示＋exit 0（fail-open；樣式掃描為主防線）。
           ★每次執行先跑紅綠 self-test（防恆綠）：紅樣本（執行期串接構造、防本檔自命中）
           未攔、近似綠樣本誤報、或 MIN_SECRET_LEN 邊界失守 → ERROR＋exit 1 擋 commit。
+          ★旗標 --full-tree（B-118）：同源讀值、改掃 `git ls-files` 全 tracked 檔逐行
+          bytes 比對（binary＝含 NUL byte 者跳過）——staged 增量對「既存於 tracked 檔的
+          現值」結構性失明（L-190），本模式供導入時盤點與定期體檢；命中→stderr 只印
+          「檔案:行號｜機密名」。★不接進 pre-commit（全樹非增量、成本未拍板）。
   test    跑自帶測試（unittest、離線、單檔零第三方依賴；先 purge_git_env 隔離 GIT_*）
 
 退出碼：無命中 0（含合法 skip）；命中或 self-test 失敗 1；用法錯誤 64（usage 走 stderr）。
-限制：值以單行比對（現值皆 printf '%s' 單行寫入）；binary diff 無文字面、不在本層射程。
+限制：值以單行比對（現值皆 printf '%s' 單行寫入）；binary diff／binary 檔無文字面、
+不在本層射程。
 """
 import os
 import re
@@ -231,6 +236,113 @@ def cmd_check():
         print(f"[secret-value-guard] ✗ {path}:{ln} 含機密現值（{name}）"
               "——自 staged 移除後重試；本工具不印值（含遮蔽形）", file=sys.stderr)
     return 1 if hits else 0
+
+
+# ---------------------------------------------------------------------------
+# B-118 全樹盤點模式（check --full-tree）
+# ---------------------------------------------------------------------------
+
+def tracked_files(root):
+    """全 tracked 檔相對路徑清單（`git ls-files -z -s`、只取 blob）；異常→RuntimeError。
+
+    ★濾除 mode 160000（gitlink＝submodule pin）：外層對其無 blob 內容、worktree 上是
+    目錄——不濾則每跑必對兩 submodule 誤印「讀不到…不視同乾淨」WARN（結構性噪音）。
+    """
+    r = subprocess.run(["git", "-c", "core.quotepath=off", "ls-files", "-z", "-s"],
+                       cwd=root, capture_output=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"git ls-files 失敗（exit {r.returncode}）："
+                           f"{r.stderr.decode('utf-8', 'replace').strip()}")
+    out = []
+    for entry in r.stdout.decode("utf-8", "replace").split("\0"):
+        if not entry:
+            continue
+        meta, path = entry.split("\t", 1)     # 「mode sha stage\t路徑」
+        if meta.split(" ", 1)[0] != "160000":
+            out.append(path)
+    return out
+
+
+def scan_tree_lines(content, secrets):
+    """單檔全內容掃描：bytes 逐行比對（不經解碼、編碼異常構不成炸點）→ [(行號, 機密名), …]。
+
+    binary（含 NUL byte）→ 回 None＝跳過（無文字面；同 git 判 binary 的實務慣例）。
+    行以 b"\\n" 切分＝CRLF 行尾不影響行號（現值經 eligible 過濾必為單行、不含 CR，
+    行尾殘留的 b"\\r" 不干擾子串比對）。整檔載入：本 repo tracked 檔皆小、簡單為上。
+    """
+    if b"\0" in content:
+        return None
+    hits = []
+    enc = [(name, value.encode("utf-8")) for name, value in sorted(secrets.items())]
+    for ln, line in enumerate(content.split(b"\n"), start=1):
+        for name, vb in enc:
+            if vb in line:
+                hits.append((ln, name))
+    return hits
+
+
+def run_selftest_full_tree():
+    """全樹模式紅綠 self-test（每次 --full-tree 先跑；防恆綠、同 check 慣例）。
+
+    樣本執行期串接構造（防本檔自命中）；印錯誤只講樣本類別、不印樣本值。
+    """
+    ok = True
+    v = "RV4" + "TREE" + "TEST" + "8c2d91ab4e"
+    sec = {"selftest_secret": v}
+    if scan_tree_lines(("頭\nx=" + v + ";\n").encode("utf-8"), sec) != \
+            [(2, "selftest_secret")]:
+        print("[secret-value-guard] ERROR self-test：全樹紅樣本未攔或行號錯（防線恆綠）"
+              "——中止盤點", file=sys.stderr)
+        ok = False
+    if scan_tree_lines(("x=" + v[:-1] + "X\n").encode("utf-8"), sec):
+        print("[secret-value-guard] ERROR self-test：全樹綠樣本誤報（比對過寬）——中止盤點",
+              file=sys.stderr)
+        ok = False
+    if scan_tree_lines(b"\x00" + v.encode("utf-8"), sec) is not None:
+        print("[secret-value-guard] ERROR self-test：binary 樣本未跳過——中止盤點",
+              file=sys.stderr)
+        ok = False
+    return ok
+
+
+def cmd_full_tree():
+    """B-118 一次性全樹盤點：機密現值 × 全 tracked 檔逐行比對；讀值與 check 同源。"""
+    if not run_selftest_full_tree():
+        return 1
+    sdir, err = resolve_secrets_dir(ROOT)
+    if err is not None:
+        print(f"[secret-value-guard] ERROR {err}——比對層本身異常、非機密命中", file=sys.stderr)
+        return 1
+    secrets = {n: v for n, v in load_secrets(sdir).items() if eligible(v)}
+    if not secrets:
+        print(f"[secret-value-guard] skip：機密現值目錄缺席或空（{sdir}）"
+              "——全樹盤點跳過（fail-open、樣式掃描為主防線）")
+        return 0
+    try:
+        files = tracked_files(ROOT)
+    except RuntimeError as ex:
+        print(f"[secret-value-guard] ERROR {ex}——比對層本身異常、非機密命中", file=sys.stderr)
+        return 1
+    n_hit = n_bin = 0
+    for rel in files:
+        try:
+            with open(os.path.join(ROOT, rel), "rb") as fh:
+                content = fh.read()
+        except OSError:
+            print(f"[secret-value-guard] WARN 讀不到 {rel}——略過（不視同乾淨）",
+                  file=sys.stderr)
+            continue
+        hits = scan_tree_lines(content, secrets)
+        if hits is None:
+            n_bin += 1
+            continue
+        for ln, name in hits:
+            n_hit += 1
+            print(f"[secret-value-guard] ✗ {rel}:{ln}｜{name}"
+                  "——tracked 檔含機密現值；本工具不印值（含遮蔽形）", file=sys.stderr)
+    print(f"[secret-value-guard] 全樹盤點：掃 {len(files)} 支 tracked 檔"
+          f"（binary 跳過 {n_bin} 支）、命中 {n_hit}")
+    return 1 if n_hit else 0
 
 
 # ---------------------------------------------------------------------------
@@ -611,6 +723,127 @@ class TestCmdCheckIntegration(unittest.TestCase):
             self.assertIn("skip", text)
 
 
+class TestFullTree(unittest.TestCase):
+    """B-118 全樹盤點模式（check --full-tree）：staged 增量模式對「已存在於 tracked 檔的
+    機密現值」結構性失明（019 U6 實證、L-190）——本模式一次性掃 git ls-files 全 tracked 檔。"""
+
+    def _fixture(self, d, body_bytes, fname="doc.md"):
+        """temp repo＋落點：tracked 檔以 bytes 寫入並 commit（非 staged 新增行）。"""
+        repo = os.path.join(d, "repo")
+        sec = os.path.join(d, "sec")
+        os.makedirs(repo)
+        os.makedirs(sec)
+        _init_repo(repo)
+        v = _fixture_value()
+        with open(os.path.join(sec, "fake_key.txt"), "w", encoding="utf-8") as fh:
+            fh.write(v)
+        with open(os.path.join(repo, fname), "wb") as fh:
+            fh.write(body_bytes)
+        _git(repo, "add", fname)
+        _git(repo, "commit", "-qm", "add")
+        return repo, sec, v
+
+    def _run(self, fn, repo, secdir):
+        import io, contextlib
+        from unittest import mock
+        mod = sys.modules[__name__]
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(mod, "ROOT", repo), \
+                mock.patch.dict(os.environ, {"SECRETS_DIR": secdir}), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = fn()
+        return rc, out.getvalue() + err.getvalue()
+
+    def test_full_tree_hits_committed_value_names_file_line_never_value(self):
+        """①命中印「檔:行｜名」、值零外洩（對輸出全文斷言不含假值字面）。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            body = "說明一\n說明二\nurl={} 之類\n"
+            repo, sec, v = self._fixture(d, body.format("PLACEHOLDER").replace(
+                "PLACEHOLDER", _fixture_value()).encode("utf-8"))
+            rc, text = self._run(cmd_full_tree, repo, sec)
+            self.assertEqual(rc, 1)
+            self.assertIn("doc.md:3｜fake_key", text)
+            self.assertNotIn(v, text)   # ★值本身絕不輸出（連遮蔽形都不印）
+
+    def test_staged_mode_blind_to_committed_value_reproduces_b118(self):
+        """②同 fixture 走 staged 模式（該行已 commit、非新增）不報＝結構性失明復現。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo, sec, v = self._fixture(
+                d, ("x=" + _fixture_value() + "\n").encode("utf-8"))
+            rc, _ = self._run(cmd_check, repo, sec)
+            self.assertEqual(rc, 0)     # 恰證 B-118：既存明文永不觸發增量模式
+            rc, text = self._run(cmd_full_tree, repo, sec)
+            self.assertEqual(rc, 1)     # 同一狀態全樹模式必攔
+            self.assertIn("doc.md:1｜fake_key", text)
+
+    def test_full_tree_clean_repo_exit_zero(self):
+        """③零命中 exit 0。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo, sec, _v = self._fixture(d, "乾淨內容\n沒有機密\n".encode("utf-8"))
+            rc, text = self._run(cmd_full_tree, repo, sec)
+            self.assertEqual(rc, 0)
+            self.assertNotIn("✗", text)
+
+    def test_full_tree_skips_binary_file(self):
+        """④binary 檔（含 NUL byte）跳過不炸——即使其位元組串含機密值也不掃（無文字面）。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            body = b"\x00\x01\x02" + _fixture_value().encode("utf-8") + b"\x00"
+            repo, sec, _v = self._fixture(d, body, fname="blob.bin")
+            rc, text = self._run(cmd_full_tree, repo, sec)
+            self.assertEqual(rc, 0)
+            self.assertNotIn("✗", text)
+
+    def test_full_tree_crlf_line_numbers_correct(self):
+        """CRLF 行尾不影響行號：以 \\n 切行、\\r 不另計行。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            body = ("甲\r\n乙\r\nk=" + _fixture_value() + "\r\n").encode("utf-8")
+            repo, sec, _v = self._fixture(d, body)
+            rc, text = self._run(cmd_full_tree, repo, sec)
+            self.assertEqual(rc, 1)
+            self.assertIn("doc.md:3｜fake_key", text)
+
+    def test_full_tree_gitlink_entry_skipped_without_warn(self):
+        """gitlink（mode 160000＝submodule pin）於外層無 blob 內容——不掃也不 WARN
+        （本 repo 兩 submodule 每跑必列＝結構性噪音、且「不視同乾淨」語意誤導）。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo, sec, _v = self._fixture(d, "乾淨\n".encode("utf-8"))
+            head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                                  capture_output=True, encoding="utf-8").stdout.strip()
+            _git(repo, "update-index", "--add",
+                 "--cacheinfo", f"160000,{head},subrepo")
+            self.assertNotIn("subrepo", tracked_files(repo))
+            rc, text = self._run(cmd_full_tree, repo, sec)
+            self.assertEqual(rc, 0)
+            self.assertNotIn("WARN", text)
+
+    def test_full_tree_selftest_green_on_healthy_pipeline(self):
+        self.assertTrue(run_selftest_full_tree())
+
+    def test_full_tree_selftest_catches_dead_matcher(self):
+        """比對邏輯死掉（恆空）→ self-test 必紅（防恆綠、同 check 慣例）。"""
+        from unittest import mock
+        mod = sys.modules[__name__]
+        import io, contextlib
+        buf = io.StringIO()
+        with mock.patch.object(mod, "scan_tree_lines", lambda *_a: []), \
+                contextlib.redirect_stderr(buf):
+            self.assertFalse(run_selftest_full_tree())
+        self.assertIn("紅樣本未攔", buf.getvalue())
+
+    def test_full_tree_selftest_never_prints_sample_values(self):
+        import io, contextlib
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            run_selftest_full_tree()
+        self.assertNotIn("RV4" + "TREE", out.getvalue() + err.getvalue())
+
+
 class TestMainCli(unittest.TestCase):
     def _main(self, args):
         import io, contextlib
@@ -625,6 +858,12 @@ class TestMainCli(unittest.TestCase):
 
     def test_check_rejects_extra_args_64(self):
         self.assertEqual(self._main(["check", "--x"]), 64)
+
+    def test_check_full_tree_flag_routes_to_full_tree(self):
+        from unittest import mock
+        mod = sys.modules[__name__]
+        with mock.patch.object(mod, "cmd_full_tree", lambda: 42):
+            self.assertEqual(self._main(["check", "--full-tree"]), 42)
 
     def test_check_fails_when_selftest_red(self):
         from unittest import mock
@@ -666,8 +905,10 @@ def main(argv):
         result = unittest.main(argv=[argv[0]], exit=False, verbosity=1).result
         return 0 if result.wasSuccessful() else 1
     if cmd == "check":
+        if argv[2:] == ["--full-tree"]:
+            return cmd_full_tree()
         if argv[2:]:
-            return usage(f"check：不收參數（見 {' '.join(argv[2:])}）")
+            return usage(f"check：僅收 --full-tree 單一旗標（見 {' '.join(argv[2:])}）")
         return cmd_check()
     return usage(f"未知子命令：{cmd}")
 
