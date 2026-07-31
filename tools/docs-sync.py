@@ -786,8 +786,13 @@ def gen_decisions_index(metas):
             "|---|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n")
 
 
-def _fmt_pin(sha):
-    return sha[:7] if sha else "未建置"
+def _fmt_pin(pin):
+    """pin＝index_gitlink 之 (SHA, 跳過原因)：有 SHA→短 SHA；無→未定（含原因）——
+    衝突態／無條目一律走此形，絕不顯示 stage 1/2/3 值（B-114）。"""
+    sha, why = pin or (None, None)
+    if sha:
+        return sha[:7]
+    return f"未定（{why}）" if why else "未定"
 
 
 def gen_state(ctx):
@@ -1002,14 +1007,16 @@ def head_file(rel, root):
 
 
 def index_pins(root):
-    out = git_out(["ls-files", "-s", "--", "base-web", "rust-api"], root) or ""
-    pins = {"web": None, "api": None}
-    for line in out.splitlines():
-        parts = line.split()
-        if len(parts) >= 4 and parts[0] == "160000":
-            pins[dict((sub, key) for key, sub in PIN_KEYS).get(parts[3], "")] = parts[1]
-    pins.pop("", None)
-    return {"web": pins.get("web"), "api": pins.get("api")}
+    """外層 index 之 submodule pin（generate 面／STATE 帳面唯一來源）。
+
+    ★逐庫復用 index_gitlink＝018 嚴格語意歸一（B-114）：只認 stage 0。修前舊碼
+    自掃 `ls-files -s` 逐行覆寫、無 stage 過濾——gitlink 合併衝突未解（index 同存
+    stage 1／2／3）時末筆＝stage 3（theirs）勝出（BACKLOG 條目誤記為「取首行＝
+    讀到共同祖先」、據實勘正），STATE 顯示衝突單側 pin 一樣是帳面誤導。統一回
+    {key: (SHA, 跳過原因)}：健康態 (SHA, None)；衝突態／無條目 (None, 原因)、
+    渲染面（_fmt_pin）顯示未定。
+    """
+    return {key: index_gitlink(root, sub) for key, sub in PIN_KEYS}
 
 
 def tracked_files(root):
@@ -3301,7 +3308,8 @@ class TestGenDecisionsIndex(unittest.TestCase):
 
 class TestGenState(unittest.TestCase):
     CTX = {
-        "pins": {"web": "deadbeef00", "api": None},
+        "pins": {"web": ("deadbeef00", None),
+                 "api": (None, "index 無該 gitlink 條目（純外層 repo 或該 submodule 未登記）")},
         "constitution_version": None,
         "events": [VALID_MISC, VALID_MISC, VALID_MISC, VALID_CLOSE],
         "adr_metas": [],
@@ -3313,7 +3321,7 @@ class TestGenState(unittest.TestCase):
         text = gen_state(self.CTX)
         self.assertTrue(text.startswith(GEN_HEADER))
         self.assertIn("deadbee", text)          # pin 短 SHA
-        self.assertIn("未建置", text)            # api pin 缺
+        self.assertIn("未定（index 無該 gitlink", text)   # api pin 缺→未定（含原因）
         self.assertIn("未鑄", text)              # constitution 版本缺
         self.assertIn("B-006", text)            # backlog next
         self.assertIn("滯後：2", text)           # 滯後卷分計
@@ -5396,6 +5404,67 @@ class TestIndexGitlinkStage(unittest.TestCase):
             self.assertEqual(len(f), 1, msg=str(f))
             self.assertIn("衝突", f[0]["msg"])
             self.assertNotIn("分歧", f[0]["msg"])
+
+
+class TestIndexPinsStrictStage(unittest.TestCase):
+    """★B-114：index_pins（generate 面／STATE 帳面）歸一 018 嚴格語意——逐庫復用
+    index_gitlink、只認 stage 0。
+
+    修前舊碼自掃 `ls-files -s` 逐行覆寫、無 stage 過濾：gitlink 合併衝突未解
+    （index 同存 stage 1／2／3）時**末筆＝stage 3（theirs）勝出**（BACKLOG 條目
+    誤記為「取首行＝讀到共同祖先」、據實勘正——ls-files 依 stage 遞增輸出、迴圈
+    覆寫故末筆勝）；無論祖先或 theirs，STATE 顯示任何 stage 1/2/3 值都是帳面誤導。
+    """
+
+    def test_healthy_stage_zero_pins(self):
+        """健康態（stage 0 單行）→ 兩庫各回 (SHA, None)，與 index_gitlink 契約同形。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            shas = {key: _init_sub(d, name)[0] for key, name in PIN_KEYS}
+            for key, name in PIN_KEYS:
+                _stage_gitlink(d, name, shas[key])
+            self.assertEqual(index_pins(d),
+                             {"web": (shas["web"], None), "api": (shas["api"], None)})
+
+    def test_conflicted_index_yields_undetermined_not_any_stage(self):
+        """衝突態（stage 1／2／3 並存、無 stage 0）→ (None, 衝突原因)；
+        絕不回任何 stage 值——對舊碼必紅（舊碼回末筆 stage 3＝theirs）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            base, ours, theirs = _init_sub(d, "base-web", 3)
+            _stage_gitlink_conflict(d, "base-web", (base, ours, theirs))
+            pin = index_pins(d)["web"]
+            self.assertNotIn(pin, (base, ours, theirs),
+                             msg=f"讀到 stage 值 {pin}（祖先={base[:7]}／theirs={theirs[:7]}）")
+            sha, why = pin
+            self.assertIsNone(sha)
+            self.assertIn("衝突", why)
+
+    def test_absent_path_yields_undetermined_reason(self):
+        """路徑缺席（index 無該 gitlink 條目）→ (None, 原因)。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            sha, why = index_pins(d)["api"]
+            self.assertIsNone(sha)
+            self.assertIn("index 無該 gitlink", why)
+
+    def test_state_renders_undetermined_never_stage_values(self):
+        """STATE 渲染：衝突庫顯示「未定（含原因）」、健康庫照常顯示短 SHA；
+        stage 1/2/3 任一 SHA 之短形一律不得出現。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            base, ours, theirs = _init_sub(d, "base-web", 3)
+            # ★取第 4 筆：_init_sub 逐庫同內容＋同秒 commit 會產出相同 SHA——rust-api
+            # 首 commit 與 base 撞 SHA 時「不得出現 stage 值短形」斷言會自撞（實測踩中）。
+            api = _init_sub(d, "rust-api", 4)[-1]
+            _stage_gitlink_conflict(d, "base-web", (base, ours, theirs))
+            _stage_gitlink(d, "rust-api", api)
+            text = gen_state({"pins": index_pins(d)})
+            self.assertIn("base-web=未定（", text)
+            self.assertIn("衝突", text)
+            self.assertIn(f"rust-api={api[:7]}", text)
+            for sha in (base, ours, theirs):
+                self.assertNotIn(sha[:7], text)
 
 
 class TestPinCrosscheck(unittest.TestCase):
