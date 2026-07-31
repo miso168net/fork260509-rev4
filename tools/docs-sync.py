@@ -5,11 +5,11 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 對賬）
-  lint            L3～L20（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
+  lint            L3～L21（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
                   L16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
                   L17 pin↔worktree HEAD 互證；L18 events 帳本 SHA 逐列向 git 實證；
                   L19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令；
-                  L20 空集合守衛七組）
+                  L20 空集合守衛七組；L21 名冊腳本 index exec bit＝100755）
                   輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
@@ -2803,10 +2803,121 @@ def lint_empty_sets(root, tracked=None, cache=None):
     return out
 
 
+# ---------------------------------------------------------------------------
+# L21 index exec bit 守衛（B-116）
+# ---------------------------------------------------------------------------
+
+# 名冊＝「以直接執行形叫用」的可執行腳本（repo 相對路徑、寫死）。drvfs 上 chmod 不落
+# index、ls 恆顯 0777，index 內 100644/100755 只有 `git ls-files -s` 看得到——全靠人記得
+# `git update-index --chmod=+x` 即 019 兩支新腳本連踩之坑（B-116）。
+# 成員資格以叫用形為據（逐檔 grep 實證、2026-07-31 盤點）：
+#   .githooks/* 與 .githooks-submodule/* 四支＝git 經 core.hooksPath 直接 exec（外層
+#     hooksPath=.githooks、兩源倉 hooksPath 指 .githooks-submodule，皆 tools/bootstrap 設定）；
+#   deploy/ 五支＝檔頭用法行自載直跑形：sops.sh「./deploy/sops.sh <sops 參數...>」（另
+#     decrypt-secrets.sh 內以 ./deploy/sops.sh 直呼）、decrypt-secrets.sh
+#     「./deploy/decrypt-secrets.sh」（另 tools/bootstrap 自癒指引同形）、generate-secrets.sh
+#     「./deploy/generate-secrets.sh [--force|--compose-only]」、preflight-secrets.sh
+#     「./deploy/preflight-secrets.sh」（另 deploy/secrets/README.md 同形）、
+#     generate-dev-cert.sh「./deploy/generate-dev-cert.sh [--force]」；
+#   tools/*.py 五支＝RUNBOOK §12 標頭明載「python 工具一律直跑或 python3 前綴」——直跑
+#     屬受支持介面形。
+# ★除外（叫用形不依賴 index exec bit；其 index 現值為何不在本條款管轄）：
+#   .githooks/lib/scan-range.sh＝被 source（.githooks/pre-push 與
+#     .githooks-submodule/pre-push 皆 `. …/scan-range.sh`、無直接執行處）；
+#   deploy/dev-webhook-sink.sh＝恆 `sh` 前綴（檔頭用法行與 RUNBOOK §11 皆
+#     `sh deploy/dev-webhook-sink.sh start|cat|stop`）；
+#   deploy/generate-age-key.sh＝恆 `bash` 前綴（檔頭用法行與 RUNBOOK §12／§15.2 皆
+#     `bash deploy/generate-age-key.sh`）；
+#   deploy/setup-reaper-role.sh＝恆 `bash` 前綴（README.md 起手式與 RUNBOOK §4／§7
+#     輪替表皆 `bash deploy/setup-reaper-role.sh`、檔頭無直跑用法行）；
+#   tools/bootstrap＝恆 `bash tools/bootstrap`（CLAUDE.md §3、RUNBOOK §12、hooks 檢修
+#     指引同形）；tools/wf-watchdog＝恆 `bash` 前綴（檔頭用法行＝Monitor command 欄填
+#     `bash tools/wf-watchdog [冒煙token]`、CLAUDE.md §2 同形）。
+EXEC_BIT_ROSTER = (
+    ".githooks/pre-commit", ".githooks/pre-push",
+    ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
+    "deploy/decrypt-secrets.sh", "deploy/generate-dev-cert.sh",
+    "deploy/generate-secrets.sh", "deploy/preflight-secrets.sh",
+    "deploy/sops.sh",
+    "tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate.py",
+    "tools/secret-value-guard.py", "tools/wire-schema.py",
+)
+EXEC_BIT_MODE = "100755"
+
+
+def check_exec_bits(roster, modes):
+    """L21 純判定：roster＝名冊、modes＝{rel: index stage-0 mode（ls-files -s 首欄）}。
+
+    名冊空集合＝ERROR（fail-closed、L20 家族：名冊縮水＝守衛靜默下線）；名冊檔不在
+    index（含合併衝突無 stage-0）＝ERROR（名冊腐化即紅）。本條款無 skip。
+    """
+    if not roster:
+        return [finding(ERROR, "L21", "tools/docs-sync.py",
+                        "exec bit 名冊為空集合（EXEC_BIT_ROSTER 縮水）——守衛靜默下線，"
+                        "fail-closed（L20 家族）")]
+    out = []
+    for rel in roster:
+        mode = modes.get(rel)
+        if mode is None:
+            out.append(finding(ERROR, "L21", rel,
+                               "名冊檔不在 index（stage-0 查無此路徑）——名冊腐化即紅：檔案"
+                               "移位／改名須同步改 EXEC_BIT_ROSTER，尚未 add 則先 git add"))
+        elif mode != EXEC_BIT_MODE:
+            out.append(finding(ERROR, "L21", rel,
+                               f"index mode {mode}（須 {EXEC_BIT_MODE}）——drvfs 上 chmod "
+                               f"不落 index、ls 恆顯 0777；修復：git update-index "
+                               f"--chmod=+x {rel}"))
+    return out
+
+
+def exec_bit_self_test():
+    """防恆綠：紅樣本（100644／缺席 index／空名冊）必紅、綠樣本必綠；失效即 ERROR
+    （比照 L16 cred_self_test 慣例、成本近零）。"""
+    out = []
+    for label, roster, modes in (("100644", ("樣本",), {"樣本": "100644"}),
+                                 ("缺席 index", ("樣本",), {}),
+                                 ("空名冊", (), {})):
+        if not any(f["level"] == ERROR for f in check_exec_bits(roster, modes)):
+            out.append(finding(ERROR, "L21", "tools/docs-sync.py",
+                               f"exec bit self-test 失效：紅樣本（{label}）未被攔下"
+                               "——條款已恆綠，修復 check_exec_bits 後重跑"))
+    if check_exec_bits(("樣本",), {"樣本": EXEC_BIT_MODE}):
+        out.append(finding(ERROR, "L21", "tools/docs-sync.py",
+                           "exec bit self-test 失效：綠樣本（100755）誤報——判定過寬，"
+                           "修復 check_exec_bits 後重跑"))
+    return out
+
+
+def index_exec_modes(root, roster):
+    """名冊檔之 index stage-0 mode（git ls-files -s 首欄）；回 {rel: mode}。
+
+    只收 stage 0：合併衝突條目（stage 1/2/3）不入 map→該檔落「名冊檔不在 index」ERROR，
+    衝突解掉前不放行（fail-closed）。
+    """
+    modes = {}
+    for line in (git_out(["ls-files", "-s", "--", *roster], root) or "").splitlines():
+        meta, _, path = line.partition("\t")
+        parts = meta.split()
+        if path and len(parts) >= 3 and parts[2] == "0":
+            modes[path] = parts[0]
+    return modes
+
+
+def lint_exec_bits(root):
+    """L21：名冊內直接執行腳本之 index exec bit 必為 100755（B-116）。
+
+    組裝＝self-test 防恆綠＋名冊逐檔斷言。本條款無 skip（名冊檔皆住外層 repo、無
+    submodule 存活問題；任何不符一律 ERROR）。
+    """
+    modes = index_exec_modes(root, EXEC_BIT_ROSTER) if EXEC_BIT_ROSTER else {}
+    return exec_bit_self_test() + check_exec_bits(EXEC_BIT_ROSTER, modes)
+
+
 def run_lint(root):
-    """組裝 L3～L20（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
-    實證、L19 命令形真表比對、L20 空集合守衛）全套。回 findings（含 SKIP 級：條款不適用而
-    未執行，由 lint_summary 彙整成跳過明細）。git 不可用＝fail-closed 單發 ERROR。"""
+    """組裝 L3～L21（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
+    實證、L19 命令形真表比對、L20 空集合守衛、L21 exec bit 守衛）全套。回 findings（含
+    SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。git 不可用＝
+    fail-closed 單發 ERROR。"""
     if not git_available(root):
         return [finding(ERROR, "L1", ".",
                         "git 不可用——HEAD 基線與掃描語料無法建立，lint fail-closed（修復 git 後重跑）")]
@@ -2852,6 +2963,7 @@ def run_lint(root):
     findings += lint_events_sha(root, probe)
     findings += lint_cmd_forms(root)
     findings += lint_empty_sets(root, tracked, probe)
+    findings += lint_exec_bits(root)
     return findings
 
 
@@ -6300,6 +6412,122 @@ class TestEmptySetGuards(unittest.TestCase):
                            if owning_submodule(rel) is None}
                         | set(CMD_FORM_CORPUS))
             self.assertEqual(wheres, expected)
+
+
+class TestExecBitGuard(unittest.TestCase):
+    """L21 index exec bit 守衛（B-116）：名冊內直接執行腳本 index stage-0 必為 100755。
+
+    ★fixture 一律自建 temp repo（_git／_wfile）、絕不動真 repo index——018 曾因 fixture
+    寫進真 repo index 炸 44 failures（purge_git_env docstring 實證）；真 repo 僅唯讀。
+    """
+
+    def _repo(self, d, rel="bin/run.sh", exec_bit=False):
+        _git(d, "init", "-q", "-b", "main")
+        _wfile(d, rel, "#!/usr/bin/env bash\necho ok\n")
+        _git(d, "add", rel)
+        if exec_bit:
+            _git(d, "update-index", "--chmod=+x", rel)
+        _git(d, "commit", "-qm", "init")
+
+    def test_mode_644_red_names_file_mode_and_repair(self):
+        """①名冊檔 index 100644→ERROR 指名檔案、現值、修復命令。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._repo(d, exec_bit=False)
+            f = check_exec_bits(("bin/run.sh",), index_exec_modes(d, ("bin/run.sh",)))
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["code"], "L21")
+            self.assertEqual(f[0]["where"], "bin/run.sh")
+            self.assertIn("100644", f[0]["msg"])
+            self.assertIn("git update-index --chmod=+x bin/run.sh", f[0]["msg"])
+
+    def test_mode_755_green(self):
+        """②名冊檔 index 100755→零 finding。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._repo(d, exec_bit=True)
+            self.assertEqual(
+                check_exec_bits(("bin/run.sh",), index_exec_modes(d, ("bin/run.sh",))), [])
+
+    def test_roster_file_missing_from_index_red(self):
+        """③名冊檔不在 index→ERROR（名冊腐化即紅）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._repo(d, exec_bit=True)
+            roster = ("bin/run.sh", "bin/亡佚.sh")
+            f = check_exec_bits(roster, index_exec_modes(d, roster))
+            self.assertEqual([x["where"] for x in f], ["bin/亡佚.sh"], msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("index", f[0]["msg"])
+
+    def test_empty_roster_fail_closed(self):
+        """名冊空集合→ERROR（fail-closed、L20 家族）。"""
+        f = check_exec_bits((), {})
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("EXEC_BIT_ROSTER", f[0]["msg"])
+
+    def test_roster_is_pinned(self):
+        """★名冊字面釘死（同 REFERENCE_SOURCES 慣例）：期望值取自被測常數＝套套邏輯，
+        名冊縮水時守衛靜默瘦身、零信號——字面列出十四筆，少一筆即紅。"""
+        self.assertEqual(EXEC_BIT_ROSTER, (
+            ".githooks/pre-commit", ".githooks/pre-push",
+            ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
+            "deploy/decrypt-secrets.sh", "deploy/generate-dev-cert.sh",
+            "deploy/generate-secrets.sh", "deploy/preflight-secrets.sh",
+            "deploy/sops.sh",
+            "tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate.py",
+            "tools/secret-value-guard.py", "tools/wire-schema.py"))
+
+    def test_real_repo_roster_all_755(self):
+        """★現庫名冊全 100755（條款上線即自紅＝名冊選錯或 index 已破戒）；真 repo 唯讀。"""
+        self.assertEqual(lint_exec_bits(ROOT), [])
+
+    def test_run_lint_wires_exec_bits(self):
+        """★接線層：lint_exec_bits 從 run_lint 掉線＝L21 整條靜默下線。
+
+        bare fixture 的 index 沒有任何名冊檔→L21 必報名冊腐化 ERROR；任何 L21 finding
+        只可能來自 lint_exec_bits——信號純淨。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "L21" and x["level"] == ERROR for x in f),
+                            msg=str([x for x in f if x["code"] == "L21"]))
+
+    # -- self-test 防恆綠（L16 慣例） ---------------------------------------
+    def test_self_test_green_on_healthy_checker(self):
+        self.assertEqual(exec_bit_self_test(), [])
+
+    def _with_checker(self, fake, fn):
+        original = globals()["check_exec_bits"]
+        globals()["check_exec_bits"] = fake
+        try:
+            return fn()
+        finally:
+            globals()["check_exec_bits"] = original
+
+    def test_self_test_catches_dead_checker(self):
+        """④突變面：判定函式被改成永不報（恆綠）→self-test 逐紅樣本報 ERROR。"""
+        f = self._with_checker(lambda roster, modes: [], exec_bit_self_test)
+        self.assertEqual(len(f), 3, msg=str(f))
+        self.assertTrue(all(x["level"] == ERROR for x in f))
+        self.assertTrue(all("self-test 失效" in x["msg"] for x in f))
+
+    def test_self_test_catches_overbroad_checker(self):
+        """④突變面：判定函式被改成一律報紅→綠樣本誤報、self-test 報 ERROR。"""
+        f = self._with_checker(
+            lambda roster, modes: [finding(ERROR, "L21", "樣本", "誤報")],
+            exec_bit_self_test)
+        self.assertTrue(any(x["level"] == ERROR and "綠樣本" in x["msg"] for x in f),
+                        msg=str(f))
+
+    def test_assembly_wires_self_test(self):
+        """★組裝層：exec_bit_self_test 從 lint_exec_bits 掉線＝防恆綠靜默下線。"""
+        original = globals()["check_exec_bits"]
+        globals()["check_exec_bits"] = lambda roster, modes: []
+        try:
+            f = lint_exec_bits(ROOT)
+        finally:
+            globals()["check_exec_bits"] = original
+        self.assertTrue(any(x["code"] == "L21" and "self-test 失效" in x["msg"] for x in f),
+                        msg=str(f))
 
 
 class TestLintSummary(unittest.TestCase):
