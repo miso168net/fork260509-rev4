@@ -5,11 +5,12 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint L1 本體＋L2 對賬）
-  lint            L3～L21（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
+  lint            L3～L22（L4/L5/L6 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
                   L16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
                   L17 pin↔worktree HEAD 互證；L18 events 帳本 SHA 逐列向 git 實證；
                   L19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令；
-                  L20 空集合守衛七組；L21 名冊腳本 index exec bit＝100755）
+                  L20 空集合守衛七組；L21 名冊腳本 index exec bit＝100755；
+                  L22 條款範圍字串名冊 vs 掃源上界）
                   輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
@@ -2920,9 +2921,135 @@ def lint_exec_bits(root):
     return exec_bit_self_test() + check_exec_bits(EXEC_BIT_ROSTER, modes)
 
 
+# ---------------------------------------------------------------------------
+# L22 lint 條款範圍字串守衛（B-126）
+# ---------------------------------------------------------------------------
+
+# 本條款自身碼：finding 呼叫一律用字面 "L22"（錨形之所需、L21 同慣例）；本常數只作
+# 組裝層推導一致性斷言（字面與常數漂移→自身碼不入推導集合→fail-closed 顯性紅）。
+RANGE_CODE = "L22"
+# 名冊＝範圍字串「L3～LNN」的活引用檔（repo 相對路徑、寫死）。上線新條款漏 bump 已連兩例
+# （018 上 L20 與 B-116 上 L21 都漏改 .githooks/pre-commit 檔頭）、純人工勘誤壓不住＝本條款
+# 由來（B-126）。實形盤點（2026-07-31）：tools/docs-sync.py 一檔兩處（檔頭 lint 行＋
+# run_lint docstring、全形～）、RUNBOOK §12 表列（半形~）、pre-commit 檔頭（全形～）——
+# 逐檔收「全部」命中、每筆皆須等於推導上界。
+# ★為何不全 repo 掃：docs/ops/events.jsonl 與 docs/generated/MILESTONES.md 等史料含舊範圍
+#   字面（如 B-116 收單敘事）＝不可變過去式，全掃必誤紅、逼改史——名冊釘活引用三檔即射程。
+RANGE_ROSTER = ("tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit")
+# 真值側錨形＝finding 呼叫的「層級字面＋條款碼字面」形：條款存在的操作型定義（能發
+# finding 才算條款）、散文與 docstring 提及不具此形不誤收；比組裝接線面（lint_* 函式名）
+# 不易失真——函式:條款非一對一（如 lint_budgets 發 L7、lint_ids 發 L9）。上界＝字面最大號；
+# test 假樁用碼不得高於現行最大號（灌水＝真 repo lint 顯性紅、fail-loud 非假綠）。
+# ★兩支 regex 以拆分構造：本檔自身既是推導源又在名冊內，落完整字面會被自己掃到
+#   （範圍形自咬）或把推導上界灌水（錨形）；同 L19 _FAKE_* 模板紀律。
+RE_LINT_CODE = re.compile(r"finding\(\s*(?:ERROR|WARN|SKIP)\s*,\s*\"L" + r"(\d+)\"")
+RE_RANGE = re.compile("L3" + "[~～]" + "L" + r"(\d+)")
+
+
+def derive_lint_codes(source_text):
+    """L22 取值：以錨形掃本工具源碼、收 finding 呼叫的條款碼字面；回 {int 條款號}。"""
+    return {int(m.group(1)) for m in RE_LINT_CODE.finditer(source_text)}
+
+
+def scan_range_hits(text):
+    """L22 取值：逐行掃範圍字串「L3～LNN」（半形~／全形～皆收）；回 [(行號, NN), ...]。"""
+    return [(ln, int(m.group(1)))
+            for ln, line in enumerate(text.splitlines(), start=1)
+            for m in RE_RANGE.finditer(line)]
+
+
+def check_range_strings(bound, roster, hits):
+    """L22 純判定：bound＝掃源推導之條款上界（None＝推導失效）、roster＝名冊、
+    hits＝{rel: None（檔案缺席）| [(行號, NN), ...]（該檔全部範圍字串命中）}。
+
+    fail-closed：名冊空集合／推導失效／名冊檔缺席／零命中／任一命中 NN≠bound 皆
+    ERROR（L20 家族）；本條款無 skip（名冊三檔皆住外層 repo、恆存在）。
+    """
+    if not roster:
+        return [finding(ERROR, "L22", "tools/docs-sync.py",
+                        "範圍字串名冊為空集合（RANGE_ROSTER 縮水）——守衛靜默下線，"
+                        "fail-closed（L20 家族）")]
+    if bound is None:
+        return [finding(ERROR, "L22", "tools/docs-sync.py",
+                        "條款上界推導失效（推導源讀不到、錨形零命中、或集合未含本條款"
+                        "自身碼）——真值側失明即紅：修復 RE_LINT_CODE 錨形或推導源後重跑")]
+    out = []
+    for rel in roster:
+        rel_hits = hits.get(rel)
+        if rel_hits is None:
+            out.append(finding(ERROR, "L22", rel,
+                               "名冊檔缺席（讀不到）——名冊腐化即紅：檔案移位／改名須同步改 "
+                               "RANGE_ROSTER"))
+        elif not rel_hits:
+            out.append(finding(ERROR, "L22", rel,
+                               "範圍字串零命中——該檔原有的「L3～LNN」字面被刪或改形＝名冊"
+                               "腐化：恢復字面、或該檔確不再引用範圍時同步修 RANGE_ROSTER"))
+        else:
+            for ln, nn in rel_hits:
+                if nn != bound:
+                    out.append(finding(ERROR, "L22", f"{rel}:{ln}",
+                                       f"範圍字串上界實得 {nn}、應為 {bound}（＝掃源推導之"
+                                       f"現行條款上界）——上線新條款須同 commit 把名冊三檔"
+                                       f"全部範圍字串 bump 至 L3～L{bound}"))
+    return out
+
+
+def range_self_test():
+    """防恆綠：紅樣本（錯值＋行號、零命中、推導失效）必紅、綠樣本（半形全形兩型）必綠；
+    失效即 ERROR（比照 L16/L21 慣例、成本近零）。樣本字面拆分構造（理由見 RE_RANGE 註解）。
+    """
+    def rng(wave, nn):
+        return "L3" + wave + "L" + str(nn)
+
+    out = []
+    red_hits = scan_range_hits("首行無關\n改 " + rng("～", 6) + " 於此\n")
+    f = check_range_strings(7, ("樣本",), {"樣本": red_hits})
+    if not any(x["level"] == ERROR and x["where"] == "樣本:2" for x in f):
+        out.append(finding(ERROR, "L22", "tools/docs-sync.py",
+                           "範圍字串 self-test 失效：紅樣本（錯值 6≠7）未被攔下或未指名"
+                           "檔案:行號——條款已恆綠，修復 scan_range_hits／"
+                           "check_range_strings 後重跑"))
+    for label, bound, hits in (("零命中", 7, []), ("推導失效", None, [(1, 7)])):
+        if not any(x["level"] == ERROR
+                   for x in check_range_strings(bound, ("樣本",), {"樣本": hits})):
+            out.append(finding(ERROR, "L22", "tools/docs-sync.py",
+                               f"範圍字串 self-test 失效：紅樣本（{label}）未被攔下"
+                               "——條款已恆綠，修復 check_range_strings 後重跑"))
+    green_hits = scan_range_hits("甲 " + rng("~", 7) + "\n乙 " + rng("～", 7) + "\n")
+    if len(green_hits) != 2:
+        out.append(finding(ERROR, "L22", "tools/docs-sync.py",
+                           f"範圍字串 self-test 失效：綠樣本兩型（半形~／全形～）應各命中"
+                           f"一筆、實得 {len(green_hits)} 筆——掃描器對波浪形失明，"
+                           "修復 scan_range_hits 後重跑"))
+    elif check_range_strings(7, ("樣本",), {"樣本": green_hits}):
+        out.append(finding(ERROR, "L22", "tools/docs-sync.py",
+                           "範圍字串 self-test 失效：綠樣本（上界 7＝命中 7）誤報——"
+                           "判定過寬，修復 check_range_strings 後重跑"))
+    return out
+
+
+def lint_range_strings(root):
+    """L22：lint 條款範圍字串「L3～LNN」名冊三檔 vs 掃源推導上界（B-126）。
+
+    真值側＝自本工具源碼推導條款上界（錨形見 RE_LINT_CODE 註解；絕不另立手抄常數）；
+    推導集合未含本條款自身碼＝錨形失真、視同推導失效（fail-closed）。名冊側＝
+    RANGE_ROSTER 逐檔全命中比對。組裝＝self-test 防恆綠＋推導＋名冊斷言。本條款無 skip
+    （名冊三檔皆住外層 repo、恆存在；任何不符一律 ERROR）。
+    """
+    src = _read(root, "tools/docs-sync.py")
+    codes = derive_lint_codes(src) if src is not None else set()
+    bound = max(codes) if int(RANGE_CODE[1:]) in codes else None
+    hits = {}
+    for rel in RANGE_ROSTER:
+        text = _read(root, rel)
+        hits[rel] = None if text is None else scan_range_hits(text)
+    return range_self_test() + check_range_strings(bound, RANGE_ROSTER, hits)
+
+
 def run_lint(root):
-    """組裝 L3～L21（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
-    實證、L19 命令形真表比對、L20 空集合守衛、L21 exec bit 守衛）全套。回 findings（含
+    """組裝 L3～L22（含 L4/L5/L6 收刀完整性閘、L16 憑證掃描、L17 pin 互證、L18 帳本 SHA
+    實證、L19 命令形真表比對、L20 空集合守衛、L21 exec bit 守衛、L22 範圍字串守衛）
+    全套。回 findings（含
     SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。git 不可用＝
     fail-closed 單發 ERROR。"""
     if not git_available(root):
@@ -2971,6 +3098,7 @@ def run_lint(root):
     findings += lint_cmd_forms(root)
     findings += lint_empty_sets(root, tracked, probe)
     findings += lint_exec_bits(root)
+    findings += lint_range_strings(root)
     return findings
 
 
@@ -6596,6 +6724,192 @@ class TestExecBitGuard(unittest.TestCase):
         finally:
             globals()["check_exec_bits"] = original
         self.assertTrue(any(x["code"] == "L21" and "self-test 失效" in x["msg"] for x in f),
+                        msg=str(f))
+
+
+class TestRangeStringGuard(unittest.TestCase):
+    """L22 lint 條款範圍字串守衛（B-126）：名冊三檔「L3～LNN」逐檔全命中 vs 掃源推導上界。
+
+    ★fixture 一律 tempdir 自建假名冊三檔（_wfile、無需 git）、真 repo 唯讀；
+    ★一切錨形／範圍字面以拆分構造——本檔自身既是推導源又在名冊內，落完整字面＝
+    被自己掃到（範圍形自咬）或把推導上界灌水（錨形）；同 L19 _FAKE_* 模板紀律。
+    """
+
+    @staticmethod
+    def _own():
+        return int(RANGE_CODE[1:])
+
+    @staticmethod
+    def _rng(nn, wave="～"):
+        """構造範圍字串字面（拆分；wave 預設全形～、傳 "~" 得半形）。"""
+        return "L3" + wave + "L" + str(nn)
+
+    @staticmethod
+    def _call(nn):
+        """構造錨形 finding 呼叫字面（拆分）。"""
+        return "finding" + '(ERROR, "L' + str(nn) + '", "處", "因")\n'
+
+    def _fixture(self, d, src_nn=None, src2_nn=None, runbook_nn=None, hook_nn=None):
+        """假名冊三檔：docs-sync 源＝錨形兩筆（3＋自身碼）＋兩處全形範圍字串（鏡照實形：
+        檔頭＋run_lint docstring）；RUNBOOK 半形一處；pre-commit 全形一處。省略＝正確值。"""
+        own = self._own()
+        src_nn = own if src_nn is None else src_nn
+        src2_nn = own if src2_nn is None else src2_nn
+        runbook_nn = own if runbook_nn is None else runbook_nn
+        hook_nn = own if hook_nn is None else hook_nn
+        _wfile(d, "tools/docs-sync.py",
+               self._call(3) + self._call(own)
+               + "頭 " + self._rng(src_nn) + "\n"
+               + "尾 " + self._rng(src2_nn) + "\n")
+        _wfile(d, "docs/ops/RUNBOOK.md", "表 " + self._rng(runbook_nn, "~") + "\n")
+        _wfile(d, ".githooks/pre-commit", "# 註 " + self._rng(hook_nn) + "\n")
+
+    def test_all_correct_green(self):
+        """②三檔皆＝推導上界（半形／全形混用如實形）→零 finding。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            self.assertEqual(lint_range_strings(d), [])
+
+    def test_wrong_value_red_names_file_line_actual_expected(self):
+        """①某檔上界字面落後→ERROR 指名檔案:行號＋實得＋應為＋同 commit 修復指引。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, hook_nn=self._own() - 1)
+            f = lint_range_strings(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertEqual(f[0]["code"], "L22")
+            self.assertEqual(f[0]["where"], ".githooks/pre-commit:1")
+            self.assertIn(str(self._own() - 1), f[0]["msg"])
+            self.assertIn(str(self._own()), f[0]["msg"])
+            self.assertIn("同 commit", f[0]["msg"])
+
+    def test_docs_sync_second_site_also_checked(self):
+        """①docs-sync 一檔兩處（檔頭＋run_lint docstring 實形）漏改第二處→該行 ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, src2_nn=self._own() - 1)
+            f = lint_range_strings(d)
+            self.assertEqual([x["where"] for x in f], ["tools/docs-sync.py:4"], msg=str(f))
+
+    def test_zero_hit_red(self):
+        """③名冊檔在、範圍字串消失（被刪或改形）→ERROR 名冊腐化。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            _wfile(d, ".githooks/pre-commit", "# 無範圍字串\n")
+            f = lint_range_strings(d)
+            self.assertEqual([x["where"] for x in f], [".githooks/pre-commit"], msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("零命中", f[0]["msg"])
+
+    def test_missing_roster_file_red(self):
+        """③名冊檔缺席→ERROR（檔案移位／改名須同步改名冊）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            os.remove(os.path.join(d, ".githooks/pre-commit"))
+            f = lint_range_strings(d)
+            self.assertEqual([x["where"] for x in f], [".githooks/pre-commit"], msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("缺席", f[0]["msg"])
+
+    def test_both_wave_forms_scanned(self):
+        """④半形~與全形～皆收、行號正確；一行多筆亦全收。"""
+        text = ("甲 " + self._rng(9, "~") + "\n"
+                + "乙 " + self._rng(9) + " 丙 " + self._rng(8) + "\n")
+        self.assertEqual(scan_range_hits(text), [(1, 9), (2, 9), (2, 8)])
+
+    def test_derive_codes_ignores_prose_and_range_strings(self):
+        """錨形只收 finding 呼叫字面：散文提及與範圍字串不入推導（誤收散文＝上界失真）。"""
+        src = self._call(5) + "散文提及 L9 與 " + self._rng(8) + "\n"
+        self.assertEqual(derive_lint_codes(src), {5})
+
+    def test_empty_roster_fail_closed(self):
+        """名冊空集合→ERROR（fail-closed、L20 家族）。"""
+        f = check_range_strings(7, (), {})
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("RANGE_ROSTER", f[0]["msg"])
+
+    def test_derivation_failure_fail_closed(self):
+        """推導失效（bound=None）→單發 ERROR、不進名冊比對（比對無基準）。"""
+        f = check_range_strings(None, ("樣本",), {"樣本": [(1, 7)]})
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("推導失效", f[0]["msg"])
+
+    def test_roster_is_pinned(self):
+        """★名冊字面釘死（L21 慣例）：期望值取自被測常數＝套套邏輯，名冊縮水零信號。"""
+        self.assertEqual(RANGE_ROSTER, (
+            "tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit"))
+
+    def test_real_source_derivation_upper_bound_is_own_code(self):
+        """★推導一致性（真源）：集合恰含本條款自身碼且其即上界＝22——上界前進時本測試
+        逼著同刀更新（釘版＝有意識動作、同 test_roster_is_pinned 慣例；非守衛真值側）。"""
+        codes = derive_lint_codes(_read(ROOT, "tools/docs-sync.py"))
+        self.assertIn(self._own(), codes)
+        self.assertEqual(max(codes), self._own())
+        self.assertEqual(self._own(), 22)
+
+    def test_real_repo_range_green(self):
+        """★現庫名冊三檔四處全＝推導上界（條款上線即自證：漏 bump 任一處當場紅）；
+        真 repo 唯讀。"""
+        self.assertEqual(lint_range_strings(ROOT), [])
+
+    def test_run_lint_wires_range_strings(self):
+        """★接線層：lint_range_strings 從 run_lint 掉線＝L22 整條靜默下線。
+
+        bare fixture 無 tools/docs-sync.py＝推導源缺席→L22 必報推導失效 ERROR；任何
+        L22 finding 只可能來自 lint_range_strings——信號純淨。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "L22" and x["level"] == ERROR for x in f),
+                            msg=str([x for x in f if x["code"] == "L22"]))
+
+    # -- self-test 防恆綠（L16/L21 慣例） -----------------------------------
+    def test_self_test_green_on_healthy_checker(self):
+        self.assertEqual(range_self_test(), [])
+
+    def _with_checker(self, fake, fn):
+        original = globals()["check_range_strings"]
+        globals()["check_range_strings"] = fake
+        try:
+            return fn()
+        finally:
+            globals()["check_range_strings"] = original
+
+    def test_self_test_catches_dead_checker(self):
+        """④突變面：判定函式被改成永不報（恆綠）→self-test 逐紅樣本報 ERROR。"""
+        f = self._with_checker(lambda bound, roster, hits: [], range_self_test)
+        self.assertEqual(len(f), 3, msg=str(f))
+        self.assertTrue(all(x["level"] == ERROR for x in f))
+        self.assertTrue(all("self-test 失效" in x["msg"] for x in f))
+
+    def test_self_test_catches_overbroad_checker(self):
+        """④突變面：判定函式被改成一律報紅→綠樣本誤報、self-test 報 ERROR。"""
+        f = self._with_checker(
+            lambda bound, roster, hits: [finding(ERROR, "L22", "樣本", "誤報")],
+            range_self_test)
+        self.assertTrue(any(x["level"] == ERROR and "綠樣本" in x["msg"] for x in f),
+                        msg=str(f))
+
+    def test_self_test_catches_wave_blind_scanner(self):
+        """④突變面：掃描器對波浪形失明（綠樣本命中≠2）→self-test 報 ERROR。"""
+        original = globals()["scan_range_hits"]
+        globals()["scan_range_hits"] = lambda text: [(1, 7)]
+        try:
+            f = range_self_test()
+        finally:
+            globals()["scan_range_hits"] = original
+        self.assertTrue(any(x["level"] == ERROR and "兩型" in x["msg"] for x in f),
+                        msg=str(f))
+
+    def test_assembly_wires_self_test(self):
+        """★組裝層：range_self_test 從 lint_range_strings 掉線＝防恆綠靜默下線。"""
+        original = globals()["check_range_strings"]
+        globals()["check_range_strings"] = lambda bound, roster, hits: []
+        try:
+            f = lint_range_strings(ROOT)
+        finally:
+            globals()["check_range_strings"] = original
+        self.assertTrue(any(x["code"] == "L22" and "self-test 失效" in x["msg"] for x in f),
                         msg=str(f))
 
 

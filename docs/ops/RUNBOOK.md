@@ -293,7 +293,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／L3~L21） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／L3~L22） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
@@ -318,7 +318,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
   fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下
   單跑約 9s）；`bash tools/bootstrap` 體檢則無條件全跑工具名冊全部 test。
 
-lint 條款速覽（018 新增五條、B-116 增 L21）——severity 三分：ERROR＝exit 1 擋 commit、
+lint 條款速覽（018 新增五條、B-116 增 L21、B-126 增 L22）——severity 三分：ERROR＝exit 1 擋 commit、
 WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
 
 - **L16 憑證內容掃描**：外層 tracked 全量（判定面同時取 index——staged 新增行亦掃，涵蓋
@@ -347,6 +347,13 @@ WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（�
   前綴者除外、除外理由記常數註解）之 `git ls-files -s` stage-0 首欄必為 100755——drvfs 上
   chmod 不落 index、ls 恆顯 0777；不符＝ERROR 附修復命令（`git update-index --chmod=+x`）；
   名冊檔不在 index＝ERROR（名冊腐化即紅）；名冊空集合＝ERROR（fail-closed、L20 家族）；
+  每跑紅綠 self-test 防恆綠（L16 慣例）。本條款無 skip。
+- **L22 範圍字串守衛**（B-126）：lint 條款範圍字串「L3～LNN」活引用名冊三檔（docs-sync
+  檔頭＋run_lint docstring 兩處、本檔 §12 表列、pre-commit 檔頭；名冊＝docs-sync
+  `RANGE_ROSTER` 常數；events.jsonl／MILESTONES.md 史料含舊字面＝不可變過去式、不入射程）
+  逐檔全命中比對掃源推導上界（錨形＝finding 呼叫之條款碼字面、不另立手抄常數）；半形~
+  全形～皆收；任一處 NN≠上界＝ERROR 附檔案:行號＋實得＋應為＋修復指引（上線新條款同
+  commit 全數 bump）；零命中／名冊檔缺席／推導失效＝ERROR（fail-closed、L20 家族）；
   每跑紅綠 self-test 防恆綠（L16 慣例）。本條款無 skip。
 - **lint 摘要三段式**：末行＝`lint：X 錯誤／Y 警告／Z 條款跳過`；Z>0 時次行列跳過明細
   （條款｜位置＝原因）；退出碼僅 X>0 時非零。
