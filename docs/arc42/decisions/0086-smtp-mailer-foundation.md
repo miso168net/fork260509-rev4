@@ -2,7 +2,7 @@
 id: "0086"
 title: SMTP 寄信基建首發＝lettre 同步寄送×設定全靜態 env×mailpit dev 驗收——效仿 GitLab Gmail 路徑
 date: 2026-07-31
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-31 020-email-verify-smtp brainstorm——四鏡頭研究（wf_471a7c74：lettre／mailpit／Gmail 2026 政策官方文件查證）＋user 親決 D5~D8"

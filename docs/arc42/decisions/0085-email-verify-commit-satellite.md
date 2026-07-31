@@ -2,7 +2,7 @@
 id: "0085"
 title: 帳號 email 驗證＝驗證即提交×已驗證值衛星表×partial unique——B-028 信箱半邊兌現選型
 date: 2026-07-31
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-31 020-email-verify-smtp brainstorm——四鏡頭研究（wf_471a7c74）＋user 親決 9 題（含衛星表取代加欄、created_{at,by} 成對兩次 user 主動升級）；clarify 4 題親決（解除綁定／captcha 前置／admin 格式守門無豁免／冷卻拒因攜秒數）＋plan 3 鏡頭對抗式驗證校正（wf_f9597e2e：節流原子先佔、captcha ctx 語境欄、updateUser 清空契約、變體 C 釋義）"
