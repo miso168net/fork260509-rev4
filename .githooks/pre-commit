@@ -1,6 +1,6 @@
 #!/bin/sh
 # rev4 pre-commit：機密掃描（019 三層防線；scan-gates §S1／§S2）→ docs-sync check（L1 生成
-# 一致）＋lint（L3～L20）。被擋時：錯誤訊息附去處；同回合修復後重試。
+# 一致）＋lint（L3～L21）。被擋時：錯誤訊息附去處；同回合修復後重試。
 #
 # ★兩種語意（019 scan-gates；註解即契約）：
 #   事件型（機密掃描＋值比對）：--no-verify 繞過＝機密「真進 git 歷史」、不可逆——僅剩
