@@ -293,7 +293,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／L3~L20） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／L3~L21） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
@@ -317,8 +317,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
   fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下
   單跑約 9s）；`bash tools/bootstrap` 體檢則無條件全跑工具名冊全部 test。
 
-lint 條款速覽（018 新增五條）——severity 三分：ERROR＝exit 1 擋 commit、WARN＝放行列示、
-跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
+lint 條款速覽（018 新增五條、B-116 增 L21）——severity 三分：ERROR＝exit 1 擋 commit、
+WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
 
 - **L16 憑證內容掃描**：外層 tracked 全量（判定面同時取 index——staged 新增行亦掃，涵蓋
   git add 後工作樹被刪／洗白兩態；工作樹讀不到＝WARN、不視同乾淨）＋pin bump（staged 含
@@ -341,6 +341,12 @@ lint 條款速覽（018 新增五條）——severity 三分：ERROR＝exit 1 �
   檔集、events 列、外層 tracked md 語料、reference 來源檔（submodule 底下者庫不可查＝
   落跳過明細）、憑證掃描 tracked 清單、命令形語料三檔；另斷言有分派表的 python 工具其
   子命令集非空。
+- **L21 index exec bit 守衛**（B-116）：名冊內「直接執行形叫用」腳本（hooks 四支＋deploy
+  五支＋python 工具五支；名冊＝docs-sync `EXEC_BIT_ROSTER` 常數、被 source 或恆 bash/sh
+  前綴者除外、除外理由記常數註解）之 `git ls-files -s` stage-0 首欄必為 100755——drvfs 上
+  chmod 不落 index、ls 恆顯 0777；不符＝ERROR 附修復命令（`git update-index --chmod=+x`）；
+  名冊檔不在 index＝ERROR（名冊腐化即紅）；名冊空集合＝ERROR（fail-closed、L20 家族）；
+  每跑紅綠 self-test 防恆綠（L16 慣例）。本條款無 skip。
 - **lint 摘要三段式**：末行＝`lint：X 錯誤／Y 警告／Z 條款跳過`；Z>0 時次行列跳過明細
   （條款｜位置＝原因）；退出碼僅 X>0 時非零。
 
