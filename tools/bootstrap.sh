@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tools/bootstrap — rev4 workspace 新機器重建／舊機體檢（幂等、fail-loud）
+# tools/bootstrap.sh — rev4 workspace 新機器重建／舊機體檢（幂等、fail-loud）
 #
 # 用途：clone 外層 repo 後一鍵補齊 gitignored 源倉（fork260509-*）＋雙 worktree＋hooks，
 #       並斷言最原始源基線（fork260509-soybean-admin-base @ example、CLAUDE.md §1）與

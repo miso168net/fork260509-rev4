@@ -125,5 +125,5 @@ echo "======================================================================"
 echo
 echo "接著（§15.2 步驟 3~4）：管理者把該公鑰加進 .sops.yaml 的 age: 清單 →"
 echo "  ./deploy/sops.sh updatekeys -y deploy/secrets.dev.enc.yaml → commit 密文 →"
-echo "  你 git pull → bash tools/bootstrap → bash deploy/decrypt-secrets.sh"
+echo "  你 git pull → bash tools/bootstrap.sh → bash deploy/decrypt-secrets.sh"
 echo "★少了步驟 3，你的私鑰不在 recipient 清單裡＝拉到的密文一律解不開（§15.2 末條）。"

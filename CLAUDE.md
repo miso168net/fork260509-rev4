@@ -62,7 +62,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　　升級主線、絕不擅改；次輪清單只縮不擴。
 ★主線看門狗（非終止型故障不會有完成通知；L-104）：★Workflow launch 與 Monitor 看門狗
 　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（實證 L-112）。
-　Monitor command＝`bash tools/wf-watchdog <冒煙token>`（自動發現最新 wf 目錄、毋需 launch
+　Monitor command＝`bash tools/wf-watchdog.sh <冒煙token>`（自動發現最新 wf 目錄、毋需 launch
 　回傳值故可同回合並發；ARMED 首行夾帶冒煙、stall/runaway 保險絲、happy-path 靜默）；
 　完成通知＋Monitor 雙訊號全覆蓋、毋需輪詢；完成通知一到→TaskStop 該 Monitor（防誤觸 stall）。
 　判死迴圈／卡死→TaskStop→修 script→以 resumeFromRunId 續跑（已完成 agent 走快取不重跑）。
@@ -87,7 +87,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   bump pin＋外層 commit。pin bump 在單元邊界即時做、不延到收刀。
 - **session 健檢判讀**（SessionStart hook 自動注入）：pin 與 worktree HEAD 分歧一律走
   「回外層更新 pin」方向，永不 `submodule update`。
-- **初始化／新機器**：clone 外層後跑 **`bash tools/bootstrap`**（一鍵幂等：源倉 clone＋worktree
+- **初始化／新機器**：clone 外層後跑 **`bash tools/bootstrap.sh`**（一鍵幂等：源倉 clone＋worktree
   重建＋hooks＋基線/pin 斷言＋fork-delta-lint＋secrets 體檢；舊機重跑＝純體檢、worktree 斷裂給
   自癒指引）。`git submodule update --init` 僅限唯讀快速看碼捷徑（fresh clone；worktree 模式下
   誤跑撞 gitlink＝L-026）——該模式**無源倉＝無基線**、不可做 base-web 開發。

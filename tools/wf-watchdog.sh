@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# tools/wf-watchdog — Workflow 看門狗（CLAUDE.md §2、L-104/L-112）
+# tools/wf-watchdog.sh — Workflow 看門狗（CLAUDE.md §2、L-104/L-112）
 #
-# 用法：Monitor 工具 command 欄填 `bash tools/wf-watchdog [冒煙token]`
+# 用法：Monitor 工具 command 欄填 `bash tools/wf-watchdog.sh [冒煙token]`
 #   ★必與 Workflow launch 同一回合原子成對發射（兩 call 間零其他動作）。
 #   自動發現本專案最新 wf_* transcript 目錄（毋需 launch 回傳值→可同回合並發）。
 # 行為：sleep 10 讓 launch 建目錄 → ARMED 一行（夾帶冒煙：implementer transcript

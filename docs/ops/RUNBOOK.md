@@ -6,7 +6,7 @@
 
 ## 1. 快速啟動（新機五步）
 
-1. `bash tools/bootstrap` —— 源倉＋worktree＋hooks＋secrets 體檢（幂等、可重跑）
+1. `bash tools/bootstrap.sh` —— 源倉＋worktree＋hooks＋secrets 體檢（幂等、可重跑）
 2. `bash deploy/generate-secrets.sh` —— 十一機密缺則補
 3. `bash deploy/preflight-secrets.sh` —— up 前預檢（全齊印 OK）
 4. `bash deploy/generate-dev-cert.sh` —— dev TLS 憑證。★非可選：front-nginx 恆 bind-mount
@@ -162,7 +162,7 @@ fi
 #   README 與 .example），於 .env 被寫壞〔如值寫成相對路徑〕時會靜默放行，而下表 `ALTER USER`
 #   拿 `$(cat …)` 讀到空字串＝把密碼改成空（019 final review 實證）。
 [ -s "$SECRETS_DIR/postgres_password.txt" ] \
-  || echo "FAIL：$SECRETS_DIR 下讀不到機密實值——.env 值非法（須絕對路徑字面）或落點未解密；先跑 bash tools/bootstrap 與 ./deploy/decrypt-secrets.sh"
+  || echo "FAIL：$SECRETS_DIR 下讀不到機密實值——.env 值非法（須絕對路徑字面）或落點未解密；先跑 bash tools/bootstrap.sh 與 ./deploy/decrypt-secrets.sh"
 ```
 
 ★上段與五支賦值型消費者**逐字同口徑**（契約 §P5.1）：env 優先 → `.env` 只嚴格解析該一行
@@ -301,7 +301,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | `python3 tools/wire-schema.py extract` / `test` | 容器內抽 typings→wire-schema.json 快照／自測 | extract **是** |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點（B-118）：staged 增量對既存明文結構性失明（L-190），本旗標補盤點面——導入既有 repo 時與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量、成本未拍板；增量面＝pre-commit 自動跑裸 check）。實測全樹（445 tracked 檔、drvfs）約 1.6~1.8 秒 | 否 |
-| `bash tools/bootstrap` | 新機重建／舊機體檢；base-web 跑過 pnpm install 後重跑即可偵測 hooks 覆寫（B-124 指紋斷言） | 否 |
+| `bash tools/bootstrap.sh` | 新機重建／舊機體檢；base-web 跑過 pnpm install 後重跑即可偵測 hooks 覆寫（B-124 指紋斷言） | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；營運程序＝§15） | 否（需 docker） |
 | `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出 8 支明文（composite 另跑 generate `--compose-only`） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（B′ 加殼；＝§15.2 步驟 1 機器化版：覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設名 | 否（需真 tty；age 缺席時需網路） |
@@ -316,7 +316,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 - **pre-commit 條件觸發**（工具自測、平時零額外開銷）：staged 含某 python 工具本體才跑
   該支 test 子命令（docs-sync 約 8s、schema-gate／wire-schema／secret-value-guard 毫秒級）；
   fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下
-  單跑約 9s）；`bash tools/bootstrap` 體檢則無條件全跑工具名冊全部 test。
+  單跑約 9s）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具名冊全部 test。
 
 lint 條款速覽（018 新增五條、B-116 增 L21、B-126 增 L22）——severity 三分：ERROR＝exit 1 擋 commit、
 WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
@@ -483,7 +483,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-rec
 2. **只交付公鑰**（`age1…` 開頭、非機密，貼訊息即可）——私鑰與 passphrase 永遠不離開該機
 3. 管理者把公鑰加進 `.sops.yaml` 的 `age:` 清單 →
    `./deploy/sops.sh updatekeys -y deploy/secrets.dev.enc.yaml`（可一次多檔）→ commit 密文
-4. 新機 `git pull` → `bash tools/bootstrap` → `bash deploy/decrypt-secrets.sh`
+4. 新機 `git pull` → `bash tools/bootstrap.sh` → `bash deploy/decrypt-secrets.sh`
 
 ★**「換機 `git pull` 即可用」是錯的**：少了第 3 步，新機的私鑰不在 recipient 清單裡，拉到的
 密文一律解不開（`Failed to get the data key…`）。
@@ -556,7 +556,7 @@ bash deploy/preflight-secrets.sh                    # 11 支齊備且健康（co
 ①快取被清（手動 `rm -rf`／清理工具）②新機或重灌③落點檔被誤刪。
 
 ```bash
-bash tools/bootstrap                              # .env 缺席時代勞產生（其餘為體檢）
+bash tools/bootstrap.sh                           # .env 缺席時代勞產生（其餘為體檢）
 bash deploy/decrypt-secrets.sh                    # 8 支：7 leaf＋alert_webhook_url
 bash deploy/generate-secrets.sh --compose-only    # 3 支 composite 自 leaf 重組（缺 leaf 即報錯、不生成）
 bash deploy/preflight-secrets.sh                  # 11 支齊備且健康才可 up
