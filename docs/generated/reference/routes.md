@@ -70,6 +70,10 @@
 | /systemManage/updateUser | POST | Policy | update-user | 否 |
 | /systemManage/updateUserSessionPolicy | POST | Policy | update-user-session-policy | 否 |
 | /userCenter/changePassword | POST | Authed | change-password | 否 |
+| /userCenter/emailCaptcha | GET | Authed | email-captcha | 否 |
 | /userCenter/getPasswordPolicy | GET | Authed | get-password-policy | 否 |
 | /userCenter/getProfile | GET | Authed | get-profile | 否 |
+| /userCenter/sendEmailCode | POST | Authed | send-email-code | 否 |
+| /userCenter/unbindEmail | POST | Authed | unbind-email | 否 |
 | /userCenter/updateProfile | POST | Authed | update-profile | 否 |
+| /userCenter/verifyEmailCode | POST | Authed | verify-email-code | 否 |
