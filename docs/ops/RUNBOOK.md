@@ -635,9 +635,27 @@ assert8() {
    `mkdir -p` 不可省：`tmp/` 是 gitignored 且零 tracked 檔，**乾淨 clone 上不存在**（本節受眾
    恰是他機拉到衝突者）；漏建即 `cp: cannot create regular file`。repo 內只放這一個檔、只活到
    步驟 4，絕不 `git add`
-3. 重加密（★`< /dev/null` 不可省：加密不需 passphrase，把 stdin 從 tty 拔掉 wrapper 就不帶
-   `-t`〔P1.2〕，輸出才不會被容器 pty 改成 CRLF、sops 的 stderr 也不會併進權威密文檔）：
-   `./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/merged.yaml < /dev/null > deploy/secrets.dev.enc.yaml`
+3. 重加密——★先寫同目錄 `.new` 再 `mv` 蓋回（與 §15.2 步驟 1 產鑰防法同構；★`< /dev/null`
+   不可省：加密不需 passphrase，把 stdin 從 tty 拔掉 wrapper 就不帶 `-t`〔P1.2〕，輸出才不會
+   被容器 pty 改成 CRLF、sops 的 stderr 也不會併進權威密文檔）：
+
+   ```bash
+   ENC=deploy/secrets.dev.enc.yaml
+   if ./deploy/sops.sh -e --filename-override "$ENC" tmp/merged.yaml < /dev/null > "$ENC.new" \
+        && [ -s "$ENC.new" ]; then
+     mv "$ENC.new" "$ENC" && echo "OK：$ENC 已重加密"
+   else
+     rm -f "$ENC.new"; echo "FAIL：重加密未完成（規則比不到／私鑰不可用／docker 不在）——$ENC 一 byte 未動、殘檔已清"
+   fi
+   ```
+
+   ★**絕不可簡寫成 `./deploy/sops.sh -e … < /dev/null > deploy/secrets.dev.enc.yaml`**：shell
+   在 sops 起跑**之前**就把**權威密文檔**截斷成 0 byte，加密失敗（規則比不到／私鑰不可用／
+   docker 不在）時該檔先毀——衝突態下雖可由 git 復原（`git checkout -m -- deploy/secrets.dev.enc.yaml`
+   重建衝突標記、或 `git show :2:…` 取回 ours），但屬可避免的髒窗口。上式先寫 `.new` 再 `mv`＝
+   失敗時原檔一 byte 未動；`[ -s ]` 那道擋「rc=0 但產物空檔」。
+   ★`.new` 必須與目標檔**同裝置**（故同放 `deploy/` 下）：跨裝置 `mv` 退化為 copy＋覆寫、
+   蓋回目標時**重新引入截斷窗口**——`.new` 絕不落 `$WORK` 或系統 tmp。
    ——★`--filename-override` 不可省：`path_regex` 比對的是**檔名**，對 `tmp/merged.yaml`
    比不到規則就會報 `no matching creation rules found`（或在別的規則下**悄悄換掉 recipients**）
 4. **核對加密檔 `sops.age` 的 recipient 清單與 `.sops.yaml` 逐一相符**——★**用命令核、別用眼睛**
