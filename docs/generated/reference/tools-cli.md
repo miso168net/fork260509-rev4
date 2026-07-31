@@ -23,12 +23,12 @@
 - 語言：python
 - 子命令：`check`｜`test`
 
-## tools/bootstrap
+## tools/bootstrap.sh
 - 語言：bash
 - 存在：是
 - 檔頭用法行：（檔頭前 10 行無「用法」註解行）
 
-## tools/wf-watchdog
+## tools/wf-watchdog.sh
 - 語言：bash
 - 存在：是
-- 檔頭用法行：用法：Monitor 工具 command 欄填 `bash tools/wf-watchdog [冒煙token]`
+- 檔頭用法行：用法：Monitor 工具 command 欄填 `bash tools/wf-watchdog.sh [冒煙token]`

@@ -111,7 +111,7 @@ if [ "${#perm_hit[@]}" -gt 0 ]; then
     for p in "${perm_hit[@]}"; do echo "   - $p"; done
     if [ "$(stat -f -c '%T' "$SECRETS_DIR")" = "v9fs" ]; then
         echo "→ 落點在 /mnt/* 之 drvfs（9p）：chmod 結構性 no-op、mode 恆讀 777，本紅字是特性不是誤報——"
-        echo "  拍板落點應在 ext4（如 \$HOME/.cache/rev4-secrets；ADR 0080），請遷落點而非改本檢查。"
+        echo "  拍板落點應在 ext4（如 \$HOME/.cache/fork260509-rev4/secrets；ADR 0080／0084），請遷落點而非改本檢查。"
     fi
     exit 1
 fi

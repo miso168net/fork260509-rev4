@@ -6,7 +6,7 @@
 
 ## 1. 快速啟動（新機五步）
 
-1. `bash tools/bootstrap` —— 源倉＋worktree＋hooks＋secrets 體檢（幂等、可重跑）
+1. `bash tools/bootstrap.sh` —— 源倉＋worktree＋hooks＋secrets 體檢（幂等、可重跑）
 2. `bash deploy/generate-secrets.sh` —— 十一機密缺則補
 3. `bash deploy/preflight-secrets.sh` —— up 前預檢（全齊印 OK）
 4. `bash deploy/generate-dev-cert.sh` —— dev TLS 憑證。★非可選：front-nginx 恆 bind-mount
@@ -88,7 +88,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
    | `AUDIT_RETENTION_SESSION_EVENT_DAYS` | session_event | 90 | 30 |
 
 6. **磁碟加密與 swap 面確認**（019 起；一次性、換機重做）：解密後的明文機密長駐
-   `$HOME/.cache/rev4-secrets`＝WSL2 的 `ext4.vhdx` 內，此 at-rest 代價已誠實登記
+   `$HOME/.cache/fork260509-rev4/secrets`＝WSL2 的 `ext4.vhdx` 內，此 at-rest 代價已誠實登記
    （ADR 0080「後果」節），本項即其補償面之一。兩件事都要人工確認、腳本不代辦、無機判：
    - **BitLocker**：Windows 側 PowerShell（系管）跑 `manage-bde -status` 確認存放 `ext4.vhdx`
      的磁碟機為 `Protection On`（distro vhdx 位置＝`%LOCALAPPDATA%\Packages\<distro 套件>\LocalState`）。
@@ -135,7 +135,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 - redis／prometheus／loki／pushgateway 資料可拋棄（快取與可重累積的觀測資料）；grafana
   provisioning 資產 as-code 在 git、僅 UI 手改需另存。
 - ★**secrets 檔一併備份**：對象＝`$SECRETS_DIR` 的 11 支 `.txt`（US3 起明文已遷出 repo；取值
-  片段＝§7 抬頭，預設 `$HOME/.cache/rev4-secrets`）——**不是** repo 內 `deploy/secrets/`
+  片段＝§7 抬頭，預設 `$HOME/.cache/fork260509-rev4/secrets`）——**不是** repo 內 `deploy/secrets/`
   （現只剩 `README.md` 與 `.example`，對著它備份會**備到零檔且 shell 不報錯**）。若機器毀損只
   還原了 DB 卷而 secrets 檔遺失，postgres_data 內密碼與新生成 secret 不配對、全 stack 連不上
   （§7 postgres 列）。有 docker 時的替代路徑＝自版控密文重解（§15.6）；無 docker＝§15.10。
@@ -143,7 +143,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 ## 7. 機密輪替表（生成明細→`deploy/secrets/README.md`；密文面連帶＝§15）
 
 ★**落點＝`$SECRETS_DIR`**（US3 起明文機密已遷出 repo：真值＝repo 根 `.env` 的 `SECRETS_DIR`、
-拍板預設 `$HOME/.cache/rev4-secrets`＝§15.6。repo 內 `deploy/secrets/` 現只剩 `README.md` 與
+拍板預設 `$HOME/.cache/fork260509-rev4/secrets`＝§15.6。repo 內 `deploy/secrets/` 現只剩 `README.md` 與
 `.example`——路徑寫成那裡＝`cat` 讀到**空字串**，下表 `ALTER USER` 會把密碼改成空）。本節命令
 貼進 shell 前先設好本變數（取值口徑同 `deploy/*.sh` 的寬樣式解析）：
 
@@ -162,7 +162,7 @@ fi
 #   README 與 .example），於 .env 被寫壞〔如值寫成相對路徑〕時會靜默放行，而下表 `ALTER USER`
 #   拿 `$(cat …)` 讀到空字串＝把密碼改成空（019 final review 實證）。
 [ -s "$SECRETS_DIR/postgres_password.txt" ] \
-  || echo "FAIL：$SECRETS_DIR 下讀不到機密實值——.env 值非法（須絕對路徑字面）或落點未解密；先跑 bash tools/bootstrap 與 ./deploy/decrypt-secrets.sh"
+  || echo "FAIL：$SECRETS_DIR 下讀不到機密實值——.env 值非法（須絕對路徑字面）或落點未解密；先跑 bash tools/bootstrap.sh 與 ./deploy/decrypt-secrets.sh"
 ```
 
 ★上段與五支賦值型消費者**逐字同口徑**（契約 §P5.1）：env 優先 → `.env` 只嚴格解析該一行
@@ -301,7 +301,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | `python3 tools/wire-schema.py extract` / `test` | 容器內抽 typings→wire-schema.json 快照／自測 | extract **是** |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點（B-118）：staged 增量對既存明文結構性失明（L-190），本旗標補盤點面——導入既有 repo 時與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量、成本未拍板；增量面＝pre-commit 自動跑裸 check）。實測全樹（445 tracked 檔、drvfs）約 1.6~1.8 秒 | 否 |
-| `bash tools/bootstrap` | 新機重建／舊機體檢；base-web 跑過 pnpm install 後重跑即可偵測 hooks 覆寫（B-124 指紋斷言） | 否 |
+| `bash tools/bootstrap.sh` | 新機重建／舊機體檢；base-web 跑過 pnpm install 後重跑即可偵測 hooks 覆寫（B-124 指紋斷言） | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；營運程序＝§15） | 否（需 docker） |
 | `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出 8 支明文（composite 另跑 generate `--compose-only`） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（B′ 加殼；＝§15.2 步驟 1 機器化版：覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設名 | 否（需真 tty；age 缺席時需網路） |
@@ -316,7 +316,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 - **pre-commit 條件觸發**（工具自測、平時零額外開銷）：staged 含某 python 工具本體才跑
   該支 test 子命令（docs-sync 約 8s、schema-gate／wire-schema／secret-value-guard 毫秒級）；
   fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下
-  單跑約 9s）；`bash tools/bootstrap` 體檢則無條件全跑工具名冊全部 test。
+  單跑約 9s）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具名冊全部 test。
 
 lint 條款速覽（018 新增五條、B-116 增 L21、B-126 增 L22）——severity 三分：ERROR＝exit 1 擋 commit、
 WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
@@ -483,7 +483,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-rec
 2. **只交付公鑰**（`age1…` 開頭、非機密，貼訊息即可）——私鑰與 passphrase 永遠不離開該機
 3. 管理者把公鑰加進 `.sops.yaml` 的 `age:` 清單 →
    `./deploy/sops.sh updatekeys -y deploy/secrets.dev.enc.yaml`（可一次多檔）→ commit 密文
-4. 新機 `git pull` → `bash tools/bootstrap` → `bash deploy/decrypt-secrets.sh`
+4. 新機 `git pull` → `bash tools/bootstrap.sh` → `bash deploy/decrypt-secrets.sh`
 
 ★**「換機 `git pull` 即可用」是錯的**：少了第 3 步，新機的私鑰不在 recipient 清單裡，拉到的
 密文一律解不開（`Failed to get the data key…`）。
@@ -551,12 +551,13 @@ bash deploy/preflight-secrets.sh                    # 11 支齊備且健康（co
 
 ### 15.6 落點缺檔時的補救（★這不是「開機儀式」）
 
-`SECRETS_DIR`＝`$HOME/.cache/rev4-secrets`（ext4 持久碟；拍板＝ADR 0080 決策 2）——**重開機
+`SECRETS_DIR`＝`$HOME/.cache/fork260509-rev4/secrets`（ext4 持久碟；落點值拍板＝ADR 0084
+統一樹、ext4 語意承 ADR 0080 決策 2）——**重開機
 或 `wsl --shutdown` 後明文仍在、毋需每次開機重解密**。只有三種情境要重跑解密儀式：
 ①快取被清（手動 `rm -rf`／清理工具）②新機或重灌③落點檔被誤刪。
 
 ```bash
-bash tools/bootstrap                              # .env 缺席時代勞產生（其餘為體檢）
+bash tools/bootstrap.sh                           # .env 缺席時代勞產生（其餘為體檢）
 bash deploy/decrypt-secrets.sh                    # 8 支：7 leaf＋alert_webhook_url
 bash deploy/generate-secrets.sh --compose-only    # 3 支 composite 自 leaf 重組（缺 leaf 即報錯、不生成）
 bash deploy/preflight-secrets.sh                  # 11 支齊備且健康才可 up
@@ -583,7 +584,8 @@ shell 重導向**產生、**從不進容器**，一律落 **repo 外**的 0700 �
 
 ```bash
 umask 077
-WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/rev4-merge.XXXXXX")"
+mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4"
+WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4/merge.XXXXXX")"
 [ "$(stat -f -c '%T' "$WORK")" != v9fs ] && [ "$(stat -c '%a' "$WORK")" = 700 ] \
   || echo "FAIL：$WORK 落在 9p 或權限非 700——把 XDG_CACHE_HOME 指到 ext4 路徑後重來"
 
@@ -723,7 +725,7 @@ stanza 試解、每試一次就重讀一次加殼私鑰）；`updatekeys`／`rot
 
 本方案的解密路徑**唯一依賴 docker**（wrapper 走官方容器、host 端刻意不裝 sops 二進位）。
 docker 壞掉或新機尚未裝 docker 時：①優先自 secrets 檔備份直接還原落點（最快、零工具）——
-★備份／還原的**唯一**對象＝`$SECRETS_DIR`（§7 抬頭取值片段；預設 `$HOME/.cache/rev4-secrets`）
+★備份／還原的**唯一**對象＝`$SECRETS_DIR`（§7 抬頭取值片段；預設 `$HOME/.cache/fork260509-rev4/secrets`）
 的 `.txt`，**不是** repo 內 `deploy/secrets/`（US3 起那裡只剩 `README.md` 與 `.example`，
 對著它備份會**備到零檔且 shell 不報錯**、直到災復當下才發現）；備份義務全文＝§6
 ②否則臨時取官方 sops **原生二進位**（版本＝§12 末段釘版值、checksum 驗過再用），以同一把

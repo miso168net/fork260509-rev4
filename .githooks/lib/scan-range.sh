@@ -8,7 +8,7 @@
 #   上述退階（origin 零 ref）      → 掃整條分支（--log-opts=<local-oid>）
 #   刪除分支（local-oid 全零）     → 跳過該行（無內容可掃）
 # 退出碼分流同 S1：scanner exit 2＝機密命中→本函式回 1 擋 push；其餘非零＝掃描器本身異常
-# （亦回 1、訊息可辨識並指向 tools/bootstrap）。`git push --no-verify` 仍可繞過＝已知邊界。
+# （亦回 1、訊息可辨識並指向 tools/bootstrap.sh）。`git push --no-verify` 仍可繞過＝已知邊界。
 
 # $1=--log-opts 值。★--redact 不可省；git 子命令（禁 protect/detect）；原生二進位。
 scan_range_run() {
@@ -44,7 +44,7 @@ scan_push_ranges() {
       echo "[pre-push] ✗ 機密命中（$sr_local_ref、範圍 $sr_opts；輸出值已遮蔽）——移除後重推；誤報→修 .gitleaks.toml allowlist、絕不 --no-verify" >&2
       sr_status=1
     elif [ "$sr_rc" -ne 0 ]; then
-      echo "[pre-push] ✗ 掃描器本身異常（exit $sr_rc）、非機密命中——跑 bash tools/bootstrap 檢修（安裝／版本斷言）" >&2
+      echo "[pre-push] ✗ 掃描器本身異常（exit $sr_rc）、非機密命中——跑 bash tools/bootstrap.sh 檢修（安裝／版本斷言）" >&2
       sr_status=1
     fi
   done

@@ -25,11 +25,10 @@ AGE_ASSET="age-$AGE_VERSION-linux-amd64.tar.gz"   # 平台＝WSL2 x86-64（本�
 
 # ★暫存目錄名＝**repo 目錄名**（非 compose project name `rev4-admin`、非刀號）：同一台機器
 #   並存 fork260509-rev1~rev4 四代與其他專案（work260730-rev1 等），repo 名才是零撞名的穩定
-#   識別。★既有 host 路徑仍用短代號家族（`rev4-secrets`＝ADR 0080 決策 1 拍板值、
-#   `rev4-decrypt.XXXXXX`／`rev4-merge.XXXXXX`＝已審腳本與手冊之 mktemp 模板）——**刻意不動**：
-#   前者改動＝改拍板並重跑落點遷移（compose 掛載來源）、後者改了反而與拍板值不一致。
-#   兩軌並存之統一屬拍板級、已登記 BACKLOG。
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4"
+#   識別。★host 暫存／落點已統一為 `~/.cache/fork260509-rev4/` 一棵樹（secrets／
+#   decrypt.XXXXXX／merge.XXXXXX／keygen 四層；ADR 0084、B-125 已收）——本腳本用 keygen 層
+#   （age 二進位快取＋公鑰捕捉 pub.txt）。
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4/keygen"
 KEYDIR="$HOME/.config/sops/age"
 KEYNAME="${1:-keys.txt}"
 KEYS="$KEYDIR/$KEYNAME"
@@ -125,5 +124,5 @@ echo "======================================================================"
 echo
 echo "接著（§15.2 步驟 3~4）：管理者把該公鑰加進 .sops.yaml 的 age: 清單 →"
 echo "  ./deploy/sops.sh updatekeys -y deploy/secrets.dev.enc.yaml → commit 密文 →"
-echo "  你 git pull → bash tools/bootstrap → bash deploy/decrypt-secrets.sh"
+echo "  你 git pull → bash tools/bootstrap.sh → bash deploy/decrypt-secrets.sh"
 echo "★少了步驟 3，你的私鑰不在 recipient 清單裡＝拉到的密文一律解不開（§15.2 末條）。"

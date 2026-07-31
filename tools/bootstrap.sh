@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tools/bootstrap — rev4 workspace 新機器重建／舊機體檢（幂等、fail-loud）
+# tools/bootstrap.sh — rev4 workspace 新機器重建／舊機體檢（幂等、fail-loud）
 #
 # 用途：clone 外層 repo 後一鍵補齊 gitignored 源倉（fork260509-*）＋雙 worktree＋hooks，
 #       並斷言最原始源基線（fork260509-soybean-admin-base @ example、CLAUDE.md §1）與
@@ -163,7 +163,7 @@ ok "fork-delta-lint 全綠（self-test＋實掃）"
 # ★SECRETS_DIR 必須寫「絕對路徑字面」：compose 讀 .env 不做 shell 展開（$HOME 字面無效），
 #   故由本腳本於 shell 側展開後寫入；產檔約束全文見 .env.example。
 ENV_FILE="$ROOT/.env"
-SECRETS_DIR_DEFAULT="$HOME/.cache/rev4-secrets"
+SECRETS_DIR_DEFAULT="$HOME/.cache/fork260509-rev4/secrets"
 if [ ! -f "$ENV_FILE" ]; then
   printf 'SECRETS_DIR=%s\n' "$SECRETS_DIR_DEFAULT" > "$ENV_FILE"
   ok ".env 缺失→已代勞產生（SECRETS_DIR=$SECRETS_DIR_DEFAULT）"

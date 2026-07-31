@@ -14,6 +14,6 @@ rc=$?
 if [ "$rc" -eq 2 ]; then
   echo "[pre-commit] ✗ 機密樣式命中（上方輸出含 rule id 與檔案行、值已遮蔽）——移除後重試；誤報→修外層 .gitleaks.toml allowlist、絕不 --no-verify" >&2
 else
-  echo "[pre-commit] ✗ 掃描器本身異常（exit $rc）、非機密命中——跑外層 bash tools/bootstrap 檢修（安裝／版本斷言）" >&2
+  echo "[pre-commit] ✗ 掃描器本身異常（exit $rc）、非機密命中——跑外層 bash tools/bootstrap.sh 檢修（安裝／版本斷言）" >&2
 fi
 exit 1

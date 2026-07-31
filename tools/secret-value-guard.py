@@ -478,10 +478,10 @@ class TestResolveSecretsDir(unittest.TestCase):
         self.assertIn("空字串", err)
 
     def test_dotenv_used_when_env_var_absent(self):
-        root = self._root("# 註解\nSECRETS_DIR=/tmp/rev4-secrets\nOTHER=1\n")
+        root = self._root("# 註解\nSECRETS_DIR=/tmp/fork260509-rev4/secrets\nOTHER=1\n")
         sdir, err = resolve_secrets_dir(root, {})
         self.assertIsNone(err)
-        self.assertEqual(sdir, "/tmp/rev4-secrets")
+        self.assertEqual(sdir, "/tmp/fork260509-rev4/secrets")
 
     def test_dotenv_last_occurrence_wins(self):
         root = self._root("SECRETS_DIR=/tmp/first\nSECRETS_DIR=/tmp/last\n")

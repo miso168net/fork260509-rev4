@@ -24,7 +24,7 @@ if [ "$scan_rc" -eq 2 ]; then
   echo "[pre-commit] ✗ 機密樣式命中（上方輸出含 rule id 與檔案行、值已遮蔽）——自 staged 移除後重試；誤報→修 .gitleaks.toml allowlist（AND＋paths×regexes 圈定）、絕不 --no-verify" >&2
   exit 1
 elif [ "$scan_rc" -ne 0 ]; then
-  echo "[pre-commit] ✗ 掃描器本身異常（exit $scan_rc）、非機密命中——跑 bash tools/bootstrap 檢修（安裝／版本斷言）" >&2
+  echo "[pre-commit] ✗ 掃描器本身異常（exit $scan_rc）、非機密命中——跑 bash tools/bootstrap.sh 檢修（安裝／版本斷言）" >&2
   exit 1
 fi
 # 值比對層（S2、事件型、僅外層）：機密現值 × staged 新增行；現值缺席＝skip（fail-open）；

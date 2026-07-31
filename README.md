@@ -27,7 +27,7 @@ fork260509-rev4/
 │   └── generated/                   機器生成、嚴禁手改：STATE（現況帳）／MILESTONES（全事件表）
 │                                      ／DECISIONS-INDEX（ADR 索引）／reference/（全量正典表）
 ├── tools/docs-sync.py               生成器＋lint（generate／check／lint／errata／test）
-├── tools/bootstrap                  新機器環境重建／舊機體檢（源倉＋worktree＋基線＋hooks）
+├── tools/bootstrap.sh               新機器環境重建／舊機體檢（源倉＋worktree＋基線＋hooks）
 ├── tools/fork-delta-lint.py         base-web fork-delta「原行」紀律機器強制（基線＝最原始源 @ example）
 ├── docker-compose.yml               dev stack base 層（六 service 共通定義；敘事見活書 §7）
 ├── docker-compose.dev.yml           dev override（host port／bind-mount／熱重載）
@@ -59,7 +59,7 @@ fork260509-rev4/
 
 首次啟動五步（每步陷阱與全部維運程序→[docs/ops/RUNBOOK.md](docs/ops/RUNBOOK.md)）：
 
-1. `bash tools/bootstrap`
+1. `bash tools/bootstrap.sh`
 2. `bash deploy/generate-secrets.sh`
 3. `bash deploy/preflight-secrets.sh`
 4. `bash deploy/generate-dev-cert.sh`（★非可選——缺憑證 up 即 front-nginx 死循環；自簽 ca.pem 記得 trust 進 OS）
@@ -93,5 +93,5 @@ fork260509-rev4/
   **絕不要跑 `git submodule update`**（會 reset worktree）。
 - **想改 `docs/generated/` 裡的東西**：不要手改——改它的來源（events／ADR／BACKLOG…）
   再跑 `python3 tools/docs-sync.py generate`。
-- **新機器初始化**：clone 本 repo 後跑 `bash tools/bootstrap`（自動補齊 gitignored 源倉
+- **新機器初始化**：clone 本 repo 後跑 `bash tools/bootstrap.sh`（自動補齊 gitignored 源倉
   `fork260509-*`＋worktree＋hooks、斷言最原始源基線；詳 CLAUDE.md §3）。
