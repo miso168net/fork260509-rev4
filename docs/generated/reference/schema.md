@@ -370,6 +370,7 @@
 
 索引：
 - sys_user_pkey｜CREATE UNIQUE INDEX sys_user_pkey ON public.sys_user USING btree (id)
+- sys_user_user_email_active_uniq｜CREATE UNIQUE INDEX sys_user_user_email_active_uniq ON public.sys_user USING btree (lower((user_email)::text)) WHERE ((deleted_at IS NULL) AND (user_email IS NOT NULL))
 - sys_user_user_name_active_uniq｜CREATE UNIQUE INDEX sys_user_user_name_active_uniq ON public.sys_user USING btree (user_name) WHERE (deleted_at IS NULL)
 
 約束：
@@ -379,6 +380,27 @@
 - sys_user_pkey｜PRIMARY KEY (id)
 - sys_user_session_policy_not_null｜NOT NULL session_policy
 - sys_user_user_name_not_null｜NOT NULL user_name
+
+## sys_user_email_verify（archetype C 衛星）
+
+| 欄 | 型別 | 可空 | 預設 |
+|---|---|---|---|
+| user_id | bigint | 否 | — |
+| verified_email | character varying | 否 | — |
+| verified_at | timestamp with time zone | 否 | — |
+| created_at | timestamp with time zone | 否 | now() |
+| created_by | bigint | 否 | — |
+
+索引：
+- pk_sys_user_email_verify｜CREATE UNIQUE INDEX pk_sys_user_email_verify ON public.sys_user_email_verify USING btree (user_id)
+
+約束：
+- pk_sys_user_email_verify｜PRIMARY KEY (user_id)
+- sys_user_email_verify_created_at_not_null｜NOT NULL created_at
+- sys_user_email_verify_created_by_not_null｜NOT NULL created_by
+- sys_user_email_verify_user_id_not_null｜NOT NULL user_id
+- sys_user_email_verify_verified_at_not_null｜NOT NULL verified_at
+- sys_user_email_verify_verified_email_not_null｜NOT NULL verified_email
 
 ## sys_user_role（archetype C join）
 

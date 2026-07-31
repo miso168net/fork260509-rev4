@@ -81,6 +81,13 @@
       "note": "複合 PK (user_id,created_by)；created_at＝最後設定時間（upsert 刷新）；零 FK（ADR 0009）；不存密碼。來源＝015-pwd-custody m011（變體 C）"
     },
     {
+      "table": "sys_user_email_verify",
+      "variant": "C",
+      "label": "C 衛星",
+      "active_unique": null,
+      "note": "單一 PK user_id；verified_at＝最後驗證時刻（upsert 刷新）、created_{at,by} 首建不動；零 FK（ADR 0009）；不存驗證碼。來源＝020-email-verify-smtp m014（變體 C）"
+    },
+    {
       "table": "sys_casbin_policy_archive",
       "variant": "D",
       "label": "D 治理",

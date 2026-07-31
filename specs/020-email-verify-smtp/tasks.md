@@ -122,7 +122,7 @@ MUST 完成（§V.2 程序、user 親決）：
   ＋單元測試（token 產驗/MAC secret 參與/TTL leeway=0/uid 綁定/ctx 語境隔離）in
   `rust-api/server/src/email_verify/mod.rs`＋`rust-api/server/src/redis/mod.rs`
 - [ ] T012 m014 落庫＋restart rust-api＋`schema-gate.py gate1/gate2/audit` 三綠（新表＋新索引
-  零漂移、變體 C 分支過）
+  零漂移、變體 C 分支過）＋docs-sync refresh 快照（015 U2 先例：落庫收單時 refresh 收錄新表）
 
 **Checkpoint**: 容器內 cargo lib 全綠（seam／格式／token／mailer 兩態／ctx 隔離）；schema-gate
 三子命令＋`--self-test` 綠（T002 新分支與 index 項案例過）。

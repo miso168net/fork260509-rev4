@@ -52,7 +52,10 @@ def now、*_by bigint 可空）＋活性唯一 partial-uniq 在場（PK 總體�
 B＝created_at NN 在場、updated_*／deleted_* 出現即 FAIL；C＝sys_user_role 零審計欄
 ／sys_token 恰 created_at＋created_by＋status 且無 updated_*／deleted_*
 ／sys_pwd_custody created_at NN 在場且無 updated_*／deleted_*（極簡欄集；列可 upsert
-刷新與全刪、非 append-only——015-pwd-custody m011）；
+刷新與全刪、非 append-only——015-pwd-custody m011）
+／sys_user_email_verify created_at NN 在場且無 updated_*／deleted_*（衛星表 upsert
+刷新＝重驗事件覆寫、verified_at 即其時戳——憲法 §I.6 變體 C 釋義（v1.15.0）、
+020-email-verify-smtp m014）；
 D＝sys_casbin_policy_archive 驗 archived_* 三欄＋created_at/by 可空、casbin_rule
 驗 ALTER 三治理欄在場且基底 8 欄未被動。
 
@@ -127,6 +130,8 @@ STRUCT_ADDITIVE_ALLOWLIST = {
     ("table", "sys_pwd_custody", None),                   # 015-pwd-custody m011
     ("index", "sys_access_log", "idx_access_log_path_trgm"),             # 012-audit-admin m009（015 U2 勘誤補登、L-148）
     ("index", "sys_login_attempt", "idx_login_attempt_user_name_trgm"),  # 012-audit-admin m009（015 U2 勘誤補登、L-148）
+    ("table", "sys_user_email_verify", None),                            # 020-email-verify-smtp m014
+    ("index", "sys_user", "sys_user_user_email_active_uniq"),            # 020-email-verify-smtp m014
 }
 
 # ---- 閘 2 seed 面（contracts §3）----
@@ -606,6 +611,15 @@ def audit_table(table, variant, active_unique, cols, index_defs):
         elif cols["created_at"][1] != "NO":
             issues.append(f"{table}.created_at：應 NOT NULL（C 極簡變體）")
         forbid_mutation_cols("C 極簡變體")
+    elif variant == "C" and table == "sys_user_email_verify":
+        # 020-email-verify-smtp m014：信箱已驗證值衛星表（單一 PK user_id＋verified_*＋
+        # created_* 首建成對）；upsert 刷新＝重驗事件覆寫、verified_at 即其時戳、不設
+        # updated_{at,by}（憲法 §I.6 變體 C 釋義、v1.15.0）——禁 updated_*／deleted_* 審計欄。
+        if "created_at" not in cols:
+            issues.append(f"{table}.created_at：C 衛星變體必備欄缺")
+        elif cols["created_at"][1] != "NO":
+            issues.append(f"{table}.created_at：應 NOT NULL（C 衛星變體）")
+        forbid_mutation_cols("C 衛星變體")
     elif variant == "D" and table == "sys_casbin_policy_archive":
         for col, want_null in (("archived_at", "NO"), ("archived_by", None),
                                ("archive_reason", "NO"), ("created_at", "YES"),
@@ -1357,17 +1371,20 @@ class TestStructAdditiveAllowlist(unittest.TestCase):
     """閘 1 結構 additive 白名單（ADR 0039）：白名單內多表／多索引＝容差 delta、
     白名單外＝仍 FAIL；只放寬「新增」、不放寬「改動」；零萬用字元。"""
 
-    def test_allowlist_exactly_five(self):
+    def test_allowlist_exactly_seven(self):
         self.assertEqual(STRUCT_ADDITIVE_ALLOWLIST, {
             ("table", "session_event", None),
             ("index", "sys_token", "uq_sys_token_chain_active"),
             ("table", "sys_pwd_custody", None),
             ("index", "sys_access_log", "idx_access_log_path_trgm"),
-            ("index", "sys_login_attempt", "idx_login_attempt_user_name_trgm")})
+            ("index", "sys_login_attempt", "idx_login_attempt_user_name_trgm"),
+            ("table", "sys_user_email_verify", None),
+            ("index", "sys_user", "sys_user_user_email_active_uniq")})
 
     def test_extra_table_allowlisted(self):
         self.assertTrue(is_allowlisted_struct_extra_table("session_event"))
         self.assertTrue(is_allowlisted_struct_extra_table("sys_pwd_custody"))
+        self.assertTrue(is_allowlisted_struct_extra_table("sys_user_email_verify"))
 
     def test_extra_table_unlisted_rejected(self):
         self.assertFalse(is_allowlisted_struct_extra_table("t_rogue"))
@@ -1381,6 +1398,8 @@ class TestStructAdditiveAllowlist(unittest.TestCase):
             "sys_access_log", "idx_access_log_path_trgm"))
         self.assertTrue(is_allowlisted_struct_extra_index(
             "sys_login_attempt", "idx_login_attempt_user_name_trgm"))
+        self.assertTrue(is_allowlisted_struct_extra_index(
+            "sys_user", "sys_user_user_email_active_uniq"))
 
     def test_extra_index_unlisted_rejected(self):
         self.assertFalse(is_allowlisted_struct_extra_index("sys_token", "idx_rogue"))
@@ -1914,6 +1933,43 @@ class TestAuditTable(unittest.TestCase):
         self.assertIn("created_at", issues[0])
 
     @staticmethod
+    def email_verify_cols():
+        # 020-email-verify-smtp m014：衛星欄集（單一 PK user_id＋verified_*＋created_* NN、
+        # created_at def now）。
+        return {
+            "user_id": ("bigint", "NO", None, None),
+            "verified_email": ("character varying", "NO", None, None),
+            "verified_at": ("timestamp with time zone", "NO", None, None),
+            "created_at": ("timestamp with time zone", "NO", "now()", None),
+            "created_by": ("bigint", "NO", None, None),
+        }
+
+    def test_c_email_verify_ok(self):
+        self.assertEqual(
+            audit_table("sys_user_email_verify", "C", None, self.email_verify_cols(), []), [])
+
+    def test_c_email_verify_updated_present_fail(self):
+        cols = self.email_verify_cols()
+        cols["updated_at"] = ("timestamp with time zone", "YES", None, None)
+        issues = audit_table("sys_user_email_verify", "C", None, cols, [])
+        self.assertEqual(len(issues), 1)
+        self.assertIn("updated_at", issues[0])
+
+    def test_c_email_verify_deleted_present_fail(self):
+        cols = self.email_verify_cols()
+        cols["deleted_at"] = ("timestamp with time zone", "YES", None, None)
+        issues = audit_table("sys_user_email_verify", "C", None, cols, [])
+        self.assertEqual(len(issues), 1)
+        self.assertIn("deleted_at", issues[0])
+
+    def test_c_email_verify_created_at_nullable_fail(self):
+        cols = self.email_verify_cols()
+        cols["created_at"] = ("timestamp with time zone", "YES", "now()", None)
+        issues = audit_table("sys_user_email_verify", "C", None, cols, [])
+        self.assertEqual(len(issues), 1)
+        self.assertIn("created_at", issues[0])
+
+    @staticmethod
     def archive_cols():
         return {
             "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
@@ -1987,13 +2043,14 @@ class TestArchetypeMapFile(unittest.TestCase):
     def test_map_matches_datamodel_s1(self):
         # 002 基線 12 表（data-model §1 轉錄）＋post-baseline 隨刀登記
         # （session_event＝006-session-lifecycle m004、變體 B；
-        # sys_pwd_custody＝015-pwd-custody m011、變體 C）＝14 表
+        # sys_pwd_custody＝015-pwd-custody m011、變體 C；
+        # sys_user_email_verify＝020-email-verify-smtp m014、變體 C）＝15 表
         entries = load_archetype_map()
         tables = [e["table"] for e in entries]
-        self.assertEqual(len(tables), 14)
-        self.assertEqual(len(set(tables)), 14)
+        self.assertEqual(len(tables), 15)
+        self.assertEqual(len(set(tables)), 15)
         self.assertEqual(sorted(e["variant"] for e in entries),
-                         ["A"] * 5 + ["B"] * 4 + ["C"] * 3 + ["D"] * 2)
+                         ["A"] * 5 + ["B"] * 4 + ["C"] * 4 + ["D"] * 2)
         by = {e["table"]: e for e in entries}
         self.assertEqual({t: by[t]["variant"] for t in tables}, {
             "sys_user": "A", "sys_role": "A", "sys_menu": "A",
@@ -2001,6 +2058,7 @@ class TestArchetypeMapFile(unittest.TestCase):
             "sys_operation_log": "B", "sys_access_log": "B", "sys_login_attempt": "B",
             "session_event": "B",
             "sys_user_role": "C", "sys_token": "C", "sys_pwd_custody": "C",
+            "sys_user_email_verify": "C",
             "sys_casbin_policy_archive": "D", "casbin_rule": "D"})
         au = {e["table"]: e.get("active_unique") for e in entries if e["variant"] == "A"}
         self.assertEqual(au, {"sys_user": "user_name", "sys_role": "role_code",
