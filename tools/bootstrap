@@ -115,6 +115,21 @@ for wt in base-web rust-api; do
 done
 ok "兩源倉 core.hooksPath＝外層 .githooks-submodule（樣式掃描防線就位）"
 
+# hooks 標的檔內容指紋斷言（B-124：simple-git-hooks 類若覆寫標的檔、hooksPath 指標值不變
+# 仍印 ok＝防線靜默失效）。法＝逐檔 git hash-object（相對路徑、走 filter＝git add 同口徑）
+# 對 git rev-parse HEAD:路徑 比對——逐 byte 級 blob 指紋、失敗可逐檔指名；缺檔獨立分支指名。
+for hf in .githooks-submodule/pre-commit .githooks-submodule/pre-push; do
+  [ -f "$ROOT/$hf" ] \
+    || die "$hf 缺檔——hooks 防線標的不存在；疑遭覆寫／誤刪：git checkout -- $hf 還原並追查來源"
+  head_blob="$(git -C "$ROOT" rev-parse "HEAD:$hf" 2>/dev/null || echo '')"
+  [ -n "$head_blob" ] \
+    || die "$hf 不在外層 HEAD——hooks 標的無版控基準；確認內容後 commit 該檔再重跑"
+  wt_blob="$(git -C "$ROOT" hash-object "$hf")"
+  [ "$wt_blob" = "$head_blob" ] \
+    || die "$hf 工作樹內容 ≠ HEAD 版本——a) 非本人改動＝疑遭覆寫（simple-git-hooks 類）：先 git diff HEAD -- $hf 查看內容、確認後 git checkout -- $hf 還原並追查覆寫源；b) 本人正在改 hooks（未 commit）：commit 後重跑本腳本即綠"
+done
+ok "hooks 標的檔內容＝HEAD 版本（pre-commit／pre-push 指紋一致）"
+
 # ── 4. pin 一致性（分歧只警告；判讀＝回外層更新 pin 方向、CLAUDE.md §3）──
 check_pin() { # $1=目錄名
   local pin head

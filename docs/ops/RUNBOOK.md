@@ -301,7 +301,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | `python3 tools/wire-schema.py extract` / `test` | 容器內抽 typings→wire-schema.json 快照／自測 | extract **是** |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點（B-118）：staged 增量對既存明文結構性失明（L-190），本旗標補盤點面——導入既有 repo 時與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量、成本未拍板；增量面＝pre-commit 自動跑裸 check）。實測全樹（445 tracked 檔、drvfs）約 1.6~1.8 秒 | 否 |
-| `bash tools/bootstrap` | 新機重建／舊機體檢 | 否 |
+| `bash tools/bootstrap` | 新機重建／舊機體檢；base-web 跑過 pnpm install 後重跑即可偵測 hooks 覆寫（B-124 指紋斷言） | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；營運程序＝§15） | 否（需 docker） |
 | `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出 8 支明文（composite 另跑 generate `--compose-only`） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（B′ 加殼；＝§15.2 步驟 1 機器化版：覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設名 | 否（需真 tty；age 缺席時需網路） |
