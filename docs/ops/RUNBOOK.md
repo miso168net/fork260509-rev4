@@ -524,7 +524,7 @@ updatekeys）下也會通過。
 ```bash
 ./deploy/sops.sh edit deploy/secrets.dev.enc.yaml   # 把該 key 的值改成 $SECRETS_DIR/<key>.txt 現值
 bash deploy/decrypt-secrets.sh                      # 自證：應全數 WRITTEN、零 DIFF、零 .txt.new
-bash deploy/preflight-secrets.sh                    # 11 支齊備且健康（composite 一致性同場驗）
+bash deploy/preflight-secrets.sh                    # 11 支齊備且健康（composite 一致性＋權限面 700/644 同場驗；佔位字面命中＝WARN 不擋）
 ```
 
 （腳本化形＝§15.1 的 `set --value-file`。）漏這一步的症狀＝下次解密判 DIFF、另存

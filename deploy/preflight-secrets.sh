@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/preflight-secrets.sh — up 前十一機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列；016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password；019 T027 增 CR 護欄＋composite↔leaf 一致性）
+# deploy/preflight-secrets.sh — up 前十一機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列；016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password；019 T027 增 CR 護欄＋composite↔leaf 一致性；B-123 增權限面三斷言、B-119 增佔位字面 WARN）
 # 用法：./deploy/preflight-secrets.sh
 #
 # 為何：docker compose secrets 用 `file: …/*.txt` bind；source 檔缺時
@@ -81,6 +81,41 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 1
 fi
 
+# B-123：權限面三斷言（縱深防禦、超出契約 P5.6 要求面）——目錄 mode 700／檔 mode 644／
+# 檔 owner 非 root。decrypt-secrets.sh 每次寫出即自證此形（P4.4／P4.6 目錄 700、P4.7 檔 644），
+# 但落點檔被人手改（chmod 600、目錄 777、sudo 建檔）後現檢照樣全綠——而那正是 P4.5／P4.7
+# 自陳「只在開 obs／metrics 軌時才炸」的失敗形（grafana uid 472／postgres-exporter 65534／
+# redis-exporter 59000 讀 /run/secrets/* 全 Permission denied）。本斷言把它前移到 up 之前指名。
+# 置於 CR／composite 檢查之前：owner=root＋600 之檔會讓後方 cat 直接 Permission denied，
+# 先斷言權限才能保證後方檢查的錯誤訊息不失真。
+perm_hit=()
+DIR_MODE="$(stat -c '%a' "$SECRETS_DIR")"
+if [ "$DIR_MODE" != "700" ]; then
+    perm_hit+=("（目錄）$SECRETS_DIR mode=$DIR_MODE｜修復：chmod 700 $SECRETS_DIR")
+fi
+for name in "${REQUIRED[@]}"; do
+    f="$SECRETS_DIR/${name}.txt"
+    F_MODE="$(stat -c '%a' "$f")"
+    F_UID="$(stat -c '%u' "$f")"
+    if [ "$F_MODE" != "644" ]; then
+        perm_hit+=("${name}.txt mode=$F_MODE｜修復：chmod 644 $f")
+    fi
+    if [ "$F_UID" -eq 0 ]; then
+        perm_hit+=("${name}.txt owner=$(stat -c '%U' "$f")（不得為 root）｜修復：sudo chown $(id -un) $f")
+    fi
+done
+if [ "${#perm_hit[@]}" -gt 0 ]; then
+    echo "FAIL：權限面不符（目錄須 700、檔須 644 且 owner 非 root）——這正是 P4.5／P4.7 自陳"
+    echo "      「只在開 obs／metrics 軌才炸」的失敗形（grafana uid 472／postgres-exporter 65534／"
+    echo "      redis-exporter 59000 讀 /run/secrets/* 全 Permission denied）；本斷言把它前移到 up 之前："
+    for p in "${perm_hit[@]}"; do echo "   - $p"; done
+    if [ "$(stat -f -c '%T' "$SECRETS_DIR")" = "v9fs" ]; then
+        echo "→ 落點在 /mnt/* 之 drvfs（9p）：chmod 結構性 no-op、mode 恆讀 777，本紅字是特性不是誤報——"
+        echo "  拍板落點應在 ext4（如 \$HOME/.cache/rev4-secrets；ADR 0080），請遷落點而非改本檢查。"
+    fi
+    exit 1
+fi
+
 # 019 T027①：CR 護欄——printf '%s' 管線寫檔應零 CR；任何 CR＝內容已劣化
 # （CRLF 編輯器覆存／pty 流未剝 CR 直落檔），值進 URL／密碼尾即靜默壞。
 # ★U4 quality 補 LF 護欄：CR 護欄照不到「尾端多一個 LF」，而下方 composite 一致性檢查用
@@ -130,4 +165,26 @@ if [ "${#drift[@]}" -gt 0 ]; then
     exit 1
 fi
 
-echo "OK：${#REQUIRED[@]} 個必須 secret 檔齊備且健康（$SECRETS_DIR；CR 零命中、composite 一致）。可 up。"
+# B-119：已知佔位字面清單比對（★WARN 不阻擋、rc 不因它非零——佔位期照設計是可過的合法
+# 狀態；升級成阻擋屬拍板級、本單元明文不做）。清單字面逐字取自 generate-secrets.sh 之
+# gen_placeholder 呼叫處（唯一佔位源頭）；清單形設計、未來新增佔位即加一元素。
+# 比對走 printf 接 cmp 的位元組比對（與 composite 檢查同一形）、只指名檔案、絕不印內容。
+PLACEHOLDER_LITERALS=("https://CHANGE-ME.invalid/alert-webhook-placeholder")
+ph_hit=()
+for name in "${REQUIRED[@]}"; do
+    f="$SECRETS_DIR/${name}.txt"
+    for lit in "${PLACEHOLDER_LITERALS[@]}"; do
+        if printf '%s' "$lit" | cmp -s - "$f"; then
+            ph_hit+=("${name}.txt")
+            break
+        fi
+    done
+done
+if [ "${#ph_hit[@]}" -gt 0 ]; then
+    echo "WARN：下列 secret 檔仍為生成腳本的佔位字面（照設計可 up；留佔位的唯一徵狀＝該功能"
+    echo "      靜默失效，如告警投遞不出）：${ph_hit[*]}"
+    echo "→ 填真值走 RUNBOOK §7 對應列（alert_webhook_url＝直接編輯檔＋restart grafana）；"
+    echo "  填完必接 §15.4 re-encrypt 回寫加密檔，否則下次 decrypt 判 DIFF 另存 .new。"
+fi
+
+echo "OK：${#REQUIRED[@]} 個必須 secret 檔齊備且健康（$SECRETS_DIR；權限 700/644、CR 零命中、composite 一致）。可 up。"
