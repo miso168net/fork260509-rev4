@@ -88,7 +88,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile obs --p
    | `AUDIT_RETENTION_SESSION_EVENT_DAYS` | session_event | 90 | 30 |
 
 6. **磁碟加密與 swap 面確認**（019 起；一次性、換機重做）：解密後的明文機密長駐
-   `$HOME/.cache/rev4-secrets`＝WSL2 的 `ext4.vhdx` 內，此 at-rest 代價已誠實登記
+   `$HOME/.cache/fork260509-rev4/secrets`＝WSL2 的 `ext4.vhdx` 內，此 at-rest 代價已誠實登記
    （ADR 0080「後果」節），本項即其補償面之一。兩件事都要人工確認、腳本不代辦、無機判：
    - **BitLocker**：Windows 側 PowerShell（系管）跑 `manage-bde -status` 確認存放 `ext4.vhdx`
      的磁碟機為 `Protection On`（distro vhdx 位置＝`%LOCALAPPDATA%\Packages\<distro 套件>\LocalState`）。
@@ -135,7 +135,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 - redis／prometheus／loki／pushgateway 資料可拋棄（快取與可重累積的觀測資料）；grafana
   provisioning 資產 as-code 在 git、僅 UI 手改需另存。
 - ★**secrets 檔一併備份**：對象＝`$SECRETS_DIR` 的 11 支 `.txt`（US3 起明文已遷出 repo；取值
-  片段＝§7 抬頭，預設 `$HOME/.cache/rev4-secrets`）——**不是** repo 內 `deploy/secrets/`
+  片段＝§7 抬頭，預設 `$HOME/.cache/fork260509-rev4/secrets`）——**不是** repo 內 `deploy/secrets/`
   （現只剩 `README.md` 與 `.example`，對著它備份會**備到零檔且 shell 不報錯**）。若機器毀損只
   還原了 DB 卷而 secrets 檔遺失，postgres_data 內密碼與新生成 secret 不配對、全 stack 連不上
   （§7 postgres 列）。有 docker 時的替代路徑＝自版控密文重解（§15.6）；無 docker＝§15.10。
@@ -143,7 +143,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 ## 7. 機密輪替表（生成明細→`deploy/secrets/README.md`；密文面連帶＝§15）
 
 ★**落點＝`$SECRETS_DIR`**（US3 起明文機密已遷出 repo：真值＝repo 根 `.env` 的 `SECRETS_DIR`、
-拍板預設 `$HOME/.cache/rev4-secrets`＝§15.6。repo 內 `deploy/secrets/` 現只剩 `README.md` 與
+拍板預設 `$HOME/.cache/fork260509-rev4/secrets`＝§15.6。repo 內 `deploy/secrets/` 現只剩 `README.md` 與
 `.example`——路徑寫成那裡＝`cat` 讀到**空字串**，下表 `ALTER USER` 會把密碼改成空）。本節命令
 貼進 shell 前先設好本變數（取值口徑同 `deploy/*.sh` 的寬樣式解析）：
 
@@ -551,7 +551,8 @@ bash deploy/preflight-secrets.sh                    # 11 支齊備且健康（co
 
 ### 15.6 落點缺檔時的補救（★這不是「開機儀式」）
 
-`SECRETS_DIR`＝`$HOME/.cache/rev4-secrets`（ext4 持久碟；拍板＝ADR 0080 決策 2）——**重開機
+`SECRETS_DIR`＝`$HOME/.cache/fork260509-rev4/secrets`（ext4 持久碟；落點值拍板＝ADR 0084
+統一樹、ext4 語意承 ADR 0080 決策 2）——**重開機
 或 `wsl --shutdown` 後明文仍在、毋需每次開機重解密**。只有三種情境要重跑解密儀式：
 ①快取被清（手動 `rm -rf`／清理工具）②新機或重灌③落點檔被誤刪。
 
@@ -583,7 +584,8 @@ shell 重導向**產生、**從不進容器**，一律落 **repo 外**的 0700 �
 
 ```bash
 umask 077
-WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/rev4-merge.XXXXXX")"
+mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4"
+WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4/merge.XXXXXX")"
 [ "$(stat -f -c '%T' "$WORK")" != v9fs ] && [ "$(stat -c '%a' "$WORK")" = 700 ] \
   || echo "FAIL：$WORK 落在 9p 或權限非 700——把 XDG_CACHE_HOME 指到 ext4 路徑後重來"
 
@@ -723,7 +725,7 @@ stanza 試解、每試一次就重讀一次加殼私鑰）；`updatekeys`／`rot
 
 本方案的解密路徑**唯一依賴 docker**（wrapper 走官方容器、host 端刻意不裝 sops 二進位）。
 docker 壞掉或新機尚未裝 docker 時：①優先自 secrets 檔備份直接還原落點（最快、零工具）——
-★備份／還原的**唯一**對象＝`$SECRETS_DIR`（§7 抬頭取值片段；預設 `$HOME/.cache/rev4-secrets`）
+★備份／還原的**唯一**對象＝`$SECRETS_DIR`（§7 抬頭取值片段；預設 `$HOME/.cache/fork260509-rev4/secrets`）
 的 `.txt`，**不是** repo 內 `deploy/secrets/`（US3 起那裡只剩 `README.md` 與 `.example`，
 對著它備份會**備到零檔且 shell 不報錯**、直到災復當下才發現）；備份義務全文＝§6
 ②否則臨時取官方 sops **原生二進位**（版本＝§12 末段釘版值、checksum 驗過再用），以同一把

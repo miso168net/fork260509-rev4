@@ -5,7 +5,7 @@
 P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但為空」≠「未設」＝吵鬧失敗、不代猜）
 ②repo 根 `.env` **只嚴格解析 `SECRETS_DIR=` 一行**（明令禁整檔 `source`；行形偵測與 compose 等寬
 ＝接受 BOM／`export ` 前綴／等號兩側空白／CRLF，值校驗才收窄）③皆缺**才**回退本目錄
-＝`deploy/secrets`。拍板預設值＝`$HOME/.cache/rev4-secrets`（`.env.example` 有註解範例）。
+＝`deploy/secrets`。拍板預設值＝`$HOME/.cache/fork260509-rev4/secrets`（ADR 0084 統一樹；`.env.example` 有註解範例）。
 唯一例外＝`tools/bootstrap.sh` 依 P5.1 分工**只讀 `.env`、不吃環境變數**（體檢用途）。
 **權威來源＝ `deploy/secrets.dev.enc.yaml`**（8 key 密文、**tracked**、以 SOPS+age 加密）；
 營運全程序＝`docs/ops/RUNBOOK.md` §15。

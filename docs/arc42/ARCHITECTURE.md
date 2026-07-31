@@ -227,7 +227,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   postgres 健康後先跑 migration、成功結束 rust-api 才起——schema 就緒先於 API；migration
   失敗＝整體啟動失敗（up --wait 非零退出），不存在半初始化環境。
 - **機密**：權威來源＝tracked 密文 `deploy/secrets.dev.enc.yaml`（8 key、SOPS+age B′）；明文
-  落點已遷出 repo 至 `$SECRETS_DIR`（真值＝repo 根 `.env`、預設 `$HOME/.cache/rev4-secrets`；
+  落點已遷出 repo 至 `$SECRETS_DIR`（真值＝repo 根 `.env`、預設 `$HOME/.cache/fork260509-rev4/secrets`；
   `deploy/secrets/` 只剩 README 與 `.example`）——`decrypt-secrets.sh` 解密、三支 composite 由
   leaf 重組（dual-write 不變式）；preflight 預檢 11 支缺檔即指名攔截；`CHANGE-ME` 佔位黑名單
   ＝rust-api／migration／reaper 各自 `starts_with`、射程僅 6 支（其餘 5 支不過這道）。對照表

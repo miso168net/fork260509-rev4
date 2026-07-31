@@ -108,9 +108,9 @@ EXPECTED_KEYS=(postgres_password redis_password jwt_secret refresh_token_secret
 # ★本檔由 host shell 重導向產生、不進容器（wrapper 只掛載 $PWD 供 sops 讀 enc 檔），故不受
 #   contracts §P7「合併衝突」列之「暫存明文必須落 repo 內」限制——該限只適用於要餵回 sops
 #   加密的檔（wrapper 只掛載 $PWD、repo 外的檔容器讀不到）。
-TMP_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}"
+TMP_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4"
 mkdir -p "$TMP_ROOT"
-TMP_DIR="$(mktemp -d "$TMP_ROOT/rev4-decrypt.XXXXXX")"
+TMP_DIR="$(mktemp -d "$TMP_ROOT/decrypt.XXXXXX")"
 trap 'rm -rf "$TMP_DIR"' EXIT
 TMP_FS="$(stat -f -c '%T' "$TMP_DIR")"
 TMP_MODE="$(stat -c '%a' "$TMP_DIR")"
