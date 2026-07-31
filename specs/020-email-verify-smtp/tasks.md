@@ -48,7 +48,7 @@
 
 **(g) 擴字串＋§I.6 變體 C 釋義＋ADR 0085/0086——治理級決定不得以主線裁決名義烤進 agent prompt
 （L-146）；GATE 由主線 AskUserQuestion 親決、非 workflow agent。**
-→ 親決 gate 照 013/014/015 判例提前（Phase 1 純工具聯動與基建不依賴、可先行）。
+→ 親決 gate 照 013/014/015 判例提前（Phase 1 純函式 seam 與寄信基建外圍不依賴、可先行）。
 
 MUST 完成（§V.2 程序、user 親決）：
 1. **ADR 0085/0086 → accepted**（draft 已收斂 clarify 四拍板＋plan 對抗式驗證校正）。
@@ -64,21 +64,15 @@ MUST 完成（§V.2 程序、user 親決）：
 
 ---
 
-## Phase 1: Setup（純函式 seam＋工具聯動＋寄信基建外圍先立；治理 GATE 前可先行）
+## Phase 1: Setup（純函式 seam＋寄信基建外圍先立；治理 GATE 前可先行）
 
 **Purpose**: 不依賴新表與親決的地基全就位。
 
-- [ ] T001 判定純函式 `is_email_verified`（吃 user_email 與衛星欄參數、回 Option 時刻）＋
-  `validate_email_format` 單一守門（trim／基本形／長度 ≤254）＋單元測試（判定三態＋大小寫變體
-  ＋格式正負向＋空值語意）in `rust-api/server/src/model/facade/sys_user.rs`＋
-  `rust-api/server/src/validation.rs`（純函式無表依賴、直接全綠）
-- [ ] T002 [P] `tools/schema-gate.py` 工具聯動：STRUCT_ADDITIVE_ALLOWLIST 加表級
-  `sys_user_email_verify`＋**index 級 `(index, sys_user, sys_user_user_email_active_uniq)`**＋
-  audit_table 加 `elif variant=="C" and table=="sys_user_email_verify":` 分支（檢 created_at NN
-  ＋禁 updated_*/deleted_*）＋TestAuditTable 案例＋self-test 精確集合 dict 同步 in `tools/schema-gate.py`
-- [ ] T003 [P] archetype-map 登記＋baseline data-model 歸屬補列（variant C、note 記 verified_at
-  upsert 刷新／created_{at,by} 首建不動／零 FK／不存驗證碼）in
-  `docs/ops/reference-src/archetype-map.json`＋`specs/002-schema-baseline/data-model.md`
+- [ ] T001 判定純函式 `is_email_verified`（★純量簽名〔analyze I2 定案〕：吃 `user_email` 與
+  `verified_email`／`verified_at` 純量參數、回 Option 時刻；衛星 entity 解構歸呼叫端——Phase 1
+  零表依賴可全綠、data-model §2 已同步勘正）＋`validate_email_format` 單一守門（trim／基本形／
+  長度 ≤254）＋單元測試（判定三態＋大小寫變體＋格式正負向＋空值語意）in
+  `rust-api/server/src/model/facade/sys_user.rs`＋`rust-api/server/src/validation.rs`
 - [ ] T004 [P] lettre 0.11.22 釘版（`default-features=false`＋features 見 research R1）in
   `rust-api/server/Cargo.toml`（workspace 依現慣例）＋容器內 `cargo build` 綠（依賴解析證）
 - [ ] T005 [P] SOPS +2 key 全鏈：`smtp_password`＋`email_verify_secret` 皆亂數 leaf（★不用
@@ -90,13 +84,22 @@ MUST 完成（§V.2 程序、user 親決）：
   （`axllent/mailpit:v1.30.6`、1025 內網、`127.0.0.1:8025`）＋rust-api dev 七鍵覆寫 in
   `docker-compose.dev.yml`；up 後 `curl -s http://127.0.0.1:8025/readyz` 200
 
-**Checkpoint**: `python3 tools/schema-gate.py --self-test` 綠；preflight 13 檔綠；mailpit readyz
-200；容器內 cargo build 綠；T001 單元測試綠。
+**Checkpoint**: preflight 13 檔綠；mailpit readyz 200；容器內 cargo build 綠；T001 單元測試綠。
 
 ## Phase 2: Foundational（表＋config＋mailer＋憑據底座就位）— BLOCKING ★治理 GATE 後
 
-**Purpose**: 所有端點與寫入的前置底座。
+**Purpose**: 所有端點與寫入的前置底座。★T002/T003 自 Phase 1 移入（analyze I1、三鏡頭同抓）：
+與 m014 同單元、**收尾同 commit**——兌現 data-model §1「工具聯動 m014 同 commit、缺一即紅」
+字面、杜絕「已登記表未建」中間態 audit 紅、且 audit 分支語意於治理 GATE 親決後才施工（L-146）。
 
+- [ ] T002 [P] `tools/schema-gate.py` 工具聯動：STRUCT_ADDITIVE_ALLOWLIST 加表級
+  `sys_user_email_verify`＋**index 級 `(index, sys_user, sys_user_user_email_active_uniq)`**＋
+  audit_table 加 `elif variant=="C" and table=="sys_user_email_verify":` 分支（檢 created_at NN
+  ＋禁 updated_*/deleted_*；★分支語意以 GATE 親決之 §I.6 釋義句定稿為準、翻案同單元回改）＋
+  TestAuditTable 案例＋self-test 精確集合 dict 同步 in `tools/schema-gate.py`
+- [ ] T003 [P] archetype-map 登記＋baseline data-model 歸屬補列（variant C、note 記 verified_at
+  upsert 刷新／created_{at,by} 首建不動／零 FK／不存驗證碼）in
+  `docs/ops/reference-src/archetype-map.json`＋`specs/002-schema-baseline/data-model.md`
 - [ ] T007 migration `m014_email_verify`：up＝**前置重複掃描**（active 列 lower(user_email)
   HAVING count>1→Err 印清單）→建 `sys_user_email_verify`（DDL 逐字＝data-model §1）→
   `sys_user_user_email_active_uniq` 唯一索引；down 對稱 DROP in
@@ -108,7 +111,8 @@ MUST 完成（§V.2 程序、user 親決）：
   `rust-api/server/src/config.rs`＋`rust-api/server/src/state.rs`
 - [ ] T010 mailer 模組：兩態建構（starttls=true→`starttls_relay` `Tls::Required`／false→明文
   builder）＋timeout 15s＋username 非空才掛 credentials＋驗證信組裝（純文字、六位碼＋有效期、
-  主旨帶 suffix、zh-TW 文案）＋**兩態建構單元測試**（SC-008 載體、拆分支即紅）in
+  主旨帶 suffix、zh-TW 文案）＋**兩態建構單元測試**（SC-008 載體、拆分支即紅）＋非 ASCII
+  顯示名標頭編碼斷言＋suffix 空值主旨組裝斷言（spec edge case 載體、analyze C2）in
   `rust-api/server/src/mailer/mod.rs`
 - [ ] T011 captcha `ctx` 欄（additive：issue/verify 帶 ctx、login 端 issue 與 captcha_gate 同步
   帶 "login"、★既有 login captcha 測試零紅＝行為零改動機器證）in
@@ -121,7 +125,7 @@ MUST 完成（§V.2 程序、user 親決）：
   零漂移、變體 C 分支過）
 
 **Checkpoint**: 容器內 cargo lib 全綠（seam／格式／token／mailer 兩態／ctx 隔離）；schema-gate
-三子命令綠。
+三子命令＋`--self-test` 綠（T002 新分支與 index 項案例過）。
 
 ## Phase 3: User Story 1 - 本人綁定／變更信箱並完成驗證 (P1) 🎯 MVP
 
@@ -161,7 +165,8 @@ op-log；錯 3 次廢；解綁；重放/跨帳號拒；洩漏零命中。
   `base-web/src/views/user-center/modules/email-card.vue`
 
 **Checkpoint**: 容器內 cargo 全綠＋typecheck＋fork-delta-lint 綠；CDP S1（快樂路徑＋洩漏子步）
-＋S2（錯碼三次）＋S6（解綁＋回填恢復前半）＋S7（captcha 閘）PASS。
+＋S2（錯碼三次）＋S6（解綁＋回填恢復前半）＋S7（captcha 閘）PASS（★CDP 以行為判準、容忍
+raw key——三語於 S9 統一驗、analyze C1）。
 
 ## Phase 4: User Story 2 - admin 端語意與驗證態呈現 (P2)
 
@@ -173,13 +178,13 @@ op-log；錯 3 次廢；解綁；重放/跨帳號拒；洩漏零命中。
 - [ ] T020 [US2] 測試先行（紅）：addUser（blank_to_none 後 Some 才驗＋唯一預檢＋索引兜底映射
   emailTaken）；updateUser 三態（None 不動／Some("") 清空跳守門／Some 非空驗）＋無豁免（psql
   植入怪值→重送原值被擋）＋鎖內唯一預檢；admin 改值後導出翻假／改回恢復 in
-  `rust-api/server/tests/`（新測檔）
+  `rust-api/server/tests/admin_email_guard.rs`（新測檔、analyze U2 定錨）
 - [ ] T021 [US2] admin 寫入路徑掛守門＋DbErr unique violation 映射 2222 `biz.user.emailTaken`
   in `rust-api/server/src/handler/user.rs`＋`rust-api/server/src/model/facade/sys_user.rs`
   （T020 轉綠；唯一查詢 helper 沿 T016 共用）
 
 **Checkpoint**: cargo 全綠；CDP S5（admin 語意全子步含怪值自癒）＋S6 後半（admin 回填→徽章
-自動恢復）PASS。
+自動恢復）PASS（行為判準、容忍 raw key 同上）。
 
 ## Phase 5: User Story 3 - 節流與濫用防護 (P3)
 
@@ -194,7 +199,8 @@ fail-closed＋告警。
   停機→發碼與 verify 皆 fail-closed＋`warn_degraded`；唯一預檢命中不回補 in
   `rust-api/server/tests/email_verify.rs`（擴充；紅則修 `send_email_code` 實作）
 
-**Checkpoint**: cargo 全綠；CDP S3（冷卻＋重整重建＋日上限）＋S8（fail-closed 自癒）PASS。
+**Checkpoint**: cargo 全綠；CDP S3（冷卻＋重整重建＋日上限）＋S8（fail-closed 自癒）PASS
+（行為判準、容忍 raw key 同上）。
 
 ## Phase 6: User Story 4 - 介面三語化 (P4)
 
@@ -204,7 +210,7 @@ fail-closed＋告警。
 
 - [ ] T023 [US4] 三語 locale 全量新鍵（`backend.*` 12＋2 逐鍵名冊＝contracts C8、emailCooldown
   攜 `{remainingSeconds}` 佔位；`page.userCenter.*` 徽章/解綁/captcha/倒數/成功提示；
-  `comingSoon` 佔位鍵絕版處置定案〔留或刪、四檔一致〕）in
+  `comingSoon` 佔位鍵**刪除**〔analyze U1 拍定：接真後零消費；三語 langs＋Schema 鏡像四檔同步〕）in
   `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts`＋`App.I18n.Schema` 鏡像 in
   `base-web/src/typings/app.d.ts`（圈界）——typecheck 綠＝鏡像機器證
 - [ ] T024 [US4] restart base-web＋CDP S9（三語零 raw key）PASS
@@ -219,8 +225,8 @@ fail-closed＋告警。
   2000 封/日、改密撤銷 app password＋重生 SOP、smtp-relay 備選；真值填法連動 §15.4）in
   `docs/ops/RUNBOOK.md`
 - [ ] T026 CDP 九場景全量複跑（quickstart §CDP、含場景 4 唯一衝突與場景 5 怪值子步）＋負向自證
-  全條（拆導出 lower／拆移欄斷言／拆 uid 綁定／拆 used NX／拆 mac secret／拆失敗回補／拆先佔／
-  拆 ctx 斷言／prod 形 grep 零 mailpit——各即紅）＋資料清理（quickstart §資料清理）
+  ——★以 **quickstart §負向自證全條**為唯一名冊（單源、analyze C3；含 m014 前置掃描紅與唯一
+  索引直插紅兩條）各即紅＋資料清理（quickstart §資料清理）
 - [ ] T027 全量閘：容器內 `cargo test -p server -- --test-threads=1`＋
   `cargo test --test contract --test wire_schema --test email_verify -- --test-threads=1`＋
   `schema-gate.py gate1/gate2/audit`＋`--self-test`＋typecheck＋
@@ -235,10 +241,11 @@ fail-closed＋告警。
 
 ## 相依圖與並行機會
 
-- **Phase 1**（T001~T006）：不依賴治理 GATE、可先行；T002/T003/T004/T005/T006 [P] 並行
+- **Phase 1**（T001、T004~T006）：不依賴治理 GATE、可先行；T004/T005/T006 [P] 並行
   （不同檔、無 cargo 互撞——T004 的 build 驗證單獨收尾跑）。
 - **治理 GATE**（(g) 擴字串＋§I.6 釋義＋ADR 0085/0086、主線 AskUserQuestion 親決）→ 起 Phase 2。
-- **Phase 2**（T007~T012）BLOCKING：T007→T008 序列（表→entity）；T009→T010 序列（config→
+- **Phase 2**（T002/T003＋T007~T012）BLOCKING：T002/T003 [P]（工具與登記、★與 m014 同單元
+  收尾同 commit——analyze I1）；T007→T008 序列（表→entity）；T009→T010 序列（config→
   mailer）；T011 與 T009/T010 不同檔可交錯但 cargo serial、單元內順跑；T012 收尾。
 - **Phase 3 US1**（MVP）：後端 T013/T014 紅先行→T015→T016→T017 轉綠；前端 T018 [P]（與後端
   不同 worktree 可並行）→T019（消費 T015/T016 端點、聯調需後端就位）。
@@ -249,12 +256,12 @@ fail-closed＋告警。
 
 ## 執行單元建議切分（Workflow 編排、每單元一支）
 
-1. **U1 地基**（T001~T006）：seam＋工具聯動＋lettre 釘版＋secrets 鏈＋compose/mailpit
+1. **U1 地基**（T001、T004~T006）：seam＋lettre 釘版＋secrets 鏈＋compose/mailpit
    〔治理 GATE 前可跑〕。
 2. **[治理 GATE]** 主線 AskUserQuestion 親決 (g) 擴字串＋§I.6 釋義＋ADR 0085/0086→accepted＋
    bump v1.15.0→獨立 commit（非 workflow）。
-3. **U2 底座**（T007~T012）：m014＋entity＋config/state＋mailer＋captcha ctx＋email_verify 模組
-   ＋落庫三綠。
+3. **U2 底座**（T002/T003＋T007~T012）：工具聯動與登記（GATE 後施工、與 m014 同單元收尾同
+   commit）＋m014＋entity＋config/state＋mailer＋captcha ctx＋email_verify 模組＋落庫三綠。
 4. **U3 後端驗證鏈**（T013~T017）：契約與整合紅先行→四端點＋facade 寫端＋updateProfile 收斂。
 5. **U4 前端驗證鏈**（T018~T019）：typings/service→email-card 改造（與 U3 可並行起、聯調在後）。
 6. **U5 admin 守門**（T020~T021）。

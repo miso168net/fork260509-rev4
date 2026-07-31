@@ -51,8 +51,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS sys_user_user_email_active_uniq
 
 ## §2 導出判定（單一純函式 seam）
 
-- `is_email_verified(user_email: Option<&str>, satellite: Option<&Model>) -> Option<DateTime>`
-  ≡ 兩者皆有值且 `lower(user_email) == lower(verified_email)` → `Some(verified_at)`；否則 `None`。
+- `is_email_verified(user_email: Option<&str>, verified_email: Option<&str>, verified_at:
+  Option<DateTime>) -> Option<DateTime>`（★純量參數〔analyze I2 勘正〕——衛星 entity 解構歸
+  呼叫端、seam 零表依賴可於 Phase 1 先行）≡ 前兩者皆有值且 lower 相等 → `Some(verified_at)`；
+  否則 `None`。
 - 三態測試錨：無衛星列→None；匹配→Some；失配（admin 改值後）→None；改回曾驗值→Some（恢復）。
 - 消費點：getProfile 投影（`emailVerifiedAt`）＋未來 SSO 對映查詢（同 seam、防分叉）。
 

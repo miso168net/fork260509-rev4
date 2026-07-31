@@ -64,8 +64,8 @@ getProfile additive 加欄＋admin 拒因×2＋i18n 鍵＋compose/secrets 面。
   emailCooldown（攜 `{remainingSeconds}` 佔位）／emailDailyLimit／emailSendFailed／
   emailThrottleUnavailable／emailTokenInvalid／emailCodeExpired／emailCodeAttemptsExceeded／
   emailCodeInvalid／emailNotBound；`backend.biz.user.` 之下 2 鍵＝emailFormatInvalid／emailTaken。
-- 既有佔位鍵處置（tasks 期明列、防三語＋Schema 四檔漂移）：`page.userCenter.verify.comingSoon`
-  預期絕版（接真後零消費、留或刪 tasks 定）；`phoneCode` 屬 B-028 另半、留。
+- 既有佔位鍵處置（★拍定、防四檔漂移——analyze U1）：`page.userCenter.verify.comingSoon`
+  **刪**（接真後零消費；三語 langs＋Schema 鏡像四檔同步）；`phoneCode` 屬 B-028 另半、留。
 - `page.userCenter.*` UI 鍵：既有 `verify.sendCode/codePlaceholder/verify` 沿用＋新增＝已驗證
   徽章（含時刻格式）／未驗證標示／解除綁定鈕與確認文案／captcha 輸入佔位／冷卻倒數格式
   （`{seconds}` 佔位）／發送成功提示／驗證成功提示。
