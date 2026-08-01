@@ -247,10 +247,12 @@ groups:
                   type: query
 
       # ══ ③a throttle-degraded 節流降級：throttle_degraded_total 任一 label 增長即紅（島 E1）══
-      # ★12 label 全覆蓋：帳號維七源（redis_lock/redis_captcha/db_count/db_write/redis_unlock_marker/
+      # ★14 label 全覆蓋：帳號維七源（redis_lock/redis_captcha/db_count/db_write/redis_unlock_marker/
       #   settings_default/redis_lock_set）＋IP 維五源（redis_lock_ip/redis_unlock_marker_ip/db_count_ip/
-      #   redis_lock_set_ip/settings_default_ip）——obs.rs pre_register_metrics 全數 pre-register 0、
-      #   本 rule 不設 source selector＝任何值（含未來新增）增長皆命中；sum by (source) 保留降級源維度。
+      #   redis_lock_set_ip/settings_default_ip）＋020 信箱驗證二源（emailverify_redis/emailverify_smtp
+      #   ——後者含 user 可觸發之不可投遞位址、判讀口徑見 RUNBOOK Gmail 節）——obs.rs
+      #   pre_register_metrics 全數 pre-register 0、本 rule 不設 source selector＝任何值（含未來新增）
+      #   增長皆命中；sum by (source) 保留降級源維度。
       - uid: obs016-throttle-degraded
         title: throttle-degraded
         condition: C
@@ -260,7 +262,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: 'throttle-degraded：登入節流降級（source={{ $labels.source }}、5m 增量 {{ $values.B }}、判準 > 0）'
+          summary: 'throttle-degraded：節流降級（source={{ $labels.source }}、5m 增量 {{ $values.B }}、判準 > 0）'
         data:
           - refId: A
             relativeTimeRange:

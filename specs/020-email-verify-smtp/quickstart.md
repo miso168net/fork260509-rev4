@@ -74,6 +74,9 @@ python3 tools/docs-sync.py check
 - 憑據：拆 uid 綁定→跨帳號重放通過（紅）；拆 used SET NX→重放通過（紅）；拆 code_mac secret
   參與→離線可暴力（單元測試斷言 mac 含 secret 輸入、紅）。
 - 節流：拆「失敗不計額度」→寄信失敗後冷卻仍被佔（紅）。
+- 唯一預檢命中不回補（枚舉抑制、spec FR-001）：對他活性帳號已持有信箱發碼→`emailTaken` 後
+  冷卻鍵仍佔、日計數不回補、mailpit 零信；拆「命中不回補」改回補→「此信箱已否被綁」
+  枚舉成本歸零（紅）。
 - 唯一索引：直插重複 lower 值→DB 拒（紅）；m014 前置掃描對預植重複資料→up Err 指名（紅）。
 - prod 形：grep compose base 無 mailpit（斷言存在即紅、SC-008）。
 
