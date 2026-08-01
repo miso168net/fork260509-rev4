@@ -11,7 +11,7 @@
 - B-018｜帳號級鎖定被第三方惡意鎖人的 DoS 面重估（漸進延遲/CAPTCHA）（★部分消化 2026-07-10：007 三層緩解已落＝captcha 軟區抬自動化成本＋unlockLogin 手動解鎖＋鎖存續≤window 自解〔③零稽核列、sticky 續鎖構造上不可能〕；殘餘＝漸進延遲未做、第三方觸鎖本身仍可達成——per-user 節流結構性如此；★2026-07-11 008 IP 閘：IP 白名單跳節流〔U11〕落地＝第三方觸鎖徹底緩解手段之一，per-user 結構性殘餘不變）｜節流延伸或 IP 閘刀｜出處：rev3:REVIEW§6（K2-02）
 - B-026｜部分更新契約內建顯式 clear 語意｜部分更新 wire 設計時（★2026-07-14 011 部分兌現：字串欄 Some("")=清空已落 user 域〔FR-007〕；非字串欄〔user_gender〕清空機制明文不引入；殘餘＝通用顯式 clear wire 設計）｜出處：rev3:REVIEW§3.4（K2-10）
 - B-027｜alt-login 補全知識包（確認密碼規則值快照 race 的 toRef 範式等）（註 2026-07-10：007 captcha 底座〔無狀態簽題＋提交即消耗〕可複用；★alt-login 端點的節流 seam 不自動涵蓋——throttle 判定序只掛 login，屆時需自行接）｜B-008 拍板後施工輸入｜出處：rev3:CHECKLIST§4.2（K2-11）
-- B-028｜手機/信箱真實驗證＋驗證碼改密（與 alt-login 共享 captcha 基建、宜同刀或緊接）（註 2026-07-10：007 captcha 底座可複用——loginCaptcha 端點形＋無狀態簽題直接搬）｜user-center/auth 波排程｜出處：rev3:CHECKLIST§4.2（K2-12）
+- B-028｜手機驗證＋驗證碼改密（B-028 另半；★信箱半邊已由 020 兌現 2026-08-01——可平移資產：captcha ctx 語境欄範式＋email_verify 簽題模組形＋節流原子先佔＋Send Code Layer 浮窗〔標題組合式 sendCode＋區塊名、Phone 換 phoneTitle 即共用〕＋衛星表變體 C 軌道；phone-card 三件式與 password-card 驗證碼改密之 comingSoon 佔位待接真——接真時 comingSoon 鍵自然退場〔U7 勘註〕；簡訊通道選型屬新拍板）｜user-center/auth 波排程｜出處：rev3:CHECKLIST§4.2（K2-12）＋020 收刀改寫（2026-08-01）
 - B-036｜列表排序 per-column 索引評估＋三端白名單單一來源或 parity 檢查｜列表排序刀｜出處：rev3:CHECKLIST§4.2（K2-20）
 - B-037｜prod TLS/信任拓樸落地組做成部署 checklist＋自動化驗收（★2026-07-11 008 final review #1 加：CDN origin 防火牆鎖定〔僅受 CDN 邊緣連線／Authenticated Origin Pulls〕＝Tier-1 位置錨承重前提、與 DNAT 同級）｜prod 部署刀｜出處：rev3:CHECKLIST§4.2＋§3.E（K2-21）
 - B-038｜prod 多副本橫向擴展拓樸留位（LB＋共用 DB/Redis）｜含水平擴展目標時｜出處：rev3:CHECKLIST§4.2（K2-22）；instance 維已由 016 留位（rust 不自造 instance label、面板 query 不硬編碼單值＝FR-017）

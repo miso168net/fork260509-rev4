@@ -2,20 +2,21 @@
 
 - 波 0（001~003）＋波 1（004~008）＋admin 家族（009~013）＋014-user-center＋015-pwd-custody＋
   016-observability＋017-audit-retention＋018-governance-hardening＋019-secrets-sops＋
-  輕量軌三例（B-059／B-104／維護批）全收；憲法現版 v1.14.0。各刀成果與判準詳
-  events/STATE、git 即史。
+  020-email-verify-smtp＋輕量軌（B-059／B-104／維護批×2）全收；憲法現版 v1.15.0。各刀成果
+  與判準詳 events/STATE、git 即史。
 - ★維運待辦（016 遺留）：`$SECRETS_DIR/alert_webhook_url.txt` 現值＝dev 收器 URL（收器已撤、
   投遞失敗重試無害）、正式接收端 URL 待 user 自填——★019 起落點已遷出 repo、密文權威來源＝
   `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；觀測件（obs／metrics
   profiles）現非常駐、要用再 up；jobs sidecar 屬 opt-in 未常駐。
-- **019-secrets-sops 已收刀**（2026-07-30）：機密管理——SOPS+age 密文入版控（8 key 單檔＋
-  digest 釘版 wrapper＋P4 fail-loud 解密管線）＋明文遷出 repo（SECRETS_DIR 三級解析五消費端
-  同口徑）＋三層掃描防線（Betterleaks×L16×value-guard、pre-push 三 repo）＋RUNBOOK §15 十小節
-  ＋ADR 0079~0083；收刀金鑰儀式完成（user 真鑰上位、暫代鑰原子撤銷五準則、7 leaf 實值輪替、
-  SC-007 保全）；測試 347→349、pin 逐字未變。詳 events/STATE。
-- **下一步：待 user 拍板下一波範圍**（BACKLOG 候選：B-102 changePassword 節流、B-027/B-028
-  auth 家族、B-037/B-042/B-081/B-013 prod 部署組等；另 B-125〔host 暫存命名雙軌統一〕屬
-  拍板級、觸發時機見該列）。
+- **020-email-verify-smtp 已收刀**（2026-08-01）：B-028 信箱半邊兌現＋系統首次 SMTP 寄信基建
+  ——驗證即提交（衛星表比對導出、零 pending）×四自助端點（captcha ctx 語境隔離＋節流原子先佔
+  ＋島 I1 鎖內終判）×admin 守門（單一驗證點＋EmailTaken 雙保險＋清空落 NULL）×mailer（lettre
+  兩態＋明文 AUTH 守門）×email-card 浮窗化（user 拍板 Send Code Layer、標題組合式 Phone 可共用）
+  ×三語 12＋2 鍵；m014＋SOPS 10 key＋preflight 13＋mailpit dev 收信；憲法 v1.15.0（(g) 擴字串＋
+  §I.6 變體 C 釋義）＋ADR 0085/0086；十執行單元、final review 異質雙審放行。詳 events/STATE。
+- **下一步：待 user 拍板下一波範圍**（BACKLOG 候選：B-028 另半〔手機＋驗證碼改密——020 基建
+  全數可平移〕、B-102 changePassword 節流、B-027 alt-login、B-037/B-042/B-081/B-013 prod 部署組、
+  B-128 wire drift 閘等）。
 - 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；B-103（滯後卷）；
   B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；B-101（casbin
   按鈕碼與 buttons 聯集漂移）；B-094（未刪選單分頁截斷）。

@@ -62,7 +62,12 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
     ＋`model/password`（argon2 verify＋dummy 時序拉平）＋`validation`（型別 registry）＋`handler`（薄編排）
     ＋`throttle`（登入失敗節流狀態機：形制閘＋L1/L2 判定序＋captcha gate＋七源降級告警與壓制麵包屑；
     活書常數與三門檻鍵解析；不變式入憲 §I.7 島 E）＋`captcha`（無狀態圖形驗證碼：HS256 簽題〔第三秘鑰
-    `APP_CAPTCHA_SECRET`〕、`ans_mac` 答案不可還原、`captcha` crate 產圖、34 字字集）
+    `APP_CAPTCHA_SECRET`〕、`ans_mac` 答案不可還原、`captcha` crate 產圖、34 字字集；020 起 claims 帶
+    `ctx` 語境欄必填、issue／gate 兩端各自斷言＝login 與 email 自助語境機器隔離）
+    ＋`mailer`（lettre 0.11.22 兩態 transport〔STARTTLS `Tls::Required`／dev 明文〕＋timeout 15s＋
+    zh-TW 驗證信組裝〔charset=utf-8〕＋明文 AUTH 守門〔starttls=false 且 username 非空即 boot panic、
+    B-131〕）＋`email_verify`（信箱驗證憑據：HS256 簽發驗證〔第四秘鑰 `APP_EMAIL_VERIFY_SECRET`〕、
+    `code_mac` 碼不可還原、TTL 600s、attempts/used/cd/day redis 鍵家族全 TTL 自清；020）
     ＋`trust`（真實來源位址還原純函式：`resolve_client_ip` 三層信任錨〔peer-gate→Tier-1 CDN 位置錨
     →Tier-2 rightmost-untrusted〕＋通道／CF 兩 overlay＋七態 `Confidence`；`normalize_xff` 右端視窗截斷、
     畸形不 panic）＋`ipgate`（IP 閘純函式：`decide` 白＞黑＞default-allow 集合 any-match、`STRUCTURAL_EXEMPT`
@@ -79,9 +84,15 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
     015 首登強制換密＝`pwd_gate_mw` 鎖態 token 硬閘（判定真＋六白名單外 2222、掛 authed＋policy 雙子
     router、enforce 後 access_log 內側、fail-closed）＋密碼經手表 `sys_pwd_custody`（判定純函式
     `need_change_pwd` 三處共用、getUserInfo 投影 needChangePwd）＋設密冷卻（pair 計攜剩餘秒數、fail-default 60）；
-    不變式入憲 §I.7 島 I6。
+    不變式入憲 §I.7 島 I6；020 信箱驗證流（`/userCenter` +4：emailCaptcha〔ctx=email〕→sendEmailCode
+    〔固定六步序：captcha 提交即消耗→格式單一守門→SET NX 原子先佔＋日上限→唯一預檢不回補＝枚舉抑制
+    →同步寄信失敗盡力回補→簽發〕→verifyEmailCode〔島 I1 鎖內重驗＋唯一終判＋used 消耗先於效果＋
+    衛星 `sys_user_email_verify` upsert＋op-log 恰 2 鍵同 txn〕＋unbindEmail；驗證即提交零 pending、
+    已驗證＝現值比對導出單一 seam `is_email_verified`；admin 守門＝`validate_email_format` 單一驗證點
+    三消費者＋EmailTaken 預檢與索引兜底雙保險＋清空落 NULL；不變式由 ADR 0085 承載）。
   - `migration`：schema 與 seed 的唯一寫入者——基線兩支（結構＋定稿 seed）＋刀次增量
-    （additive seed／index，至 m011〔015 sys_pwd_custody 變體 C＋settings 冷卻鍵〕），由 compose migrate 閘門套用，冪等可逆。
+    （additive seed／index，至 m014〔020 sys_user_email_verify 變體 C＋sys_user 活性唯一 email 索引、
+    up 首步前置重複掃描 fail-loud〕），由 compose migrate 閘門套用，冪等可逆。
   - `entity`：sea-orm 型別化實體層（每張業務表一檔）——後續刀的資料存取消費介面；
     欄位宣告順序照定稿。
   - `sea-orm-adapter`：vendored casbin 授權配接層（constitution §I.5 例外、內容零改寫）——
@@ -91,7 +102,8 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 - 表／欄明細與 archetype 變體歸屬住 generated/reference/schema；初始帳號面住
   generated/reference/accounts。
 - 前端管理頁家族（role／menu／user／audit／ip-rule）＋user-center 自助頁（單欄四卡、改密 keep-sid
-  ＋profile 部分更新＋驗證碼佔位、014）＋強制改密頁（`_builtin/force-change-pwd` constant route＋route
+  ＋profile 部分更新、014；020 email-card 信箱驗證流接真＝卡面 Phone 同構三件式＋Send Code Layer
+  浮窗〔captcha 圖與答案入層、標題組合式 sendCode＋emailTitle 零新鍵、Phone 日後共用〕）＋強制改密頁（`_builtin/force-change-pwd` constant route＋route
   guard 全域攔截＋產密浮層共用元件 CSPRNG 三掛載點、015）與 auth 縱切已建——全走 WRAPPER/ADAPT 新檔
   軌道＋i18n 圈界（憲法 §III；user-center 之 index.vue＝首例基線佔位頁修改型 inline 改寫）；螢幕全集住 generated/reference/screens。
 
@@ -223,15 +235,15 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   port、禁 dev 專屬掛載；host port 只住 dev 層且全綁 loopback。port 實值住
   generated/reference/ports（由 compose 生成、對賬 lint 攔漂移）。
 - **六 service 與啟動閘門**：front-nginx（唯一入口、反代前後端）、base-web（vite dev
-  server）、rust-api（axum）、migrate（one-shot）、postgres、redis。migrate 是啟動閘門：
+  server）、rust-api（axum）、migrate（one-shot）、postgres、redis；dev override 另起 mailpit
+  （SMTP 1025 內網＋REST 8025＝驗證信 E2E 收信、prod 零痕跡、020）。migrate 是啟動閘門：
   postgres 健康後先跑 migration、成功結束 rust-api 才起——schema 就緒先於 API；migration
   失敗＝整體啟動失敗（up --wait 非零退出），不存在半初始化環境。
-- **機密**：權威來源＝tracked 密文 `deploy/secrets.dev.enc.yaml`（8 key、SOPS+age B′）；明文
-  落點已遷出 repo 至 `$SECRETS_DIR`（真值＝repo 根 `.env`、預設 `$HOME/.cache/fork260509-rev4/secrets`；
-  `deploy/secrets/` 只剩 README 與 `.example`）——`decrypt-secrets.sh` 解密、三支 composite 由
-  leaf 重組（dual-write 不變式）；preflight 預檢 11 支缺檔即指名攔截；`CHANGE-ME` 佔位黑名單
-  ＝rust-api／migration／reaper 各自 `starts_with`、射程僅 6 支（其餘 5 支不過這道）。對照表
-  與不變式明細住 deploy/secrets/README.md、密文營運＝RUNBOOK §15。
+- **機密**：權威來源＝tracked 密文 `deploy/secrets.dev.enc.yaml`（10 key、SOPS+age B′；020 增
+  smtp_password＋email_verify_secret）；明文落點已遷出 repo 至 `$SECRETS_DIR`（真值＝repo 根
+  `.env`；`deploy/secrets/` 只剩 README 與 `.example`）——`decrypt-secrets.sh` 解密、三支
+  composite 由 leaf 重組（dual-write 不變式）；preflight 預檢 13 支缺檔即指名攔截；`CHANGE-ME`
+  佔位黑名單各消費端 `starts_with`。對照表住 deploy/secrets/README.md、營運＝RUNBOOK §15/§16。
 - **熱重載**：後端 watchexec 重編重啟、前端 vite 熱更新，兩者皆輪詢偵測檔案變更——WSL2
   9p 掛載不產生 fs 事件、事件制 watcher 失效。原始碼 bind-mount 進容器、依賴與編譯產物
   以 named volume mask。
