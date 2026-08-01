@@ -22,7 +22,7 @@ rev4 對機密入庫只有**結構面**防線——gitignore 擋 `.env`／憑證
 
 ## 決策
 
-lint 新增條款 **L16 憑證內容掃描**（contracts G1），命中即 ERROR 擋 commit。五項決策：
+lint 新增條款 **L16 (Lint16) 憑證內容掃描**（contracts G1），命中即 ERROR 擋 commit。五項決策：
 
 1. **掃描範圍＝外層 tracked 全量＋pin bump 時 submodule 增量，不回掃歷史**。
    外層面：每次 lint 對 `git ls-files` 全部 tracked 檔（扣除 gitlink 條目）逐檔讀，前 8KB

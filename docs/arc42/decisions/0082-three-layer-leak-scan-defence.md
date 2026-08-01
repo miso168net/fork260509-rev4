@@ -11,12 +11,12 @@ tags: [security, secrets, pre-commit, pre-push, governance, submodule]
 
 ## 背景
 
-018 已落地 docs-sync 的 L16 憑證內容掃描（ADR 0077）——那是一道**窄樣式、高確信**的閘，
+018 已落地 docs-sync 的 L16 (Lint16) 憑證內容掃描（ADR 0077）——那是一道**窄樣式、高確信**的閘，
 有意識接受漏報面。019 要導入 SOPS 之前，先要面對三個 018 未覆蓋的缺口：
 
-1. **樣式射程**：L16 只認四類（PEM 私鑰／AWS access key／GitHub token／GitHub PAT），
+1. **樣式射程**：L16 (Lint16) 只認四類（PEM 私鑰／AWS access key／GitHub token／GitHub PAT），
    資料庫連線字串（DSN）與泛 `KEY=value` 形完全不在射程內。
-2. **repo 覆蓋**：L16 掛在外層 pre-commit；兩個 submodule 源倉（base-web／rust-api）
+2. **repo 覆蓋**：L16 (Lint16) 掛在外層 pre-commit；兩個 submodule 源倉（base-web／rust-api）
    `core.hooksPath` **皆未設**＝生效 hooks 只有 `.sample`＝零防線。近 90 天提交占比
    外層 483／rust-api 160／base-web 75——**約 1/3 的提交構不到任何掃描**。
 3. **本 repo 自己的機密現值**：`deploy/secrets/*.txt` 的實值是**高熵裸字串**，任何樣式規則
@@ -32,7 +32,7 @@ tags: [security, secrets, pre-commit, pre-push, governance, submodule]
 | 層 | 實作 | 類型 | 射程 | 已知盲區 |
 |---|---|---|---|---|
 | 樣式廣譜 | Betterleaks（`.gitleaks.toml`，含自訂 DSN 規則） | **事件型** | 已知形制的機密：token 前綴形、`KEY=value`、DSN 連線字串 | 裸高熵值（無形制可認）；未收錄的機密形 |
-| 樣式窄集 | docs-sync L16（018／ADR 0077） | **狀態型** | 四類高確信樣式；**外層 tracked 全量＋staged 面＋pin bump 增量掃 submodule** | 依 ADR 0077 決策 2 有意識接受的漏報面 |
+| 樣式窄集 | docs-sync L16 (Lint16)（018／ADR 0077） | **狀態型** | 四類高確信樣式；**外層 tracked 全量＋staged 面＋pin bump 增量掃 submodule** | 依 ADR 0077 決策 2 有意識接受的漏報面 |
 | 值比對 | `tools/secret-value-guard.py` | **確定性** | 本 repo 機密**現值**逐字出現在 staged 內容 | 明文缺席時 skip（fail-open）；僅外層 |
 
 **互補的判準是「哪一格只有它守得住」**（契約＝`contracts/scan-gates.md` §S6）：裸值形樣式
