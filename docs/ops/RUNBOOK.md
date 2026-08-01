@@ -298,7 +298,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／L3~L22） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint23） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
@@ -327,43 +327,50 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
   即 pin bump commit 由約 9s 增至約 18s）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具
   名冊全部 test。
 
-lint 條款速覽（018 新增五條、B-116 增 L21、B-126 增 L22）——severity 三分：ERROR＝exit 1 擋 commit、
-WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
+lint 條款速覽（018 新增五條、B-116 增 Lint21、B-126 增 Lint22、2026-08-02 改名＋增 Lint23）——severity
+三分：ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）。
+2026-08-02 條款編號改名：舊單碼形（L 後直接 1~22）＝Lint01~Lint22 兩碼零填形；史料沿用舊碼不回改：
 
-- **L16 憑證內容掃描**：外層 tracked 全量（判定面同時取 index——staged 新增行亦掃，涵蓋
+- **Lint16 憑證內容掃描**：外層 tracked 全量（判定面同時取 index——staged 新增行亦掃，涵蓋
   git add 後工作樹被刪／洗白兩態；工作樹讀不到＝WARN、不視同乾淨）＋pin bump（staged 含
   gitlink 變動）時 submodule 舊 pin→新 pin diff 新增行增量掃；命中＝ERROR 指名檔案與
   label（pem-private-key／aws-akia／github-token／github-pat）；舊 pin 不可解＝退化為新
   pin 全樹掃＋WARN 註記（退化掃本身執行失敗＝ERROR、不靜默放行）；worktree 缺席或該
   gitlink 未 staged＝落跳過明細。無 inline 豁免——確需豁免走工具常數白名單＋ADR 0077。
-- **L17 pin 互證**：staged gitlink 與 worktree HEAD 分歧——平時 WARN（兩段式 commit 合法
+- **Lint17 pin 互證**：staged gitlink 與 worktree HEAD 分歧——平時 WARN（兩段式 commit 合法
   中間態）、收刀簿記 commit（staged events 新增行含 feature_close）＝ERROR；worktree 缺席
   ／index 無 gitlink／gitlink 合併衝突未解＝落跳過明細；訊息含「回外層 bump pin」指引。
-- **L18 events SHA 逐列實證**：帳本每列 merge SHA 於外層不可解或非 commit 物件＝ERROR；
+- **Lint18 events SHA 逐列實證**：帳本每列 merge SHA 於外層不可解或非 commit 物件＝ERROR；
   pins SHA 於對應 submodule 不可解＝WARN（upstream rebase 卷史屬合法失聯）、可解而非
   commit 物件＝ERROR；含 pins 之列另斷言鍵集恰為 web／api——缺鍵或未知鍵＝ERROR（防查
   空集合恆綠）；庫不可查＝該庫整批落跳過明細。
-- **L19 命令形 lint**：語料＝CLAUDE.md／README.md／本檔三件活手冊（NOTES＝未來式帳、
+- **Lint19 命令形 lint**：語料＝CLAUDE.md／README.md／本檔三件活手冊（NOTES＝未來式帳、
   豁免）；命令形宣稱的子命令不在該工具源碼分派表＝ERROR；python 工具名冊各支（＝上列
   真表 python 節逐支、隨名冊增減自動涵蓋）的舊名（不帶 .py）命中＝ERROR；bash 兩支
   （bootstrap／wf-watchdog）只驗檔案存在、指向不存在的工具＝ERROR。
-- **L20 空集合守衛**：七組「不可能空」集合 fail-closed、空／缺＝ERROR——工具名冊、ADR
+- **Lint20 空集合守衛**：七組「不可能空」集合 fail-closed、空／缺＝ERROR——工具名冊、ADR
   檔集、events 列、外層 tracked md 語料、reference 來源檔（submodule 底下者庫不可查＝
   落跳過明細）、憑證掃描 tracked 清單、命令形語料三檔；另斷言有分派表的 python 工具其
   子命令集非空。
-- **L21 index exec bit 守衛**（B-116）：名冊內「直接執行形叫用」腳本（hooks 四支＋deploy
+- **Lint21 index exec bit 守衛**（B-116）：名冊內「直接執行形叫用」腳本（hooks 四支＋deploy
   五支＋python 工具五支；名冊＝docs-sync `EXEC_BIT_ROSTER` 常數、被 source 或恆 bash/sh
   前綴者除外、除外理由記常數註解）之 `git ls-files -s` stage-0 首欄必為 100755——drvfs 上
   chmod 不落 index、ls 恆顯 0777；不符＝ERROR 附修復命令（`git update-index --chmod=+x`）；
-  名冊檔不在 index＝ERROR（名冊腐化即紅）；名冊空集合＝ERROR（fail-closed、L20 家族）；
-  每跑紅綠 self-test 防恆綠（L16 慣例）。本條款無 skip。
-- **L22 範圍字串守衛**（B-126）：lint 條款範圍字串「L3～LNN」活引用名冊三檔（docs-sync
+  名冊檔不在 index＝ERROR（名冊腐化即紅）；名冊空集合＝ERROR（fail-closed、Lint20 家族）；
+  每跑紅綠 self-test 防恆綠（Lint16 慣例）。本條款無 skip。
+- **Lint22 範圍字串守衛**（B-126）：lint 條款範圍字串「Lint03～LintNN」活引用名冊三檔（docs-sync
   檔頭＋run_lint docstring 兩處、本檔 §12 表列、pre-commit 檔頭；名冊＝docs-sync
   `RANGE_ROSTER` 常數；events.jsonl／MILESTONES.md 史料含舊字面＝不可變過去式、不入射程）
   逐檔全命中比對掃源推導上界（錨形＝finding 呼叫之條款碼字面、不另立手抄常數）；半形~
   全形～皆收；任一處 NN≠上界＝ERROR 附檔案:行號＋實得＋應為＋修復指引（上線新條款同
-  commit 全數 bump）；零命中／名冊檔缺席／推導失效＝ERROR（fail-closed、L20 家族）；
-  每跑紅綠 self-test 防恆綠（L16 慣例）。本條款無 skip。
+  commit 全數 bump）；零命中／名冊檔缺席／推導失效＝ERROR（fail-closed、Lint20 家族）；
+  每跑紅綠 self-test 防恆綠（Lint16 慣例）。本條款無 skip。
+- **Lint23 舊條款編號禁令**（2026-08-02 條款改名）：語料＝OLD_CODE_CORPUS 四檔（CLAUDE.md／
+  README.md／本檔／.githooks/pre-commit；顯式名冊、不複用引用健康語料——specs／reviews
+  史料沿用舊碼屬合法）；
+  字界＋值域 1~22 之舊單碼形命中＝ERROR 指名檔案:行號＋新編號寫法；值域外憲法行號
+  （L45／L114 等）與 LESSONS 連字號形（L-NNN）不中；語料檔缺席＝ERROR（fail-closed、
+  Lint20 家族）；每跑紅綠 self-test 防恆綠（Lint16 慣例）。本條款無 skip。
 - **lint 摘要三段式**：末行＝`lint：X 錯誤／Y 警告／Z 條款跳過`；Z>0 時次行列跳過明細
   （條款｜位置＝原因）；退出碼僅 X>0 時非零。
 

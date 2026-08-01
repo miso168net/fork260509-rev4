@@ -13,7 +13,7 @@ errata 勘誤仍就地修；新教訓 ☞ LESSONS.md。L 號跨卷連號、永�
 
 ## 〔git／worktree／submodule〕
 
-- **L-105**｜兩段式 commit 的外層 pin bump：docs-sync generate 必須跑在 git add <submodule>（暫存新 gitlink）之後——generate 與 pre-commit lint L1 的 check 都讀「已暫存的 gitlink」算 STATE 的 pin；generate 若跑在 add gitlink 前，STATE 沿用舊 pin、L1 擋 commit（003 U2 撞過、重跑修正）。
+- **L-105**｜兩段式 commit 的外層 pin bump：docs-sync generate 必須跑在 git add <submodule>（暫存新 gitlink）之後——generate 與 pre-commit lint Lint01 的 check 都讀「已暫存的 gitlink」算 STATE 的 pin；generate 若跑在 add gitlink 前，STATE 沿用舊 pin、Lint01 擋 commit（003 U2 撞過、重跑修正）。
   防：正確序＝git add <submodule> → docs-sync generate → git add docs/generated/STATE.md → commit（一路到底不回頭）。｜出處：003-wire-foundation
 
 ## 〔流程與編排（spec-kit／superpowers／Workflow／subagent）〕
@@ -81,7 +81,7 @@ errata 勘誤仍就地修；新教訓 ☞ LESSONS.md。L 號跨卷連號、永�
 - **L-123**｜`showErrorMsg` 以 `request.state.errMsgStack` 去重——同一訊息在前一則 toast 關閉（duration ~3s）前不會二度顯示；移除 `.n-message` DOM 元素**不會**清 stack。
   防：CDP 連續兩擊要驗「同碼異訊息」（如 `2222` 的 locked vs captchaRequired）時，兩擊之間需等 duration 過期，否則第二則 toast 恆空。｜出處：007 U13（CDP-2）
 
-- **L-124**｜活書（`docs/arc42/ARCHITECTURE.md`）的 as-built 變動**必須落在收刀簿記 commit**、不可由 feature branch 帶進 merge——`docs-sync` 的 L6(b) 閘把 events `arch_impact` 定義為「merge 版活書 → 簿記版活書之間實際變動的節集」，若活書在 feature branch 內改完，merge 版與簿記版相同、`changed` 為空集合，簿記 commit 會被四個 L6 ERROR 硬擋（007 實測；006 先例 merge 209d9a0 的 merge commit 確實零活書變動、as-built 全在簿記 commit 45d0132）。
+- **L-124**｜活書（`docs/arc42/ARCHITECTURE.md`）的 as-built 變動**必須落在收刀簿記 commit**、不可由 feature branch 帶進 merge——`docs-sync` 的 Lint06(b) 閘把 events `arch_impact` 定義為「merge 版活書 → 簿記版活書之間實際變動的節集」，若活書在 feature branch 內改完，merge 版與簿記版相同、`changed` 為空集合，簿記 commit 會被四個 Lint06 ERROR 硬擋（007 實測；006 先例 merge 209d9a0 的 merge commit 確實零活書變動、as-built 全在簿記 commit 45d0132）。
   防：`/speckit-tasks` 產出的「更新 ARCHITECTURE」任務**不得**排進 feature branch 的 Phase（007 的 T079 即此瑕疵、analyze 未攔），應移入收尾簿記步驟；已誤排時的修復＝重做 merge（`merge --no-ff --no-commit` 後 `git checkout HEAD -- docs/arc42/ARCHITECTURE.md` 剔除活書變動，再於簿記 commit 回填）。★CLAUDE.md §2「架構影響→活書對應節【就在 feature branch 內改】」與此機器閘措辭相衝突，待 user 拍板修訂。｜出處：007 T086（收刀）
 
 - **L-125**｜base-web dev 的 vite proxy target 指回 front-nginx（`.env.test` `VITE_SERVICE_BASE_URL=http://front-nginx/api`、即 L-111 拍下的值）造成 **dev 每發 API 雙穿 front-nginx**：第一跳命中 `location /`（無 limit_req）進 vite，rewrite 後第二跳以 base-web 容器為來源命中 `/api` 限流塊——`limit_req` 鍵恆為 base-web 容器 IP、XFF 多一個內部跳、nginx 日誌同一請求雙倍計數。且同一 env 值有**雙重身分**：serve（`DEV=true`）時是 vite proxy 的 server-side target（容器 DNS 可解），`vite build`（`DEV=false`；`DEV` 綁 command、與 `--mode` 無關）時直接變瀏覽器 axios baseURL——`pnpm build:test` 產物打不到後端（瀏覽器解析不了容器名）；`.env.prod` 仍指 apifox mock、同屬此坑的未爆彈。
