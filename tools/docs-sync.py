@@ -5,7 +5,8 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint Lint01 本體＋Lint02 對賬）
-  lint            Lint03～Lint23（Lint04/Lint05/Lint06 收刀完整性閘：事件存在性／review 分流／arch_impact 雙向；
+  lint            Lint03～Lint23（Lint04/Lint05/Lint06 收刀完整性閘：
+                  事件存在性／review 分流／arch_impact 雙向；
                   Lint16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
                   Lint17 pin↔worktree HEAD 互證；Lint18 events 帳本 SHA 逐列向 git 實證；
                   Lint19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令；
@@ -911,7 +912,7 @@ def errata_scan(texts, keyword):
 
 
 # Lint02 對賬：轉真表各有真來源——漂移指名來源側（其餘生成檔漂移歸 Lint01 泛訊息）
-Lint02_SOURCES = {
+LINT02_SOURCES = {
     f"{GENERATED_DIR}/reference/routes.md":
         "routes 對照表與 router.rs 重算結果不一致——"
         "rust-api/server/src/router.rs ROUTES 改動後未跑 tools/docs-sync.py generate",
@@ -954,8 +955,8 @@ def check_generated(root, computed):
         elif rel not in on_disk:
             out.append(finding(ERROR, "Lint01", rel, "缺生成檔（跑 tools/docs-sync.py generate）"))
         elif _read(root, rel) != computed[rel]:
-            if rel in Lint02_SOURCES:
-                out.append(finding(ERROR, "Lint02", rel, Lint02_SOURCES[rel]))
+            if rel in LINT02_SOURCES:
+                out.append(finding(ERROR, "Lint02", rel, LINT02_SOURCES[rel]))
             else:
                 out.append(finding(ERROR, "Lint01", rel,
                                    "與重算結果不一致（忘跑 generate 或手改；跑 tools/docs-sync.py generate）"))
@@ -2992,6 +2993,13 @@ def derive_lint_codes(source_text):
     return {int(m.group(1)) for m in RE_LINT_CODE.finditer(source_text)}
 
 
+def scan_nonpadded_codes(source_text):
+    """Lint22 取值（兩碼零填守衛、u2 雙審）：RE_LINT_CODE 寬收 \\d+ 防「單碼形靜默漏推導」，
+    本函式對原字面驗長度——回非恰兩碼的碼字面清單（拍板＝Lint01 起兩碼零填形）。"""
+    return [m.group(1) for m in RE_LINT_CODE.finditer(source_text)
+            if len(m.group(1)) != 2]
+
+
 def scan_range_hits(text):
     """Lint22 取值：逐行掃範圍字串「Lint03～LintNN」（半形~／全形～皆收）；回 [(行號, NN), ...]。"""
     return [(ln, int(m.group(1)))
@@ -3080,11 +3088,15 @@ def lint_range_strings(root):
     src = _read(root, "tools/docs-sync.py")
     codes = derive_lint_codes(src) if src is not None else set()
     bound = max(codes) if int(RANGE_CODE.removeprefix("Lint")) in codes else None
+    pad = [finding(ERROR, "Lint22", "tools/docs-sync.py",
+                   f"條款碼字面「Lint{c}」非兩碼零填形（拍板＝Lint01 起兩碼）——"
+                   "修正該 finding 呼叫的碼字面")
+           for c in scan_nonpadded_codes(src or "")]
     hits = {}
     for rel in RANGE_ROSTER:
         text = _read(root, rel)
         hits[rel] = None if text is None else scan_range_hits(text)
-    return range_self_test() + check_range_strings(bound, RANGE_ROSTER, hits)
+    return range_self_test() + pad + check_range_strings(bound, RANGE_ROSTER, hits)
 
 
 # ---------------------------------------------------------------------------
@@ -3092,10 +3104,13 @@ def lint_range_strings(root):
 # ---------------------------------------------------------------------------
 
 # 2026-08-02 條款編號改名（L 單碼形 → Lint 兩碼零填形）後，防他機舊 session 照打舊編號
-# 靜默沉積（改名無檔名級 fail-loud 性質、混用不炸）。掃描語料★顯式取 CMD_FORM_CORPUS
-# 三檔（三件活手冊）——★絕不複用 md_texts 語料：其史料排除清單僅含 brainstorms，會反咬
-# specs／reviews 史料舊碼（時態分離：史料沿用舊碼、不回改）。值域 1~22 字界形；值域外
+# 靜默沉積（改名無檔名級 fail-loud 性質、混用不炸）。掃描語料★顯式名冊 OLD_CODE_CORPUS
+# ＝三件活手冊＋.githooks/pre-commit（後者＝上線新條款漏改「連兩例」實證之最弱環、唯一
+# L 形記號 L114 值域外零誤紅；u2 雙審建議擴入）——★絕不複用 md_texts 語料：其史料排除
+# 清單僅含 brainstorms，會反咬 specs／reviews 史料舊碼（時態分離：史料沿用舊碼、不回改）；
+# ★亦不直接擴 CMD_FORM_CORPUS（Lint19 共用、有釘版測試守著）。值域 1~22 字界形；值域外
 # （憲法行號 L45／L114 等）與 LESSONS 連字號形（L-NNN）天然不中。
+OLD_CODE_CORPUS = CMD_FORM_CORPUS + (".githooks/pre-commit",)
 # ★regex 以拆分構造（同 RE_RANGE 紀律）：防未來語料擴及本檔時落完整舊碼字面自咬。
 RE_OLD_LINT_CODE = re.compile(
     r"(?<![A-Za-z0-9-])" + "L" + r"(1[0-9]|2[0-2]|[1-9])(?![0-9A-Za-z-])")
@@ -3119,12 +3134,17 @@ def old_code_self_test():
                            "舊碼禁令 self-test 失效：紅樣本（舊碼單碼形）未恰中一筆或"
                            "新碼換算錯——條款已恆綠，修復 scan_old_code_hits／"
                            "RE_OLD_LINT_CODE 後重跑"))
+    red2 = scan_old_code_hits("見 " + "L" + "22 於此\n")
+    if red2 != [(1, "L" + "22", "Lint22")]:
+        out.append(finding(ERROR, "Lint23", "tools/docs-sync.py",
+                           "舊碼禁令 self-test 失效：紅樣本（舊碼兩碼形 10~22 分支）未恰中"
+                           "一筆或換算錯——值域分支殘缺即恆綠，修復 RE_OLD_LINT_CODE 後重跑"))
     green = scan_old_code_hits(
-        "Lint07 與 " + "L" + "45 與 " + "L" + "-200 於此\n")
+        "Lint07 與 " + "L" + "45 與 " + "L" + "23 與 " + "L" + "-200 於此\n")
     if green:
         out.append(finding(ERROR, "Lint23", "tools/docs-sync.py",
-                           f"舊碼禁令 self-test 失效：綠樣本（Lint 新碼／值域外行號／"
-                           f"連字號形）誤中 {len(green)} 筆——字界或值域過寬，"
+                           f"舊碼禁令 self-test 失效：綠樣本（Lint 新碼／值域外行號與"
+                           f"上緣外／連字號形）誤中 {len(green)} 筆——字界或值域過寬，"
                            "修復 RE_OLD_LINT_CODE 後重跑"))
     return out
 
@@ -3132,32 +3152,34 @@ def old_code_self_test():
 def lint_old_codes(root):
     """Lint23：舊 lint 條款編號禁令（2026-08-02 條款改名）。
 
-    語料＝CMD_FORM_CORPUS 三檔（顯式；不複用 md_texts——理由見 RE_OLD_LINT_CODE 註解）；
+    語料＝OLD_CODE_CORPUS 四檔（顯式名冊；不複用 md_texts——理由見 RE_OLD_LINT_CODE 註解）；
     字界＋值域 1~22 命中即 ERROR 指名檔案:行號＋新編號寫法；語料檔缺席＝ERROR
     （fail-closed、Lint20 家族）。組裝＝self-test 防恆綠＋逐檔掃描。本條款無 skip
-    （語料三檔皆住外層 repo、恆存在）。
+    （語料四檔皆住外層 repo、恆存在）。
     """
     out = old_code_self_test()
-    for rel in CMD_FORM_CORPUS:
+    for rel in OLD_CODE_CORPUS:
         text = _read(root, rel)
         if text is None:
             out.append(finding(ERROR, "Lint23", rel,
                                "舊碼禁令語料檔缺席（讀不到）——fail-closed（Lint20 家族）："
-                               "檔案移位／改名須同步改 CMD_FORM_CORPUS"))
+                               "檔案移位／改名須同步改 OLD_CODE_CORPUS"))
             continue
         for ln, old, new in scan_old_code_hits(text):
             out.append(finding(ERROR, "Lint23", f"{rel}:{ln}",
                                f"舊 lint 條款編號「{old}」——2026-08-02 已改名 Lint 兩碼形，"
-                               f"請寫「{new}」（史料沿用舊碼不回改、活手冊禁用舊碼）"))
+                               f"請寫「{new}」（史料沿用舊碼不回改、活手冊禁用舊碼；"
+                               f"若確為非條款語意〔如節流快取層〕改寫中文敘述或調整 "
+                               f"OLD_CODE_CORPUS 名冊、勿照打換碼）"))
     return out
 
 
 def run_lint(root):
-    """組裝 Lint03～Lint23（含 Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、Lint17 pin 互證、Lint18 帳本 SHA
-    實證、Lint19 命令形真表比對、Lint20 空集合守衛、Lint21 exec bit 守衛、Lint22 範圍字串守衛、
-    Lint23 舊條款編號禁令）全套。回 findings（含
-    SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。git 不可用＝
-    fail-closed 單發 ERROR。"""
+    """組裝 Lint03～Lint23 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
+    Lint17 pin 互證、Lint18 帳本 SHA 實證、Lint19 命令形真表比對、Lint20 空集合守衛、
+    Lint21 exec bit 守衛、Lint22 範圍字串守衛、Lint23 舊條款編號禁令。
+    回 findings（含 SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。
+    git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
         return [finding(ERROR, "Lint01", ".",
                         "git 不可用——HEAD 基線與掃描語料無法建立，lint fail-closed（修復 git 後重跑）")]
@@ -6900,13 +6922,13 @@ class TestRangeStringGuard(unittest.TestCase):
 
     @staticmethod
     def _rng(nn, wave="～"):
-        """構造範圍字串字面（拆分；wave 預設全形～、傳 "~" 得半形）。"""
-        return "Lint03" + wave + "Lint" + str(nn)
+        """構造範圍字串字面（拆分、兩碼零填；wave 預設全形～、傳 "~" 得半形）。"""
+        return "Lint03" + wave + "Lint" + ("%02d" % int(nn))
 
     @staticmethod
     def _call(nn):
-        """構造錨形 finding 呼叫字面（拆分）。"""
-        return "finding" + '(ERROR, "Lint' + str(nn) + '", "處", "因")\n'
+        """構造錨形 finding 呼叫字面（拆分、兩碼零填——非兩碼會被 scan_nonpadded_codes 抓）。"""
+        return "finding" + '(ERROR, "Lint' + ("%02d" % int(nn)) + '", "處", "因")\n'
 
     def _fixture(self, d, src_nn=None, src2_nn=None, runbook_nn=None, hook_nn=None):
         """假名冊三檔：docs-sync 源＝錨形兩筆（3＋自身碼）＋兩處全形範圍字串（鏡照實形：
@@ -6997,7 +7019,7 @@ class TestRangeStringGuard(unittest.TestCase):
         self.assertEqual(RANGE_ROSTER, (
             "tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit"))
 
-    def test_real_source_derivation_upper_bound_is_own_code(self):
+    def test_real_source_derivation_contains_own_code_and_bound_pinned(self):
         """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝23
         （Lint23 舊碼禁令為現行最大號）——上界前進時本測試逼著同刀更新
         （釘版＝有意識動作、同 test_roster_is_pinned 慣例；非守衛真值側）。"""
@@ -7087,8 +7109,8 @@ class TestOldLintCodeBan(unittest.TestCase):
         return "L" + str(nn)
 
     def _fixture(self, d):
-        """假語料三檔全乾淨（省略＝零命中綠）。"""
-        for rel in CMD_FORM_CORPUS:
+        """假語料四檔全乾淨（省略＝零命中綠）。"""
+        for rel in OLD_CODE_CORPUS:
             _wfile(d, rel, "乾淨行、只有 Lint07 新碼\n")
 
     def test_hit_red_names_file_line_old_and_new(self):
@@ -7129,8 +7151,16 @@ class TestOldLintCodeBan(unittest.TestCase):
             self.assertIn("缺席", f[0]["msg"])
 
     def test_real_corpus_green(self):
-        """★現庫語料三檔零舊碼（改名上線即自證：任一檔殘留舊碼當場紅）；真 repo 唯讀。"""
+        """★現庫語料四檔零舊碼（改名上線即自證：任一檔殘留舊碼當場紅）；真 repo 唯讀。"""
         self.assertEqual(lint_old_codes(ROOT), [])
+
+    def test_nonpadded_code_literal_detected(self):
+        """★兩碼零填守衛（u2 雙審）：合成源碼含單碼形條款字面→scan_nonpadded_codes 必抓；
+        兩碼形零誤中。樣本拆分構造（防本檔被自身錨形掃到、同 _call 慣例）。"""
+        bad = "finding" + '(ERROR, "Lint' + '9", "處", "因")\n'
+        ok = "finding" + '(ERROR, "Lint' + '09", "處", "因")\n'
+        self.assertEqual(scan_nonpadded_codes(bad), ["9"])
+        self.assertEqual(scan_nonpadded_codes(ok), [])
 
     def test_run_lint_wires_old_codes(self):
         """★接線層：lint_old_codes 從 run_lint 掉線＝Lint23 整條靜默下線。

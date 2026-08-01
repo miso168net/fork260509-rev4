@@ -365,8 +365,9 @@ lint 條款速覽（018 新增五條、B-116 增 Lint21、B-126 增 Lint22、202
   全形～皆收；任一處 NN≠上界＝ERROR 附檔案:行號＋實得＋應為＋修復指引（上線新條款同
   commit 全數 bump）；零命中／名冊檔缺席／推導失效＝ERROR（fail-closed、Lint20 家族）；
   每跑紅綠 self-test 防恆綠（Lint16 慣例）。本條款無 skip。
-- **Lint23 舊條款編號禁令**（2026-08-02 條款改名）：語料＝CMD_FORM_CORPUS 三檔（CLAUDE.md／
-  README.md／本檔；顯式名冊、不複用引用健康語料——specs／reviews 史料沿用舊碼屬合法）；
+- **Lint23 舊條款編號禁令**（2026-08-02 條款改名）：語料＝OLD_CODE_CORPUS 四檔（CLAUDE.md／
+  README.md／本檔／.githooks/pre-commit；顯式名冊、不複用引用健康語料——specs／reviews
+  史料沿用舊碼屬合法）；
   字界＋值域 1~22 之舊單碼形命中＝ERROR 指名檔案:行號＋新編號寫法；值域外憲法行號
   （L45／L114 等）與 LESSONS 連字號形（L-NNN）不中；語料檔缺席＝ERROR（fail-closed、
   Lint20 家族）；每跑紅綠 self-test 防恆綠（Lint16 慣例）。本條款無 skip。
