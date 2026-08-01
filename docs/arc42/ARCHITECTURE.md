@@ -91,8 +91,8 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
     已驗證＝現值比對導出單一 seam `is_email_verified`；admin 守門＝`validate_email_format` 單一驗證點
     三消費者＋EmailTaken 預檢與索引兜底雙保險＋清空落 NULL；不變式由 ADR 0085 承載）。
   - `migration`：schema 與 seed 的唯一寫入者——基線兩支（結構＋定稿 seed）＋刀次增量
-    （additive seed／index，至 m014〔020 sys_user_email_verify 變體 C＋sys_user 活性唯一 email 索引、
-    up 首步前置重複掃描 fail-loud〕），由 compose migrate 閘門套用，冪等可逆。
+    （additive seed／index，至 m015〔manage_user.buttons 回填四碼、零 schema DDL、seed 內容
+    演進走 ADR 0064 override 軌〕），由 compose migrate 閘門套用，冪等可逆。
   - `entity`：sea-orm 型別化實體層（每張業務表一檔）——後續刀的資料存取消費介面；
     欄位宣告順序照定稿。
   - `sea-orm-adapter`：vendored casbin 授權配接層（constitution §I.5 例外、內容零改寫）——

@@ -17,8 +17,8 @@
   全數可平移〕、B-102 changePassword 節流、B-027 alt-login、B-037/B-042/B-081/B-013 prod
   部署組等）。
 - 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；B-103（滯後卷）；
-  B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；B-101（casbin
-  按鈕碼與 buttons 聯集漂移）；B-094（未刪選單分頁截斷）。
+  B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；
+  B-094（未刪選單分頁截斷）。
 - base-web 改動走 fork-delta 原行紀律（★lint 一律 `python3 tools/fork-delta-lint.py` 直跑——bash 跑假紅
   ＝L-143；以 example 為基線機器強制、掛 pre-commit 於 base-web pin 變動時擋）；★**base-web worktree
   commit 的 `--no-verify` 慣例已廢止**（019）——hooksPath 指向外層即結構性旁路上游 husky、原始理由
