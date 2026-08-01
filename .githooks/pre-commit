@@ -46,3 +46,10 @@ done
 if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/fork-delta-lint.py'; then
   python3 tools/fork-delta-lint.py || exit 1
 fi
+# wire-schema 快照 drift 閘（B-128）：base-web gitlink 變動（pin bump）時重抽 typings 與快照
+# byte 比對——sh 只做粗判（gitlink staged 與否）、typings 零變動之細判在 python 內
+# （--staged-gate 收窄、省 npx 秒數）；stack 未起＝警告放行（fail-open）；容器可用但重抽
+# 失敗／不一致＝擋（fail-loud；補救命令見工具輸出）。
+if echo "$staged" | grep -qxF 'base-web'; then
+  python3 tools/wire-schema.py check --staged-gate || exit 1
+fi
