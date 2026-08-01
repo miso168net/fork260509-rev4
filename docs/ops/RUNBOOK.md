@@ -1,13 +1,13 @@
 # RUNBOOK — dev stack 操作手冊
 
-本檔＝「怎麼操作」唯一的家。分工（防鏡像）：系統長怎樣→活書 §7；十一機密明細表→
+本檔＝「怎麼操作」唯一的家。分工（防鏡像）：系統長怎樣→活書 §7；十三機密明細表→
 `deploy/secrets/README.md`；埠／帳號全表→`docs/generated/reference/`；坑全文→`docs/ops/LESSONS.md`。
 本檔命令一律完整可複製——整行逐字貼進 shell 即可跑、一律於 repo 根執行。
 
 ## 1. 快速啟動（新機五步）
 
 1. `bash tools/bootstrap.sh` —— 源倉＋worktree＋hooks＋secrets 體檢（幂等、可重跑）
-2. `bash deploy/generate-secrets.sh` —— 十一機密缺則補
+2. `bash deploy/generate-secrets.sh` —— 十三機密缺則補
 3. `bash deploy/preflight-secrets.sh` —— up 前預檢（全齊印 OK）
 4. `bash deploy/generate-dev-cert.sh` —— dev TLS 憑證。★非可選：front-nginx 恆 bind-mount
    兩支 pem、缺檔直接 up＝Docker 代建空目錄佔位→nginx PEM emerg 死循環（L-141；修復＝
@@ -134,7 +134,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 - 手動還原（空庫前提）：`docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres psql -U soybean -d soybean_admin_rust < backup.sql`
 - redis／prometheus／loki／pushgateway 資料可拋棄（快取與可重累積的觀測資料）；grafana
   provisioning 資產 as-code 在 git、僅 UI 手改需另存。
-- ★**secrets 檔一併備份**：對象＝`$SECRETS_DIR` 的 11 支 `.txt`（US3 起明文已遷出 repo；取值
+- ★**secrets 檔一併備份**：對象＝`$SECRETS_DIR` 的 13 支 `.txt`（US3 起明文已遷出 repo；取值
   片段＝§7 抬頭，預設 `$HOME/.cache/fork260509-rev4/secrets`）——**不是** repo 內 `deploy/secrets/`
   （現只剩 `README.md` 與 `.example`，對著它備份會**備到零檔且 shell 不報錯**）。若機器毀損只
   還原了 DB 卷而 secrets 檔遺失，postgres_data 內密碼與新生成 secret 不配對、全 stack 連不上
@@ -172,7 +172,7 @@ shim，用它測 BOM 形會得到假綠（U6 quality 實證）。
 
 下表「重生 leaf」＝`rm "$SECRETS_DIR/<機密>.txt"` → `bash deploy/generate-secrets.sh`（零參數：
 缺則補新亂數值＋drift 偵測連動重寫 composite；2026-07-19 沙箱實測僅該 leaf＋其 composite 變動、
-其餘九支零變動）。★單機密輪替絕不可用 `--force`（射程見表下首條）。
+其餘機密檔零變動）。★單機密輪替絕不可用 `--force`（射程見表下首條）。
 
 | 機密 | 輪替程序 |
 |---|---|
@@ -181,6 +181,7 @@ shim，用它測 BOM 形會得到假綠（U6 quality 實證）。
 | reaper_password | 重生 leaf → `bash deploy/setup-reaper-role.sh`（把新密推進 DB、內建自驗）→ `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs restart reaper` |
 | jwt／refresh／captcha | 重生 leaf（三檔各自獨立、換哪支刪哪支）→ `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart rust-api`。後果：全體使用者被登出、pending captcha 失效 |
 | grafana_admin_password | ★init-only（2026-07-19 實測）：檔改＋重啟**不會**改既有 admin 密碼（$__file 僅 grafana_data 首建時寫入）。輪替＝重生 leaf 後 `docker compose -f docker-compose.yml -f docker-compose.dev.yml exec grafana grafana cli --homepath /usr/share/grafana admin reset-admin-password "$(cat "$SECRETS_DIR/grafana_admin_password.txt")"`（即時生效、免重啟；grafana 13 無獨立 grafana-cli 執行檔） |
+| smtp_password／email_verify_secret | 重生 leaf（兩檔各自獨立、換哪支刪哪支）→ `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart rust-api`。後果：email_verify_secret 輪替使 pending 驗證憑據全數失效。★smtp_password 此列僅適用 dev 亂數佔位；prod 真值＝Gmail app password（住 prod 資產、B-115 兌現前不入 dev 資產——§16 射程聲明）、輪替一律走 §16 改密 SOP——對持真值資產重生亂數＝毀真值 |
 | alert_webhook_url | 特例：直接編輯檔填真值 → `docker compose -f docker-compose.yml -f docker-compose.dev.yml restart grafana`（provisioning $__file 啟動時讀入）。`--force` 不重置 |
 
 - ★**每一列做完都要接「re-encrypt 回加密檔」這一步**（019 起機密以密文入版控；程序＝§15.4）：
@@ -188,10 +189,14 @@ shim，用它測 BOM 形會得到假綠（U6 quality 實證）。
   ＝輪替值與加密檔脫鉤，下次 `bash deploy/decrypt-secrets.sh` 判 DIFF、另存 `<機密>.txt.new`
   而**不覆寫**（守衛設計、非故障），且他機解密拿回的仍是舊值。★三支 composite 不進加密檔
   （由 `bash deploy/generate-secrets.sh --compose-only` 自 leaf 重組），只需回寫被輪替的 leaf。
-- `--force` 射程＝10 支隨機機密（7 leaf＋3 composite）**全重生**；alert_webhook_url 除外。
+- `--force` 射程＝12 支隨機機密（9 leaf＋3 composite）**全重生**；alert_webhook_url 除外。
   ★全量輪替專用：用了就必須跑完上表**每一列**的後續步驟（ALTER USER、setup-reaper-role、
   grafana CLI 重設、全部消費端 restart）——只照單一列做＝其餘機密檔已換、運行中消費端仍持
-  舊值，下次該消費端重啟即 stale 憑證斷線。
+  舊值，下次該消費端重啟即 stale 憑證斷線。★smtp_password 已填真值的部署（＝B-115 後
+  之 prod 資產；dev 資產恆亂數佔位、詳 §16 射程聲明）**切勿**走
+  `--force`——它在射程內、app password 會被亂數覆寫；該場景手動處置＝依 §16 改密 SOP
+  回寫真值（★流向與 alert_webhook_url 的落點先行**相反**：§16 為 enc 先行＋decrypt 前
+  先刪落點舊檔，詳該節指令塊）。
 - ★絕不手改單一 leaf 而不重跑腳本：composite（database_url／redis_url／reaper_database_url）
   內嵌密碼須與 leaf byte-identical（dual-write），手改單邊＝兩處不一致、連線必失敗。
   composite 檔本身也絕不手改——永遠改 leaf＋重跑 `generate-secrets.sh`。
@@ -303,7 +308,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點（B-118）：staged 增量對既存明文結構性失明（L-190），本旗標補盤點面——導入既有 repo 時與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量、成本未拍板；增量面＝pre-commit 自動跑裸 check）。實測全樹（445 tracked 檔、drvfs）約 1.6~1.8 秒 | 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢；base-web 跑過 pnpm install 後重跑即可偵測 hooks 覆寫（B-124 指紋斷言） | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；營運程序＝§15） | 否（需 docker） |
-| `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出 8 支明文（composite 另跑 generate `--compose-only`） | 否（需 docker＋互動 tty） |
+| `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出 10 支明文（composite 另跑 generate `--compose-only`） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（B′ 加殼；＝§15.2 步驟 1 機器化版：覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設名 | 否（需真 tty；age 缺席時需網路） |
 
 退出碼注意：schema-gate/wire-schema＝差異 1、環境不可用 2、用法錯 64；docs-sync refresh
@@ -390,7 +395,7 @@ WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（�
 
 ## 15. SOPS 機密營運（密文入版控 × age 私鑰）
 
-資產三件：`deploy/secrets.dev.enc.yaml`（8 key 密文、**tracked**）／`.sops.yaml`（recipient
+資產三件：`deploy/secrets.dev.enc.yaml`（10 key 密文、**tracked**）／`.sops.yaml`（recipient
 公鑰清單、tracked）／`~/.config/sops/age/keys.txt`（**私鑰＝B′ passphrase 加殼**、目錄 700
 檔 600、**永不進版控**）。工具兩支＝`deploy/sops.sh`（官方容器 wrapper、digest 釘版）與
 `deploy/decrypt-secrets.sh`（把密文寫成 `$SECRETS_DIR` 的明文檔）。★所有命令一律**自 repo 根**
@@ -424,7 +429,7 @@ recipient**。故 `GPG_TTY` 在此是空操作，**passphrase 提示異常不要
 
 ```bash
 ./deploy/sops.sh edit deploy/secrets.dev.enc.yaml     # 容器內 vim；存檔即自動重加密
-bash deploy/decrypt-secrets.sh                        # 落點重寫（8 支 WRITTEN）
+bash deploy/decrypt-secrets.sh                        # 落點重寫（10 支 WRITTEN）
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-recreate <service>
 ```
 
@@ -489,7 +494,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-rec
 密文一律解不開（`Failed to get the data key…`）。
 ★`updatekeys` 只影響**執行當下存在**的加密檔；**未來新建**的檔由 `.sops.yaml` 的
 `creation_rules` 決定——兩個機制都要對，只改一邊會出現「舊檔加得到、新檔加不到」或反之。
-★`updatekeys` **不換 data key**（本刀實測：8 個值的密文逐字不變）——它只是把同一把 data key
+★`updatekeys` **不換 data key**（019 收刀實測、當時名冊 8 key：8 個值的密文逐字不變；性質
+與 key 數無關、020 後 10 key 同理）——它只是把同一把 data key
 用新的 recipient 清單重新包一次。撤銷因此不能只做 `updatekeys`（見 §15.3）。
 
 ### 15.3 撤銷某人的存取——四步，順序即契約
@@ -532,7 +538,7 @@ updatekeys）下也會通過。
 ```bash
 ./deploy/sops.sh edit deploy/secrets.dev.enc.yaml   # 把該 key 的值改成 $SECRETS_DIR/<key>.txt 現值
 bash deploy/decrypt-secrets.sh                      # 自證：應全數 WRITTEN、零 DIFF、零 .txt.new
-bash deploy/preflight-secrets.sh                    # 11 支齊備且健康（composite 一致性＋權限面 700/644 同場驗；佔位字面命中＝WARN 不擋）
+bash deploy/preflight-secrets.sh                    # 13 支齊備且健康（composite 一致性＋權限面 700/644 同場驗；佔位字面命中＝WARN 不擋）
 ```
 
 （腳本化形＝§15.1 的 `set --value-file`。）漏這一步的症狀＝下次解密判 DIFF、另存
@@ -558,9 +564,9 @@ bash deploy/preflight-secrets.sh                    # 11 支齊備且健康（co
 
 ```bash
 bash tools/bootstrap.sh                           # .env 缺席時代勞產生（其餘為體檢）
-bash deploy/decrypt-secrets.sh                    # 8 支：7 leaf＋alert_webhook_url
+bash deploy/decrypt-secrets.sh                    # 10 支：9 leaf＋alert_webhook_url
 bash deploy/generate-secrets.sh --compose-only    # 3 支 composite 自 leaf 重組（缺 leaf 即報錯、不生成）
-bash deploy/preflight-secrets.sh                  # 11 支齊備且健康才可 up
+bash deploy/preflight-secrets.sh                  # 13 支齊備且健康才可 up
 ```
 
 ★跳過解密直接 `up`＝compose 對缺 bind source 不報錯、自動建**空目錄**佔位，容器拿到空 secret
@@ -576,7 +582,7 @@ bash deploy/preflight-secrets.sh                  # 11 支齊備且健康才可 
 的那一個檔**（步驟 3 的 `tmp/merged.yaml`）——wrapper 只掛載 `$PWD`、repo 外的檔容器讀不到，
 且 stdin 管線在本 wrapper 下不可用（P1.2：stdin 非 tty 時不帶 `-i`）。其餘暫存明文由 **host
 shell 重導向**產生、**從不進容器**，一律落 **repo 外**的 0700 目錄：repo 根在 `/mnt/d`＝v9fs，
-`umask`／`chmod` 皆結構性 no-op，`tmp/` 實測 `drwxrwxrwx` 且 Windows 側可見——把 8 支完整明文
+`umask`／`chmod` 皆結構性 no-op，`tmp/` 實測 `drwxrwxrwx` 且 Windows 側可見——把 10 支完整明文
 放那裡正是 `deploy/decrypt-secrets.sh` 暫存落點守衛以 fail-loud 拒絕的事（FR-021／SC-005
 「`/mnt/d` 全樹零明文機密檔」；「gitignored」只擋 git 入庫、不擋檔案系統暴露）。
 
@@ -590,13 +596,13 @@ WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev4/merge.XXXXXX"
   || echo "FAIL：$WORK 落在 9p 或權限非 700——把 XDG_CACHE_HOME 指到 ext4 路徑後重來"
 
 # 明文 YAML 守衛（步驟 1 與步驟 2 共用；判準同 decrypt-secrets.sh 的 P4.3 EXPECTED_KEYS）
-KEYS8='alert_webhook_url captcha_secret grafana_admin_password jwt_secret postgres_password reaper_password redis_password refresh_token_secret'
-assert8() {
-  [ "$(wc -l < "$1")" = 8 ] \
-    && [ "$(grep -c -E "^[a-z_]+: [^\"'|>]" "$1")" = 8 ] \
-    && [ "$(sed -E 's/:.*//' "$1" | LC_ALL=C sort | paste -sd' ' -)" = "$KEYS8" ] \
-    && { echo "OK：$1 恰 8 支裸量純量且 key 名相符"; return 0; }
-  echo "FAIL：$1 不是「恰 8 支裸量純量、key 名與 decrypt-secrets.sh EXPECTED_KEYS 逐一相符」——漏 key／多 key／重複／改名，或某值成引號形或區塊純量而續行已被濾掉；停手勿續" >&2
+EXPECTED_KEYS='alert_webhook_url captcha_secret email_verify_secret grafana_admin_password jwt_secret postgres_password reaper_password redis_password refresh_token_secret smtp_password'
+assert_keys() {
+  [ "$(wc -l < "$1")" = 10 ] \
+    && [ "$(grep -c -E "^[a-z_]+: [^\"'|>]" "$1")" = 10 ] \
+    && [ "$(sed -E 's/:.*//' "$1" | LC_ALL=C sort | paste -sd' ' -)" = "$EXPECTED_KEYS" ] \
+    && { echo "OK：$1 恰 10 支裸量純量且 key 名相符"; return 0; }
+  echo "FAIL：$1 不是「恰 10 支裸量純量、key 名與 decrypt-secrets.sh EXPECTED_KEYS 逐一相符」——漏 key／多 key／重複／改名，或某值成引號形或區塊純量而續行已被濾掉；停手勿續" >&2
   return 1
 }
 ```
@@ -628,7 +634,7 @@ assert8() {
      ./deploy/sops.sh -d "tmp/$n.enc.yaml" > "$WORK/$n.raw" \
        && tr '\r' '\n' < "$WORK/$n.raw" | sed -E $'s/\x1b\\[[0-9;]*[A-Za-z]//g' \
             | grep -E '^[a-z_]+: ' > "$WORK/$n.yaml" \
-       && rm -f "$WORK/$n.raw" && assert8 "$WORK/$n.yaml" || break
+       && rm -f "$WORK/$n.raw" && assert_keys "$WORK/$n.yaml" || break
    done
    ```
 
@@ -643,7 +649,7 @@ assert8() {
    commit 給他人——而人手比機器更容易犯）；`OK` 才複製進 repo：
 
    ```bash
-   assert8 "$WORK/merged.yaml" && mkdir -p tmp && cp "$WORK/merged.yaml" tmp/merged.yaml
+   assert_keys "$WORK/merged.yaml" && mkdir -p tmp && cp "$WORK/merged.yaml" tmp/merged.yaml
    ```
 
    ★`&&` 串接不可拆成兩行：守衛只印 FAIL 而不擋，壞檔照樣被步驟 3 加密進**權威密文檔**。
@@ -734,3 +740,58 @@ identity 解同一個檔——形制與容器版相同。
 預留除錯時間；升格條件＝出現第二位持鑰者或 prod 上線。
 
 工具釘版值（Betterleaks／sops 映像 digest／age）＝**§12 末段唯一一份**，勿另建第二份清單。
+
+## 16. Gmail SMTP 運維（020 信箱驗證 prod 寄信路徑）
+
+dev 寄信走 mailpit（dev override 內建、零真信外流），dev 的 `smtp_password` 為亂數 leaf
+**未被消費**；本節＝prod 走 `smtp.gmail.com:587` STARTTLS＋app password（Workspace 帳號）
+的運維面。★**射程聲明（B-115 前提）**：prod 機密分層屬 B-115 遞延、prod 加密檔**不建**
+（ADR 0081 決策 2）——B-115 兌現前 `secrets.dev.enc.yaml` 之 `smtp_password` **恆保亂數
+佔位、絕不填入真 app password**（§15.3 撤銷驗收準則 4＝dev 檔不含 prod 等級機密，該條
+測不出來、只能靠流程保證——本聲明即該流程）；本節指令塊係 dev 自架／演練口徑，真值
+施作待 `deploy/secrets.prod.enc.yaml` 建立（B-115）後，對該檔與其落點照同一
+「enc 先行」流程施作。
+
+- **2SV 前提＋app password 建立**：Google 帳戶未開兩步驟驗證（2SV）則「應用程式密碼」選項
+  不出現。建立路徑＝Google 帳戶→安全性→兩步驟驗證→應用程式密碼→產生（16 字元、僅顯示
+  一次、當場依下方真值填法回寫）。2025-03-14 Google 停用 SMTP basic auth 後，app password
+  為明文密碼保留例外——官方標「不推薦仍支援」、無落日期限。
+- **★From 硬約束**：`APP_MAIL_FROM` 必須是 `APP_SMTP_USERNAME`（登入帳號）**或該帳號已驗證的
+  send-as alias**——兩者皆非時 Gmail 會把 From 靜默改寫成登入帳號、收件者看到的與設定不符。
+  未設 alias 的部署＝直接取 `APP_MAIL_FROM`＝`APP_SMTP_USERNAME` 值最穩。
+- **配額**：2000 封/日（Workspace 帳號口徑）；超限＝寄信暫停最長 24h。★告警判讀口徑：
+  `throttle_degraded_total` 的 `emailverify_smtp` 增長多半是使用者輸入不可投遞位址
+  （格式守門只驗形制——網域不存在或 RCPT 550 也走此路）、非必然基建故障——增長時先看
+  量級與集中度再判。
+- **改密 SOP**：Google 帳號改密碼＝該帳號**全部 app password 同時撤銷**（Google 端自動）。
+  順序＝改 Google 帳密→重生 app password（上列建立路徑）→依下方指令塊回寫 `smtp_password`
+  →消費端重建。★**不可照抄 §15.4 順序**：§15.4 是「落點先行」（§7 先把落點明文輪成新值、
+  再把 enc.yaml 對齊，decrypt 看到相等＝WRITTEN 冪等照寫）；本情境真值產自 Google 主控台、
+  屬「enc 先行」反向流——enc.yaml 已是新值而落點仍是舊 app password（已被 Google 撤銷）
+  或 dev 亂數，兩者必不相等，直接 decrypt 必判 DIFF、另存 `.txt.new` 而**原檔一 byte 不動**
+  （守衛設計）；preflight 只驗齊備／權限／composite 一致、對「值是舊的」無感，重建掛回的
+  仍是廢密碼、SMTP AUTH 全數失敗。解法＝decrypt 前**先刪落點該檔**，缺檔即走新寫路徑、
+  取回與 §15.4 相同的「全數 WRITTEN、零 DIFF、零 .txt.new」自證口徑
+  （`$SECRETS_DIR` 先依 §7 首段指令塊設好）。★指令塊以 dev 資產寫成＝**演練口徑**；
+  prod 實刀（B-115 後）把加密檔與落點代換為 prod 資產照同形跑——真 app password
+  **絕不入** `secrets.dev.enc.yaml`（本節抬頭射程聲明）：
+
+  ```bash
+  ./deploy/sops.sh edit deploy/secrets.dev.enc.yaml   # smtp_password 改新值（dev 演練＝另一亂數；prod 實刀改 prod 資產＝新 app password、16 字元、貼入時去顯示用空格）
+  rm "$SECRETS_DIR/smtp_password.txt"                  # ★關鍵一步：先刪落點舊檔（舊值已遭 Google 撤銷、無比對保留價值）
+  bash deploy/decrypt-secrets.sh                       # 自證：應全數 WRITTEN、零 DIFF、零 .txt.new
+  bash deploy/preflight-secrets.sh                     # 13 支齊備且健康
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-recreate rust-api   # §15.1 末步形；restart 撞 L-016 族、不用
+  ```
+
+  漏刪落點檔照跑＝decrypt 印 `smtp_password.txt DIFF→已另存 smtp_password.txt.new`——
+  **本情境屬預期、非故障**；補救＝依 §15.4 末段「採加密檔值」路徑蓋回再重建消費端：
+  `mv "$SECRETS_DIR/smtp_password.txt.new" "$SECRETS_DIR/smtp_password.txt"`。
+- **真值填法（prod 部署、連動 §15.4）**：`smtp_password` 真值＝app password（dev 亂數 leaf
+  僅佔位）；`APP_SMTP_USERNAME` 由部署層設非空真值（base compose 不設鍵＝跳過 AUTH——
+  Gmail 必須 AUTH、prod 必設）；`APP_SMTP_STARTTLS` 必 `true`（STARTTLS `Tls::Required`
+  不可降級；★機器強制＝`mailer::build_transport` 入口守門：`starttls=false` 且 username 非空
+  即 boot panic 指名——B-131／U10、與本節互指）。寄達率面另有網域 DNS 設定：SPF `include:_spf.google.com`＋Admin console 啟
+  DKIM（網域面、非本 stack 內設定）。
+- **量大備選**：`smtp-relay.gmail.com` 形（IP allowlist 模式、10000 收件人/日）——未實作、
+  僅記載供未來擴充。

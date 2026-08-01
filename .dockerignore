@@ -4,7 +4,7 @@
 
 # 機密與私鑰——絕不得進 build daemon（compose secrets 走 host file bind、不經 context）
 # 019-secrets-sops 後：明文主落點已移出 repo（`$SECRETS_DIR`＝repo 根 `.env` 之絕對路徑），
-# 此目錄常態只留 README 與 11 支 `.txt.example`——但 `SECRETS_DIR` 未設時 compose 與各腳本
+# 此目錄常態只留 README 與 13 支 `.txt.example`——但 `SECRETS_DIR` 未設時 compose 與各腳本
 # 一律回退此處寫入明文（docker-compose.yml 頂層 secrets 之 `${SECRETS_DIR:-./deploy/secrets}`），
 # 故本行**不得因「目錄現在看起來沒機密」而刪**：它守的正是回退落點。
 deploy/secrets/

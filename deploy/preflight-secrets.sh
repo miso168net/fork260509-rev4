@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/preflight-secrets.sh — up 前十一機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列；016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password；019 T027 增 CR 護欄＋composite↔leaf 一致性；B-123 增權限面三斷言、B-119 增佔位字面 WARN）
+# deploy/preflight-secrets.sh — up 前十三機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列；016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password；019 T027 增 CR 護欄＋composite↔leaf 一致性；B-123 增權限面三斷言、B-119 增佔位字面 WARN；020 增 smtp_password／email_verify_secret）
 # 用法：./deploy/preflight-secrets.sh
 #
 # 為何：docker compose secrets 用 `file: …/*.txt` bind；source 檔缺時
@@ -58,10 +58,10 @@ SECRETS_DIR="${SECRETS_DIR:-$SCRIPT_DIR/secrets}"
 # 「preflight 全綠、compose 掛空目錄」的假綠（本檢查正是 fail-loud 承載者、假綠最致命）。
 case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$REPO_ROOT/$SECRETS_DIR" ;; esac
 
-# 與 generate-secrets.sh 同一份十一機密清單（grafana_admin_password 僅 grafana[profiles:obs,metrics]
+# 與 generate-secrets.sh 同一份十三機密清單（grafana_admin_password 僅 grafana[profiles:obs,metrics]
 # 消費、但一律生成納入預檢——免 --profile obs 時 compose 對缺檔自動建空目錄、grafana $__file{}
-# 讀到空密碼、admin 登入靜默壞）
-REQUIRED=(postgres_password redis_password jwt_secret refresh_token_secret database_url redis_url captcha_secret reaper_password reaper_database_url alert_webhook_url grafana_admin_password)
+# 讀到空密碼、admin 登入靜默壞；020 增 smtp_password／email_verify_secret 兩 leaf）
+REQUIRED=(postgres_password redis_password jwt_secret refresh_token_secret database_url redis_url captcha_secret reaper_password reaper_database_url alert_webhook_url grafana_admin_password smtp_password email_verify_secret)
 
 missing=()
 for name in "${REQUIRED[@]}"; do
@@ -76,7 +76,7 @@ if [ "${#missing[@]}" -gt 0 ]; then
     echo "FAIL：缺少 ${#missing[@]} 個 secret 檔（$SECRETS_DIR）："
     for m in "${missing[@]}"; do echo "   - $m"; done
     echo ""
-    echo "→ SOPS 管線重建：./deploy/decrypt-secrets.sh（8 支）→ ./deploy/generate-secrets.sh --compose-only（3 composite）。"
+    echo "→ SOPS 管線重建：./deploy/decrypt-secrets.sh（10 支）→ ./deploy/generate-secrets.sh --compose-only（3 composite）。"
     echo "  （無加密檔情境仍可 ./deploy/generate-secrets.sh 一鍵生成 dev 亂數、缺的才補。）"
     exit 1
 fi
@@ -144,7 +144,7 @@ fi
 if [ "${#nl_hit[@]}" -gt 0 ]; then
     echo "FAIL：下列 secret 檔含換行字元（printf '%s' 寫檔形應零換行；尾端換行會讓 composite"
     echo "      一致性檢查失明、容器拿到與 composite 不符的值）：${nl_hit[*]}"
-    echo "→ 重跑 ./deploy/decrypt-secrets.sh（8 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）後再驗。"
+    echo "→ 重跑 ./deploy/decrypt-secrets.sh（10 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）後再驗。"
     exit 1
 fi
 

@@ -61,6 +61,27 @@ services:
       # 004-system-settings：JWT iss/aud（非機密→plain env、無需 secret 檔；值對齊 auth/jwt.rs 常數）
       APP_JWT_ISS: rev4-admin
       APP_JWT_AUD: rev4-admin-web
+      # ═══ 020-email-verify SMTP 六常設 plain env（非機密、Gmail 形預設；data-model §5——
+      #     dev override 覆寫七鍵、prod 部署層以真值覆寫）。★APP_SMTP_USERNAME 與
+      #     APP_MAIL_SUBJECT_SUFFIX 於 base 一律不設鍵：不設鍵＝空語意（跳過 AUTH／主旨無後綴）、
+      #     設鍵即必非空（config env_or_file 空值 panic 機器強制；R8）═══
+      # SMTP 主機（prod＝smtp.gmail.com；dev override 指 dev 收信件服務）
+      APP_SMTP_HOST: smtp.gmail.com
+      # SMTP 埠（prod＝587 STARTTLS；parse u16 fail-loud）
+      APP_SMTP_PORT: "587"
+      # STARTTLS 開關（僅 "true"/"false"；true→Tls::Required 不可降級、false 僅 dev 明文）
+      APP_SMTP_STARTTLS: "true"
+      # 寄件人（★Gmail From 硬約束＝MUST 登入帳號或其已驗證 send-as alias、否則被改寫——research
+      # R3；prod 部署層覆寫為 smtp_username 真值；base 佔位走 Gmail 形、非 CHANGE-ME 開頭）
+      APP_MAIL_FROM: your-account@gmail.com
+      # 寄件顯示名（prod 部署自定）
+      APP_MAIL_DISPLAY_NAME: rev4-admin
+      # 回信位址（prod 部署自定）
+      APP_MAIL_REPLY_TO: your-account@gmail.com
+      # 020-email-verify：SMTP 密碼（dev＝亂數 leaf 未消費；prod 真值＝Gmail app password）
+      APP_SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      # 020-email-verify：驗證憑據 HS256 獨立金鑰（與 jwt/refresh/captcha 隔離）
+      APP_EMAIL_VERIFY_SECRET_FILE: /run/secrets/email_verify_secret
       RUST_LOG: "info"
     secrets:
       - jwt_secret
@@ -68,6 +89,8 @@ services:
       - database_url
       - redis_url
       - captcha_secret
+      - smtp_password
+      - email_verify_secret
     # healthcheck 住 dev override（dev 映像無 curl/wget、以 TCP 探針）
     networks:
       - rev4_net
@@ -389,3 +412,9 @@ secrets:
   # m012 建 role、deploy/setup-reaper-role.sh 設密；FR-013 密碼零進版本庫）
   reaper_database_url:
     file: ${SECRETS_DIR:-./deploy/secrets}/reaper_database_url.txt
+  # 020-email-verify：SMTP 密碼（dev 亂數 leaf 未消費；prod 真值＝Gmail app password、RUNBOOK §15.4 回寫）
+  smtp_password:
+    file: ${SECRETS_DIR:-./deploy/secrets}/smtp_password.txt
+  # 020-email-verify：驗證憑據 HS256 獨立金鑰（與 jwt/refresh/captcha 隔離）
+  email_verify_secret:
+    file: ${SECRETS_DIR:-./deploy/secrets}/email_verify_secret.txt

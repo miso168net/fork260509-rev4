@@ -1,4 +1,4 @@
-<!-- next: L-200 -->
+<!-- next: L-201 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -404,3 +404,4 @@ L-151~L-175（019 施工期前段）☞ LESSONS-151-175.md。
   `grep` 是會吃掉 BOM 的 shim，用它測會得到假綠。
   ｜出處：2026-07-30 019 U6 quality 第 4 輪（兩 blocker 皆主線結清；§7 片段改為與五支腳本
   逐字同口徑後，沙箱四情境全綠＝env 沿用／讀 .env／空值吵鬧失敗／BOM 與 CRLF 正確取值）。
+- **L-200**｜容器內 `cargo test --test <名>`（不帶 `-p server`）與帶 `-p` 形走不同編譯指紋、觸發重連結並可撞 rust-lld 多執行緒 segfault（`ld terminated with signal 11`、libLLVM 工作執行緒內、連續重現；非 OOM 非磁碟非髒 incremental——U10 verifier 三排除實證）。解法＝統一照 tasks/quickstart 記載形帶 `-p server`；或單執行緒連結 `-C link-arg=-Wl,--threads=1` 一次即過。同內容測試兩形皆綠＝崩的是連結非測試。

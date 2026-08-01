@@ -87,5 +87,5 @@
 | 0082 | accepted | 2026-07-30 | 機密洩漏三層掃描防線定位——事件型廣譜 × 狀態型窄樣式 × 值比對確定性互補並存、三 repo 覆蓋 | — | — | — |
 | 0083 | accepted | 2026-07-30 | 團隊組成前提——「將來可能有非工程師」⇒ 兩層架構為待觸發架構決定；個人密碼管理器選型延後＋四反轉條件 | — | — | — |
 | 0084 | accepted | 2026-07-31 | host 暫存／落點樹統一 ~/.cache/fork260509-rev4/（secrets／decrypt／merge／keygen 四層）——取代 0080 之 SECRETS_DIR 落點值 | — | — | — |
-| 0085 | draft | 2026-07-31 | 帳號 email 驗證＝驗證即提交×已驗證值衛星表×partial unique——B-028 信箱半邊兌現選型 | — | — | — |
-| 0086 | draft | 2026-07-31 | SMTP 寄信基建首發＝lettre 同步寄送×設定全靜態 env×mailpit dev 驗收——效仿 GitLab Gmail 路徑 | — | — | — |
+| 0085 | accepted | 2026-07-31 | 帳號 email 驗證＝驗證即提交×已驗證值衛星表×partial unique——B-028 信箱半邊兌現選型 | — | — | — |
+| 0086 | accepted | 2026-07-31 | SMTP 寄信基建首發＝lettre 同步寄送×設定全靜態 env×mailpit dev 驗收——效仿 GitLab Gmail 路徑 | — | — | — |

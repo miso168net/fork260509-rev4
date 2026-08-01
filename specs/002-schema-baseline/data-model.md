@@ -22,6 +22,7 @@
 | 11 | sys_casbin_policy_archive | D 治理 | created_at/by（原 grant 快照、可空）＋archived_at NN def now＋archived_by＋archive_reason NN |
 | 12 | casbin_rule | D 治理 | adapter 基底 8 欄＋ALTER 治理欄 protected NN def false／created_at NN def now／created_by |
 | 13 | sys_pwd_custody | C 極簡 | created_at NN（＝該對最後設定時間、upsert 刷新）；禁 updated_*／deleted_*；複合 PK (user_id,created_by)、零 FK（ADR 0009）、硬刪；不存密碼。來源＝015-pwd-custody m011 |
+| 14 | sys_user_email_verify | C 衛星 | created_at NN def now＋created_by NN（列首建成對、upsert 不動）；verified_at NN＝最後驗證時刻（upsert 刷新＝重驗事件覆寫——憲法 §I.6 變體 C 釋義）；禁 updated_*／deleted_*；單一 PK user_id、零 FK（ADR 0009）、硬刪；不存驗證碼。來源＝020-email-verify-smtp m014 |
 
 ## 2. 三類刻意差異（rev3 終態 → rev4 定稿；閘 1 白名單來源）
 
@@ -286,9 +287,11 @@ adapter 固定、不重排（ADR 0015）；9~11＝ALTER 追加。
 
 ## 5. 索引／約束要點（全量機器基準＝fixtures/indexes.txt＋constraints.txt）
 
-- **活性唯一（partial uniq WHERE deleted_at IS NULL）×4**：sys_user.user_name／
+- **活性唯一（partial uniq WHERE deleted_at IS NULL）×5**：sys_user.user_name／
   sys_role.role_code／sys_menu.route_name／sys_ip_rule.wbip_cidr（後二者索引「內容」
-  跟新欄名走、索引「名」沿 rev3 原名——閘 1 嚴格比對名與定義）。
+  跟新欄名走、索引「名」沿 rev3 原名——閘 1 嚴格比對名與定義）／sys_user.user_email
+  （lower() 表達式、★另帶 user_email IS NOT NULL 條件；索引名
+  sys_user_user_email_active_uniq；post-baseline 走 STRUCT allowlist 容差、來源 020 m014）。
 - sys_token：token_hash 唯一＋partial (created_by) WHERE status='active'＋rotation_chain
   ＋expires_at 索引。
 - sys_login_attempt：(real_ip, created_at)＋(attempted_user_name, created_at)＋

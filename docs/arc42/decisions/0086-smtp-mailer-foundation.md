@@ -2,7 +2,7 @@
 id: "0086"
 title: SMTP 寄信基建首發＝lettre 同步寄送×設定全靜態 env×mailpit dev 驗收——效仿 GitLab Gmail 路徑
 date: 2026-07-31
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:2026-07-31 020-email-verify-smtp brainstorm——四鏡頭研究（wf_471a7c74：lettre／mailpit／Gmail 2026 政策官方文件查證）＋user 親決 D5~D8"
@@ -23,11 +23,13 @@ peer；十四鍵對映見 docs/brainstorms/020-email-verify-smtp.md §0.1）。�
    `default-features = false`、features＝`builder, hostname, smtp-transport, pool, tokio1,
    tokio1-rustls-tls`（純 Rust TLS、容器免 OpenSSL 相依）。
 2. **設定全靜態 compose env**（仿 GitLab；零 settings registry 觸及——現行 registry 拒收
-   string 型、擴充屬獨立刀）：`APP_SMTP_HOST/PORT/USERNAME/STARTTLS`＋
-   `APP_MAIL_FROM/DISPLAY_NAME/REPLY_TO/SUBJECT_SUFFIX`；`APP_SMTP_USERNAME` 空＝跳過 AUTH
-   （dev 對 mailpit）、非空＝AUTH LOGIN；`APP_SMTP_STARTTLS` true＝`starttls_relay`
+   string 型、擴充屬獨立刀）：`APP_SMTP_HOST/PORT/STARTTLS`＋
+   `APP_MAIL_FROM/DISPLAY_NAME/REPLY_TO` 六必填；`APP_SMTP_USERNAME` 與
+   `APP_MAIL_SUBJECT_SUFFIX`＝**「不設鍵即空語意」兩特例**（plan 對抗式驗證校正——config 對
+   「設鍵但空值」panic 拒啟動＝設鍵即必非空的機器強制；base compose 不設此兩鍵、dev 亦不設
+   username＝跳過 AUTH、prod 部署層補真值）；`APP_SMTP_STARTTLS` true＝`starttls_relay`
    （`Tls::Required`、憑證＋hostname 驗證預設啟用＝嚴格度≥GitLab peer）、false＝明文僅 dev；
-   465 隱式 TLS 不支援。
+   465 隱式 TLS 不支援。兩態建構有單元測試背書（SC-008）。
 3. **機密＝僅 `smtp_password` 一支入 SOPS**（019 全鏈儀式；亂數 leaf 生成——不用 CHANGE-ME
    佔位、config.rs 對其 panic 會炸 dev boot；prod 真值＝Gmail app password、填法入 RUNBOOK）；
    另 `email_verify_secret` 亂數 leaf（金鑰隔離先例、ADR 0085 決策 6 消費）；preflight

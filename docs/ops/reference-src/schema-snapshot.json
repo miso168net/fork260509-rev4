@@ -1209,6 +1209,46 @@
       "default": null
     },
     {
+      "table": "sys_user_email_verify",
+      "column": "user_id",
+      "ordinal": 1,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_user_email_verify",
+      "column": "verified_email",
+      "ordinal": 2,
+      "type": "character varying",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_user_email_verify",
+      "column": "verified_at",
+      "ordinal": 3,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": null
+    },
+    {
+      "table": "sys_user_email_verify",
+      "column": "created_at",
+      "ordinal": 4,
+      "type": "timestamp with time zone",
+      "nullable": false,
+      "default": "now()"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "column": "created_by",
+      "ordinal": 5,
+      "type": "bigint",
+      "nullable": false,
+      "default": null
+    },
+    {
       "table": "sys_user_role",
       "column": "user_id",
       "ordinal": 1,
@@ -1473,8 +1513,18 @@
     },
     {
       "table": "sys_user",
+      "name": "sys_user_user_email_active_uniq",
+      "definition": "CREATE UNIQUE INDEX sys_user_user_email_active_uniq ON public.sys_user USING btree (lower((user_email)::text)) WHERE ((deleted_at IS NULL) AND (user_email IS NOT NULL))"
+    },
+    {
+      "table": "sys_user",
       "name": "sys_user_user_name_active_uniq",
       "definition": "CREATE UNIQUE INDEX sys_user_user_name_active_uniq ON public.sys_user USING btree (user_name) WHERE (deleted_at IS NULL)"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "name": "pk_sys_user_email_verify",
+      "definition": "CREATE UNIQUE INDEX pk_sys_user_email_verify ON public.sys_user_email_verify USING btree (user_id)"
     },
     {
       "table": "sys_user_role",
@@ -1907,6 +1957,36 @@
       "table": "sys_user",
       "name": "sys_user_user_name_not_null",
       "definition": "NOT NULL user_name"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "name": "pk_sys_user_email_verify",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "name": "sys_user_email_verify_created_at_not_null",
+      "definition": "NOT NULL created_at"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "name": "sys_user_email_verify_created_by_not_null",
+      "definition": "NOT NULL created_by"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "name": "sys_user_email_verify_user_id_not_null",
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "name": "sys_user_email_verify_verified_at_not_null",
+      "definition": "NOT NULL verified_at"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "name": "sys_user_email_verify_verified_email_not_null",
+      "definition": "NOT NULL verified_email"
     },
     {
       "table": "sys_user_role",
