@@ -13,7 +13,7 @@ docker exec rev4-admin-rust-api-1 sh -c 'cd /app && cargo test --test email_veri
 python3 tools/schema-gate.py gate1     # 結構零漂移（含新表＋sys_user 唯一索引）
 python3 tools/schema-gate.py gate2     # 定稿落實
 python3 tools/schema-gate.py audit     # 變體矩陣（sys_user_email_verify 變體 C 分支必補、否則 FAIL）
-python3 tools/schema-gate.py --self-test
+python3 tools/schema-gate.py test    # ★子命令形（U8a 勘誤：舊字面 --self-test 與工具分派表不符、帶 -- 旗標 exit 64）
 
 # base-web
 docker exec rev4-admin-base-web-1 sh -c 'cd /app && pnpm typecheck'
