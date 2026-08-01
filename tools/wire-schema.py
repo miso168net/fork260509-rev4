@@ -27,6 +27,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -71,23 +72,22 @@ def _run_capture(argv):
     return subprocess.run(argv, capture_output=True, text=True, cwd=REPO_ROOT)
 
 
-def extract_schema(run=_run_capture):
+def extract_schema(run=_run_capture, hint=None):
     """跑容器內抽取 → 回 JSON Schema 文字（stdout）。
 
-    失敗（docker 缺＝OSError／stack 不在＝非零退出）＝raise ExtractError（附啟動提示）；
-    絕不回部分結果。`run` 可注入（離線測試用）。"""
+    失敗（docker 缺＝OSError／stack 不在＝非零退出）＝raise ExtractError（附補救提示）；
+    絕不回部分結果。`run` 可注入（離線測試用）；`hint` 可覆寫提示尾巴——check 分支
+    probe 已證容器可用、預設「起 stack」提示對其為無效補救、須換自屬句。"""
     argv = build_extract_argv()
     try:
         proc = run(argv)
     except OSError as ex:
-        raise ExtractError(
-            f"無法執行 docker（{ex}）——dev stack 未啟動？請先跑：{START_HINT}"
-        )
+        tail = hint or f"dev stack 未啟動？請先跑：{START_HINT}"
+        raise ExtractError(f"無法執行 docker（{ex}）——{tail}")
     if proc.returncode != 0:
         reason = (proc.stderr or proc.stdout or "").strip() or f"退出碼 {proc.returncode}"
-        raise ExtractError(
-            f"typings 抽取失敗（{reason}）——確認 dev stack 在跑：{START_HINT}"
-        )
+        tail = hint or f"確認 dev stack 在跑：{START_HINT}"
+        raise ExtractError(f"typings 抽取失敗（{reason}）——{tail}")
     return proc.stdout
 
 
@@ -232,8 +232,14 @@ def cmd_check(staged_gate=False, run=_run_capture, run_outer=_run_capture,
               f"要跑實比對先起 stack：{START_HINT}")
         return 0
     # ④ 重抽（容器宣稱可用、失敗即異常＝fail-loud，靜默跳過會成恆綠洞）。
+    # ★提示尾巴自屬（勿沿用 extract 的「起 stack」句——probe 剛證容器可用、照打無效）：
+    # 真因在容器內 npx 取件／typescript-json-schema 執行，補救＝手動重現抽取命令定位。
+    check_hint = ("容器內手動重現抽取定位真因："
+                  + " ".join(BASE_WEB_EXEC)
+                  + f" sh -c '{build_npx_command()}'"
+                  "；npm 取件失敗時檢查容器對 npm registry 連線")
     try:
-        schema_text = extract_schema(run=run)
+        schema_text = extract_schema(run=run, hint=check_hint)
     except ExtractError as ex:
         print(f"[check] ✗ 容器可用但重抽失敗：{ex}", file=sys.stderr)
         return 2
@@ -266,8 +272,12 @@ def cmd_check(staged_gate=False, run=_run_capture, run_outer=_run_capture,
     if snapshots_match(fresh, on_disk):
         print(f"[check] ✓ 快照與 typings 重抽 byte 一致（{len(definitions)} definitions）")
         return 0
+    # ★補救程序照兩段式 commit 真實走法寫（快照住 rust-api worktree、typings 住 base-web
+    # worktree、分屬不同 repo——「同一 commit 提交兩者」跨 submodule 不可能照做；本閘正是
+    # 為「pin 進了、快照沒進」而立，補救文字本身就是防復發教材）。
     print(f"[check] ✗ 快照與 typings 重抽不一致（{output_path}）——補救：先跑 "
-          "python3 tools/wire-schema.py extract 重抽、快照連同 typings 變動同 commit 提交",
+          "python3 tools/wire-schema.py extract 重抽、rust-api worktree 內 commit 快照，"
+          "再回外層同一 commit 一併 bump base-web 與 rust-api 兩支 pin",
           file=sys.stderr)
     return 2
 
@@ -371,6 +381,22 @@ class TestSnapshotsMatch(unittest.TestCase):
     def test_check_self_test_passes_on_healthy_logic(self):
         check_self_test()  # 邏輯健康＝不 raise
 
+    def test_check_self_test_failure_rc2(self):
+        """★紅證另一半（防恆綠機制自身）：比對邏輯壞（恆回一致）時 check 入口
+        self-test 必擋——rc 2、指名 check 比對邏輯壞、不觸任何子行程（與
+        fork-delta-lint 同款無條件 self-test 對齊）。"""
+        def boom(argv):
+            raise AssertionError("self-test 失敗即 return 2、不得觸發任何子行程")
+
+        err = io.StringIO()
+        with unittest.mock.patch.object(
+                sys.modules[__name__], "snapshots_match", lambda a, b: True):
+            with contextlib.redirect_stderr(err):
+                rc = cmd_check(run=boom, run_outer=boom, run_baseweb=boom)
+        self.assertEqual(rc, 2)
+        self.assertIn("self-test 失敗", err.getvalue())
+        self.assertIn("比對邏輯壞", err.getvalue())
+
 
 class TestCleanGitEnv(unittest.TestCase):
     """對 base-web 跑 git 前清 GIT_*（hook 洩漏外層 GIT_DIR/GIT_INDEX_FILE 撞 worktree index）。"""
@@ -424,6 +450,10 @@ class TestCheckFailLoud(unittest.TestCase):
             rc = cmd_check(run=self._probe_ok_extract(1, stderr="npx 非零退出"))
         self.assertEqual(rc, 2)
         self.assertIn("重抽失敗", err.getvalue())
+        # ★提示自屬（勿夾帶 extract 的「起 stack」句——probe 剛證容器可用、自相矛盾）：
+        # 補救＝容器內手動重現抽取命令。
+        self.assertNotIn(START_HINT, err.getvalue())
+        self.assertIn(build_npx_command(), err.getvalue())
 
     def test_extract_invalid_json_rc2(self):
         with contextlib.redirect_stderr(io.StringIO()):
@@ -467,7 +497,10 @@ class TestCheckCompare(unittest.TestCase):
                 rc = cmd_check(run=self._fake_run(self.PAYLOAD), output_path=snap)
             self.assertEqual(rc, 2)
             self.assertIn("python3 tools/wire-schema.py extract", err.getvalue())
-            self.assertIn("同 commit", err.getvalue())
+            # 補救＝可照打的兩段式程序（快照與 typings 分屬兩 worktree、不可能同一
+            # commit——正確走法：rust-api worktree commit 快照→外層一併 bump 兩支 pin）。
+            self.assertIn("rust-api worktree 內 commit", err.getvalue())
+            self.assertIn("bump base-web 與 rust-api 兩支 pin", err.getvalue())
             with open(snap, encoding="utf-8") as fh:  # 不一致也不得覆寫
                 self.assertEqual(fh.read(), self.PAYLOAD.replace('"A"', '"Z"'))
 
@@ -514,8 +547,10 @@ class TestCheckStagedGate(unittest.TestCase):
 
     def test_typings_changed_runs_full_compare(self):
         payload = '{"definitions":{"A":{}}}'
+        container_calls = []
 
-        def fake_run(argv):
+        def spy_run(argv):
+            container_calls.append(argv)
             if argv[-1] == "true":
                 return subprocess.CompletedProcess(argv, 0, "", "")
             return subprocess.CompletedProcess(argv, 0, payload, "")
@@ -523,12 +558,18 @@ class TestCheckStagedGate(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             snap = os.path.join(root, "wire-schema.json")
             atomic_write(snap, payload)
-            with contextlib.redirect_stdout(io.StringIO()):
-                rc = cmd_check(staged_gate=True, run=fake_run,
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = cmd_check(staged_gate=True, run=spy_run,
                                run_outer=self._fixed(_RAW_GITLINK),
                                run_baseweb=self._fixed("src/typings/api/system.d.ts\n"),
                                output_path=snap)
         self.assertEqual(rc, 0)
+        # ★可辨識斷言（跳過路徑 rc 同為 0、只驗 rc 釘不住正向面）：容器 seam 確被呼叫
+        # （探測＋重抽共 2 次）、stdout 是完整比對的一致訊息而非跳過訊息。
+        self.assertEqual(len(container_calls), 2)
+        self.assertIn("byte 一致", out.getvalue())
+        self.assertNotIn("跳過", out.getvalue())
 
     def test_zero_old_sha_verdict_unknown(self):
         raw = ":000000 160000 " + "0" * 40 + " " + "b" * 40 + " A\tbase-web\n"

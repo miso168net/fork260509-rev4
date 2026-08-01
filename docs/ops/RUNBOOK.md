@@ -322,7 +322,10 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 - **pre-commit 條件觸發**（工具自測、平時零額外開銷）：staged 含某 python 工具本體才跑
   該支 test 子命令（docs-sync 約 8s、schema-gate／wire-schema／secret-value-guard 毫秒級）；
   fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下
-  單跑約 9s）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具名冊全部 test。
+  單跑約 9s）；base-web pin bump 時另跑 `wire-schema check --staged-gate`（B-128 快照 drift
+  閘）——staged 區間零 typings 變動即跳過（毫秒級）、需重抽比對時約 9s（容器內 npx 已快取；
+  即 pin bump commit 由約 9s 增至約 18s）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具
+  名冊全部 test。
 
 lint 條款速覽（018 新增五條、B-116 增 L21、B-126 增 L22）——severity 三分：ERROR＝exit 1 擋 commit、
 WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：

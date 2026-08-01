@@ -7294,11 +7294,17 @@ class TestGateWiring(unittest.TestCase):
 
     def test_dry_run_fork_delta_lint_union_runs_exactly_once(self):
         """情境④~⑥ fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取
-        聯集：各單條件 1 次、雙條件仍 1 次（重跑判定冪等、白付約 9s drvfs I/O 稅）。"""
-        for staged in (["base-web"], ["tools/fork-delta-lint.py"],
-                       ["base-web", "tools/fork-delta-lint.py"]):
-            self.assertEqual(self._run(staged),
-                             (0, self.BASE + ["tools/fork-delta-lint.py"]), msg=str(staged))
+        聯集：各單條件 1 次、雙條件仍 1 次（重跑判定冪等、白付約 9s drvfs I/O 稅）。
+        ★三組期望分開釘（B-128 後補）：staged 含 base-web gitlink 時另觸發
+        wire-schema check --staged-gate（快照 drift 閘）、僅工具本體 staged 時不得觸發
+        ——此案同時是全庫唯一釘住該閘接線的守衛（整段刪掉即紅、防靜默關閘）。"""
+        wire_gate = ["tools/wire-schema.py check --staged-gate"]
+        self.assertEqual(self._run(["base-web"]),
+                         (0, self.BASE + ["tools/fork-delta-lint.py"] + wire_gate))
+        self.assertEqual(self._run(["tools/fork-delta-lint.py"]),
+                         (0, self.BASE + ["tools/fork-delta-lint.py"]))
+        self.assertEqual(self._run(["base-web", "tools/fork-delta-lint.py"]),
+                         (0, self.BASE + ["tools/fork-delta-lint.py"] + wire_gate))
 
     def test_dry_run_non_zero_action_fails_the_hook(self):
         """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。
