@@ -9,10 +9,11 @@
 - **020-email-verify-smtp 已收刀**（2026-08-01）：B-028 信箱半邊兌現＋系統首次 SMTP 寄信基建
   （驗證即提交×四自助端點×admin 守門×mailer×email-card 浮窗化×三語；憲法 v1.15.0＋ADR
   0085/0086；十執行單元、final review 異質雙審放行）。詳 events/STATE。
-- **治理工具維護批已收**（2026-08-01、maint-b112-b128-b129 雙 workflow 編排＋雙審）：B-128
-  wire drift 閘（check 子命令＋pre-commit 於 base-web pin bump 自動 byte 比對；stack 未起跳過
-  印警告＝user 拍板）×B-112 rust-api 舊名勘誤十行×B-129 寄信觀測回歸保護（test_support 擴
-  lib seam＋smtp_error_kind 六分支測、lib 767→772）；B-132 移滯後卷。詳 events。
+- **治理工具維護批×2 已收**（2026-08-01~02、詳 events）：①maint-b112-b128-b129＝B-128 wire
+  drift 閘＋B-112 舊名勘誤＋B-129 寄信觀測回歸保護＋B-132 移滯後、另 maint-b101＝B-101 全收；
+  ②maint-lint-speedup-rename＝lint 提速 8 倍（pickaxe 慢路徑 O(1) 化、104s→14s）＋★lint 條款
+  編號全面改名 L1~L22→Lint01~Lint22（兩碼零填、user 拍板；舊碼禁令 Lint23 掛四檔語料；
+  accepted ADR 六處加註 (LintNN) 對照；史料沿用舊碼不回改）＋B-113 病因勘誤改寫。
 - **下一步：待 user 拍板下一波範圍**（BACKLOG 候選：B-028 另半〔手機＋驗證碼改密——020 基建
   全數可平移〕、B-102 changePassword 節流、B-027 alt-login、B-037/B-042/B-081/B-013 prod
   部署組等）。
