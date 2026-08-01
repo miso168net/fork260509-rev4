@@ -46,7 +46,7 @@ errata 勘誤仍就地修；新教訓 ☞ LESSONS.md。L 號跨卷連號、永�
   git index（staged gitlink）而非 submodule worktree HEAD——先跑 generate 再 git add rust-api，
   STATE 落舊 pin、pre-commit check 即紅。防法：pin bump 簿記一律「git add rust-api → generate →
   git add docs/generated → commit」順序；順序反了就地重跑 generate 再 commit 即癒。
-  ｜出處：2026-07-19 016 U5 收單 commit 首次嘗試被 L1 攔（U2 同形僥倖通過＝前次失敗 commit
+  ｜出處：2026-07-19 016 U5 收單 commit 首次嘗試被 Lint01 攔（U2 同形僥倖通過＝前次失敗 commit
   已把 gitlink 留在 index）。
 
 - **L-158**｜「工作樹收乾淨」≠「物件庫收乾淨」：`git add` 過的內容即使 `reset --hard`／刪檔
@@ -93,7 +93,7 @@ errata 勘誤仍就地修；新教訓 ☞ LESSONS.md。L 號跨卷連號、永�
 - **L-155**｜WSL2 drvfs 上「整鏈前後差量」量不出秒級增量：pre-commit 全鏈約 45s 的牆鐘變異達
   ±1.5s 量級、大於被測新條款的實際成本（018 U2 以 `run_lint` 整跑做差量甚至量出負值）。
   防法：量單一條款／函式的成本一律用 `perf_counter` 直接包該函式、連跑數次取穩定值
-  （L16 外層全量掃實測 1.47~1.54s、併入 `run_lint` 僅 +0.3s＝頁快取效應）；整鏈 `time`
+  （Lint16 外層全量掃實測 1.47~1.54s、併入 `run_lint` 僅 +0.3s＝頁快取效應）；整鏈 `time`
   只用於「有無數量級劣化」的粗判，不可用於秒級增量驗收。
   ｜出處：2026-07-28 018 U2（G1 憑證掃描）效能驗收；連帶＝T001 基線 46.4／47.4s 的離散度即證據。
 
@@ -115,7 +115,7 @@ errata 勘誤仍就地修；新教訓 ☞ LESSONS.md。L 號跨卷連號、永�
   前綴，故檔內以「兩個加號」起首的行在 diff 裡長成三個加號——secret-value-guard 的
   `find_hits` 以單一前綴同時判檔頭與新增行，實測①含空白形被當 `+++ ` 檔頭吞掉、path 被改寫
   成該行文字（其後命中報成錯檔錯行）②無空白形被 `not startswith("+++")` 整行排除（漏掃），
-  且該行不推進行號、同 hunk 後續命中行號一併少算。而 docs-sync 的 `cred_diff_hits`（018 L16）
+  且該行不推進行號、同 hunk 後續命中行號一併少算。而 docs-sync 的 `cred_diff_hits`（018 Lint16）
   早已用 hunk 狀態機解掉，其 docstring 還逐字寫著這個坑——同 repo 有正解卻沒沿用（L-157 同族：
   有出處的假安心）。防法：①動手寫同族工具（掃 diff／掃 staged／掃範圍）前先 grep 既有同族
   實作，把其 docstring 的警語當規格照抄；②diff 解析一律先以 hunk 邊界（`diff --git`／`@@`）
@@ -165,7 +165,7 @@ errata 勘誤仍就地修；新教訓 ☞ LESSONS.md。L 號跨卷連號、永�
 
 - **L-161**｜活手冊裡寫死「N 支／N 組」的敘述＝勘誤永動機：019 名冊納入第 5 支工具後，同一
   句型的「四支／六支」殘留在兩天內被抓三輪——真表生成器抬頭寫死「六支」而實列七節（quality
-  第 1 輪）、RUNBOOK §12 三處支數（主線 f88e579）、RUNBOOK §12 的 L19 條款速覽（quality
+  第 1 輪）、RUNBOOK §12 三處支數（主線 f88e579）、RUNBOOK §12 的 Lint19 條款速覽（quality
   第 2 輪；前兩輪都經手同一節、獨漏該句）。每輪只把數字往上補＝L-156 同族的「只修被點名那
   一處」，下次名冊增減照樣全面失真。防法：①凡敘述可由機器現算的集合大小，一律不寫字面
   數字——生成物用現算值（`len(rows)`）＋字面斷言釘住，人寫活手冊改寫成指向現算來源的說法
