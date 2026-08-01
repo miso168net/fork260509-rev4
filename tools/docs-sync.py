@@ -1864,7 +1864,7 @@ def compute_snapshot_reference(root):
 # ---------------------------------------------------------------------------
 
 TOOLS_PY = ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema",
-            "secret-value-guard")
+            "secret-value-guard", "entity-drift-gate")
 TOOLS_SH = ("bootstrap", "wf-watchdog")
 TOOLS_CLI_MD = f"{GENERATED_DIR}/reference/tools-cli.md"
 SH_USAGE_HEAD = 10     # bash 用法行只認檔頭前 N 行的註解（再深＝內文敘述、非介面說明）
@@ -2869,7 +2869,7 @@ def lint_empty_sets(root, tracked=None, cache=None):
 #     「./deploy/generate-secrets.sh [--force|--compose-only]」、preflight-secrets.sh
 #     「./deploy/preflight-secrets.sh」（另 deploy/secrets/README.md 同形）、
 #     generate-dev-cert.sh「./deploy/generate-dev-cert.sh [--force]」；
-#   tools/*.py 五支＝RUNBOOK §12 標頭明載「python 工具一律直跑或 python3 前綴」——直跑
+#   tools/*.py 六支＝RUNBOOK §12 標頭明載「python 工具一律直跑或 python3 前綴」——直跑
 #     屬受支持介面形。
 # ★除外（叫用形不依賴 index exec bit；其 index 現值為何不在本條款管轄）：
 #   .githooks/lib/scan-range.sh＝被 source（.githooks/pre-push 與
@@ -2889,8 +2889,8 @@ EXEC_BIT_ROSTER = (
     "deploy/decrypt-secrets.sh", "deploy/generate-dev-cert.sh",
     "deploy/generate-secrets.sh", "deploy/preflight-secrets.sh",
     "deploy/sops.sh",
-    "tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate.py",
-    "tools/secret-value-guard.py", "tools/wire-schema.py",
+    "tools/docs-sync.py", "tools/entity-drift-gate.py", "tools/fork-delta-lint.py",
+    "tools/schema-gate.py", "tools/secret-value-guard.py", "tools/wire-schema.py",
 )
 EXEC_BIT_MODE = "100755"
 
@@ -6247,7 +6247,7 @@ _FAKE_ELIF = 'elif cmd == "{}":\n    pass\n'
 _FAKE_IN = 'if cmd in ("{}", "{}"):\n    pass\n'
 _FAKE_TOOLS = (("docs-sync", ("generate", "lint")), ("fork-delta-lint", ()),
                ("schema-gate", ("gate1", "gate2")), ("wire-schema", ("extract",)),
-               ("secret-value-guard", ("check",)))
+               ("secret-value-guard", ("check",)), ("entity-drift-gate", ("check",)))
 
 
 def _tools_fixture(d):
@@ -6289,20 +6289,20 @@ class TestToolsCliTruthTable(unittest.TestCase):
         self.assertIsNone(sh_usage_line("#!/bin/sh\n# 用途：只有用途註解\n"))
         self.assertIsNone(sh_usage_line("#\n" * SH_USAGE_HEAD + "# 用法：太深\n"))
 
-    def test_tools_roster_is_pinned_and_table_renders_seven_sections(self):
+    def test_tools_roster_is_pinned_and_table_renders_eight_sections(self):
         """★名冊字面釘死：只迭代 TOOLS_PY／TOOLS_SH 的斷言是套套邏輯（常數縮水＝斷言跟著
         縮水、全綠存活），連帶 RE_CMD_PY／RE_CMD_OLD 也由同一常數 join 而成——名冊少一支＝
         真表少一節（SC-006 失守）＋該工具的 Lint19 子命令比對與舊名禁令一併靜默下線。"""
         self.assertEqual(TOOLS_PY,
                          ("docs-sync", "fork-delta-lint", "schema-gate", "wire-schema",
-                          "secret-value-guard"))
+                          "secret-value-guard", "entity-drift-gate"))
         self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
-        self.assertEqual(len(heads), 7, msg=str(heads))
+        self.assertEqual(len(heads), 8, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（019 U1 實證）。
-        self.assertIn("來源＝tools/ 7 支工具掃源（python 5 支", md)
+        self.assertIn("來源＝tools/ 8 支工具掃源（python 6 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
@@ -6843,14 +6843,15 @@ class TestExecBitGuard(unittest.TestCase):
 
     def test_roster_is_pinned(self):
         """★名冊字面釘死（同 REFERENCE_SOURCES 慣例）：期望值取自被測常數＝套套邏輯，
-        名冊縮水時守衛靜默瘦身、零信號——字面列出十四筆，少一筆即紅。"""
+        名冊縮水時守衛靜默瘦身、零信號——字面列出十五筆，少一筆即紅。"""
         self.assertEqual(EXEC_BIT_ROSTER, (
             ".githooks/pre-commit", ".githooks/pre-push",
             ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
             "deploy/decrypt-secrets.sh", "deploy/generate-dev-cert.sh",
             "deploy/generate-secrets.sh", "deploy/preflight-secrets.sh",
             "deploy/sops.sh",
-            "tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate.py",
+            "tools/docs-sync.py", "tools/entity-drift-gate.py",
+            "tools/fork-delta-lint.py", "tools/schema-gate.py",
             "tools/secret-value-guard.py", "tools/wire-schema.py"))
 
     def test_real_repo_roster_all_755(self):
@@ -7411,8 +7412,8 @@ class TestGateWiring(unittest.TestCase):
     刪除或改壞時三套件仍全綠（＝本刀要消滅的失效類「守門動作恆不跑」）。python 面已有
     test_run_lint_wires_cmd_forms／test_compute_generated_wires_tools_cli 同級案，此節補齊
     shell 面：①名冊與真表對賬（把 hook 的手抄名冊降級為受檢副本）②以樁工具乾跑真 hook 檔
-    文、實測觸發次數（非只驗字面在）。沙盒建在系統 tmp（native fs、非 drvfs），十次乾跑
-    合計約 0.7s。"""
+    文、實測觸發次數（非只驗字面在）。沙盒建在系統 tmp（native fs、非 drvfs），十五次乾跑
+    合計約 1s。"""
 
     BASE = ["tools/secret-value-guard.py check",
             "tools/docs-sync.py check", "tools/docs-sync.py lint"]
@@ -7428,6 +7429,9 @@ class TestGateWiring(unittest.TestCase):
         for name in TOOLS_PY:
             _wfile(d, f"tools/{name}.py", STUB_TOOL)
         _wfile(d, "base-web", "gitlink 佔位：本測只驗觸發條件、不建真 submodule\n")
+        _wfile(d, "rust-api", "gitlink 佔位：本測只驗觸發條件、不建真 submodule\n")
+        _wfile(d, "docs/ops/reference-src/schema-snapshot.json",
+               "{}\n")   # 快照佔位：entity-drift-gate 閘觸發條件用（B-110）
         _wfile(d, "docs/ops/NOTES.md", "非工具檔（平時情境用）\n")
         # ★真 hook 現以 `--config <hook 目錄>/../.gitleaks.toml` 顯式指定掃描器設定
         # （019 final review：靠自動探索時 config 缺席會**靜默降級成內建規則並 rc=0**，
@@ -7497,6 +7501,7 @@ class TestGateWiring(unittest.TestCase):
         self.assertIsNotNone(text)
         self.assertEqual(tuple(RE_BOOTSTRAP_TEST.findall(text)), tools_test_roster())
         self.assertIn("tools/fork-delta-lint.py", text)
+        self.assertIn("tools/entity-drift-gate.py", text)   # 實跑行（B-110、與 fdl 同款兜底）
 
     def test_bootstrap_tool_test_is_fail_closed(self):
         """★G9 的另一半：跑了還要「失敗會紅」。上一案只驗「有沒有跑、順序對不對」，
@@ -7572,6 +7577,19 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(self._run(["base-web", "tools/fork-delta-lint.py"]),
                          (0, self.BASE + ["tools/fork-delta-lint.py"] + wire_gate))
 
+    def test_dry_run_entity_drift_gate_trigger_conditions(self):
+        """情境⑦~⑩ entity-drift-gate 閘（B-110）：staged 含 rust-api gitlink 或 schema
+        快照即觸發恰一次、兩者同 staged 仍恰一次（聯集、判定冪等）、平時（NOTES）不觸發
+        ——此案＝全庫唯一釘住該閘接線的守衛（整段刪掉即紅、防靜默關閘）。"""
+        gate = ["tools/entity-drift-gate.py check"]
+        self.assertEqual(self._run(["rust-api"]), (0, self.BASE + gate))
+        self.assertEqual(self._run(["docs/ops/reference-src/schema-snapshot.json"]),
+                         (0, self.BASE + gate))
+        self.assertEqual(
+            self._run(["rust-api", "docs/ops/reference-src/schema-snapshot.json"]),
+            (0, self.BASE + gate))
+        self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
+
     def test_dry_run_non_zero_action_fails_the_hook(self):
         """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。
         ★四分支逐一驗：hook 首行是 #!/bin/sh 且全檔無 set -e，行尾 `|| exit 1` 被拿掉＝該
@@ -7590,15 +7608,19 @@ class TestGateWiring(unittest.TestCase):
         # 分支 d：fork-delta-lint 非零。
         self.assertEqual(self._run(["base-web"], fail="fork-delta-lint.py"),
                          (1, self.BASE + ["tools/fork-delta-lint.py"]))
+        # 分支 e：entity-drift-gate 非零（B-110 閘；漂移／異常皆須擋 commit）。
+        self.assertEqual(self._run(["rust-api"], fail="entity-drift-gate.py"),
+                         (1, self.BASE + ["tools/entity-drift-gate.py check"]))
 
     def test_every_gate_action_line_is_guarded(self):
-        """★分支 d 的檔文兜底：fork-delta-lint 是 hook 末個動作，其 `|| exit 1` 被拆掉後、
-        if 語句的退出碼仍等於該命令退出碼（實測 sh 語意），行為與現行完全等價——黑箱乾跑
-        殺不死，只有檔文守衛擋得住。故通則化：每個 python3 動作行都必須帶退出碼保護，
-        將來在其後追加動作、末位優勢消失時，漏保護才不會靜默變成 fail-open。"""
+        """★分支 d 的檔文兜底：hook 末個動作（立案當時＝fork-delta-lint、B-110 後＝
+        entity-drift-gate 閘）的 `|| exit 1` 被拆掉後、if 語句的退出碼仍等於該命令退出碼
+        （實測 sh 語意），行為與現行完全等價——黑箱乾跑殺不死，只有檔文守衛擋得住。
+        故通則化：每個 python3 動作行都必須帶退出碼保護，將來在其後追加動作、末位優勢
+        消失時，漏保護才不會靜默變成 fail-open。"""
         lines = [ln for ln in (_read(ROOT, HOOK_REL) or "").splitlines()
                  if ln.strip().startswith("python3 ")]
-        self.assertGreaterEqual(len(lines), 4, msg=str(lines))   # check／lint／自測／fdl
+        self.assertGreaterEqual(len(lines), 4, msg=str(lines))   # check／lint／自測／fdl／entity 閘
         for ln in lines:
             self.assertTrue(ln.rstrip().endswith("|| exit 1"), msg=f"守門動作漏退出碼保護：{ln}")
 

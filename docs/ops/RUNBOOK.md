@@ -306,13 +306,15 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | `python3 tools/wire-schema.py extract` / `check` / `test` | 容器內抽 typings→wire-schema.json 快照／快照 drift 比對（B-128；`--staged-gate`＝pre-commit 收窄形）／自測 | extract **是**、check 未起→警告放行 |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點（B-118）：staged 增量對既存明文結構性失明（L-190），本旗標補盤點面——導入既有 repo 時與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量、成本未拍板；增量面＝pre-commit 自動跑裸 check）。實測全樹（445 tracked 檔、drvfs）約 1.6~1.8 秒 | 否 |
+| `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（B-110；casbin_rule 雙向豁免 ADR 0015；欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢；base-web 跑過 pnpm install 後重跑即可偵測 hooks 覆寫（B-124 指紋斷言） | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；營運程序＝§15） | 否（需 docker） |
 | `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出 10 支明文（composite 另跑 generate `--compose-only`） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（B′ 加殼；＝§15.2 步驟 1 機器化版：覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設名 | 否（需真 tty；age 缺席時需網路） |
 
 退出碼注意：schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
-不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；docs-sync refresh
+不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；entity-drift-gate＝漂移 1、
+異常 2、用法錯 64；docs-sync refresh
 的 stack 不在走 exit 1——判讀看是哪支工具的哪個碼、勿一概當失敗。
 
 - **子命令真表**：`docs/generated/reference/tools-cli.md`（機器生成、
@@ -320,11 +322,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
   （支數＝名冊現算、見真表抬頭）；
   lint 命令形判定基準＝工具源碼分派表、真表為同一掃源的生成物（手改真表不影響判定）。
 - **pre-commit 條件觸發**（工具自測、平時零額外開銷）：staged 含某 python 工具本體才跑
-  該支 test 子命令（docs-sync 約 8s、schema-gate／wire-schema／secret-value-guard 毫秒級）；
+  該支 test 子命令（docs-sync 約 8s、schema-gate／wire-schema／secret-value-guard／
+  entity-drift-gate 毫秒級）；
   fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下
   單跑約 9s）；base-web pin bump 時另跑 `wire-schema check --staged-gate`（B-128 快照 drift
   閘）——staged 區間零 typings 變動即跳過（毫秒級）、需重抽比對時約 9s（容器內 npx 已快取；
-  即 pin bump commit 由約 9s 增至約 18s）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具
+  即 pin bump commit 由約 9s 增至約 18s）；rust-api pin bump 或 schema 快照
+  （docs/ops/reference-src/schema-snapshot.json）staged 時另跑 `entity-drift-gate check`
+  （B-110 entity 漂移閘、零 docker 秒級）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具
   名冊全部 test。
 
 lint 條款速覽（018 新增五條、B-116 增 Lint21、B-126 增 Lint22、2026-08-02 改名＋增 Lint23）——severity
