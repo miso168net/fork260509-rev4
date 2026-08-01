@@ -790,7 +790,8 @@ dev 寄信走 mailpit（dev override 內建、零真信外流），dev 的 `smtp
 - **真值填法（prod 部署、連動 §15.4）**：`smtp_password` 真值＝app password（dev 亂數 leaf
   僅佔位）；`APP_SMTP_USERNAME` 由部署層設非空真值（base compose 不設鍵＝跳過 AUTH——
   Gmail 必須 AUTH、prod 必設）；`APP_SMTP_STARTTLS` 必 `true`（STARTTLS `Tls::Required`
-  不可降級）。寄達率面另有網域 DNS 設定：SPF `include:_spf.google.com`＋Admin console 啟
+  不可降級；★機器強制＝`mailer::build_transport` 入口守門：`starttls=false` 且 username 非空
+  即 boot panic 指名——B-131／U10、與本節互指）。寄達率面另有網域 DNS 設定：SPF `include:_spf.google.com`＋Admin console 啟
   DKIM（網域面、非本 stack 內設定）。
 - **量大備選**：`smtp-relay.gmail.com` 形（IP allowlist 模式、10000 收件人/日）——未實作、
   僅記載供未來擴充。
