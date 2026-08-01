@@ -2107,13 +2107,36 @@ def _open_backlog_ids(root):
     return ids
 
 
+_EVER_TOKENS_MEMO = {}
+
+
+def _backlog_ever_tokens(root):
+    """BACKLOG 全卷 git 全史「曾存在之 `B-NNN｜` token」集合（至多一次全史單掃＋行程內 memoize）。
+    ★取代逐慢路徑 id 各發一次 `git log -S` pickaxe（drvfs 實測單發 ~7s、筆數隨治理活動永久
+    遞增＝每次 commit 成本線性惡化）：改一發 `git log --oneline -p` 全史掃描，於 diff 內容行
+    （加號與減號行皆算）以 RE_ENTRY_ANYPOS 寬鬆子串形抓 token、不加行首錨定——與 pickaxe -S
+    同語意：子串曾存在於任一歷史版本（含後來被刪者、含僅被其他條目內文引用者）必經某
+    commit 加號行進入（初始 commit 之 diff 全檔皆加號行）、反之加減號行出現者必屬某版本
+    內容。存 group(0) 逐字 token（不正規化數字）＝保留 pickaxe 的字面子串比對語意。
+    +++/--- 檔頭行同以 +/- 起頭、但內容為 ASCII 路徑、regex 恆不中，毋須另排除；
+    --oneline 標題行以 sha 十六進位起頭、不會混入。git 不可用→空集合（同逐 id 版回 False）。"""
+    if root not in _EVER_TOKENS_MEMO:
+        out = git_out(["log", "--oneline", "-p", "--", *backlog_paths(root)], root)
+        toks = set()
+        for line in (out or "").splitlines():
+            if line[:1] in "+-":
+                toks.update(m.group(0) for m in RE_ENTRY_ANYPOS["B"].finditer(line))
+        _EVER_TOKENS_MEMO[root] = toks
+    return _EVER_TOKENS_MEMO[root]
+
+
 def _backlog_id_ever_existed(root, nb):
     """B-NNN 是否曾在 BACKLOG.md git 史出現過（真被 defer、非 phantom/typo）。
     ★不問「何時加」：backlog 項或於 mid-feature commit、或於 merge 後之收刀簿記 commit 加入
     （CLAUDE.md §2 簿記排在 merge 之後），故 merge SHA 非可靠參考點——只問「有沒有真加過」。
-    `｜` 為條目欄位分隔、散文引用不帶，故 `B-NNN｜` 專認真條目。git 不可用（測試）→False。"""
-    out = git_out(["log", "--oneline", "-S", f"{nb}｜", "--", *backlog_paths(root)], root)
-    return bool(out and out.strip())
+    `｜` 為條目欄位分隔、散文引用不帶，故 `B-NNN｜` 專認真條目。git 不可用（測試）→False。
+    實作＝查 _backlog_ever_tokens 單掃集合；lazy——零慢路徑 id 時本函式不被呼叫、零新成本。"""
+    return f"{nb}｜" in _backlog_ever_tokens(root)
 
 
 def _backlog_done_ids(events):
@@ -4500,6 +4523,42 @@ class TestLintCloseExistence(unittest.TestCase):
         # B-099 從未在 BACKLOG git 史出現（phantom/typo）→仍抓錯。
         f = self._git_close(backlog_at_merge=["B-070"], backlog_now=[], backlog_add=["B-099"])
         self.assertTrue(any("B-099" in x["msg"] and x["code"] == "L4" for x in f))
+
+    def _pickaxe_ever_existed(self, nb):
+        """單掃改法前的逐 id pickaxe 原邏輯（僅留作等價性測試的對照基準；
+        生產路徑已改 _backlog_ever_tokens 單掃集合法）。"""
+        out = git_out(["log", "--oneline", "-S", f"{nb}｜", "--", *backlog_paths(self.root)],
+                      self.root)
+        return bool(out and out.strip())
+
+    def test_ever_existed_single_scan_equals_pickaxe(self):
+        """等價性：單掃集合法與逐 id pickaxe 法對三型 id 結論一致（子串級、不分行首形）。
+        三型＝曾存在後被刪（B-070）／從未存在（B-999）／僅被其他條目內文引用（B-202：
+        `B-202｜` 子串只出現在 B-201 條目內文、非自身條目列——pickaxe 本就子串級、判曾存在）。"""
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+        def g(*args):
+            r = subprocess.run(["git", *args], cwd=self.root, capture_output=True,
+                               text=True, env=env)
+            assert r.returncode == 0, r.stderr
+            return r.stdout
+        kept = "- B-201｜內文引用他項：詳見 B-202｜之內文子串形\n"
+        self._w(BACKLOG, "<!-- next: B-300 -->\n# BACKLOG\n\n- B-070｜曾存在後被刪\n" + kept)
+        g("init", "-q", "-b", "main")
+        g("add", "-A")
+        g("commit", "-qm", "v1")
+        self._w(BACKLOG, "<!-- next: B-300 -->\n# BACKLOG\n\n" + kept)
+        g("add", "-A")
+        g("commit", "-qm", "v2-del-B-070")
+        # 單掃集合逐字 token（B-070 只剩減號行可見＝刪除史也被涵蓋）
+        self.assertEqual(_backlog_ever_tokens(self.root),
+                         {"B-070｜", "B-201｜", "B-202｜"})
+        for nb, expect in [("B-070", True), ("B-999", False), ("B-202", True)]:
+            scan = _backlog_id_ever_existed(self.root, nb)
+            pick = self._pickaxe_ever_existed(nb)
+            self.assertEqual(scan, pick, f"{nb}：單掃 {scan} ≠ pickaxe {pick}")
+            self.assertEqual(scan, expect, nb)
 
 
 class TestLintReviewExistence(unittest.TestCase):
