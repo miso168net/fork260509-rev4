@@ -1,22 +1,21 @@
 # NOTES — 當前意圖／下一步
 
-- 波 0（001~003）＋波 1（004~008）＋admin 家族（009~013）＋014-user-center＋015-pwd-custody＋
-  016-observability＋017-audit-retention＋018-governance-hardening＋019-secrets-sops＋
-  020-email-verify-smtp＋輕量軌（B-059／B-104／維護批×2）全收；憲法現版 v1.15.0。各刀成果
-  與判準詳 events/STATE、git 即史。
+- 波 0~1（001~008）＋admin 家族（009~013）＋014~020 各刀＋輕量軌（B-059／B-104／維護批×2）
+  全收；憲法現版 v1.15.0。各刀成果與判準詳 events/STATE、git 即史。
 - ★維運待辦（016 遺留）：`$SECRETS_DIR/alert_webhook_url.txt` 現值＝dev 收器 URL（收器已撤、
   投遞失敗重試無害）、正式接收端 URL 待 user 自填——★019 起落點已遷出 repo、密文權威來源＝
   `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；觀測件（obs／metrics
   profiles）現非常駐、要用再 up；jobs sidecar 屬 opt-in 未常駐。
 - **020-email-verify-smtp 已收刀**（2026-08-01）：B-028 信箱半邊兌現＋系統首次 SMTP 寄信基建
-  ——驗證即提交（衛星表比對導出、零 pending）×四自助端點（captcha ctx 語境隔離＋節流原子先佔
-  ＋島 I1 鎖內終判）×admin 守門（單一驗證點＋EmailTaken 雙保險＋清空落 NULL）×mailer（lettre
-  兩態＋明文 AUTH 守門）×email-card 浮窗化（user 拍板 Send Code Layer、標題組合式 Phone 可共用）
-  ×三語 12＋2 鍵；m014＋SOPS 10 key＋preflight 13＋mailpit dev 收信；憲法 v1.15.0（(g) 擴字串＋
-  §I.6 變體 C 釋義）＋ADR 0085/0086；十執行單元、final review 異質雙審放行。詳 events/STATE。
+  （驗證即提交×四自助端點×admin 守門×mailer×email-card 浮窗化×三語；憲法 v1.15.0＋ADR
+  0085/0086；十執行單元、final review 異質雙審放行）。詳 events/STATE。
+- **治理工具維護批已收**（2026-08-01、maint-b112-b128-b129 雙 workflow 編排＋雙審）：B-128
+  wire drift 閘（check 子命令＋pre-commit 於 base-web pin bump 自動 byte 比對；stack 未起跳過
+  印警告＝user 拍板）×B-112 rust-api 舊名勘誤十行×B-129 寄信觀測回歸保護（test_support 擴
+  lib seam＋smtp_error_kind 六分支測、lib 767→772）；B-132 移滯後卷。詳 events。
 - **下一步：待 user 拍板下一波範圍**（BACKLOG 候選：B-028 另半〔手機＋驗證碼改密——020 基建
-  全數可平移〕、B-102 changePassword 節流、B-027 alt-login、B-037/B-042/B-081/B-013 prod 部署組、
-  B-128 wire drift 閘等）。
+  全數可平移〕、B-102 changePassword 節流、B-027 alt-login、B-037/B-042/B-081/B-013 prod
+  部署組等）。
 - 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；B-103（滯後卷）；
   B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；B-101（casbin
   按鈕碼與 buttons 聯集漂移）；B-094（未刪選單分頁截斷）。
