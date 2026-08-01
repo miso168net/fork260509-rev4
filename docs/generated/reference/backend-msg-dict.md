@@ -49,6 +49,8 @@
 | biz.user.cannotDeleteSelf | 不能刪除目前登入使用者 | Cannot delete the currently logged-in user |
 | biz.user.cannotDisableSelf | 不能停用目前登入使用者 | Cannot disable the currently logged-in user |
 | biz.user.cannotKickSelf | 不能踢除目前登入使用者 | Cannot kick the currently logged-in user |
+| biz.user.emailFormatInvalid | 該使用者的信箱格式不正確 | Invalid email address format for this user |
+| biz.user.emailTaken | 該信箱已被其他使用者使用 | This email address is already in use by another user |
 | biz.user.oldPasswordMismatch | 舊密碼不符 | Old password is incorrect |
 | biz.user.passwordMismatch | 兩次輸入的新密碼不一致 | The two new passwords do not match |
 | biz.user.passwordPolicy | 密碼不符合密碼政策：{violations} | Password does not meet the password policy: {violations} |
@@ -71,6 +73,18 @@
 | biz.user.userNameImmutable | 使用者名稱建立後不可修改 | User name cannot be changed after creation |
 | biz.user.userNameInvalid | 使用者名稱格式不正確（僅允許字母、數字、底線、連字號，最長 64 位） | Invalid user name (letters, digits, underscore and hyphen only, up to 64 characters) |
 | biz.user.userNotFound | 使用者不存在 | User not found |
+| biz.userCenter.emailCaptchaInvalid | 圖形驗證碼錯誤或已過期，請重新驗證 | Captcha is invalid or has expired, please try again |
+| biz.userCenter.emailCodeAttemptsExceeded | 驗證碼錯誤次數過多，請重新傳送 | Too many incorrect attempts, please request a new code |
+| biz.userCenter.emailCodeExpired | 驗證碼已過期，請重新傳送 | The verification code has expired. Please request a new one |
+| biz.userCenter.emailCodeInvalid | 驗證碼錯誤，請重新輸入 | Incorrect verification code, please try again |
+| biz.userCenter.emailCooldown | 傳送過於頻繁，請於 {remainingSeconds} 秒後再試 | Too many requests. Please try again in {remainingSeconds} seconds |
+| biz.userCenter.emailDailyLimit | 今日傳送次數已達上限，請明日再試 | Daily send limit reached, please try again tomorrow |
+| biz.userCenter.emailFormatInvalid | 信箱格式不正確 | Invalid email address format |
+| biz.userCenter.emailNotBound | 尚未綁定信箱 | No email address is bound to this account |
+| biz.userCenter.emailSendFailed | 驗證信寄送失敗，請稍後再試 | Failed to send the verification email, please try again later |
+| biz.userCenter.emailTaken | 此信箱已被其他帳號使用 | This email address is already in use by another account |
+| biz.userCenter.emailThrottleUnavailable | 系統暫時無法處理，請稍後再試 | The system is temporarily unable to process this request. Please try again later |
+| biz.userCenter.emailTokenInvalid | 驗證流程已失效，請重新傳送驗證碼 | Invalid verification credential, please request a new code |
 | common.listSeparator | 、 | ,  |
 | common.success | 操作成功 | Operation successful |
 | system.forbidden | 沒有權限執行此操作 | You do not have permission to perform this action |

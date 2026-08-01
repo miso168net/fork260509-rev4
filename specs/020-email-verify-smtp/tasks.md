@@ -210,7 +210,9 @@ fail-closed＋告警。
 
 - [ ] T023 [US4] 三語 locale 全量新鍵（`backend.*` 12＋2 逐鍵名冊＝contracts C8、emailCooldown
   攜 `{remainingSeconds}` 佔位；`page.userCenter.*` 徽章/解綁/captcha/倒數/成功提示；
-  `comingSoon` 佔位鍵**刪除**〔analyze U1 拍定：接真後零消費；三語 langs＋Schema 鏡像四檔同步〕）in
+  `comingSoon` 佔位鍵**保留不刪**〔U7 實測推翻 analyze U1「接真後零消費」前提：password-card 之
+  非舊密碼驗證方式路徑的 comingSoon toast 與 phone-card 驗證碼佔位組的 comingSoon toast（皆 B-028
+  另半佔位）仍為活消費者、強刪即壞卡＋typecheck 紅；刪除延後至 B-028 另半接真自然退場——主線拍板修正〕）in
   `base-web/src/locales/langs/{zh-tw,zh-cn,en-us}.ts`＋`App.I18n.Schema` 鏡像 in
   `base-web/src/typings/app.d.ts`（圈界）——typecheck 綠＝鏡像機器證
 - [ ] T024 [US4] restart base-web＋CDP S9（三語零 raw key）PASS

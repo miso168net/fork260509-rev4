@@ -66,6 +66,9 @@ getProfile additive 加欄＋admin 拒因×2＋i18n 鍵＋compose/secrets 面。
   emailCodeInvalid／emailNotBound；`backend.biz.user.` 之下 2 鍵＝emailFormatInvalid／emailTaken。
 - 既有佔位鍵處置（★拍定、防四檔漂移——analyze U1）：`page.userCenter.verify.comingSoon`
   **刪**（接真後零消費；三語 langs＋Schema 鏡像四檔同步）；`phoneCode` 屬 B-028 另半、留。
+  ★U7 勘註（主線拍板修正、詳 tasks.md T023）：「接真後零消費」前提實測不成立——password-card
+  與 phone-card 兩處 B-028 另半佔位 toast 仍為活消費者，`comingSoon` **保留不刪**、延後至另半
+  接真自然退場。
 - `page.userCenter.*` UI 鍵：既有 `verify.sendCode/codePlaceholder/verify` 沿用＋新增＝已驗證
   徽章（含時刻格式）／未驗證標示／解除綁定鈕與確認文案／captcha 輸入佔位／冷卻倒數格式
   （`{seconds}` 佔位）／發送成功提示／驗證成功提示。
