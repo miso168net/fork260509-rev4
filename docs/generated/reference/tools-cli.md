@@ -17,7 +17,7 @@
 
 ## tools/wire-schema.py
 - 語言：python
-- 子命令：`extract`｜`test`
+- 子命令：`check`｜`extract`｜`test`
 
 ## tools/secret-value-guard.py
 - 語言：python

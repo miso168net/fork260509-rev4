@@ -303,7 +303,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
 | `python3 tools/schema-gate.py test` | 自測 | 否 |
-| `python3 tools/wire-schema.py extract` / `test` | 容器內抽 typings→wire-schema.json 快照／自測 | extract **是** |
+| `python3 tools/wire-schema.py extract` / `check` / `test` | 容器內抽 typings→wire-schema.json 快照／快照 drift 比對（B-128；`--staged-gate`＝pre-commit 收窄形）／自測 | extract **是**、check 未起→警告放行 |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點（B-118）：staged 增量對既存明文結構性失明（L-190），本旗標補盤點面——導入既有 repo 時與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量、成本未拍板；增量面＝pre-commit 自動跑裸 check）。實測全樹（445 tracked 檔、drvfs）約 1.6~1.8 秒 | 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢；base-web 跑過 pnpm install 後重跑即可偵測 hooks 覆寫（B-124 指紋斷言） | 否 |
@@ -311,7 +311,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出 10 支明文（composite 另跑 generate `--compose-only`） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（B′ 加殼；＝§15.2 步驟 1 機器化版：覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設名 | 否（需真 tty；age 缺席時需網路） |
 
-退出碼注意：schema-gate/wire-schema＝差異 1、環境不可用 2、用法錯 64；docs-sync refresh
+退出碼注意：schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
+不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；docs-sync refresh
 的 stack 不在走 exit 1——判讀看是哪支工具的哪個碼、勿一概當失敗。
 
 - **子命令真表**：`docs/generated/reference/tools-cli.md`（機器生成、
@@ -321,7 +322,10 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 - **pre-commit 條件觸發**（工具自測、平時零額外開銷）：staged 含某 python 工具本體才跑
   該支 test 子命令（docs-sync 約 8s、schema-gate／wire-schema／secret-value-guard 毫秒級）；
   fork-delta-lint 兩觸發條件（base-web pin bump／工具本體 staged）取聯集只跑一次（drvfs 下
-  單跑約 9s）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具名冊全部 test。
+  單跑約 9s）；base-web pin bump 時另跑 `wire-schema check --staged-gate`（B-128 快照 drift
+  閘）——staged 區間零 typings 變動即跳過（毫秒級）、需重抽比對時約 9s（容器內 npx 已快取；
+  即 pin bump commit 由約 9s 增至約 18s）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具
+  名冊全部 test。
 
 lint 條款速覽（018 新增五條、B-116 增 L21、B-126 增 L22）——severity 三分：ERROR＝exit 1 擋 commit、
 WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）：
