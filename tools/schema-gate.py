@@ -204,6 +204,18 @@ SEED_CONTENT_OVERRIDE_ALLOWLIST = {
         {"code": "ipRule:delete", "desc": "删除IP规则"},
         {"code": "ipRule:restore", "desc": "恢复IP规则"},
     ],
+    # maint-b101 m015（B-101；ADR 0064）：manage_user 列 buttons 自 m002 三碼演進為七碼——
+    # 既有三碼原值原序保留、append 四碼（m008 於 011 只 seed casbin 按鈕政策未回填 buttons
+    # 之缺口補平；desc 簡體＝欄內既有 seed 風格延續）。
+    ("sys_menu", "route_name=manage_user", "buttons"): [
+        {"code": "user:add", "desc": "新增用户"},
+        {"code": "user:edit", "desc": "编辑用户"},
+        {"code": "user:delete", "desc": "删除用户"},
+        {"code": "user:reset-pwd", "desc": "重置密码"},
+        {"code": "user:kick", "desc": "踢除下线"},
+        {"code": "user:restore", "desc": "复原用户"},
+        {"code": "user:unlock", "desc": "解锁登录"},
+    ],
 }
 
 # ---- audit 變體矩陣（contracts §4）----
