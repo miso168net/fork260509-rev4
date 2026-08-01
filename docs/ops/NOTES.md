@@ -7,19 +7,18 @@
   `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；觀測件（obs／metrics
   profiles）現非常駐、要用再 up；jobs sidecar 屬 opt-in 未常駐。
 - **020-email-verify-smtp 已收刀**（2026-08-01）：B-028 信箱半邊兌現＋系統首次 SMTP 寄信基建
-  （驗證即提交×四自助端點×admin 守門×mailer×email-card 浮窗化×三語；憲法 v1.15.0＋ADR
-  0085/0086；十執行單元、final review 異質雙審放行）。詳 events/STATE。
-- **治理工具維護批×2 已收**（2026-08-01~02、詳 events）：①maint-b112-b128-b129＝B-128 wire
-  drift 閘＋B-112 舊名勘誤＋B-129 寄信觀測回歸保護＋B-132 移滯後、另 maint-b101＝B-101 全收；
-  ②maint-lint-speedup-rename＝lint 提速 8 倍（pickaxe 慢路徑 O(1) 化、104s→14s）＋★lint 條款
-  編號全面改名 L1~L22→Lint01~Lint22（兩碼零填、user 拍板；舊碼禁令 Lint23 掛四檔語料；
-  accepted ADR 六處加註 (LintNN) 對照；史料沿用舊碼不回改）＋B-113 病因勘誤改寫。
-- **下一步：待 user 拍板下一波範圍**（BACKLOG 候選：B-028 另半〔手機＋驗證碼改密——020 基建
-  全數可平移〕、B-102 changePassword 節流、B-027 alt-login、B-037/B-042/B-081/B-013 prod
-  部署組等）。
-- 遺留/追蹤：B-102（changePassword 舊密暴力試節流——throttle 綁死 login 不可直掛）；B-103（滯後卷）；
-  B-099（契約層對 query 形零判別力）；B-100（軟刪掃描通用刀、016 已留 --job 位）；
-  B-094（未刪選單分頁截斷）。
+  （憲法 v1.15.0＋ADR 0085/0086；十執行單元、final review 異質雙審放行）。詳 events/STATE。
+- **治理工具維護批×3 已收**（2026-08-01~02、詳 events）：B-128 wire drift 閘／B-112 舊名勘誤／
+  B-129 寄信觀測回歸／B-101 全收／lint 提速 8 倍（104s→14s）＋條款改名 Lint01~Lint23／
+  B-045＋B-018 空集合條目結清（四子項與候選手段各驗落空、cfc49a4）。
+- **下一步：待 user 拍板**——★推薦 B-110 階段 0（entity 漂移檢查：entity＝第三份手寫 schema
+  事實、gate1/gate2 皆不驗；原型 107 行純 python 已證 15 表 0 findings 2.06s、零 docker〔只吃
+  已 commit 的 snapshot json＋entity .rs〕；零拍板、半天量級、接閘照 B-128 TestGateWiring 範式；
+  ★條目原觸發條件〔單 feature 兩表 DDL〕未達＝屬提前做）；次選 B-102 changePassword 舊密試錯
+  節流（既有 password_change_min_interval 只擋「成功設密」、錯舊密永不觸發＝缺口實在；020
+  send_email_code 即完整範本；★須先拍兩題：redis 故障 fail-open〔傾向〕vs closed、門檻走
+  settings 鍵〔傾向；同端點已有一鍵〕vs 常數——後者決定要不要多一支 migration）。
+- 遺留/追蹤（詳 BACKLOG）：B-103 滯後卷／B-099／B-100／B-094。
 - base-web 改動走 fork-delta 原行紀律（★lint 一律 `python3 tools/fork-delta-lint.py` 直跑——bash 跑假紅
   ＝L-143；以 example 為基線機器強制、掛 pre-commit 於 base-web pin 變動時擋）；★**base-web worktree
   commit 的 `--no-verify` 慣例已廢止**（019）——hooksPath 指向外層即結構性旁路上游 husky、原始理由
