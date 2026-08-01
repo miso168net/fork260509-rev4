@@ -163,7 +163,8 @@ op-log；錯 3 次廢；解綁；重放/跨帳號拒；洩漏零命中。
 - [ ] T019 [US1] email-card.vue 改造（contracts C10 動線：徽章含時刻＋captcha 圖點擊換題與答錯
   自動重取＋發送→冷卻倒數（純前端 60s、拒因 remainingSeconds 重建）＋回填→驗證→emit saved
   重拉＋解綁鈕確認（未綁定不顯示）＋獨立儲存鈕退場）in
-  `base-web/src/views/user-center/modules/email-card.vue`
+  `base-web/src/views/user-center/modules/email-card.vue`（U9 勘註：user 2026-08-01 拍板佈局改版
+  ——captcha 移浮窗、卡面 Phone 同構三件式、標題組合式共用設計；動線行為不變僅載體變）
 
 **Checkpoint**: 容器內 cargo 全綠＋typecheck＋fork-delta-lint 綠；CDP S1（快樂路徑＋洩漏子步）
 ＋S2（錯碼三次）＋S6（解綁＋回填恢復前半）＋S7（captcha 閘）PASS（★CDP 以行為判準、容忍

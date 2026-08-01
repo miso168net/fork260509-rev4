@@ -91,3 +91,7 @@ getProfile additive 加欄＋admin 拒因×2＋i18n 鍵＋compose/secrets 面。
 - 冷卻倒數＝純前端 60s；重整消失、誤按由 `emailCooldown` 拒因之 `remainingSeconds` 重建（clarify Q4）。
 - captcha 圖點擊換題＋答錯自動重取（沿 pwd-login 既有互動慣例、但實作獨立於 login 軌道）。
 - 獨立儲存鈕退場（D3 副作用）；未綁定時解綁鈕不顯示。
+- 勘註（U9、user 2026-08-01 拍板佈局改版）：captcha 圖與答案輸入整組移入 Send Code Layer 浮窗
+  （NModal、沿 pwd-gen-modal 先例形）；卡面右欄改 Phone 同構三件式（Send Code 開浮窗＋碼輸入常駐
+  ＋Verify）；浮窗標題組合式（sendCode＋字面「 - 」＋emailTitle、零新鍵共用設計）——原動線行為
+  不變、僅佈局載體變。
