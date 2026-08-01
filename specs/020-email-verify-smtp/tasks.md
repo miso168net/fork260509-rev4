@@ -125,7 +125,8 @@ MUST 完成（§V.2 程序、user 親決）：
   零漂移、變體 C 分支過）＋docs-sync refresh 快照（015 U2 先例：落庫收單時 refresh 收錄新表）
 
 **Checkpoint**: 容器內 cargo lib 全綠（seam／格式／token／mailer 兩態／ctx 隔離）；schema-gate
-三子命令＋`--self-test` 綠（T002 新分支與 index 項案例過）。
+三子命令＋`test` 子命令綠（★U8 勘誤：舊字面 `--self-test` 與工具分派表不符；T002 新分支與
+index 項案例過）。
 
 ## Phase 3: User Story 1 - 本人綁定／變更信箱並完成驗證 (P1) 🎯 MVP
 
@@ -231,7 +232,7 @@ fail-closed＋告警。
   索引直插紅兩條）各即紅＋資料清理（quickstart §資料清理）
 - [ ] T027 全量閘：容器內 `cargo test -p server -- --test-threads=1`＋
   `cargo test --test contract --test wire_schema --test email_verify -- --test-threads=1`＋
-  `schema-gate.py gate1/gate2/audit`＋`--self-test`＋typecheck＋
+  `schema-gate.py gate1/gate2/audit`＋`test` 子命令（★U8 勘誤：舊字面 `--self-test` 不符分派表）＋typecheck＋
   `python3 tools/fork-delta-lint.py`＋`bash deploy/preflight-secrets.sh`＋
   `python3 tools/docs-sync.py check` 全綠
 - [ ] T028 final holistic review（異質雙審：安全狀態機鏡頭＋治理合規鏡頭；只讀不寫、findings

@@ -1,4 +1,4 @@
-<!-- next: B-128 -->
+<!-- next: B-132 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -35,3 +35,7 @@
 - B-112｜rust-api submodule 內治理工具舊名殘留：`server/tests/wire_schema.rs` 行 2/29/56/225/245 之 `python3 tools/wire-schema extract`（行 29/56 為測試失敗時印給人照打的補救命令、行 245 更以 assert 斷言 panic 訊息含該字串）＋`migration/src/m008~m011` 註解引 `tools/schema-gate`——018 改名後照打即檔不存在；不併 018 之因＝FR-017 明文零 submodule 改動、且改動需容器內 serial 驗證＋pin bump（rust 既有行為零回歸不受影響：斷言兩側同為 rust 自帶字串常數）｜下次動 rust-api 測試或 migration 註解時同刀｜出處：018 U1 quality review advisory（2026-07-28）
 - B-113｜docs-sync 自帶測試套件 drvfs 提速：284 案實測 5.2s（T001 基線 212 案／2.53s；user 1.60s＋sys 1.28s，約 2.3s 為 drvfs I/O 等待），多案在 drvfs 上 `git init` 建 fixture repo、每次 git spawn 稅約 73ms（L-155）。候選＝fixture repo 共用（class 級 setUp）／改在 native 路徑建 fixture／不需 git 的案改純檔案 fixture｜套件再成長至體感惡化、或 pre-commit 工具全改動成本成為實際痛點時｜出處：018 U4 SC-008 實測校正（2026-07-28）
 - B-115｜prod 機密分層遞延包：①建 `deploy/secrets.prod.enc.yaml`＋`.sops.yaml` 第二條錨定 `path_regex`（recipients≥2、**不含開發機公鑰**）②託管 DB 情境下 `database_url` 由 composite 升格為 primary secret 入 SOPS ③遞延驗收 #5（開發機解不開 prod）／#6（CI 取不到金鑰）——019 無 prod 資產與 CI 母體＝**結構性不可測**，不做假替代測試 ④CI 側金鑰保護（GitHub Environments／OIDC）；★同時是 ADR 0083「問題 B 四反轉條件」②③ 的強制重讀點——**B-115 兌現前不得宣稱 prod 機密已納管**｜prod 部署刀群（與 B-037／B-042／B-081／B-013 同期）｜出處：019 spec FR-026＋ADR 0081 決策 2（2026-07-30）
+- B-128｜wire-schema 快照 drift 閘：`tools/wire-schema.py` 加 `check` 子命令（重抽與 committed 快照 byte 比對、不一致即紅）＋接入全量閘或 pre-commit（base-web typings 變動時）——020 final review 抓到快照於 U3 抽取後未隨 U4 typings 定稿重抽、T027 八閘對此結構性失明（唯一「載體與實作分岔而無閘會紅」的假綠面）｜下次動 base-web typings 或 wire 契約的刀順做、或治理工具維護批｜出處：020 U8 final review merge-blocker 衍生（2026-08-01）
+- B-129｜email 寄信觀測回歸保護：①寄信失敗 warn 的結構化欄位面（target security.throttle＋degraded=emailverify_smtp＋error_kind）零機器斷言——warn_degraded doc 明載「測試捕捉層對 target 與欄位直接斷言」紀律、此為唯一未落實發射點（inline 形）；②`mailer::smtp_error_kind` 六分支（timeout/permanent/transient/tls/client/connection、判準順序即歸因語意）零單元測——lettre smtp Error 無公開建構子、需 test_support 可見度擴面或另闢構造路徑｜下次動 mailer 或 user_center 寄信路徑時同刀｜出處：020 U6 quality review＋U8 final review 雙鏡頭彙整（2026-08-01）
+- B-130｜send_email_code 步④唯一預檢 DB Err 回補收斂：現 `email_taken_by_other` 的 DbErr 直接 map 5000 且不回補已佔的 cd/day 額度——與同函式「未寄出即盡力回補」紀律（day INCR Err／EXPIRE Err／寄信失敗三路皆回補）不一致、且 5000 不在 contracts C2 拒因表；修法＝返回前 best-effort DEL cd＋DECR day、或 data-model §3 明文記為刻意現狀｜下次動 send_email_code 時同刀（B-129 同檔可併）｜出處：020 U8 final review 安全鏡頭 advisory（2026-08-01）
+- B-131｜mailer 明文 AUTH 機器守門：`build_transport` 對「starttls=false 且 username 非空」組合零守門——該組合會把 smtp_password 以明文 AUTH 送出；現行 compose 組態安全（base true／dev false 皆不設 username）、RUNBOOK §16 散文要求 prod 必 true 但無機器強制；修法＝boot 或 build_transport 入口三行 panic 指名（附單元測）｜下次動 mailer 時同刀（B-129 同檔可併）｜出處：020 U8 final review 安全鏡頭 advisory（2026-08-01）
