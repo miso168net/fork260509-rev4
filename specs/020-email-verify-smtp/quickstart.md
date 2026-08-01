@@ -27,7 +27,7 @@ python3 tools/docs-sync.py check
 ## 前置
 
 - `deploy/generate-secrets.sh` 重跑補 2 新 key→依 RUNBOOK §15 解密落 `$SECRETS_DIR`→
-  `docker compose up -d`（mailpit 隨 dev override 起、驗 `curl -s http://127.0.0.1:8025/readyz`
+  `docker compose up -d`（mailpit 隨 dev override 起、驗 `curl -s http://127.0.0.1:48025/readyz`
   ——與內建 HEALTHCHECK 同口徑）。
 - m014 熱套後 restart rust-api（新表＋索引可見）；本刀零 casbin migration（免重登）。
 - 新 i18n key 後 restart base-web（vite 未必熱載字典、L-015）；CDP 前驗 healthy＋vite 200。
@@ -35,8 +35,8 @@ python3 tools/docs-sync.py check
 ## CDP 場景（rev4-cdp 速查；Edge@9229 42080）
 
 1. **快樂路徑全鏈**：登入測試會員→user-center email 卡輸入新信箱＋答 captcha→發送→
-   `curl 'http://127.0.0.1:8025/api/v1/search?query=to:<新信箱>'` 取最新 ID→
-   `curl http://127.0.0.1:8025/api/v1/message/<ID>` 讀 Text 抽六位碼（★收件人條件取信、不用
+   `curl 'http://127.0.0.1:48025/api/v1/search?query=to:<新信箱>'` 取最新 ID→
+   `curl http://127.0.0.1:48025/api/v1/message/<ID>` 讀 Text 抽六位碼（★收件人條件取信、不用
    latest——spec edge case 明令防誤抓他測試殘留）→回填→驗證成功→徽章顯已驗證（含時刻）；
    DB 斷言：`sys_user.user_email` 已更新＋衛星列 (uid, 值, 時刻)＋op-log 一筆前後值。
    **洩漏面子步（SC-007 載體）**：以剛抽出的六位碼與 verifyToken 前綴 grep

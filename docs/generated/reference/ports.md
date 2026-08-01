@@ -10,7 +10,7 @@
 | front-nginx | 42443 | 443 | 127.0.0.1 | docker-compose.dev.yml |
 | grafana | 43000 | 3000 | 127.0.0.1 | docker-compose.dev.yml |
 | loki | 43100 | 3100 | 127.0.0.1 | docker-compose.dev.yml |
-| mailpit | 8025 | 8025 | 127.0.0.1 | docker-compose.dev.yml |
+| mailpit | 48025 | 8025 | 127.0.0.1 | docker-compose.dev.yml |
 | postgres | 45432 | 5432 | 127.0.0.1 | docker-compose.dev.yml |
 | prometheus | 49090 | 9090 | 127.0.0.1 | docker-compose.dev.yml |
 | pushgateway | 49091 | 9091 | 127.0.0.1 | docker-compose.dev.yml |

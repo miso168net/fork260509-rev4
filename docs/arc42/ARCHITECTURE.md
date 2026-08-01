@@ -236,7 +236,7 @@ rev4-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   generated/reference/ports（由 compose 生成、對賬 lint 攔漂移）。
 - **六 service 與啟動閘門**：front-nginx（唯一入口、反代前後端）、base-web（vite dev
   server）、rust-api（axum）、migrate（one-shot）、postgres、redis；dev override 另起 mailpit
-  （SMTP 1025 內網＋REST 8025＝驗證信 E2E 收信、prod 零痕跡、020）。migrate 是啟動閘門：
+  （SMTP 1025 內網＋REST host 48025＝驗證信 E2E 收信、prod 零痕跡、020）。migrate 是啟動閘門：
   postgres 健康後先跑 migration、成功結束 rust-api 才起——schema 就緒先於 API；migration
   失敗＝整體啟動失敗（up --wait 非零退出），不存在半初始化環境。
 - **機密**：權威來源＝tracked 密文 `deploy/secrets.dev.enc.yaml`（10 key、SOPS+age B′；020 增

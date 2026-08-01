@@ -89,3 +89,4 @@
 | 0084 | accepted | 2026-07-31 | host 暫存／落點樹統一 ~/.cache/fork260509-rev4/（secrets／decrypt／merge／keygen 四層）——取代 0080 之 SECRETS_DIR 落點值 | — | — | — |
 | 0085 | accepted | 2026-07-31 | 帳號 email 驗證＝驗證即提交×已驗證值衛星表×partial unique——B-028 信箱半邊兌現選型 | — | — | — |
 | 0086 | accepted | 2026-07-31 | SMTP 寄信基建首發＝lettre 同步寄送×設定全靜態 env×mailpit dev 驗收——效仿 GitLab Gmail 路徑 | — | — | — |
+| 0087 | accepted | 2026-08-01 | mailpit host 配號歸位 48025＋判例「SDD 產物與既有 accepted ADR 衝突時 ADR 優先、應升級拍板」 | — | — | — |

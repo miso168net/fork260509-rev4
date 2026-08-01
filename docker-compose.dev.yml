@@ -114,16 +114,17 @@ services:
 
   # ═══ 020-email-verify dev 收信件（mailpit、dev-only——prod compose 零 mailpit 痕跡＝SC-008）═══
   # SMTP 1025 內網（rust-api 經服務名 mailpit:1025 直達、免 host 埠）；UI＋REST API 綁
-  # 127.0.0.1:8025（★8025 配號＝SDD 拍定字面、雖與 dev 4xxxx 慣例不同；★IPv4 字面、絕不
-  # localhost）；E2E 斷言走 /api/v1/search?query=to:… 撈信抽碼（research R2）。
+  # 127.0.0.1:48025（★host 配號照 ADR 0019 infra 群「4＋well-known」制＝4＋8025；容器內側
+  # 8025＝官方預設值照 0019 規則不動；ADR 0087 配號歸位——SDD 原字面 8025 為 0019 對照疏漏；
+  # ★IPv4 字面、絕不 localhost）；E2E 斷言走 /api/v1/search?query=to:… 撈信抽碼（research R2）。
   mailpit:
     image: axllent/mailpit:v1.30.6
     expose:
       - "1025"
     ports:
-      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:48025:8025"
     healthcheck:
-      # CMD 形直呼容器內建 readyz 子命令（與 curl http://127.0.0.1:8025/readyz 同口徑）
+      # CMD 形直呼容器內建 readyz 子命令（與 host 側 curl http://127.0.0.1:48025/readyz 同口徑）
       test: ["CMD", "/mailpit", "readyz"]
       interval: 10s
       timeout: 5s
