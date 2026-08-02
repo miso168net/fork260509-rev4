@@ -5,13 +5,14 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint Lint01 本體＋Lint02 對賬）
-  lint            Lint03～Lint23（Lint04/Lint05/Lint06 收刀完整性閘：
+  lint            Lint03～Lint24（Lint04/Lint05/Lint06 收刀完整性閘：
                   事件存在性／review 分流／arch_impact 雙向；
                   Lint16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
                   Lint17 pin↔worktree HEAD 互證；Lint18 events 帳本 SHA 逐列向 git 實證；
                   Lint19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令；
                   Lint20 空集合守衛七組；Lint21 名冊腳本 index exec bit＝100755；
-                  Lint22 條款範圍字串名冊 vs 掃源上界；Lint23 舊條款編號禁令）
+                  Lint22 條款範圍字串名冊 vs 掃源上界；Lint23 舊條款編號禁令；
+                  Lint24 前後端 msg key 契約閘）
                   輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
@@ -3174,10 +3175,343 @@ def lint_old_codes(root):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Lint24 前後端 msg key 契約閘（B-133／B-134）
+# ---------------------------------------------------------------------------
+
+# 掃描面＝rust-api/server/src 底下全部 .rs 生產碼（#[cfg(test)] 區間以大括號配對整段排除、
+# 行首 // 註解排除）；前端側復用 parse_locale_backend 解析 zh-tw backend 樹。
+I18N_RS_SRC_DIR = "rust-api/server/src"
+I18N_ERROR_RS = "rust-api/server/src/error.rs"     # key() 固定鍵抽取標的（碼表單一來源檔）
+I18N_FRONTEND_LOCALE = "base-web/src/locales/langs/zh-tw.ts"
+# 間接常數名冊（字面釘死；掃到 Biz(Cow::Borrowed(常數)) 形時查表）：
+# throttle/mod.rs 之 LOCKED_MSG_KEY／CAPTCHA_REQUIRED_MSG_KEY 兩筆。掃描時另抓
+# 「const 名: &str = "值";」宣告比對名冊值——源碼改值而名冊未跟＝ERROR（名冊漂移即恆綠洞）。
+I18N_CONST_ROSTER = {
+    "LOCKED_MSG_KEY": "auth.login.locked",
+    "CAPTCHA_REQUIRED_MSG_KEY": "auth.login.captchaRequired",
+}
+# 前端獨有內部詞彙表白名單（九鍵字面釘死；★白名單∩後端實發集必空、非空＝腐化 ERROR）：
+# biz.user.passwordViolation.* 八鍵＝密碼政策明細插值的前端內部詞彙表——與
+# rust-api/server/src/model/password.rs 八個 VIOLATION_* 常量一一對應（後端經 BizData
+# passwordPolicy 明細通道下發違規碼、前端逐碼譯後 join，不作 msg key 整鍵下發）；
+# common.listSeparator＝明細清單 join 分隔符（純前端在地化詞彙）。
+I18N_FRONTEND_INTERNAL_KEYS = frozenset((
+    "biz.user.passwordViolation.minLength",       # VIOLATION_MIN_LENGTH
+    "biz.user.passwordViolation.maxLength",       # VIOLATION_MAX_LENGTH
+    "biz.user.passwordViolation.maxBytes",        # VIOLATION_MAX_BYTES
+    "biz.user.passwordViolation.requireDigit",    # VIOLATION_REQUIRE_DIGIT
+    "biz.user.passwordViolation.requireLowercase",  # VIOLATION_REQUIRE_LOWERCASE
+    "biz.user.passwordViolation.requireUppercase",  # VIOLATION_REQUIRE_UPPERCASE
+    "biz.user.passwordViolation.requireSpecial",  # VIOLATION_REQUIRE_SPECIAL
+    "biz.user.passwordViolation.forbidUsername",  # VIOLATION_FORBID_USERNAME
+    "common.listSeparator",                       # 明細 join 分隔符（T024）
+))
+# 構造點錨形（Biz 前綴可帶路徑限定如 crate::error::AppError::Biz）：
+RE_I18N_SITE = re.compile(r"AppError::(?:BizData|Biz)\s*\(")
+# 構造點內文四形（對錨形之後的視窗行匹配；順序＝樣式排除→字面→名冊常數→unresolved）：
+RE_I18N_ARM = re.compile(   # match 綁定臂樣式：Biz(key) =>／BizData(key, _) =>（含 if 守衛）
+    r"^\s*(?:_|[a-z][A-Za-z0-9_]*)\s*(?:,\s*(?:_|[a-z][A-Za-z0-9_]*)\s*)?\)+\s*"
+    r"(?:if\b[^=]*)?=>")
+RE_I18N_LIT = re.compile(   # Cow::Borrowed("字面")／直接 "字面"（Cow 可帶 std::borrow:: 前綴）
+    r'^\s*(?:(?:std::borrow::)?Cow::Borrowed\(\s*)?"([^"]+)"')
+RE_I18N_CONST = re.compile(  # Cow::Borrowed(常數)／直接常數（UPPER_SNAKE 形）
+    r"^\s*(?:(?:std::borrow::)?Cow::Borrowed\(\s*)?([A-Z][A-Z0-9_]*)\s*[,)]")
+RE_I18N_CONST_DECL = re.compile(  # 名冊常數宣告實值（名冊漂移比對用）
+    r'\bconst\s+([A-Z][A-Z0-9_]*)\s*:\s*&\s*str\s*=\s*"([^"]+)"\s*;')
+RE_I18N_KEY_ARM = re.compile(r'=>\s*"([^"]+)"')   # key() 方法 match 臂固定鍵
+RE_I18N_STR = re.compile(r'"(?:\\.|[^"\\])*"')    # 洗掃用：字串字面
+RE_I18N_CHAR = re.compile(r"'(?:\\.|[^'\\])'")    # 洗掃用：char 字面（lifetime 無閉引號、不中）
+
+
+def _rs_scrub(line):
+    """洗掉字串／char 字面與 // 註解後的殘碼——只供大括號/分號結構計數，內容不重要。"""
+    line = RE_I18N_STR.sub('""', line)
+    line = RE_I18N_CHAR.sub("' '", line)
+    return line.split("//", 1)[0]
+
+
+def _rs_code_part(line):
+    """截去行尾 // 註解（字串感知：引號內 // 不截）——供構造點／宣告／固定鍵掃描用。
+    與 _rs_scrub 不同：保留字串字面內容（要抓的 key 就在字面裡）。
+    雙審 minor 收單：尾註內的構造點／const 宣告字面曾會成幻影鍵誤紅（quality ②）。"""
+    in_str, esc = False, False
+    for i, ch in enumerate(line):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch == "/" and line[i:i + 2] == "//":
+            return line[:i]
+    return line
+
+
+def rs_production_lines(text, rel):
+    """Lint24 取值：#[cfg(test)] 區間以大括號配對整段排除（分號項如 `pub mod x;` 亦收；
+    屬性後允許夾註解／堆疊屬性行）。回 ([(行號, 原行), ...], findings)——
+    區間至 EOF 未配對＝ERROR fail-loud（排除失效即紅、非靜默略過）。"""
+    lines = text.splitlines()
+    kept, errs = [], []
+    i, n = 0, len(lines)
+    while i < n:
+        s = lines[i].strip()
+        # 不受支援的 cfg-test 形一律 fail-loud（quality 審 minor ③——同行屬性＋item 會
+        # 靜默吃掉後續產碼、cfg(all(test,…)) 會讓測試碼洩進掃描面；含 not(test)——
+        # 屆時擴掃描器）：
+        if s.startswith("#[cfg(test)]") and s != "#[cfg(test)]":
+            errs.append(finding(ERROR, "Lint24", f"{rel}:{i + 1}",
+                                "不受支援的 #[cfg(test)] 同行形（屬性後接同行 item）——"
+                                "排除圈界無法保證，fail-loud：改寫為標準獨立行形或擴 "
+                                "rs_production_lines"))
+            i += 1
+            continue
+        if s != "#[cfg(test)]" and s.startswith("#[cfg(") and re.search(r"\btest\b", s):
+            errs.append(finding(ERROR, "Lint24", f"{rel}:{i + 1}",
+                                "可疑的 cfg-test 複合形（如 cfg(all(test,…))／cfg(not(test))）"
+                                "不受支援——測試區間可能洩入（或產碼被誤排除），fail-loud："
+                                "改寫為標準 #[cfg(test)] 或擴 rs_production_lines"))
+            i += 1
+            continue
+        if s == "#[cfg(test)]":
+            start_ln = i + 1
+            i += 1
+            depth, opened, ended = 0, False, False
+            while i < n and not ended:
+                for ch in _rs_scrub(lines[i]):
+                    if ch == "{":
+                        depth += 1
+                        opened = True
+                    elif ch == "}":
+                        depth -= 1
+                        if opened and depth == 0:
+                            ended = True
+                            break
+                    elif ch == ";" and not opened:
+                        ended = True   # 分號項（無大括號體）：排除至此行止
+                        break
+                i += 1
+            if not ended:
+                errs.append(finding(ERROR, "Lint24", f"{rel}:{start_ln}",
+                                    "#[cfg(test)] 區間大括號未配對（至 EOF 未閉）——排除"
+                                    "失效，fail-loud：修復該區間或掃描器後重跑"))
+        else:
+            kept.append((i + 1, lines[i]))
+            i += 1
+    return kept, errs
+
+
+def scan_backend_msg_keys(root):
+    """Lint24 取值：掃 rust 生產碼收「後端實發 msg key 集」＝①Biz/BizData 構造點字面
+    ②名冊常數間接形 ③error.rs key() 方法 match 臂固定鍵。
+    回 ({key: [(rel, 行號), ...]}, findings)——findings＝結構性錯誤（零 .rs 檔／cfg(test)
+    未配對／構造點無法靜態解析／名冊漂移／key() 方法缺席），非空時不可進差集比對。"""
+    src_dir = os.path.join(root, I18N_RS_SRC_DIR)
+    files = sorted(
+        os.path.join(dirpath, f)[len(os.path.join(root, "")):].replace(os.sep, "/")
+        for dirpath, _dirs, names in os.walk(src_dir)
+        for f in names if f.endswith(".rs"))
+    if not files:
+        return {}, [finding(ERROR, "Lint24", I18N_RS_SRC_DIR,
+                            "掃描面零 .rs 檔（源樹缺席或空）——後端實發集無法建立，"
+                            "fail-closed（Lint20 家族）")]
+    backend, errs, const_decls, key_method_found = {}, [], {}, False
+    for rel in files:
+        kept, region_errs = rs_production_lines(_read(root, rel) or "", rel)
+        errs += region_errs
+        for _ln, line in kept:
+            if line.strip().startswith("//"):
+                continue   # 註解可注入假宣告值（spec 審 minor ①）——與構造點掃描同紀律
+            for m in RE_I18N_CONST_DECL.finditer(_rs_code_part(line)):
+                if m.group(1) in I18N_CONST_ROSTER:
+                    const_decls[m.group(1)] = m.group(2)
+        for idx, (ln, line) in enumerate(kept):
+            if line.strip().startswith("//"):
+                continue
+            code = _rs_code_part(line)
+            for m in RE_I18N_SITE.finditer(code):
+                window = code[m.end():]
+                for _nln, nline in kept[idx + 1:idx + 3]:
+                    window += " " + _rs_code_part(nline).strip()
+                if RE_I18N_ARM.match(window) or (
+                        re.match(r"\s*_", window) and "=>" in window):
+                    continue   # match 樣式（綁定臂／萬用臂——萬用臂須窗內見 => 才略過，
+                    #            否則落 unresolved fail-loud；quality 審 minor ④）＝非構造點
+                lit = RE_I18N_LIT.match(window)
+                if lit:
+                    backend.setdefault(lit.group(1), []).append((rel, ln))
+                    continue
+                cst = RE_I18N_CONST.match(window)
+                if cst and cst.group(1) in I18N_CONST_ROSTER:
+                    backend.setdefault(
+                        I18N_CONST_ROSTER[cst.group(1)], []).append((rel, ln))
+                    continue
+                errs.append(finding(ERROR, "Lint24", f"{rel}:{ln}",
+                                    f"AppError::Biz/BizData 構造點無法靜態解析"
+                                    f"（內文開頭：{window[:60]}）——非字面、非名冊常數一律 "
+                                    f"fail-loud（防恆綠洞）：改寫為 Cow::Borrowed(字面) "
+                                    f"或擴 I18N_CONST_ROSTER 名冊；若實為 match 臂形"
+                                    f"（本形未被樣式排除吃下）請擴 RE_I18N_ARM"))
+        if rel == I18N_ERROR_RS:
+            key_method_found, key_errs = _collect_key_method(kept, rel, backend)
+            errs += key_errs
+    if not key_method_found and not any(
+            x["where"].startswith(I18N_ERROR_RS) for x in errs):
+        errs.append(finding(ERROR, "Lint24", I18N_ERROR_RS,
+                            "error.rs 缺席或找不到 fn key( 方法——固定鍵抽取失效，"
+                            "fail-loud（碼表單一來源檔即紅）"))
+    for name, pinned in I18N_CONST_ROSTER.items():
+        used = any((pinned == k) for k in backend) or name in const_decls
+        if name in const_decls and const_decls[name] != pinned:
+            errs.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                                f"名冊常數 {name} 值漂移：源碼實值「{const_decls[name]}」"
+                                f"≠名冊釘死值「{pinned}」——同 commit 更新 "
+                                f"I18N_CONST_ROSTER（名冊腐化即恆綠洞）"))
+        elif not used:
+            errs.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                                f"名冊常數 {name} 於掃描面查無宣告——常數已改名／移出射程"
+                                f"＝名冊腐化：同步修 I18N_CONST_ROSTER"))
+    return backend, errs
+
+
+def _collect_key_method(kept, rel, backend):
+    """error.rs `fn key(` 方法體（大括號配對圈界）內 match 臂固定鍵 → 併入 backend。
+    回 (是否找到方法, findings)。綁定臂（=> key.as_ref()）無字串字面、天然不中。"""
+    start = next((i for i, (_ln, l) in enumerate(kept)
+                  if not l.strip().startswith("//")
+                  and re.search(r"\bfn key\s*\(", _rs_code_part(l))), None)
+    if start is None:
+        return False, []
+    depth, opened = 0, False
+    for i in range(start, len(kept)):
+        ln, line = kept[i]
+        if opened or "{" in _rs_scrub(line):
+            if not line.strip().startswith("//"):
+                # 註解行可注入幻影固定鍵（spec 審 minor ①②）——與構造點掃描同紀律
+                for k in RE_I18N_KEY_ARM.findall(_rs_code_part(line)):
+                    backend.setdefault(k, []).append((rel, ln))
+        for ch in _rs_scrub(line):
+            if ch == "{":
+                depth += 1
+                opened = True
+            elif ch == "}":
+                depth -= 1
+                if opened and depth == 0:
+                    return True, []
+    return True, [finding(ERROR, "Lint24", rel,
+                          "fn key( 方法體大括號未配對（至 EOF 未閉）——固定鍵抽取失效，"
+                          "fail-loud")]
+
+
+def check_i18n_contract(backend, frontend, whitelist):
+    """Lint24 純判定：backend＝{實發 key: [(rel, 行號), ...]}、frontend＝前端 backend 樹
+    鍵集、whitelist＝前端內部鍵白名單。空集 fail-loud（Lint20 家族）；後端有前端無＝ERROR
+    逐鍵指名構造點＋修法；白名單∩後端實發集非空＝腐化 ERROR；前端有後端無且白名單外＝
+    孤兒鍵 ERROR；★白名單鍵不在字典＝ERROR（存在性斷言——九鍵被刪不得靜默綠，
+    B-133 同失效類；quality 審 minor ①）。本條款無 skip、severity 一律 ERROR。"""
+    if not backend:
+        return [finding(ERROR, "Lint24", I18N_RS_SRC_DIR,
+                        "後端掃出 0 鍵——掃描器或源樹壞了，fail-closed（Lint20 家族）")]
+    if not frontend:
+        return [finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
+                        "前端 backend 樹 0 鍵——解析器或字典壞了，fail-closed（Lint20 家族）")]
+    out = []
+    for key in sorted(set(backend) & whitelist):
+        sites = "、".join(f"{rel}:{ln}" for rel, ln in backend[key])
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           f"I18N_FRONTEND_INTERNAL_KEYS 白名單腐化：「{key}」已在後端實發集"
+                           f"（構造點：{sites}）——白名單僅收前端內部鍵，自白名單移除該筆"))
+    for key in sorted(set(backend) - frontend):
+        sites = "、".join(f"{rel}:{ln}" for rel, ln in backend[key])
+        out.append(finding(ERROR, "Lint24", backend[key][0][0] + ":%d" % backend[key][0][1],
+                           f"後端實發 msg key「{key}」前端 backend 字典無此鍵"
+                           f"（構造點：{sites}）——三語 locale（zh-tw/zh-cn/en-us）backend "
+                           f"樹＋app.d.ts Schema 同 commit 補鍵（L-094：i18n 接線三範圍"
+                           f"最常漏第三個、任一側單獨 commit 都 typecheck 紅）"))
+    for key in sorted(frontend - set(backend) - whitelist):
+        out.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
+                           f"前端 backend 字典鍵「{key}」後端無任何構造點發出＝孤兒鍵——"
+                           f"確為前端內部詞彙表則入 I18N_FRONTEND_INTERNAL_KEYS 白名單"
+                           f"（附存在理由註解）、確廢棄則刪鍵"))
+    for key in sorted(whitelist - frontend):
+        out.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
+                           f"I18N_FRONTEND_INTERNAL_KEYS 白名單鍵「{key}」不在前端 backend 字典"
+                           f"——字典缺鍵即 vue-i18n fallback 吐裸識別字（B-133 同失效類）："
+                           f"確已廢棄則同刀自白名單移除、否則補回字典"))
+    return out
+
+
+def i18n_contract_self_test():
+    """防恆綠：紅樣本四型（後端多鍵／前端孤兒鍵／白名單腐化／白名單鍵不在字典）必紅且帶
+    關鍵內容、綠樣本（含白名單內部鍵）必綠；失效即 ERROR（比照 Lint16/Lint21/Lint22 慣例）。"""
+    out = []
+    site = {"甲.乙": [("樣本.rs", 7)]}
+    f = check_i18n_contract(site, {"甲.丙"}, frozenset(("甲.丙",)))
+    if not any(x["level"] == ERROR and "甲.乙" in x["msg"] and "樣本.rs:7" in x["msg"]
+               for x in f):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（後端多鍵）未被攔下或未附構造點 "
+                           "file:line——條款已恆綠，修復 check_i18n_contract 後重跑"))
+    f = check_i18n_contract(site, {"甲.乙", "孤.鍵"}, frozenset())
+    if not any(x["level"] == ERROR and "孤.鍵" in x["msg"] for x in f):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（前端孤兒鍵）未被攔下"
+                           "——條款已恆綠，修復 check_i18n_contract 後重跑"))
+    f = check_i18n_contract(site, {"甲.乙", "內.部"}, frozenset(("內.部", "甲.乙")))
+    if not any(x["level"] == ERROR and "白名單" in x["msg"] for x in f):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（白名單∩後端實發集非空）未被攔下"
+                           "——白名單腐化防呆已恆綠，修復 check_i18n_contract 後重跑"))
+    f = check_i18n_contract(site, {"甲.乙"}, frozenset(("缺.鍵",)))
+    if not any(x["level"] == ERROR and "缺.鍵" in x["msg"] for x in f):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（白名單鍵不在字典）未被攔下"
+                           "——白名單存在性斷言已恆綠，修復 check_i18n_contract 後重跑"))
+    if check_i18n_contract(site, {"甲.乙", "內.部"}, frozenset(("內.部",))):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：綠樣本（全對齊＋白名單內部鍵）誤報——"
+                           "判定過寬，修復 check_i18n_contract 後重跑"))
+    return out
+
+
+def lint_i18n_contract(root):
+    """Lint24：前後端 msg key 契約閘（B-133／B-134）。
+
+    後端側＝scan_backend_msg_keys（生產碼構造點字面＋名冊常數＋key() 固定鍵；cfg(test)
+    區間排除；無法靜態解析＝ERROR fail-loud）；前端側＝parse_locale_backend 解析 zh-tw
+    backend 樹。組裝＝self-test 防恆綠＋雙側取值＋差集判定；任一側結構性錯誤＝只報該錯、
+    不進差集（比對無基準）。本條款無 skip、severity 一律 ERROR。
+    ★掃描面註記（雙審 minor 收單）：前端側僅 zh-tw；en-us 由 msg-dict 兩語鍵集斷言
+    （compute_msg_dict_rows、generate/check 路徑）間接守；zh-cn 不在任何 lint 掃描面、
+    僅由 app.d.ts Schema 之 vue-tsc typecheck 兜底（不在 pre-commit）——強化候選詳 B-135。"""
+    out = i18n_contract_self_test()
+    backend, errs = scan_backend_msg_keys(root)
+    text = _read(root, I18N_FRONTEND_LOCALE)
+    frontend = set()
+    if text is None:
+        errs.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
+                            "前端 locale 檔缺席（讀不到）——字典側無法建立，fail-closed"
+                            "（Lint20 家族）"))
+    else:
+        try:
+            frontend = set(parse_locale_backend(text, I18N_FRONTEND_LOCALE))
+        except BackendDictError as ex:
+            errs.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
+                                f"backend 樹解析失敗：{ex}——fail-loud"))
+    if errs:
+        return out + errs
+    return out + check_i18n_contract(backend, frontend, I18N_FRONTEND_INTERNAL_KEYS)
+
+
 def run_lint(root):
-    """組裝 Lint03～Lint23 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
+    """組裝 Lint03～Lint24 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
     Lint17 pin 互證、Lint18 帳本 SHA 實證、Lint19 命令形真表比對、Lint20 空集合守衛、
-    Lint21 exec bit 守衛、Lint22 範圍字串守衛、Lint23 舊條款編號禁令。
+    Lint21 exec bit 守衛、Lint22 範圍字串守衛、Lint23 舊條款編號禁令、
+    Lint24 前後端 msg key 契約閘。
     回 findings（含 SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。
     git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
@@ -3228,6 +3562,7 @@ def run_lint(root):
     findings += lint_exec_bits(root)
     findings += lint_range_strings(root)
     findings += lint_old_codes(root)
+    findings += lint_i18n_contract(root)
     return findings
 
 
@@ -7021,12 +7356,12 @@ class TestRangeStringGuard(unittest.TestCase):
             "tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit"))
 
     def test_real_source_derivation_contains_own_code_and_bound_pinned(self):
-        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝23
-        （Lint23 舊碼禁令為現行最大號）——上界前進時本測試逼著同刀更新
+        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝24
+        （Lint24 前後端 msg key 契約閘為現行最大號）——上界前進時本測試逼著同刀更新
         （釘版＝有意識動作、同 test_roster_is_pinned 慣例；非守衛真值側）。"""
         codes = derive_lint_codes(_read(ROOT, "tools/docs-sync.py"))
         self.assertIn(self._own(), codes)
-        self.assertEqual(max(codes), 23)
+        self.assertEqual(max(codes), 24)
 
     def test_real_repo_range_green(self):
         """★現庫名冊三檔四處全＝推導上界（條款上線即自證：漏 bump 任一處當場紅）；
@@ -7205,6 +7540,329 @@ class TestOldLintCodeBan(unittest.TestCase):
         f = self._with_scanner(lambda text: [], lambda: lint_old_codes(ROOT))
         self.assertTrue(any(x["code"] == "Lint23" and "self-test 失效" in x["msg"]
                             for x in f), msg=str(f))
+
+
+class TestI18nContractGate(unittest.TestCase):
+    """Lint24 前後端 msg key 契約閘（B-133／B-134）：後端 rust 實發 msg key 集（Biz/BizData
+    構造點字面＋名冊常數間接形＋error.rs key() 固定鍵）vs 前端 backend 字典鍵集雙向差集。
+
+    ★fixture 一律 tempdir 自建假 rust 源＋假 locale（_wfile、無需 git）、真 repo 唯讀。
+    """
+
+    # 假 error.rs：key() 兩固定鍵＋綁定臂（match 樣式、不入實發集）；code() 的 "2222"/"0000"
+    # 字面在 fn key 大括號之外——固定鍵抽取若溢出方法體、健康綠案當場紅（突變自證）。
+    ERROR_RS = (
+        "pub fn key(&self) -> &str {\n"
+        "    match self {\n"
+        "        AppError::Biz(key) => key.as_ref(),\n"
+        "        AppError::BizData(key, _) => key.as_ref(),\n"
+        '        AppError::Success => "common.success",\n'
+        '        AppError::Internal => "system.internal",\n'
+        "    }\n"
+        "}\n"
+        "pub fn code(&self) -> &str {\n"
+        "    match self {\n"
+        '        AppError::Biz(_) => "2222",\n'
+        '        AppError::BizData(_, _) => "2222",\n'
+        '        _ => "0000",\n'
+        "    }\n"
+        "}\n")
+
+    # 假 handler：直字面（行 4）＋名冊常數單行形（行 7）＋名冊常數多行 BizData 形（行 10~13）。
+    HANDLER_RS = (
+        'pub const LOCKED_MSG_KEY: &str = "auth.login.locked";\n'
+        'pub const CAPTCHA_REQUIRED_MSG_KEY: &str = "auth.login.captchaRequired";\n'
+        "fn f() -> AppError {\n"
+        '    AppError::Biz(Cow::Borrowed("biz.a.x"))\n'
+        "}\n"
+        "fn g() -> AppError {\n"
+        "    AppError::Biz(Cow::Borrowed(LOCKED_MSG_KEY))\n"
+        "}\n"
+        "fn h() -> AppError {\n"
+        "    AppError::BizData(\n"
+        "        Cow::Borrowed(CAPTCHA_REQUIRED_MSG_KEY),\n"
+        "        serde_json::json!({}),\n"
+        "    )\n"
+        "}\n")
+
+    @staticmethod
+    def _locale(with_biz=True, with_locked=True, extra=""):
+        """假 zh-tw backend 樹：共有鍵＋白名單內部鍵九鍵全量（listSeparator＋
+        passwordViolation 八鍵——白名單存在性斷言要求字典齊備）；可抽鍵造紅。"""
+        ax = "      a: {\n        x: '甲'\n      },\n" if with_biz else ""
+        locked = "        locked: '鎖定',\n" if with_locked else ""
+        pv = "".join("          %s: '＊',\n" % k for k in (
+            "minLength", "maxLength", "maxBytes", "requireDigit",
+            "requireLowercase", "requireUppercase", "requireSpecial"))
+        return ("  backend: {\n"
+                + "    biz: {\n" + ax
+                + "      user: {\n        passwordViolation: {\n" + pv
+                + "          forbidUsername: '＊'\n        }\n      }\n    },\n"
+                + extra
+                + "    common: {\n      listSeparator: '、',\n      success: '操作成功'\n    },\n"
+                + "    system: {\n      internal: '內部錯誤'\n    },\n"
+                + "    auth: {\n      login: {\n" + locked
+                + "        captchaRequired: '請過驗證碼'\n      }\n    }\n"
+                + "  },\n")
+
+    def _fixture(self, d, locale=None, handler=None, error_rs=None):
+        _wfile(d, I18N_ERROR_RS, self.ERROR_RS if error_rs is None else error_rs)
+        _wfile(d, "rust-api/server/src/handler.rs",
+               self.HANDLER_RS if handler is None else handler)
+        _wfile(d, I18N_FRONTEND_LOCALE, self._locale() if locale is None else locale)
+
+    def test_healthy_green(self):
+        """②健康綠：字面＋常數間接＋key() 固定鍵 vs 字典全對齊；白名單內部鍵
+        （listSeparator）不誤報；綁定臂／萬用臂屬 match 樣式、不入實發集。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            self.assertEqual(lint_i18n_contract(d), [])
+
+    def test_backend_key_missing_red_names_site_and_fix(self):
+        """①後端多鍵紅：字典抽掉 biz.a.x → ERROR 指名構造點 file:line、附三語 locale
+        ＋app.d.ts Schema 同 commit 修法（L-094）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._locale(with_biz=False))
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertEqual(f[0]["code"], "Lint24")
+            joined = f[0]["where"] + "｜" + f[0]["msg"]
+            self.assertIn("rust-api/server/src/handler.rs:4", joined)
+            self.assertIn("biz.a.x", joined)
+            for hint in ("zh-cn", "app.d.ts", "L-094"):
+                self.assertIn(hint, f[0]["msg"])
+
+    def test_const_indirect_enters_set(self):
+        """⑧常數間接形（Biz(Cow::Borrowed(LOCKED_MSG_KEY)) 查名冊）：字典抽掉
+        auth.login.locked → 紅指名常數構造點行號（單行形＝handler.rs:7）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._locale(with_locked=False))
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            joined = f[0]["where"] + "｜" + f[0]["msg"]
+            self.assertIn("auth.login.locked", joined)
+            self.assertIn("rust-api/server/src/handler.rs:7", joined)
+
+    def test_const_roster_drift_red(self):
+        """⑧b 名冊值漂移：源碼常數實值≠名冊釘死值 → ERROR（名冊腐化即紅、防恆綠）。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS.replace('"auth.login.locked"', '"auth.login.lockedOut"')
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and "LOCKED_MSG_KEY" in x["msg"]
+                                and "漂移" in x["msg"] for x in f), msg=str(f))
+
+    def test_frontend_orphan_red(self):
+        """③前端孤兒紅：字典多出後端不發、白名單外之鍵 → ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._locale(
+                extra="    orphan: {\n      key: '孤'\n    },\n"))
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("orphan.key", f[0]["msg"])
+            self.assertIn("孤兒", f[0]["msg"])
+
+    def test_whitelist_corruption_red(self):
+        """④白名單∩後端實發集必空：後端發出 common.listSeparator → 白名單腐化 ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn w() -> AppError {\n"
+                '    AppError::Biz(Cow::Borrowed("common.listSeparator"))\n'
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("白名單", f[0]["msg"])
+            self.assertIn("common.listSeparator", f[0]["msg"])
+
+    def test_unresolvable_site_red(self):
+        """⑤非字面、非名冊常數＝無法靜態解析 → ERROR fail-loud（防恆綠洞）、不進差集比對。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn u(k: String) -> AppError {\n"
+                "    AppError::Biz(Cow::Owned(k))\n"
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("無法靜態解析", f[0]["msg"])
+            self.assertTrue(f[0]["where"].endswith("handler.rs:16"), msg=str(f))
+
+    def test_empty_scan_surface_red(self):
+        """⑥空集 fail-loud：rust 源樹缺席／零 .rs 檔 → ERROR（Lint20 家族）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _wfile(d, I18N_FRONTEND_LOCALE, self._locale())
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and I18N_RS_SRC_DIR in x["where"]
+                                for x in f), msg=str(f))
+
+    def test_missing_locale_red(self):
+        """⑥b 前端 locale 缺席＝ERROR（fail-closed、Lint20 家族）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            os.remove(os.path.join(d, I18N_FRONTEND_LOCALE))
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and I18N_FRONTEND_LOCALE in x["where"]
+                                for x in f), msg=str(f))
+
+    def test_cfg_test_region_excluded(self):
+        """⑦#[cfg(test)] 區間大括號配對整段排除：測試碼 Biz 鍵不入實發集
+        （字串內大括號經洗掃、不破壞配對）。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "#[cfg(test)]\n"
+                "mod tests {\n"
+                "    use super::*;\n"
+                '    const S: &str = "字串內大括號 {x} 不算";\n'
+                "    fn t() -> AppError {\n"
+                '        AppError::Biz(Cow::Borrowed("biz.test.only"))\n'
+                "    }\n"
+                "}\n")
+            self._fixture(d, handler=handler)
+            self.assertEqual(lint_i18n_contract(d), [])
+
+    def test_cfg_test_unclosed_red(self):
+        """⑦b 配對失效（EOF 未閉）＝ERROR fail-loud、非靜默略過。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + "#[cfg(test)]\nmod tests {\n    fn t() {}\n"
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and "未配對" in x["msg"]
+                                for x in f), msg=str(f))
+
+    def test_cfg_test_same_line_item_red(self):
+        """⑦c 同行屬性形『#[cfg(test)] use super::*;』＝不受支援 fail-loud
+        （曾為靜默排除後續產碼；quality 審 minor ③）。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + "#[cfg(test)] use super::*;\n"
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and "同行形" in x["msg"]
+                                for x in f), msg=str(f))
+
+    def test_cfg_all_test_compound_red(self):
+        """⑦d 複合形『#[cfg(all(test, …))]』＝不受支援 fail-loud
+        （曾讓測試 mod 洩進產碼掃描面；quality 審 minor ③）。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                '#[cfg(all(test, feature = "x"))]\n'
+                "mod tests {\n"
+                '    fn t() -> AppError { AppError::Biz(Cow::Borrowed("biz.leak.x")) }\n'
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and "複合形" in x["msg"]
+                                for x in f), msg=str(f))
+
+    def test_whitelist_key_missing_from_dict_red(self):
+        """⑨白名單存在性斷言：字典抽掉 listSeparator → ERROR（九鍵被刪不得靜默綠、
+        B-133 同失效類；quality 審 minor ①）。"""
+        with tempfile.TemporaryDirectory() as d:
+            locale = self._locale().replace("      listSeparator: '、',\n", "")
+            self._fixture(d, locale=locale)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("common.listSeparator", f[0]["msg"])
+            self.assertIn("不在前端 backend 字典", f[0]["msg"])
+
+    def test_fn_key_method_missing_red(self):
+        """⑩error.rs 無 fn key( 方法＝固定鍵抽取失效 fail-loud（quality 審 minor ⑥）。"""
+        with tempfile.TemporaryDirectory() as d:
+            error_rs = self.ERROR_RS[self.ERROR_RS.index("pub fn code"):]
+            self._fixture(d, error_rs=error_rs)
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and "找不到 fn key(" in x["msg"]
+                                for x in f), msg=str(f))
+
+    def test_fn_key_method_unclosed_red(self):
+        """⑩b fn key( 方法體至 EOF 未閉＝fail-loud（quality 審 minor ⑥）。"""
+        with tempfile.TemporaryDirectory() as d:
+            error_rs = "pub fn key(&self) -> &str {\n    match self {\n"
+            self._fixture(d, error_rs=error_rs)
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and "fn key( 方法體大括號未配對" in x["msg"]
+                                for x in f), msg=str(f))
+
+    def test_const_roster_undeclared_red(self):
+        """⑩c 名冊常數於掃描面查無宣告＝名冊腐化 fail-loud（quality 審 minor ⑥）。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = (
+                "fn f() -> AppError {\n"
+                '    AppError::Biz(Cow::Borrowed("biz.a.x"))\n'
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            hits = [x for x in f if x["level"] == ERROR and "查無宣告" in x["msg"]]
+            self.assertEqual(len(hits), 2, msg=str(f))
+
+    def test_whitelist_is_pinned(self):
+        """★白名單九鍵字面釘死（Lint21/Lint22 慣例）：期望值不取被測常數、縮水即紅。"""
+        self.assertEqual(I18N_FRONTEND_INTERNAL_KEYS, frozenset((
+            "biz.user.passwordViolation.minLength",
+            "biz.user.passwordViolation.maxLength",
+            "biz.user.passwordViolation.maxBytes",
+            "biz.user.passwordViolation.requireDigit",
+            "biz.user.passwordViolation.requireLowercase",
+            "biz.user.passwordViolation.requireUppercase",
+            "biz.user.passwordViolation.requireSpecial",
+            "biz.user.passwordViolation.forbidUsername",
+            "common.listSeparator")))
+
+    def test_real_repo_contract_green(self):
+        """★現庫契約綠（條款上線即自證；B-133 兩缺鍵補齊後恆綠）：真 repo 唯讀。"""
+        self.assertEqual(lint_i18n_contract(ROOT), [])
+
+    def test_run_lint_wires_i18n_contract(self):
+        """★接線層：lint_i18n_contract 從 run_lint 掉線＝Lint24 整條靜默下線。
+
+        bare fixture 無 rust 源樹→Lint24 必報空集 ERROR；任何 Lint24 finding 只可能
+        來自 lint_i18n_contract——信號純淨。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "Lint24" and x["level"] == ERROR for x in f),
+                            msg=str([x for x in f if x["code"] == "Lint24"]))
+
+    # -- self-test 防恆綠（Lint16/Lint21/Lint22 慣例） --------------------------------
+    def test_self_test_green_on_healthy_checker(self):
+        self.assertEqual(i18n_contract_self_test(), [])
+
+    def _with_checker(self, fake, fn):
+        original = globals()["check_i18n_contract"]
+        globals()["check_i18n_contract"] = fake
+        try:
+            return fn()
+        finally:
+            globals()["check_i18n_contract"] = original
+
+    def test_self_test_catches_dead_checker(self):
+        """④突變面：判定函式被改成永不報（恆綠）→self-test 逐紅樣本（四型）報 ERROR。"""
+        f = self._with_checker(lambda backend, frontend, whitelist: [],
+                               i18n_contract_self_test)
+        self.assertEqual(len(f), 4, msg=str(f))
+        self.assertTrue(all(x["level"] == ERROR for x in f))
+        self.assertTrue(all("self-test 失效" in x["msg"] for x in f))
+
+    def test_self_test_catches_overbroad_checker(self):
+        """④突變面：判定函式被改成一律報紅→綠樣本誤報、self-test 報 ERROR。"""
+        f = self._with_checker(
+            lambda backend, frontend, whitelist: [finding(ERROR, "Lint24", "樣本", "誤報")],
+            i18n_contract_self_test)
+        self.assertTrue(any(x["level"] == ERROR and "綠樣本" in x["msg"] for x in f),
+                        msg=str(f))
+
+    def test_assembly_wires_self_test(self):
+        """★組裝層：i18n_contract_self_test 從 lint_i18n_contract 掉線＝防恆綠靜默下線。"""
+        f = self._with_checker(lambda backend, frontend, whitelist: [],
+                               lambda: lint_i18n_contract(ROOT))
+        self.assertTrue(any(x["code"] == "Lint24" and "self-test 失效" in x["msg"] for x in f),
+                        msg=str(f))
 
 
 class TestLintSummary(unittest.TestCase):

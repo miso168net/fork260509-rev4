@@ -298,7 +298,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint23） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint24） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
@@ -332,8 +332,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile jobs ru
   （B-110 entity 漂移閘、零 docker 秒級）；`bash tools/bootstrap.sh` 體檢則無條件全跑工具
   名冊全部 test。
 
-lint 條款速覽（018 新增五條、B-116 增 Lint21、B-126 增 Lint22、2026-08-02 改名＋增 Lint23）——severity
-三分：ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細（跳過≠通過）。
+lint 條款速覽（018 新增五條、B-116 增 Lint21、B-126 增 Lint22、2026-08-02 改名＋增 Lint23、
+B-133/B-134 增 Lint24）——severity 三分：ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝
+條款不適用而未執行、落跳過明細（跳過≠通過）。
 2026-08-02 條款編號改名：舊單碼形（L 後直接 1~22）＝Lint01~Lint22 兩碼零填形；史料沿用舊碼不回改：
 
 - **Lint16 憑證內容掃描**：外層 tracked 全量（判定面同時取 index——staged 新增行亦掃，涵蓋
@@ -376,6 +377,14 @@ lint 條款速覽（018 新增五條、B-116 增 Lint21、B-126 增 Lint22、202
   字界＋值域 1~22 之舊單碼形命中＝ERROR 指名檔案:行號＋新編號寫法；值域外憲法行號
   （L45／L114 等）與 LESSONS 連字號形（L-NNN）不中；語料檔缺席＝ERROR（fail-closed、
   Lint20 家族）；每跑紅綠 self-test 防恆綠（Lint16 慣例）。本條款無 skip。
+- **Lint24 前後端 msg key 契約閘**（B-133/B-134）：後端實發 msg key 集（rust-api/server/src
+  生產碼 `AppError::Biz|BizData` 構造點字面＋常數名冊間接形＋error.rs `key()` 固定鍵；
+  `#[cfg(test)]` 區間大括號配對整段排除）vs 前端 zh-tw backend 字典鍵集雙向差集：後端有
+  前端無＝ERROR 逐鍵指名構造點 file:line＋三語 locale＋app.d.ts Schema 同 commit 修法
+  （L-094）；前端有後端無＝比對前端內部鍵白名單（`FRONTEND_INTERNAL_KEYS` 九鍵釘死）、
+  白名單外＝孤兒鍵 ERROR；白名單∩後端實發集非空＝白名單腐化 ERROR；構造點無法靜態解析
+  ＝ERROR fail-loud（防恆綠洞）；空集／locale 缺席＝ERROR（fail-closed、Lint20 家族）；
+  每跑紅綠 self-test 防恆綠（Lint16 慣例）。本條款無 skip。
 - **lint 摘要三段式**：末行＝`lint：X 錯誤／Y 警告／Z 條款跳過`；Z>0 時次行列跳過明細
   （條款｜位置＝原因）；退出碼僅 X>0 時非零。
 

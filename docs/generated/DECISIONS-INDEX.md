@@ -76,7 +76,7 @@
 | 0071 | accepted | 2026-07-19 | 告警通知投遞 channel 首發＝webhook（B-031 兌現） | — | — | — |
 | 0072 | accepted | 2026-07-19 | 背景 job 底座三紀律＋首發 reaper（B-063 sys_token 回收、B-040 最小權限憑證預設） | — | — | — |
 | 0073 | accepted | 2026-07-19 | 節流攻擊廣度估計＝HLL 最小落地（B-033 殘項、翻案 rev3「不做 v1」） | — | — | — |
-| 0074 | accepted | 2026-07-19 | 觀測側拒因可讀性＝機生字典＋grafana 對照（B-007 兌現、ADR 0001 第 8 題配套結案） | — | — | — |
+| 0074 | superseded | 2026-07-19 | 觀測側拒因可讀性＝機生字典＋grafana 對照（B-007 兌現、ADR 0001 第 8 題配套結案） | — | — | 0088 |
 | 0075 | superseded | 2026-07-19 | session_event 膨脹治理＝能見度閉環（不自動刪、不寫端去重）——B-067 by-design 收單 | — | — | 0076 |
 | 0076 | accepted | 2026-07-21 | 稽核 retention 自動清理——遵憲 J3 自記＋reaper 權限最小擴張（B-016 本體、兌現 0075 預留條款） | — | 0075 | — |
 | 0077 | accepted | 2026-07-28 | 憑證內容掃描閘——外層 tracked 全量＋pin bump 增量掃 submodule、窄樣式集高確信、無 inline 豁免 | — | — | — |
@@ -90,3 +90,4 @@
 | 0085 | accepted | 2026-07-31 | 帳號 email 驗證＝驗證即提交×已驗證值衛星表×partial unique——B-028 信箱半邊兌現選型 | — | — | — |
 | 0086 | accepted | 2026-07-31 | SMTP 寄信基建首發＝lettre 同步寄送×設定全靜態 env×mailpit dev 驗收——效仿 GitLab Gmail 路徑 | — | — | — |
 | 0087 | accepted | 2026-08-01 | mailpit host 配號歸位 48025＋判例「SDD 產物與既有 accepted ADR 衝突時 ADR 優先、應升級拍板」 | — | — | — |
+| 0088 | accepted | 2026-08-02 | 前後端 msg key 治理＝機生字典＋契約閘 Lint24（承 0074 字典生成、補契約守衛半邊） | — | 0074 | — |
