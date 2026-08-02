@@ -41,6 +41,23 @@ README.md
 **/Cargo.lock
 **/package-lock.json
 
+# ============================================================
+# UI 圖示素材（2026-08-02 user 拍板）
+# 理由:graphify 對 image 類「每張圖各派一支獨立 vision subagent」,
+#      這 22 支全是 svg-icon / logo / favicon 素材,對架構圖譜零貢獻。
+# ============================================================
+base-web/src/assets/svg-icon/
+base-web/src/assets/imgs/
+base-web/public/favicon.svg
+
+# ============================================================
+# upstream 變更日誌（2026-08-02）
+# 理由:soybean-admin 上游 release notes,290KB＋44KB 純版本號敘事,
+#      與本 workspace 架構無關,單檔即灌爆一支 subagent 的 context。
+# ============================================================
+base-web/CHANGELOG.md
+base-web/CHANGELOG.zh_CN.md
+
 
 
 # ============================================================

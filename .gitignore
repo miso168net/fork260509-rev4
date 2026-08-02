@@ -43,7 +43,10 @@ fork260509-rev2-anew-rust-api/
 # graphify 中可重產與個人化的內容（只保留 graph.json + GRAPH_REPORT.md）
 # ============================================================
 graphify-out/cache/
-graphify-out/obsidian/.obsidian/
+# vault 與 html 皆為 graph.json 的衍生物（export obsidian／export html 可重建）；
+# 進版會讓每次重建圖譜在 git 史留下數千檔 diff、淹沒真正的變更（2026-08-02 user 拍板）
+graphify-out/obsidian/
+graphify-out/graph.html
 graphify-out/.graphify_python
 graphify-out/.graphify_root
 graphify-out/.graphify_*.json
