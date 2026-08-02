@@ -970,7 +970,12 @@ def check_generated(root, computed):
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 史料豁免：內容類 lint（Lint11~Lint15）不掃 one-shot 史料（其內文含示例 pattern、必自撞）
-HISTORICAL_EXEMPT = ("docs/brainstorms/",)
+# ＋外部工具機器生成物豁免（2026-08-02 user 拍板）：graphify-out/ 之 .md 是 graphify 對本
+# repo 源碼的節點標籤鏡像、非人寫治理文件，Lint12~Lint15 守的「引用健康」不適用；且任何
+# lint 規則的自述一旦被抽成節點標籤即自撞（實證＝Lint15 docstring 之 ~/.claude/** 經
+# GRAPH_REPORT.md 回頭命中 Lint15 本身）。★docs/generated/ 刻意不入豁免——那是本 repo
+# 自己的真表、引用健康仍須守。
+HISTORICAL_EXEMPT = ("docs/brainstorms/", "graphify-out/")
 
 
 def _is_exempt(rel):
@@ -4711,6 +4716,27 @@ class TestLintMemoryRefs(unittest.TestCase):
     def test_rev3_annotation_exempt(self):
         self.assertEqual(
             lint_memory_refs({"docs/ops/LESSONS.md": "｜出處：rev3:memory/foo-bar\n"}), [])
+
+
+class TestContentLintExempt(unittest.TestCase):
+    """Lint11~Lint15 語料豁免（_is_exempt）：史料＋外部工具機器生成物。"""
+
+    def test_historical_and_generated_exempt(self):
+        self.assertTrue(_is_exempt("docs/brainstorms/018-x.md"))
+        self.assertTrue(_is_exempt("graphify-out/GRAPH_REPORT.md"))
+        self.assertTrue(_is_exempt("graphify-out/memory/query_x.md"))
+
+    def test_repo_governed_docs_not_exempt(self):
+        """★docs/generated/ 刻意不豁免——本 repo 真表的引用健康仍須守。"""
+        for rel in ("docs/generated/STATE.md",
+                    "docs/generated/reference/backend-msg-dict.md",
+                    "docs/ops/NOTES.md", "CLAUDE.md"):
+            self.assertFalse(_is_exempt(rel), msg=rel)
+
+    def test_exempt_is_prefix_scoped_not_substring(self):
+        """前綴比對、非子字串——同名前綴的鄰居檔不得被誤豁免。"""
+        self.assertFalse(_is_exempt("docs/brainstorms.md"))
+        self.assertFalse(_is_exempt("tools/graphify-out-helper.md"))
 
 
 class TestLintTense(unittest.TestCase):
