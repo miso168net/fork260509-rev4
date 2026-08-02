@@ -11,7 +11,7 @@
   條款改名／B-045＋B-018 結清／B-110 階段 0（b8c7ad9）／B-133＋B-134（b89f3be：Lint24
   契約閘＋backend.system 補二鍵＋ADR 0088；源起＝graphify trace 輪機器對賬）。
 - ★樣板 repo **docs-governance-template** 已建（2026-08-03、P1 文件批收單＝治理架構
-  可移植化教義＋零件表；P2~P4 追蹤詳該 repo BACKLOG、rev4 側指標＝B-136）。
+  可移植化教義＋零件表；P2~P4 追蹤詳該 repo BACKLOG、rev4 側指標＝B-136〔滯後卷〕）。
 - ★repo 已建 graphify 圖譜（graphify-out/、7c53bca）：碼結構問題可先 graphify query；已知
   邊界＝Vue template／TS ambient／router 動態 import 不進圖、rust↔web 碼邊 0（跨語族防線）
   ——跨端契約問題走 wire-schema.py／直讀、勿問圖。
