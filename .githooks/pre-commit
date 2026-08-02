@@ -34,7 +34,7 @@ python3 tools/docs-sync.py check || exit 1
 python3 tools/docs-sync.py lint || exit 1
 # 守門工具自測條件觸發（FR-015／data-model §8）：staged 含某工具本體才跑該支、平時零開銷。
 staged=$(git diff --cached --name-only)
-for t in docs-sync schema-gate wire-schema secret-value-guard; do
+for t in docs-sync schema-gate wire-schema secret-value-guard entity-drift-gate; do
   if echo "$staged" | grep -qxF "tools/$t.py"; then
     python3 "tools/$t.py" test || exit 1
   fi
@@ -52,4 +52,12 @@ fi
 # 失敗／不一致＝擋（fail-loud；補救命令見工具輸出）。
 if echo "$staged" | grep -qxF 'base-web'; then
   python3 tools/wire-schema.py check --staged-gate || exit 1
+fi
+# entity 漂移閘（B-110 階段 0）：rust-api gitlink 變動（pin bump）或 schema 快照本身 staged 時，
+# 比對 entity（rust-api/entity/src）vs 已 commit 快照（docs/ops/reference-src/schema-snapshot.json）
+# ——零 docker、秒級；casbin_rule 雙向豁免（ADR 0015）；欄序歸 gate2（ADR 0021）、
+# index/constraint 歸 gate1、default 不驗（entity 面無此資訊）。兩條件取聯集只跑一次（判定
+# 冪等）；有漂移／結構異常＝擋（補救見工具輸出）。
+if echo "$staged" | grep -qxF -e 'rust-api' -e 'docs/ops/reference-src/schema-snapshot.json'; then
+  python3 tools/entity-drift-gate.py check || exit 1
 fi

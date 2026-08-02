@@ -154,8 +154,12 @@ run_tool_test docs-sync
 run_tool_test schema-gate
 run_tool_test wire-schema
 run_tool_test secret-value-guard
+run_tool_test entity-drift-gate
 python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
 ok "fork-delta-lint 全綠（self-test＋實掃）"
+# entity 漂移閘實跑（B-110；worktree 已於上方重建、entity 檔必在——零 docker、秒級）
+python3 "$ROOT/tools/entity-drift-gate.py" check || die "entity-drift-gate 未過——見上方指名"
+ok "entity-drift-gate 全綠（self-test＋實比對）"
 
 # ── 6. .env 單一事實來源（019 T024／T029、contracts P5.4 三級口徑）────────
 # 口徑：.env 缺失→代勞產生（自癒、不中止）；已存在→不覆寫、只讀值斷言（形制不合＝warn
