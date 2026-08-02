@@ -11,11 +11,11 @@
 - **治理工具維護批×3 已收**（2026-08-01~02、詳 events）：B-128 wire drift 閘／B-112 舊名勘誤／
   B-129 寄信觀測回歸／B-101 全收／lint 提速 8 倍（104s→14s）＋條款改名 Lint01~Lint23／
   B-045＋B-018 空集合條目結清（四子項與候選手段各驗落空、cfc49a4）。
-- **下一步：待 user 拍板**——★推薦 B-110 階段 0（entity 漂移檢查：entity＝第三份手寫 schema
-  事實、gate1/gate2 皆不驗；原型 107 行純 python 已證 15 表 0 findings 2.06s、零 docker〔只吃
-  已 commit 的 snapshot json＋entity .rs〕；零拍板、半天量級、接閘照 B-128 TestGateWiring 範式；
-  ★條目原觸發條件〔單 feature 兩表 DDL〕未達＝屬提前做）；次選 B-102 changePassword 舊密試錯
-  節流（既有 password_change_min_interval 只擋「成功設密」、錯舊密永不觸發＝缺口實在；020
+- **B-110 階段 0 已收刀**（2026-08-02、merge b8c7ad9）：entity 漂移閘 tools/entity-drift-gate.py
+  上線掛 pre-commit（rust-api pin bump 或 schema 快照 staged 觸發、零 docker 秒級）；詳 events/STATE。
+  B-110 條目改寫為剩餘量（sea-orm 2.x 評估＋DDL 草稿生成）續掛 BACKLOG。
+- **下一步：待 user 拍板**——推薦 B-102 changePassword 舊密試錯節流（既有
+  password_change_min_interval 只擋「成功設密」、錯舊密永不觸發＝缺口實在；020
   send_email_code 即完整範本；★須先拍兩題：redis 故障 fail-open〔傾向〕vs closed、門檻走
   settings 鍵〔傾向；同端點已有一鍵〕vs 常數——後者決定要不要多一支 migration）。
 - 遺留/追蹤（詳 BACKLOG）：B-103 滯後卷／B-099／B-100／B-094。
