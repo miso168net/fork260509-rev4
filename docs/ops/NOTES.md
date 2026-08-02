@@ -6,14 +6,15 @@
   投遞失敗重試無害）、正式接收端 URL 待 user 自填——★019 起落點已遷出 repo、密文權威來源＝
   `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；觀測件（obs／metrics
   profiles）現非常駐、要用再 up；jobs sidecar 屬 opt-in 未常駐。
-- **020-email-verify-smtp 已收刀**（2026-08-01）：B-028 信箱半邊兌現＋系統首次 SMTP 寄信基建
-  （憲法 v1.15.0＋ADR 0085/0086；十執行單元、final review 異質雙審放行）。詳 events/STATE。
-- **治理工具維護批×3 已收**（2026-08-01~02、詳 events）：B-128 wire drift 閘／B-112 舊名勘誤／
-  B-129 寄信觀測回歸／B-101 全收／lint 提速 8 倍（104s→14s）＋條款改名 Lint01~Lint23／
-  B-045＋B-018 空集合條目結清（四子項與候選手段各驗落空、cfc49a4）。
-- **B-110 階段 0 已收刀**（2026-08-02、merge b8c7ad9）：entity 漂移閘 tools/entity-drift-gate.py
-  上線掛 pre-commit（rust-api pin bump 或 schema 快照 staged 觸發、零 docker 秒級）；詳 events/STATE。
-  B-110 條目改寫為剩餘量（sea-orm 2.x 評估＋DDL 草稿生成）續掛 BACKLOG。
+- **020-email-verify-smtp 已收刀**（2026-08-01）：B-028 信箱半邊兌現＋SMTP 寄信基建
+  （憲法 v1.15.0＋ADR 0085/0086）。詳 events/STATE。
+- **維護批已收**（2026-08-01~02 詳 events）：B-128 wire drift 閘／B-112 舊名勘誤／B-129
+  寄信觀測回歸／B-101 全收／lint 提速＋條款改名／B-045＋B-018 結清／B-110 階段 0（entity
+  漂移閘、b8c7ad9）／**B-133＋B-134**（b89f3be：Lint24 msg key 契約閘上線＋backend.system
+  補二鍵轉綠＋ADR 0088 supersede 0074；源起＝graphify trace 輪機器對賬）。
+- ★repo 已建 graphify 圖譜（graphify-out/、7c53bca）：碼結構問題可先 graphify query；已知
+  邊界＝Vue template／TS ambient／router 動態 import 不進圖、rust↔web 碼邊 0（跨語族防線）
+  ——跨端契約問題走 wire-schema.py／直讀、勿問圖。
 - **下一步：待 user 拍板**——推薦 B-102 changePassword 舊密試錯節流（既有
   password_change_min_interval 只擋「成功設密」、錯舊密永不觸發＝缺口實在；020
   send_email_code 即完整範本；★須先拍兩題：redis 故障 fail-open〔傾向〕vs closed、門檻走
