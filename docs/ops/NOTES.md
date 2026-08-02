@@ -6,12 +6,12 @@
   投遞失敗重試無害）、正式接收端 URL 待 user 自填——★019 起落點已遷出 repo、密文權威來源＝
   `deploy/secrets.dev.enc.yaml`，改值後須依 RUNBOOK §15.4 回寫加密檔；觀測件（obs／metrics
   profiles）現非常駐、要用再 up；jobs sidecar 屬 opt-in 未常駐。
-- **020-email-verify-smtp 已收刀**（2026-08-01）：B-028 信箱半邊兌現＋SMTP 寄信基建
-  （憲法 v1.15.0＋ADR 0085/0086）。詳 events/STATE。
-- **維護批已收**（2026-08-01~02 詳 events）：B-128 wire drift 閘／B-112 舊名勘誤／B-129
-  寄信觀測回歸／B-101 全收／lint 提速＋條款改名／B-045＋B-018 結清／B-110 階段 0（entity
-  漂移閘、b8c7ad9）／**B-133＋B-134**（b89f3be：Lint24 msg key 契約閘上線＋backend.system
-  補二鍵轉綠＋ADR 0088 supersede 0074；源起＝graphify trace 輪機器對賬）。
+- **020-email-verify-smtp 已收刀**（2026-08-01、B-028＋SMTP 基建；憲法 v1.15.0＋ADR 0085/0086）。
+- **維護批已收**（2026-08-01~02 詳 events）：B-128／B-112／B-129／B-101 全收／lint 提速＋
+  條款改名／B-045＋B-018 結清／B-110 階段 0（b8c7ad9）／B-133＋B-134（b89f3be：Lint24
+  契約閘＋backend.system 補二鍵＋ADR 0088；源起＝graphify trace 輪機器對賬）。
+- ★樣板 repo **docs-governance-template** 已建（2026-08-03、P1 文件批收單＝治理架構
+  可移植化教義＋零件表；P2~P4 追蹤詳該 repo BACKLOG、rev4 側指標＝B-136）。
 - ★repo 已建 graphify 圖譜（graphify-out/、7c53bca）：碼結構問題可先 graphify query；已知
   邊界＝Vue template／TS ambient／router 動態 import 不進圖、rust↔web 碼邊 0（跨語族防線）
   ——跨端契約問題走 wire-schema.py／直讀、勿問圖。
