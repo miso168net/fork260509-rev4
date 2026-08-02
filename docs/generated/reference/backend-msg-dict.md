@@ -88,3 +88,5 @@
 | common.listSeparator | 、 | ,  |
 | common.success | 操作成功 | Operation successful |
 | system.forbidden | 沒有權限執行此操作 | You do not have permission to perform this action |
+| system.internal | 系統發生內部錯誤，請稍後再試 | An internal error occurred. Please try again later |
+| system.notFound | 找不到請求的資源 | The requested resource was not found |
