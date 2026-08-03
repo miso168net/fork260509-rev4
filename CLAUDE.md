@@ -39,19 +39,20 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   **從不使用 spec-kit 的 implement 指令**。編排驅動提示詞範本：
 
   ```text
+★skill 限 superpowers:*
 以下提到 <NNN>-<feature-name> 即當前 git branch 名稱。
 讀 specs/<NNN>-<feature-name>/tasks.md → act-on-code 接地、依實際相依把 tasks 分執行單元；驗收對照 spec.md。
 ★編排用 Workflow 工具：每執行單元一支，內部 serial 跑
 　implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality review → fix 迴圈。
 　★fix 後次輪 review prompt 必附前輪已駁回 findings 清單（file×summary＋駁回理由）、明令勿沿用
 　被駁論據重報；同一 finding 再報須附新證據，否則直接計入⑤收斂判定。
-　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW（L-113）、
+　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW、
 　rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge。
-★workflow script 防呆六件套（缺一不發射；根因與實證＝L-103）：
+★workflow script 防呆六件套（缺一不發射）：
 　①agent prompt 全數烤進 script 本體模板字串；args 只傳短純量、script 首段逐欄斷言
 　　（型別＋非空），不符→零派發即 throw——防 args 以 JSON 字串抵達、屬性讀出 undefined。
 　②派發前斷言渲染後 prompt 非空、長度合理、開頭不含字面 "undefined"／"null"、★必含 "zh-TW"
-　　字面（語言強制令漏烤→零派發即 throw；另有 PreToolUse hook 機器擋、L-113）。
+　　字面（語言強制令漏烤→零派發即 throw；另有 PreToolUse hook 機器擋）。
 　③一切邊界寫死在 script 常數、絕不取自 args：fix 迴圈用 for 上限 ≤3 輪；
 　　單元 agent 總數保險絲 ≤20 支，超限 throw（fail-loud 讓主線立刻收到完成通知）。
 　④implementer／fix 一律 schema 回傳 {status, report}；status≠ok→立即 return 升級主線、不進 review。
@@ -60,8 +61,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　⑥空間邊界：fix agent prompt 烤進允許檔案清單（＝該執行單元 tasks 涉檔＋review findings
 　　指涉檔的聯集、寫死 script 常數不取自 args）；清單外檔案需要動→status 回 blocked 附原因
 　　升級主線、絕不擅改；次輪清單只縮不擴。
-★主線看門狗（非終止型故障不會有完成通知；L-104）：★Workflow launch 與 Monitor 看門狗
-　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（實證 L-112）。
+★主線看門狗（非終止型故障不會有完成通知）：★Workflow launch 與 Monitor 看門狗
+　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（已實證）。
 　Monitor command＝`bash tools/wf-watchdog.sh <冒煙token>`（自動發現最新 wf 目錄、毋需 launch
 　回傳值故可同回合並發；ARMED 首行夾帶冒煙、stall/runaway 保險絲、happy-path 靜默）；
 　完成通知＋Monitor 雙訊號全覆蓋、毋需輪詢；完成通知一到→TaskStop 該 Monitor（防誤觸 stall）。
@@ -90,7 +91,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - **初始化／新機器**：clone 外層後跑 **`bash tools/bootstrap.sh`**（一鍵幂等：源倉 clone＋worktree
   重建＋hooks＋基線/pin 斷言＋fork-delta-lint＋secrets 體檢；舊機重跑＝純體檢、worktree 斷裂給
   自癒指引）。`git submodule update --init` 僅限唯讀快速看碼捷徑（fresh clone；worktree 模式下
-  誤跑撞 gitlink＝L-026）——該模式**無源倉＝無基線**、不可做 base-web 開發。
+  誤跑撞 gitlink）——該模式**無源倉＝無基線**、不可做 base-web 開發。
 - **upstream rebase**（base-web）：fetch 前 `git remote -v` 確認 upstream push URL 已設 no_push；
   rebase＋force-with-lease push 後**立即**回外層 bump pin；並同步前進最原始源基線
   （`fork260509-soybean-admin-base` fetch upstream 至 `example` 新 tip；各機自行向 upstream
